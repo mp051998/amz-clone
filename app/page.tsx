@@ -3,10 +3,14 @@ import { HeroCarousel, type HeroSlide } from '@/components/home/HeroCarousel';
 import { CategoryCard, type CategoryCardItem } from '@/components/home/CategoryCard';
 import { ProductRail } from '@/components/home/ProductRail';
 import { PayStrip } from '@/components/home/PayStrip';
+import { PromoRow } from '@/components/home/PromoRow';
+import type { PromoTile, PromoDeal } from '@/components/home/PromoCard';
 import { productsIn, deals, type Product } from '@/lib/catalog-market';
 import type { Metadata } from 'next';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { toStoreMinor } from '@/lib/fx';
+import { formatMoney } from '@/lib/marketplaces';
 import type { PublicMarketplace } from '@/lib/contracts';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,6 +29,28 @@ function items(slug: string, store: PublicMarketplace, n = 4): CategoryCardItem[
 }
 function heroImages(slug: string, store: PublicMarketplace, n = 4): string[] {
   return productsIn(slug, store.id).slice(0, n).map((p) => p.image);
+}
+
+/** amazon.in's lead module: a row of tall promo tiles (₹ price points, an Amazon
+ *  Music panel, a "popular deals" grid), composed from real catalog imagery/prices. */
+function promoTiles(store: PublicMarketplace): PromoTile[] {
+  const cur = store.currency.code;
+  const sym = store.currency.symbol;
+  const sp = (p: string) => storePath(store, p);
+  const img = (slug: string, i = 0) => productsIn(slug, store.id)[i]?.image ?? '';
+  const dealItems: PromoDeal[] = deals(store.id).slice(0, 4).map((p) => ({
+    image: p.image,
+    price: formatMoney(toStoreMinor(p.priceMinor, cur, p.curBase), cur),
+    list: p.listMinor ? formatMoney(toStoreMinor(p.listMinor, cur, p.curBase), cur) : undefined,
+  }));
+  return [
+    { headline: `Under ${sym}1,499`, sub: 'Headphones & audio', tags: ['Top brands', 'Latest trends'], image: img('electronics'), cashback: true, href: sp('/s?dept=electronics') },
+    { headline: `Starting ${sym}199`, sub: 'Kitchen essentials', tags: ['Best of home'], image: img('home-kitchen'), cashback: true, href: sp('/s?dept=home-kitchen') },
+    { headline: '3 months FREE', sub: 'Unlimited music, ad-free', music: true, href: sp('/amazon-pay') },
+    { headline: `Under ${sym}999`, sub: 'Sports & running shoes', tags: ['Top brands', 'Latest trends'], image: img('fashion'), cashback: true, href: sp('/s?dept=fashion') },
+    { headline: 'Shop popular deals', sub: 'Top deals for you', deals: dealItems, href: sp('/deals') },
+    { headline: 'Up to 55% off', sub: 'Laptops & PCs', tags: ['Big savings'], image: img('computers'), cashback: true, href: sp('/s?dept=computers') },
+  ];
 }
 
 interface CardSpec { title: string; seeMore: { label: string; path: string }; slug: string }
@@ -90,14 +116,24 @@ export default async function Home() {
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
   const { slides, cards, rails, showPay } = homeContent(store);
+  const promos = store.id === 'IN' ? promoTiles(store) : [];
+  // US pulls the card grid up onto the hero fade; IN's promo row separates them, so no pull.
+  const cardGridMt = promos.length ? 'mt-5' : '-mt-[56px] sm:-mt-[72px]';
 
   return (
     <AppShell>
       <div className="bg-surface-band pb-10">
         <HeroCarousel slides={slides} />
 
-        {/* card grid pulled up only onto the hero's bottom fade (not into the collage) */}
-        <div className="relative z-[1] mx-auto -mt-[56px] max-w-[1500px] px-4 sm:-mt-[72px]">
+        {/* amazon.in lead promo tiles */}
+        {promos.length ? (
+          <div className="mx-auto mt-5 max-w-[1500px] px-4">
+            <PromoRow tiles={promos} />
+          </div>
+        ) : null}
+
+        {/* card grid — pulled onto the hero fade on US; below the promo row on IN */}
+        <div className={`relative z-[1] mx-auto ${cardGridMt} max-w-[1500px] px-4`}>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((c) => (
               <CategoryCard key={c.title} title={c.title} seeMore={{ label: c.seeMore.label, href: sp(c.seeMore.path) }} items={items(c.slug, store)} />
