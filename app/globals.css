@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@source "../components";
+
+/* Measured amazon.com tokens (design.md §2–§4, §12). Semantic names only; components never use raw hex. */
+@theme {
+  /* Chrome */
+  --color-nav-belt: #131921;
+  --color-nav-main: #232F3E;
+  --color-nav-back: #37475A;
+  --color-nav-bottom: #131A22;
+  --color-brand-orange: #FF9900;
+  --color-brand-search: #FEBD69;
+  --color-brand-search-hover: #F3A847;
+  --color-brand-count: #F08804;
+  /* Text */
+  --color-ink: #0F1111;
+  --color-ink-2: #565959;
+  --color-ink-3: #6F7373;
+  --color-ink-4: #888C8C;
+  /* Links */
+  --color-link: #2162A1;
+  --color-link-teal: #007185;
+  --color-link-hover: #C7511F;
+  --color-link-visited: #004B91;
+  /* Actions */
+  --color-cta-yellow: #FFD814;
+  --color-cta-yellow-hover: #F7CA00;
+  --color-cta-orange: #FFA41C;
+  --color-cta-orange-hover: #FA8900;
+  /* Signals */
+  --color-star: #DE7921;
+  --color-plus: #00A8E1;
+  --color-price-deal: #C10015;
+  --color-price-legacy: #B12704;
+  --color-badge-deal: #CC0C39;
+  --color-badge-pick: #161D26;
+  --color-badge-bestseller: #E67A00;
+  --color-success: #0B7B3C;
+  --color-success-deep: #04705B;
+  --color-warn: #C45500;
+  --color-error: #EB0000;
+  /* Lines + surfaces */
+  --color-line: #D5D9D9;
+  --color-line-2: #DDDDDD;
+  --color-line-3: #CCCCCC;
+  --color-line-soft: #E6E6E6;
+  --color-line-card: #F5F5F5;
+  --color-surface-2: #F0F2F2;
+  --color-surface-3: #F7FAFA;
+  --color-surface-4: #F8F8F8;
+  --color-surface-band: #EAEDED;
+  /* Type */
+  --font-sans: "Amazon Ember", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  /* Radius */
+  --radius-card: 4px;
+  --radius-box: 8px;
+  --radius-pill: 100px;
+  /* Shadows */
+  --shadow-input: inset 0 1px 2px rgb(15 17 17 / 0.15);
+  --shadow-dropdown: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
+html { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--color-ink); background: #fff; }
+* { box-sizing: border-box; }
+body { margin: 0; }
