@@ -1,6 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import type { Store } from '../lib/store';
+import { categories } from '@/lib/catalog';
 import { IconCart } from '../icons/index';
 import { SearchBar } from './SearchBar';
 import { Wordmark } from './Wordmark';
@@ -19,13 +20,13 @@ export interface HeaderBeltProps {
 /** 60px belt: wordmark, deliver-to, search, language, account, orders, cart (design.md §5 Header belt). */
 export function HeaderBelt({ store, cartCount = 0, userName, deliverTo, langSlot }: HeaderBeltProps) {
   const tld = store.hostname.split('.').pop();
-  const departments = ['All', ...store.nav.departments.slice(0, 6)];
+  const searchDepts = [{ label: 'All', value: '' }, ...categories.map((c) => ({ label: c.name, value: c.slug }))];
   return (
     <div className="bg-nav-belt text-white">
       <div className="mx-auto flex h-[60px] max-w-[1500px] items-center gap-1 px-3">
         <a href="/" aria-label={store.name} className="rounded-[3px] px-2 py-1 hover:outline hover:outline-1 hover:outline-white"><Wordmark tld={tld} /></a>
         {deliverTo ? <div className="hidden md:block">{deliverTo}</div> : null}
-        <SearchBar storeName={store.name} departments={departments} />
+        <SearchBar storeName={store.name} departments={searchDepts} />
         {langSlot ? <div className="hidden md:block">{langSlot}</div> : null}
         <a href={userName ? '/account' : '/signin'} className="hidden rounded-[3px] px-2 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white md:block">
           <span className="text-[12px]">{userName ? `Hello, ${userName}` : 'Hello, sign in'}</span>
