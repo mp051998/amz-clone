@@ -63,3 +63,17 @@ export async function cartSubtotalMinor(): Promise<number> {
   const lines = await getCartLines();
   return lines.reduce((a, l) => a + l.lineTotalMinor, 0);
 }
+
+export interface OrderTotals {
+  subtotalMinor: number;
+  shipMinor: number;
+  taxMinor: number;
+  totalMinor: number;
+}
+
+/** free shipping at/over $35, otherwise $5.99; flat 8% estimated tax. */
+export function computeTotals(subtotalMinor: number): OrderTotals {
+  const shipMinor = subtotalMinor === 0 || subtotalMinor >= 3500 ? 0 : 599;
+  const taxMinor = Math.round(subtotalMinor * 0.08);
+  return { subtotalMinor, shipMinor, taxMinor, totalMinor: subtotalMinor + shipMinor + taxMinor };
+}
