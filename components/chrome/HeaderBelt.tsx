@@ -8,6 +8,7 @@ import { SearchBar } from './SearchBar';
 import { Wordmark } from './Wordmark';
 import { DeliverToPopover } from './DeliverToPopover';
 import { AccountMenu } from './AccountMenu';
+import { MobileNav, type NavLink } from './MobileNav';
 
 export interface HeaderBeltProps {
   store: Store;
@@ -16,10 +17,14 @@ export interface HeaderBeltProps {
   userName?: string;
   /** slot for the language/currency flyout trigger (desktop only). */
   langSlot?: ReactNode;
+  /** shop-by-department links for the mobile drawer. */
+  departments?: NavLink[];
+  /** programs & features links (sub-nav items) for the mobile drawer. */
+  programs?: NavLink[];
 }
 
 /** 60px belt: wordmark, deliver-to, search, language, account, orders, cart (design.md §5 Header belt). */
-export function HeaderBelt({ store, cartCount = 0, userName, langSlot }: HeaderBeltProps) {
+export function HeaderBelt({ store, cartCount = 0, userName, langSlot, departments = [], programs = [] }: HeaderBeltProps) {
   const tld = store.hostname.split('.').pop();
   const searchDepts = [{ label: 'All', value: '' }, ...categories.map((c) => ({ label: c.name, value: c.slug }))];
   const search = <SearchBar storeName={store.name} departments={searchDepts} actionPath={storePath(store, '/s')} />;
@@ -32,6 +37,7 @@ export function HeaderBelt({ store, cartCount = 0, userName, langSlot }: HeaderB
     <div className="bg-nav-belt text-white">
       <div className="mx-auto max-w-[1500px] px-2 sm:px-3">
         <div className="flex h-[60px] items-center gap-1 sm:gap-2">
+          <MobileNav store={store} userName={userName} departments={departments} programs={programs} />
           <a href={storePath(store, '/')} aria-label={store.name} className="shrink-0 rounded-[3px] px-1 py-1 hover:outline hover:outline-1 hover:outline-white sm:px-2"><Wordmark tld={tld} /></a>
           <div className="hidden md:block">{deliverTo}</div>
           {/* inline search on md+ */}

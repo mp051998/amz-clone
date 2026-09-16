@@ -127,6 +127,9 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
   const itemHrefs: Record<string, string> = Object.fromEntries(
     store.nav.subnav.map((item) => [item, storePath(store, ITEM_PATHS[item] ?? '/s')]),
   );
+  // flattened link lists for the mobile hamburger drawer
+  const deptLinks = departments.map((label) => ({ label, href: deptHref(label) }));
+  const programLinks = store.nav.subnav.map((label) => ({ label, href: itemHrefs[label] }));
 
   return (
     <div id="top" className="flex min-h-screen flex-col bg-white">
@@ -135,6 +138,8 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
           store={store}
           cartCount={count}
           userName={user ? firstName(user) : undefined}
+          departments={deptLinks}
+          programs={programLinks}
           langSlot={
             <LanguageCurrencyFlyout
               storeName={store.name}

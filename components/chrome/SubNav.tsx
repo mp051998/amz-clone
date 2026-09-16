@@ -18,7 +18,7 @@ export function SubNav({ items, departments, departmentHrefs, itemHrefs }: SubNa
     <nav className="relative bg-nav-main text-white">
       <div className="relative mx-auto max-w-[1500px]">
         <div className="flex h-[39px] items-center gap-4 overflow-x-auto px-3 text-[14px] whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button type="button" aria-expanded={open} aria-controls="all-flyout" onClick={() => setOpen((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-[3px] px-1 font-bold hover:outline hover:outline-1 hover:outline-white">
+          <button type="button" aria-expanded={open} aria-controls="all-flyout" onClick={() => setOpen((v) => !v)} className="hidden shrink-0 items-center gap-1 rounded-[3px] px-1 font-bold hover:outline hover:outline-1 hover:outline-white md:flex">
             <IconMenu width={18} height={18} /> All
           </button>
           {items.map((item) => (
