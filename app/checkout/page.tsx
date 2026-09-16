@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { Input } from '@/components/primitives/Input';
+import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { Wordmark } from '@/components/chrome/Wordmark';
 import { placeOrder } from '@/app/actions/order';
 import { getCartLines, computeTotals } from '@/lib/cart';
@@ -12,17 +13,6 @@ import { formatMoney } from '@/lib/marketplaces';
 export const metadata: Metadata = { title: 'Checkout | Amazon' };
 
 const FORM_ID = 'checkout-form';
-
-/** human labels for the payment methods listed in a store config. */
-const PAYMENT_LABEL: Record<string, string> = {
-  card: 'Credit or debit card',
-  giftcard: 'Amazon gift card balance',
-  upi: 'UPI',
-  netbanking: 'Net banking',
-  cod: 'Cash on Delivery / Pay on Delivery',
-  emi: 'EMI',
-  amazonpay: 'Amazon Pay balance',
-};
 
 export default async function CheckoutPage() {
   const store = await getMarketplace();
@@ -105,25 +95,11 @@ export default async function CheckoutPage() {
               </section>
 
               {/* payment */}
-              <section className="rounded-[8px] border border-line bg-white p-5">
-                <h2 className="mb-1 text-[18px] font-bold text-ink">2. Payment method</h2>
-                <p className="mb-3 text-[12px] text-ink-2">Demo only — no real payment is processed. Any values work.</p>
-                <div className="mb-4 max-w-[560px] space-y-1.5">
-                  {store.payments.map((pm, i) => (
-                    <label key={pm.method} className="flex items-center gap-2 text-[14px] text-ink">
-                      <input type="radio" name="payMethod" value={pm.method} defaultChecked={i === 0} />
-                      {PAYMENT_LABEL[pm.method] ?? pm.method}
-                      {pm.method === 'cod' ? <span className="rounded-[3px] bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-2">No card needed</span> : null}
-                    </label>
-                  ))}
-                </div>
-                <div className="grid max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2"><Input name="cardName" label="Name on card" defaultValue={isIN ? 'Aarav Sharma' : 'Alex Morgan'} /></div>
-                  <div className="sm:col-span-2"><Input name="card" label="Card number" inputMode="numeric" placeholder="4242 4242 4242 4242" defaultValue="4242 4242 4242 4242" /></div>
-                  <Input name="exp" label="Expiration (MM/YY)" placeholder="12/29" defaultValue="12/29" />
-                  <Input name="cvc" label="CVV" inputMode="numeric" placeholder="123" defaultValue="123" />
-                </div>
-              </section>
+              <PaymentSection
+                methods={store.payments.map((pm) => pm.method)}
+                curSymbol={store.currency.symbol}
+                defaultName={isIN ? 'Aarav Sharma' : 'Alex Morgan'}
+              />
 
               {/* review */}
               <section className="rounded-[8px] border border-line bg-white p-5">

@@ -18,6 +18,8 @@ export interface StoredOrder {
   city: string;
   zip: string;
   last4: string;
+  /** short human label for how it was paid, e.g. "Visa ending 4242", "UPI", "Cash on Delivery". */
+  pay?: string;
 }
 
 const MAX_ORDERS = 8;

@@ -86,7 +86,7 @@ export default async function OrderPage({
                 <div className="flex justify-between text-ink-2"><dt>Tax:</dt><dd>Inclusive of all taxes</dd></div>
               )}
               <div className="flex justify-between border-t border-line-3 pt-1 text-[15px] font-bold"><dt>Grand Total:</dt><dd>{money(order.tot)}</dd></div>
-              <div className="pt-1 text-[12px] text-ink-2">Paid with card ending {order.last4}</div>
+              <div className="pt-1 text-[12px] text-ink-2">Paid with {order.pay ?? `card ending ${order.last4}`}</div>
             </dl>
           </div>
         </div>

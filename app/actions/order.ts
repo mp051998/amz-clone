@@ -6,6 +6,30 @@ import { newOrderId, writeOrder, type StoredOrder } from '@/lib/orders';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
+/** card network from the leading digit (loose, demo-only). */
+function cardBrand(digits: string): string {
+  const d = digits[0];
+  if (d === '4') return 'Visa';
+  if (d === '5') return 'Mastercard';
+  if (d === '3') return 'Amex';
+  if (d === '6') return 'RuPay';
+  return 'Card';
+}
+
+/** short label describing how the order was paid, for the confirmation + orders list. */
+function payLabel(method: string, digits: string): string {
+  switch (method) {
+    case 'giftcard': return 'Amazon gift card balance';
+    case 'upi': return 'UPI';
+    case 'netbanking': return 'Net banking';
+    case 'cod': return 'Cash on Delivery';
+    case 'emi': return 'EMI';
+    case 'amazonpay': return 'Amazon Pay balance';
+    case 'card':
+    default: return `${cardBrand(digits)} ending ${digits.slice(-4) || '4242'}`;
+  }
+}
+
 /** Place the order: snapshot the cart, persist it, clear the cart, go to confirmation. */
 export async function placeOrder(formData: FormData): Promise<void> {
   const store = await getMarketplace();
@@ -17,6 +41,7 @@ export async function placeOrder(formData: FormData): Promise<void> {
   const totals = computeTotals(subtotal, store);
 
   const digits = String(formData.get('card') ?? '').replace(/\D/g, '');
+  const method = String(formData.get('payMethod') ?? 'card');
   const order: StoredOrder = {
     id: newOrderId(),
     ts: Date.now(),
@@ -31,6 +56,7 @@ export async function placeOrder(formData: FormData): Promise<void> {
     city: String(formData.get('city') ?? '').slice(0, 30),
     zip: String(formData.get('postcode') ?? '').slice(0, 10),
     last4: digits.slice(-4) || '4242',
+    pay: payLabel(method, digits),
   };
 
   await writeOrder(order);
