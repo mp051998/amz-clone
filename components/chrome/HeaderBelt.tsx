@@ -7,6 +7,7 @@ import { IconCart } from '../icons/index';
 import { SearchBar } from './SearchBar';
 import { Wordmark } from './Wordmark';
 import { DeliverToPopover } from './DeliverToPopover';
+import { AccountMenu } from './AccountMenu';
 
 export interface HeaderBeltProps {
   store: Store;
@@ -26,7 +27,6 @@ export function HeaderBelt({ store, cartCount = 0, userName, langSlot }: HeaderB
   const deliverTo = (
     <DeliverToPopover schema={store.address.schema} postcodeLabel={store.address.postcode.label} locationText={locationText} />
   );
-  const accountHref = storePath(store, userName ? '/account' : '/signin');
 
   return (
     <div className="bg-nav-belt text-white">
@@ -39,14 +39,8 @@ export function HeaderBelt({ store, cartCount = 0, userName, langSlot }: HeaderB
           {/* spacer: on mobile the search moves to its own row, so push actions to the right */}
           <div className="flex-1 md:hidden" />
           {langSlot ? <div className="hidden md:block">{langSlot}</div> : null}
-          {/* account: two-line on desktop, compact on mobile */}
-          <a href={accountHref} className="shrink-0 rounded-[3px] px-1.5 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white sm:px-2">
-            <span className="hidden text-[12px] sm:block">{userName ? `Hello, ${userName}` : 'Hello, sign in'}</span>
-            <div className="text-[13px] font-bold sm:text-[14px]">
-              <span className="md:hidden">{userName ? 'Account' : 'Sign in'}</span>
-              <span className="hidden md:inline">Account &amp; Lists</span>
-            </div>
-          </a>
+          {/* account: two-line on desktop, compact on mobile — flyout on md+ */}
+          <AccountMenu store={store} userName={userName} />
           <a href={storePath(store, '/orders')} className="hidden shrink-0 rounded-[3px] px-2 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white md:block">
             <span className="text-[12px]">Returns</span>
             <div className="text-[14px] font-bold">&amp; Orders</div>
