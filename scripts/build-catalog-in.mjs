@@ -75,6 +75,46 @@ const RAW = [
   ['51RCPRgChnL', 'FitBox Sports Intruder 20 Kg Adjustable PVC Dumbbells with Rods for Home Gym & Strength Training', 'sports', 3.7, 4977, 749],
   ['71br5ecT1kL', 'Sparnod Fitness SAD 12.5 Adjustable Dumbbell, 12.5kg with 11 Weight Increments', 'sports', 3.6, 11, 6999],
   ['710aan3QRaL', 'Sparnod Fitness SAD-25 Adjustable 3-in-1 Dumbbell Set, 3-24kg Quick Weight Change, Barbell, Kettlebell', 'sports', 3.8, 11, 11999],
+  // ── Electronics · Wireless earbuds (Indian audio brands) ─────────────────
+  ['51nBTTG3hNL', 'OnePlus Nord Buds 3r TWS Earbuds, up to 54H Playback, 2-Mic Clear Calls, 3D Spatial Audio, 12.4mm Drivers, Bluetooth 5.4', 'electronics', 4.3, 49700, 1999],
+  ['61vEGUBSswL', 'Noise Buds Mini Truly Wireless Earbuds (2026), Half In-Ear Design, 40H Playtime, Quad Mic ENC, 13mm Driver, Bluetooth 5.3', 'electronics', 3.8, 10200, 899],
+  ['71FOccCOQmL', 'boAt Airdopes 219 TWS Earbuds, 4 Mics ENx Tech, 40H Battery, App Support, Bluetooth Wireless, Fast Charging', 'electronics', 3.9, 7700, 1099],
+  ['81-TGXuOMAL', 'boAt Nirvana Ion TWS Earbuds, 120H Battery, Crystal Bionic Sound, Dual EQ Modes, 4 Mics ENx, IPX4, Bluetooth 5.2', 'electronics', 4.1, 20800, 1799],
+  // ── Computers · Laptops ──────────────────────────────────────────────────
+  ['71r2ySSfgBL', 'HP Victus Gaming Laptop, AMD Ryzen 7 7445HS, 6GB RTX 4050, 16GB DDR5, 512GB SSD, 15.6" FHD 144Hz IPS, Windows 11', 'computers', 4.1, 130, 107990],
+  ['61aLy7kImQL', 'HP OmniBook 5 OLED (Previously Pavilion), Snapdragon X 45 TOPS, 16GB LPDDR5x, 512GB SSD, 2K 14" Display, Windows 11', 'computers', 4.1, 133, 79990],
+  ['41bdNUDc8pL', 'Acer Aspire 3 Laptop, Intel Celeron N4500, 8GB LPDDR4X, 256GB SSD, 15.6" HD, Windows 11 Home, HD Webcam', 'computers', 3.4, 233, 35640],
+  ['71D9HSayVSL', 'Lenovo IdeaPad Slim 3, 13th Gen Intel Core i5-13420H, 24GB RAM, 1TB SSD, 15.3" WUXGA IPS, Windows 11, Office 2024', 'computers', 4.1, 100, 87690],
+  // ── Home & Kitchen · Pressure cookers (Hawkins / Pigeon / Butterfly) ─────
+  ['51K1LMDAvkL', 'Hawkins 3 Litre Contura Black Pressure Cooker, Hard Anodised Inner Lid Cooker, Handi Cooker, Induction & Gas (CB30)', 'home-kitchen', 4.3, 39800, 2059],
+  ['51z8bjUc4kL', 'Hawkins Classic 2 Litre Pressure Cooker, Straight Body, Gas Compatible, Ideal for 2-3 Persons, ISI Certified', 'home-kitchen', 4.2, 22200, 1276],
+  ['510szauOgxL', 'Pigeon by Stovekraft All in One Super Cooker 620-H, 3 Litre Hard Anodised Outer Lid Pressure Cooker, Black Aluminium', 'home-kitchen', 4.0, 16100, 1999],
+  ['51ZHXd88HjL', 'Butterfly Curve 2 Litre Stainless Steel Outer Lid Pressure Cooker, Triply Base, Induction & Gas Stove Compatible', 'home-kitchen', 4.1, 23500, 1539],
+  // ── Fashion · Running shoes for women (Campus / Sparx / ASIAN) ───────────
+  ['712NemmvADL', 'SPARX Women Pull-On Sneaker Shoes, Lightweight Slip-On Running & Walking Shoes', 'fashion', 4.2, 17900, 699],
+  ['61IZBgcmG+L', 'Campus Women Claire Running Shoes, Cushioned Lace-Up Sports Shoes', 'fashion', 4.2, 7500, 1079],
+  ['61vRXtZcy7L', 'ASIAN Women Sports Running Shoes, Walking, Gym Casual Lace-Up Sneakers for Girls', 'fashion', 4.0, 13400, 699],
+  ['61a+bSFH0qL', 'Campus Women Alice Running Shoes, Breathable Lace-Up Everyday Trainers', 'fashion', 4.2, 6300, 919],
+  // ── Beauty & Personal Care · Sunscreen (Indian D2C brands) ───────────────
+  ['61tvX-QQDhL', 'Minimalist Sunscreen SPF 50 PA++++ with Niacinamide & Multi-Vitamins, Broad Spectrum, Hydrating for Dry & All Skin, 50g', 'beauty', 4.1, 35800, 245],
+  ['51gQUz3N6ZL', 'The Derma Co 1% Hyaluronic Sunscreen Aqua Gel SPF 50 PA++++, Hydrating, Lightweight & Non-Greasy, No White Cast, 50g', 'beauty', 4.2, 41700, 233],
+  ['51Y0eeQykEL', 'Aqualogica Glow+ Dewy Gel Sunscreen SPF 50+ PA++++, In-Vivo Tested, New-Age UV Filters, 12-Hour Sun Protection, 80g', 'beauty', 4.2, 20700, 368],
+  ['61ckTgN44WL', 'Dot & Key Vitamin C + E Super Bright Sunscreen SPF 50+ PA++++, In-Vivo Tested, Water-Light Fluid, No White Cast, 50g', 'beauty', 4.2, 14900, 396],
+  // ── Books (India bestsellers) ────────────────────────────────────────────
+  ['A1dtQ-soQEL', 'The Palace of Illusions: 15th Anniversary Edition by Chitra Banerjee Divakaruni', 'books', 4.5, 12854, 330],
+  ['61qTWmEi5GL', 'Never Lie: An Addictive Psychological Thriller with Mind-Bending Twists by Freida McFadden', 'books', 4.4, 354522, 355],
+  ['814n9NoAW4L', 'Anxious People: The No. 1 New York Times Bestseller, Now a Netflix Series by Fredrik Backman', 'books', 4.6, 91530, 434],
+  ['71xxddxprOL', 'Days at the Morisaki Bookshop: The Perfect Book to Curl Up With, Japanese Translated Fiction', 'books', 4.4, 13886, 259],
+  // ── Toys & Games (India learning toys) ───────────────────────────────────
+  ['71APFtgsw4L', 'Smartivity Montessori Slide Puzzle, Wooden Toy for Kids 4-8 Years, Colour & Pattern Matching Learning Toy', 'toys', 4.4, 2000, 456],
+  ['71wtNAEfGEL', 'VEBETO Kids Piano Keyboard with Mic, 37 Keys, 8 Rhythms, 8 Tones, 6 Demos, Portable Electronic Musical Toy', 'toys', 3.9, 5200, 698],
+  ['61-31DPnzIL', 'WireScorts Baby & Toddler First Educational Blocks, Shape Sorter, Colours & ABCD Learning Toy for 1+ Years', 'toys', 4.2, 4600, 239],
+  ['61TXpN40ROL', 'Humming Bird Kids 80 Pcs Big Mega Blocks, Building & Construction Set for Boys & Girls, Multicolour', 'toys', 3.9, 4200, 299],
+  // ── Sports & Outdoors · Dumbbells (home gym) ─────────────────────────────
+  ['6197rTwYArL', 'Amazon Basics Rubber Encased Hex Dumbbell Weight, Set of 2, 2.5 Kg, Black', 'sports', 4.5, 34000, 1139],
+  ['710SxepIfiL', 'Lifelong PVC Hex Dumbbells Pack of 2 (3 Kg x 2) for Home Gym, Fitness Weights for Men & Women', 'sports', 4.0, 22000, 354],
+  ['71uneWbTPpL', 'Kore 20 Kg PVC-DM Combo Home Gym Dumbbells Kit (3 Kg x 4 + 2 Kg x 4 Plates), Black', 'sports', 3.6, 19800, 749],
+  ['61mUc9vBJqL', 'RUBX Rubber Coated Professional Hex Dumbbells (Pack of 2), 5 Kg x 2 (Total 10 Kg), Silver', 'sports', 4.6, 10200, 1609],
 ];
 
 // ── deterministic pseudo-random seeded by id ──────────────────────────────
@@ -93,7 +133,7 @@ function seed(str) {
 }
 
 // Brands recognised at the start of a title (longest-first so "boAt" wins before "bo").
-const BRANDS = ['boAt', 'Noise', 'Boult', 'Zebronics', 'Portronics', 'Lenovo', 'HP', 'ASUS', 'Apple', 'Hawkins', 'Prestige', 'Campus', 'Sparx', 'Boldfit', 'Impakto', 'Mamaearth', 'Minimalist', 'Lakme', 'Lotus', 'Novo', 'Storio', 'Eitheo', 'Flexnest', 'Burnlab', 'FitBox', 'Sparnod'];
+const BRANDS = ['boAt', 'Noise', 'Boult', 'Zebronics', 'Portronics', 'Lenovo', 'HP', 'ASUS', 'Apple', 'Hawkins', 'Prestige', 'Campus', 'Sparx', 'Boldfit', 'Impakto', 'Mamaearth', 'Minimalist', 'Lakme', 'Lotus', 'Novo', 'Storio', 'Eitheo', 'Flexnest', 'Burnlab', 'FitBox', 'Sparnod', 'OnePlus', 'Acer', 'Pigeon', 'Butterfly', 'ASIAN', 'The Derma Co', 'Aqualogica', 'Dot & Key', 'Smartivity', 'VEBETO', 'WireScorts', 'Humming Bird', 'Amazon Basics', 'Lifelong', 'Kore', 'RUBX'];
 
 function brandOf(title) {
   if (/^Amazon Brand Symactive/i.test(title)) return 'Symactive';
