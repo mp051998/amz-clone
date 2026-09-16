@@ -1,4 +1,4 @@
-import { products, productsIn, searchProducts, categoryName, type Product } from './catalog';
+import { allProducts, productsIn, searchProducts, categoryName, type Product, type Market } from './catalog-market';
 
 export const PAGE_SIZE = 16;
 
@@ -48,9 +48,9 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
   };
 }
 
-export function runSearch(q: SearchQuery): SearchResult {
-  // base scope: text query, else department, else everything
-  let base: Product[] = q.k ? searchProducts(q.k) : q.dept ? productsIn(q.dept) : products;
+export function runSearch(q: SearchQuery, market: Market): SearchResult {
+  // base scope: text query, else department, else everything (all within the active market)
+  let base: Product[] = q.k ? searchProducts(q.k, market) : q.dept ? productsIn(q.dept, market) : allProducts(market);
   if (q.k && q.dept) base = base.filter((p) => p.category === q.dept);
 
   // brand facets from the scope (before applying brand filter) so the list stays stable

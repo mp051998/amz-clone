@@ -41,7 +41,7 @@ export function DealCard({ product: p, store }: { product: Product; store: Store
       ) : null}
 
       <div className="mt-2">
-        <Price minor={toStoreMinor(p.priceMinor, cur)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur) : undefined} size={22} />
+        <Price minor={toStoreMinor(p.priceMinor, cur, p.curBase)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined} size={22} />
       </div>
 
       <div className="mt-1.5">

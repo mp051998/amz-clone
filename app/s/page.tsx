@@ -4,7 +4,7 @@ import { Pagination } from '@/components/commerce/Pagination';
 import { SearchFacets } from '@/components/search/SearchFacets';
 import { SearchResultRow } from '@/components/search/SearchResultRow';
 import { SortSelect } from '@/components/search/SortSelect';
-import { categoryName } from '@/lib/catalog';
+import { categoryName } from '@/lib/catalog-market';
 import { buildHref, parseQuery, runSearch, SORTS, PAGE_SIZE, type SearchQuery } from '@/lib/search';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -28,7 +28,7 @@ export default async function SearchPage({
   const sp = await searchParams;
   const store = await getMarketplace();
   const query = parseQuery(sp);
-  const { items, total, pageCount, brandFacets, headingLabel, query: q } = runSearch(query);
+  const { items, total, pageCount, brandFacets, headingLabel, query: q } = runSearch(query, store.id);
 
   const base = paramsBase(q);
   const sortOptions = SORTS.map((s) => ({

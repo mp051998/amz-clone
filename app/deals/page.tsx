@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { DealCard } from '@/components/deals/DealCard';
-import { deals, categories, categoryName } from '@/lib/catalog';
+import { deals, categories, categoryName } from '@/lib/catalog-market';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Today's Deals | Amazon" };
 export default async function DealsPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const { c } = await searchParams;
   const store = await getMarketplace();
-  const all = deals();
+  const all = deals(store.id);
   const present = new Set(all.map((p) => p.category));
   const chips = categories.filter((cat) => present.has(cat.slug));
   const items = c ? all.filter((p) => p.category === c) : all;

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { getProduct, type Product } from './catalog';
+import { getProduct, type Product } from './catalog-market';
 import type { CurrencyCode, PublicMarketplace } from './contracts';
 import { toStoreMinor } from './fx';
 import { getMarketplace } from './marketplace-server';
@@ -70,7 +70,7 @@ export async function getCartLines(cur: CurrencyCode = 'USD'): Promise<CartLine[
   const lines: CartLine[] = [];
   for (const [id, qty] of Object.entries(map)) {
     const product = getProduct(id);
-    if (product) lines.push({ product, qty, lineTotalMinor: toStoreMinor(product.priceMinor, cur) * qty });
+    if (product) lines.push({ product, qty, lineTotalMinor: toStoreMinor(product.priceMinor, cur, product.curBase) * qty });
   }
   return lines;
 }

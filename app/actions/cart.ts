@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getProduct } from '@/lib/catalog';
+import { getProduct } from '@/lib/catalog-market';
 import { readCart, writeCart } from '@/lib/cart';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';

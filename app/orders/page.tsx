@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
-import { getProduct } from '@/lib/catalog';
+import { getProduct } from '@/lib/catalog-market';
 import { readOrders } from '@/lib/orders';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';

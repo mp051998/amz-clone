@@ -9,7 +9,9 @@ import { Stars } from '../primitives/Stars';
 function badgeFor(p: Product) {
   if (p.badge === "Amazon's Choice") return <Badge tone="choice">Amazon&apos;s Choice</Badge>;
   if (p.badge === 'Best Seller') return <span className="inline-block rounded-[4px] bg-[#C45500] px-1.5 py-0.5 text-[12px] text-white">#1 Best Seller</span>;
+  if (p.badge === 'Bestseller') return <span className="inline-block rounded-[4px] bg-[#C45500] px-1.5 py-0.5 text-[12px] text-white">#1 Bestseller</span>;
   if (p.badge === 'Overall Pick') return <Badge tone="pick">Overall Pick</Badge>;
+  if (p.badge === 'Limited time deal') return <span className="inline-block rounded-[4px] bg-price-deal px-1.5 py-0.5 text-[12px] font-bold text-white">Limited time deal</span>;
   return null;
 }
 
@@ -37,7 +39,7 @@ export function SearchResultRow({ product: p, store }: { product: Product; store
         {p.boughtPastMonth ? <p className="mt-1 text-[12px] text-ink-2">{p.boughtPastMonth}</p> : null}
         <div className="mt-1.5 flex items-baseline gap-2">
           {p.deal && p.dealPct ? <span className="rounded-[3px] bg-badge-deal px-1.5 py-0.5 text-[12px] font-bold text-white">-{p.dealPct}%</span> : null}
-          <Price minor={toStoreMinor(p.priceMinor, cur)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur) : undefined} size={22} />
+          <Price minor={toStoreMinor(p.priceMinor, cur, p.curBase)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined} size={22} />
         </div>
         {p.deal ? <p className="text-[12px] text-price-deal">Limited time deal</p> : null}
         <div className="mt-2 flex items-center gap-2 text-[12px] text-ink-2">

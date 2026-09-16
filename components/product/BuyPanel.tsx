@@ -23,11 +23,11 @@ export function BuyPanel({ product: p, store, promise, fastest }: BuyPanelProps)
     <div className="w-full rounded-[8px] border border-line p-[14px] text-[14px] text-ink lg:w-[260px]">
       <div className="flex items-baseline gap-2">
         {p.deal && p.dealPct ? <span className="text-[20px] text-price-deal">-{p.dealPct}%</span> : null}
-        <Price minor={toStoreMinor(p.priceMinor, cur)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur) : undefined} size={28} />
+        <Price minor={toStoreMinor(p.priceMinor, cur, p.curBase)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined} size={28} />
       </div>
       {p.listMinor ? (
         <p className="mt-1 text-[12px] text-ink-2">
-          {store.pricing.listLabel}: <s>{formatMoney(toStoreMinor(p.listMinor, cur), cur)}</s>
+          {store.pricing.listLabel}: <s>{formatMoney(toStoreMinor(p.listMinor, cur, p.curBase), cur)}</s>
         </p>
       ) : null}
       {store.pricing.taxNote ? <p className="mt-0.5 text-[12px] text-ink-2">{store.pricing.taxNote}</p> : null}

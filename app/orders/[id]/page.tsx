@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { getProduct } from '@/lib/catalog';
+import { getProduct } from '@/lib/catalog-market';
 import { getOrder } from '@/lib/orders';
 import { deliveryDate } from '@/lib/dates';
 import { getMarketplace } from '@/lib/marketplace-server';

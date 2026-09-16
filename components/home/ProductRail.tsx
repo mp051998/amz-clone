@@ -37,7 +37,7 @@ export function ProductRail({ title, seeMoreHref, products, store }: ProductRail
                 <span className="mt-2 inline-block rounded-[3px] bg-badge-deal px-1.5 py-0.5 text-[12px] font-bold text-white">-{p.dealPct}%</span>
               ) : null}
               <div className="mt-1">
-                <Price minor={toStoreMinor(p.priceMinor, cur)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur) : undefined} size={18} />
+                <Price minor={toStoreMinor(p.priceMinor, cur, p.curBase)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined} size={18} />
               </div>
               <p className="mt-0.5 line-clamp-2 text-[13px] leading-[17px] text-ink-2 group-hover:text-link-hover">{p.title}</p>
             </a>

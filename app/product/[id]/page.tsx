@@ -8,7 +8,7 @@ import { Badge } from '@/components/primitives/Badge';
 import { BuyPanel } from '@/components/product/BuyPanel';
 import { Reviews } from '@/components/product/Reviews';
 import { ProductRail } from '@/components/home/ProductRail';
-import { getProduct, productsIn, categoryName } from '@/lib/catalog';
+import { getProduct, productsIn, categoryName } from '@/lib/catalog-market';
 import { deliveryDate } from '@/lib/dates';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -26,7 +26,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 function badgeFor(badge?: string) {
   if (badge === "Amazon's Choice") return <Badge tone="choice">Amazon&apos;s Choice</Badge>;
   if (badge === 'Best Seller') return <span className="rounded-[4px] bg-[#C45500] px-1.5 py-0.5 text-[12px] text-white">#1 Best Seller</span>;
+  if (badge === 'Bestseller') return <span className="rounded-[4px] bg-[#C45500] px-1.5 py-0.5 text-[12px] text-white">#1 Bestseller</span>;
   if (badge === 'Overall Pick') return <Badge tone="pick">Overall Pick</Badge>;
+  if (badge === 'Limited time deal') return <span className="rounded-[4px] bg-price-deal px-1.5 py-0.5 text-[12px] font-bold text-white">Limited time deal</span>;
   return null;
 }
 
@@ -37,10 +39,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   const store = await getMarketplace();
   const cur = store.currency.code;
-  const priceMinor = toStoreMinor(p.priceMinor, cur);
-  const listMinor = p.listMinor ? toStoreMinor(p.listMinor, cur) : 0;
+  const priceMinor = toStoreMinor(p.priceMinor, cur, p.curBase);
+  const listMinor = p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : 0;
   const savingsMinor = listMinor && listMinor > priceMinor ? listMinor - priceMinor : 0;
-  const similar = productsIn(p.category).filter((x) => x.id !== p.id);
+  const similar = productsIn(p.category, store.id).filter((x) => x.id !== p.id);
   const trail = [
     { label: 'Home', href: storePath(store, '/') },
     { label: categoryName(p.category), href: storePath(store, `/s?dept=${p.category}`) },

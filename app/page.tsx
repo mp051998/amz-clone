@@ -2,7 +2,7 @@ import { AppShell } from '@/components/AppShell';
 import { HeroCarousel, type HeroSlide } from '@/components/home/HeroCarousel';
 import { CategoryCard, type CategoryCardItem } from '@/components/home/CategoryCard';
 import { ProductRail } from '@/components/home/ProductRail';
-import { productsIn, deals, type Product } from '@/lib/catalog';
+import { productsIn, deals, type Product } from '@/lib/catalog-market';
 import type { Metadata } from 'next';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -20,10 +20,10 @@ function shortLabel(p: Product): string {
   return p.title.split(/[\s,]+/).slice(0, 2).join(' ');
 }
 function items(slug: string, store: PublicMarketplace, n = 4): CategoryCardItem[] {
-  return productsIn(slug).slice(0, n).map((p) => ({ image: p.image, label: shortLabel(p), href: storePath(store, `/product/${p.id}`) }));
+  return productsIn(slug, store.id).slice(0, n).map((p) => ({ image: p.image, label: shortLabel(p), href: storePath(store, `/product/${p.id}`) }));
 }
-function heroImages(slug: string, n = 4): string[] {
-  return productsIn(slug).slice(0, n).map((p) => p.image);
+function heroImages(slug: string, store: PublicMarketplace, n = 4): string[] {
+  return productsIn(slug, store.id).slice(0, n).map((p) => p.image);
 }
 
 function slides(store: PublicMarketplace): HeroSlide[] {
@@ -34,7 +34,7 @@ function slides(store: PublicMarketplace): HeroSlide[] {
       cta: 'Shop deals',
       href: storePath(store, '/s?dept=electronics'),
       bg: 'bg-gradient-to-r from-[#0f1111] via-[#232f3e] to-[#4a5b6d]',
-      images: heroImages('electronics'),
+      images: heroImages('electronics', store),
     },
     {
       eyebrow: 'Home refresh',
@@ -42,7 +42,7 @@ function slides(store: PublicMarketplace): HeroSlide[] {
       cta: 'Shop home',
       href: storePath(store, '/s?dept=home-kitchen'),
       bg: 'bg-gradient-to-r from-[#8a5a2b] via-[#c08838] to-[#f0c27b]',
-      images: heroImages('home-kitchen'),
+      images: heroImages('home-kitchen', store),
     },
     {
       eyebrow: 'Glow up',
@@ -50,7 +50,7 @@ function slides(store: PublicMarketplace): HeroSlide[] {
       cta: 'Shop beauty',
       href: storePath(store, '/s?dept=beauty'),
       bg: 'bg-gradient-to-r from-[#a83279] via-[#d16ba5] to-[#f6c6e0]',
-      images: heroImages('beauty'),
+      images: heroImages('beauty', store),
     },
     {
       eyebrow: 'New & trending',
@@ -58,7 +58,7 @@ function slides(store: PublicMarketplace): HeroSlide[] {
       cta: 'Shop toys',
       href: storePath(store, '/s?dept=toys'),
       bg: 'bg-gradient-to-r from-[#1d6f6f] via-[#2aa198] to-[#7fd8cf]',
-      images: heroImages('toys'),
+      images: heroImages('toys', store),
     },
   ];
 }
@@ -88,9 +88,9 @@ export default async function Home() {
 
         {/* rails */}
         <div className="mx-auto mt-5 max-w-[1500px] space-y-5 px-4">
-          <ProductRail title="Today's Deals" seeMoreHref={sp('/deals')} products={deals().slice(0, 14)} store={store} />
-          <ProductRail title="Best Sellers in Electronics" seeMoreHref={sp('/s?dept=electronics')} products={productsIn('electronics')} store={store} />
-          <ProductRail title="Top picks in Home & Kitchen" seeMoreHref={sp('/s?dept=home-kitchen')} products={productsIn('home-kitchen')} store={store} />
+          <ProductRail title="Today's Deals" seeMoreHref={sp('/deals')} products={deals(store.id).slice(0, 14)} store={store} />
+          <ProductRail title="Best Sellers in Electronics" seeMoreHref={sp('/s?dept=electronics')} products={productsIn('electronics', store.id)} store={store} />
+          <ProductRail title="Top picks in Home & Kitchen" seeMoreHref={sp('/s?dept=home-kitchen')} products={productsIn('home-kitchen', store.id)} store={store} />
         </div>
       </div>
     </AppShell>
