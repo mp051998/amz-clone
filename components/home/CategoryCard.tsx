@@ -20,7 +20,7 @@ export function CategoryCard({ title, seeMore, variant = 'quad', items }: Catego
       <h2 className="mb-3 text-[21px] font-bold leading-6 text-ink">{title}</h2>
       {single ? (
         <a href={items[0]?.href ?? seeMore.href} className="group block flex-1">
-          <div className="flex h-[240px] items-center justify-center overflow-hidden bg-surface-4">
+          <div className="flex h-[240px] items-center justify-center overflow-hidden bg-white">
             <img src={items[0]?.image} alt={items[0]?.label ?? title} className="h-full w-full object-contain transition group-hover:scale-[1.03]" loading="lazy" />
           </div>
         </a>
@@ -28,7 +28,7 @@ export function CategoryCard({ title, seeMore, variant = 'quad', items }: Catego
         <div className="grid flex-1 grid-cols-2 gap-x-3 gap-y-2">
           {items.slice(0, 4).map((it, k) => (
             <a key={k} href={it.href} className="group block">
-              <div className="flex h-[86px] items-center justify-center overflow-hidden bg-surface-4">
+              <div className="flex h-[86px] items-center justify-center overflow-hidden bg-white">
                 <img src={it.image} alt={it.label} className="h-full w-full object-contain transition group-hover:scale-[1.04]" loading="lazy" />
               </div>
               <p className="mt-1 line-clamp-1 text-[12px] text-ink">{it.label}</p>

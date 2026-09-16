@@ -28,7 +28,7 @@ export function ProductCard(p: ProductCardProps) {
   const row = variant === 'list';
   return (
     <article className={cn('bg-white', variant !== 'rail' && 'rounded-[4px] border border-line-card p-4', row ? 'flex gap-4' : 'flex flex-col')}>
-      <a href={p.href} aria-hidden tabIndex={-1} className={cn('block shrink-0 bg-surface-4', row ? 'h-[218px] w-[140px]' : 'mb-3 h-[200px] w-full')}>
+      <a href={p.href} aria-hidden tabIndex={-1} className={cn('block shrink-0 bg-white', row ? 'h-[218px] w-[140px]' : 'mb-3 h-[200px] w-full')}>
         {p.imageUrl ? <img src={p.imageUrl} alt="" className="h-full w-full object-contain" /> : <span className="flex h-full w-full items-center justify-center text-[12px] text-ink-4">image</span>}
       </a>
       <div className="min-w-0 flex-1">
