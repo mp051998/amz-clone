@@ -34,7 +34,7 @@ const ITEM_PATHS: Record<string, string> = {
   Sell: '/s',
   Fresh: '/s?dept=home-kitchen',
   Mobiles: '/s?dept=electronics',
-  'Prime Video': '/s',
+  'Prime Video': '/prime-video',
   'Amazon Pay': '/s',
   Bestsellers: '/deals',
   'New Releases': '/s',

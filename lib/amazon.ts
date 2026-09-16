@@ -18,7 +18,7 @@ export const amazon: PublicMarketplace = {
   delivery: { methods: ['standard', 'two-day', 'one-day', 'same-day'], freeThresholdMinor: 3500 },
   membership: { name: 'Prime' },
   nav: {
-    subnav: ["Today's Deals", 'Customer Service', 'Registry', 'Gift Cards', 'Sell'],
+    subnav: ["Today's Deals", 'Prime Video', 'Customer Service', 'Registry', 'Gift Cards', 'Sell'],
     departments: [
       'Electronics',
       'Computers',
