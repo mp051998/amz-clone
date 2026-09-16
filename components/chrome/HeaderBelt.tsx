@@ -8,6 +8,8 @@ import { Wordmark } from './Wordmark';
 export interface HeaderBeltProps {
   store: Store;
   cartCount?: number;
+  /** first name of the signed-in user; undefined when signed out. */
+  userName?: string;
   /** slot rendered in the location area — DeliverToPopover trigger is injected here by the app. */
   deliverTo?: ReactNode;
   /** slot for the language/currency flyout trigger. */
@@ -15,7 +17,7 @@ export interface HeaderBeltProps {
 }
 
 /** 60px belt: wordmark, deliver-to, search, language, account, orders, cart (design.md §5 Header belt). */
-export function HeaderBelt({ store, cartCount = 0, deliverTo, langSlot }: HeaderBeltProps) {
+export function HeaderBelt({ store, cartCount = 0, userName, deliverTo, langSlot }: HeaderBeltProps) {
   const tld = store.hostname.split('.').pop();
   const departments = ['All', ...store.nav.departments.slice(0, 6)];
   return (
@@ -25,8 +27,8 @@ export function HeaderBelt({ store, cartCount = 0, deliverTo, langSlot }: Header
         {deliverTo ? <div className="hidden md:block">{deliverTo}</div> : null}
         <SearchBar storeName={store.name} departments={departments} />
         {langSlot ? <div className="hidden md:block">{langSlot}</div> : null}
-        <a href="/account" className="hidden rounded-[3px] px-2 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white md:block">
-          <span className="text-[12px]">Hello, sign in</span>
+        <a href={userName ? '/account' : '/signin'} className="hidden rounded-[3px] px-2 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white md:block">
+          <span className="text-[12px]">{userName ? `Hello, ${userName}` : 'Hello, sign in'}</span>
           <div className="text-[14px] font-bold">Account &amp; Lists</div>
         </a>
         <a href="/orders" className="hidden rounded-[3px] px-2 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white md:block">

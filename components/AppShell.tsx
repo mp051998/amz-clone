@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { amazon } from '@/lib/amazon';
 import { categories } from '@/lib/catalog';
 import { cartCount as readCartCount } from '@/lib/cart';
+import { readUser, firstName } from '@/lib/auth';
 import { DeliverToPopover } from './chrome/DeliverToPopover';
 import { LanguageCurrencyFlyout } from './chrome/LanguageCurrencyFlyout';
 import { HeaderBelt } from './chrome/HeaderBelt';
@@ -50,6 +51,7 @@ export interface AppShellProps {
 /** Amazon chrome wrapper: header belt + sub-nav on top, footer below (design.md §5). */
 export async function AppShell({ children, cartCount }: AppShellProps) {
   const count = cartCount ?? (await readCartCount());
+  const user = await readUser();
   const departments = amazon.nav.departments;
   return (
     <div id="top" className="flex min-h-screen flex-col bg-white">
@@ -57,6 +59,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
         <HeaderBelt
           store={amazon}
           cartCount={count}
+          userName={user ? firstName(user) : undefined}
           deliverTo={<DeliverToPopover schema="US" postcodeLabel={amazon.address.postcode.label} locationText="Update location" />}
           langSlot={<LanguageCurrencyFlyout storeName={amazon.name} languages={['EN', 'ES', 'ZH', 'DE', 'PT']} showCurrency={false} currencies={[]} />}
         />

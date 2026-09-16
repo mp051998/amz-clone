@@ -1,9 +1,9 @@
 import { cn } from '../lib/cn';
 
 /** Amazon wordmark + smile arrow. Unofficial demo clone — not affiliated with Amazon. */
-export function Wordmark({ tld = 'com', className }: { tld?: string; className?: string }) {
+export function Wordmark({ tld = 'com', className, tone = 'light' }: { tld?: string; className?: string; tone?: 'light' | 'dark' }) {
   return (
-    <span className={cn('relative inline-flex select-none items-end leading-none text-white', className)} aria-label="Amazon">
+    <span className={cn('relative inline-flex select-none items-end leading-none', tone === 'dark' ? 'text-ink' : 'text-white', className)} aria-label="Amazon">
       <span className="text-[27px] font-bold tracking-[-0.05em]">amazon</span>
       {tld ? <span className="mb-[4px] ml-px text-[13px] font-bold tracking-tight">.{tld}</span> : null}
       <svg
