@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { primeVideoContent, type PVTitle } from '@/lib/prime-video';
+import { PosterImage } from '@/components/prime/PosterImage';
 
 export async function generateMetadata(): Promise<Metadata> {
   const store = await getMarketplace();
@@ -17,15 +18,24 @@ function Poster({ t }: { t: PVTitle }) {
   return (
     <a href="#" className="group w-[150px] shrink-0 sm:w-[160px]">
       <div className="relative aspect-[2/3] overflow-hidden rounded-[6px] ring-1 ring-white/10 transition group-hover:ring-2 group-hover:ring-[#1399FF]" style={posterStyle(t.hue)}>
+        {t.poster ? <PosterImage src={t.poster} alt={t.title} /> : null}
         {t.tag ? (
-          <span className="absolute left-0 top-2 rounded-r-[3px] bg-[#1399FF] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{t.tag}</span>
+          <span className="absolute left-0 top-2 z-10 rounded-r-[3px] bg-[#1399FF] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{t.tag}</span>
         ) : null}
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/10 to-transparent p-2.5">
-          <p className="text-[15px] font-bold leading-tight text-white drop-shadow">{t.title}</p>
-          <p className="mt-0.5 text-[10px] text-white/70">{t.meta}</p>
-          {t.imdb ? (
-            <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-[2px] bg-[#f5c518] px-1 py-px text-[9px] font-bold text-black">IMDb {t.imdb.toFixed(1)}</span>
-          ) : null}
+          {t.poster ? (
+            t.imdb ? (
+              <span className="mt-auto inline-flex w-fit items-center gap-1 rounded-[2px] bg-[#f5c518] px-1 py-px text-[9px] font-bold text-black">IMDb {t.imdb.toFixed(1)}</span>
+            ) : null
+          ) : (
+            <>
+              <p className="text-[15px] font-bold leading-tight text-white drop-shadow">{t.title}</p>
+              <p className="mt-0.5 text-[10px] text-white/70">{t.meta}</p>
+              {t.imdb ? (
+                <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-[2px] bg-[#f5c518] px-1 py-px text-[9px] font-bold text-black">IMDb {t.imdb.toFixed(1)}</span>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     </a>
@@ -49,7 +59,10 @@ export default async function PrimeVideoPage() {
 
           {/* Hero */}
           <section className="relative overflow-hidden rounded-[10px] ring-1 ring-white/10" style={posterStyle(hero.hue)}>
-            <div className="flex min-h-[300px] flex-col justify-end bg-gradient-to-t from-black/80 via-black/30 to-transparent p-6 sm:min-h-[380px] sm:p-10">
+            {hero.poster ? (
+              <img src={hero.poster} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[50%_18%]" />
+            ) : null}
+            <div className="relative flex min-h-[300px] flex-col justify-end bg-gradient-to-t from-black/85 via-black/45 to-black/20 p-6 sm:min-h-[380px] sm:p-10">
               <span className="mb-2 w-fit rounded-[3px] bg-[#1399FF] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">{hero.tag}</span>
               <h1 className="max-w-[620px] text-[34px] font-extrabold leading-none sm:text-[52px]">{hero.title}</h1>
               <p className="mt-1 text-[12px] font-medium text-white/70">{hero.meta}</p>
