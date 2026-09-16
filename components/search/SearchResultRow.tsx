@@ -22,7 +22,7 @@ export function SearchResultRow({ product: p, store }: { product: Product; store
   const badge = badgeFor(p);
   return (
     <article className="flex gap-4 border-b border-line-3 py-5">
-      <a href={href} className="flex h-[200px] w-[200px] shrink-0 items-center justify-center bg-white p-2">
+      <a href={href} className="flex h-[130px] w-[130px] shrink-0 items-center justify-center bg-white p-2 sm:h-[200px] sm:w-[200px]">
         <img src={p.image} alt={p.title} className="max-h-full max-w-full object-contain" loading="lazy" />
       </a>
       <div className="min-w-0 flex-1">

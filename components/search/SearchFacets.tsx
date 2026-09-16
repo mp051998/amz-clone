@@ -49,7 +49,7 @@ export function SearchFacets({ query, brandFacets, store }: SearchFacetsProps) {
   const dealHref = href({ ...base, deal: query.deal ? undefined : 1 });
 
   return (
-    <aside className="w-[240px] shrink-0 pr-4 text-[14px]">
+    <aside className="w-full shrink-0 pr-4 text-[14px] md:w-[240px]">
       {/* Department */}
       <div className="mb-5">
         <h3 className="mb-1.5 text-[16px] font-bold text-ink">Department</h3>

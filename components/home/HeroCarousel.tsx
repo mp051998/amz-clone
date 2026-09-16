@@ -40,8 +40,8 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
           aria-hidden={idx !== i}
           className={`absolute inset-0 transition-opacity duration-700 ${slide.bg} ${idx === i ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         >
-          <div className="mx-auto flex h-full max-w-[1500px] items-center gap-6 px-6 sm:px-12 md:px-20">
-            <div className="max-w-[46%] text-white drop-shadow-sm">
+          <div className="mx-auto flex h-full max-w-[1500px] items-center gap-6 px-12 sm:px-12 md:px-20">
+            <div className="max-w-[72%] text-white drop-shadow-sm sm:max-w-[46%]">
               <p className="text-[13px] font-semibold uppercase tracking-wide opacity-90">{slide.eyebrow}</p>
               <h2 className="mt-2 text-[26px] font-bold leading-tight sm:text-[34px] md:text-[42px]">{slide.title}</h2>
               <a href={slide.href} className="mt-5 inline-block rounded-pill bg-white px-6 py-2 text-[14px] font-bold text-ink shadow-sm transition hover:bg-surface-2">

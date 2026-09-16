@@ -67,8 +67,19 @@ export default async function SearchPage({
           <SortSelect options={sortOptions} value={q.sort} />
         </div>
 
-        <div className="flex gap-4 py-4">
-          <SearchFacets query={q} brandFacets={brandFacets} store={store} />
+        <div className="py-4 md:flex md:gap-4">
+          {/* mobile: filters collapse behind a disclosure; desktop: fixed sidebar */}
+          <details className="mb-3 rounded-[6px] border border-line md:hidden">
+            <summary className="cursor-pointer list-none px-3 py-2 text-[15px] font-bold text-ink [&::-webkit-details-marker]:hidden">
+              Filters &amp; sort
+            </summary>
+            <div className="border-t border-line-3 px-3 pt-3">
+              <SearchFacets query={q} brandFacets={brandFacets} store={store} />
+            </div>
+          </details>
+          <div className="hidden md:block">
+            <SearchFacets query={q} brandFacets={brandFacets} store={store} />
+          </div>
 
           <div className="min-w-0 flex-1">
             {total === 0 ? (
