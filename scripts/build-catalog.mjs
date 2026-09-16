@@ -31,6 +31,11 @@ const RAW = [
   ['61PPiCaslSL', 'Wireless Earbuds, Bluetooth 5.4 Headphones HiFi Stereo, Touch Control, White', 'electronics', 4.2, 77],
   ['714leNyXHIL', 'Picun B8 Wireless Bluetooth Headphones, 120H Playtime, 3EQ Modes, Black', 'electronics', 4.4, 205],
   ['61D5ZCSIymL', 'Fhumsh Wireless Earbuds, Bluetooth 5.3 HiFi Stereo 50H Playback, LED, Deep Bass', 'electronics', 4.3, 190],
+  ['51Yya2WtvkL', 'Soundcore by Anker P20i True Wireless Earbuds, Bluetooth, Big Bass, 30H Playtime', 'electronics', 4.4, 115259],
+  ['81+4jNKVFgL', 'TOZO A1 Wireless Earbuds Bluetooth 5.3, Lightweight In-Ear Headphones, IPX5', 'electronics', 4.3, 117335],
+  ['51013C6va8L', 'Soundcore P30i by Anker Noise Cancelling Wireless Earbuds, 45H Playtime', 'electronics', 4.3, 41981],
+  ['71fEWG6n4aL', 'Soundcore P31i by Anker Wireless Earbuds with Real-Time Adaptive ANC', 'electronics', 4.4, 8517],
+  ['51QEHqsjzPL', 'Samsung Galaxy Buds 4 Pro AI True Wireless Bluetooth Earbuds, Black', 'electronics', 4.4, 2370],
   // ── Computers · Laptops ──────────────────────────────────────────────────
   ['81RFGfu0skL', 'HP Essential Laptop 2026, Intel CPU, 128GB Storage, Office 365, Copilot AI, Windows 11', 'computers', 4.5, 146],
   ['818ezjaaQlL', 'Lenovo Essential 15.6" FHD Laptop, Intel Processor, 8GB DDR5, 128GB Storage', 'computers', 4.2, 946],
@@ -42,6 +47,10 @@ const RAW = [
   ['711KQJBO1aL', '15.6" AI Laptop with Office 365, 6GB RAM 128GB SSD, Windows 11', 'computers', 4.3, 88],
   ['71HHF2jUnpL', 'Acer Nitro V 16S AI Gaming Laptop, Ryzen 7 260, RTX 5060 GPU, 16GB DDR5', 'computers', 4.4, 340],
   ['81RiFsuQynL', 'Lenovo 15.6" FHD Business Laptop, Intel Processor, 8GB DDR5, 128GB Storage', 'computers', 4.3, 210],
+  ['81DWx6Wlc1L', 'Lenovo V15 15.6" FHD Laptop, IdeaPad Slim 3i, Intel 4-Core CPU, Windows 11', 'computers', 4.4, 49],
+  ['618RZsi8YNL', 'HP Essential Laptop 2026, Intel CPU, 128GB Storage, Office 365, Windows 11', 'computers', 4.5, 193],
+  ['61s595ANBTL', 'HP 14" HD Chromebook Laptop for Students, Intel N4120, 4GB RAM, 64GB eMMC', 'computers', 4.4, 321],
+  ['714TSHAAQrL', '15.6" AI Laptop with Office 365, 12GB RAM 256GB SSD, Windows 11', 'computers', 4.4, 2362],
   // ── Home & Kitchen · Cookware ────────────────────────────────────────────
   ['818LlGeUuzL', 'CAROTE 26pcs Pots and Pans Set, Nonstick Cookware Sets, Non Stick Kitchen', 'home-kitchen', 4.7, 190],
   ['719iqR-lC1L', 'CAROTE 21pcs Pots and Pans Set Non Stick, Detachable Handle Cookware, Black', 'home-kitchen', 4.6, 220],
@@ -56,6 +65,10 @@ const RAW = [
   ['71v2DeeTD8L', 'SENSARTE Nonstick Cookware Set 13 Pcs, Non Stick Pots and Pans Set, Cream', 'home-kitchen', 4.5, 630],
   ['61xAnFzjGbL', 'SENSARTE Ceramic Cookware Set 14 Piece, Induction Non-Toxic Pots and Pans', 'home-kitchen', 4.5, 180],
   ['71mDTOYtDSL', 'Amazon Basics Non-Stick Kitchen Cookware 8-Piece Set, Pots and Pans, Black', 'home-kitchen', 4.4, 290],
+  ['71eCmxe2qTL', 'Gotham Steel 12 Pc Ceramic Cookware Set, Diamond & Titanium Reinforced Nonstick', 'home-kitchen', 4.4, 19233],
+  ['81C6ld1g0rL', 'HexClad 6-Piece Hybrid Nonstick Frying Pan Set with Lids, 8", 10" & 12"', 'home-kitchen', 4.3, 5835],
+  ['61c04TQQ2sL', "Cuisinart Chef's Classic 11-Piece Stainless Steel Pots and Pans Set", 'home-kitchen', 4.3, 9764],
+  ['71GfCa4-lvL', 'Chef Power Ceramic Nonstick Pots and Pans Set, 19 Piece, Detachable Handle', 'home-kitchen', 4.5, 3229],
   // ── Fashion · Running shoes ──────────────────────────────────────────────
   ['51AMW3KWC6L', "Under Armour Men's Charged Assert 11 Running Shoes", 'fashion', 4.6, 190],
   ['41XNghIdXQL', "Under Armour Men's Charged Assert 10 Running Shoe", 'fashion', 4.5, 2490],
@@ -65,6 +78,10 @@ const RAW = [
   ['71OAOMRQJYL', "Brooks Men's Revel 8 Neutral Running Shoe", 'fashion', 4.3, 160],
   ['51aZZVEq3iL', "HOKA Men's Bondi 9 Road Running Shoe", 'fashion', 4.5, 330],
   ['71d5H67c0SL', "New Balance Men's Fresh Foam 520 v9 Running Shoe", 'fashion', 4.4, 360],
+  ['51wnMZWbCWL', "Under Armour Men's Charged Surge 4 Running Shoe Sneaker", 'fashion', 4.5, 16015],
+  ['81TMcoN7-PL', "Brooks Men's Adrenaline GTS 25 Supportive Running Shoe", 'fashion', 4.5, 2462],
+  ['61XF87S1OEL', "ASICS Men's NOVABLAST 5 Running Shoes", 'fashion', 4.5, 2464],
+  ['61r+RT-a5GL', "ASICS Men's Gel-Venture 11 Trail Running Shoes", 'fashion', 4.4, 1285],
   // ── Beauty & Personal Care · Skincare ────────────────────────────────────
   ['715wx2B9REL', 'medicube PDRN Glow Essentials Kit, Mini Skincare Travel Set, 5-Step Routine', 'beauty', 4.6, 213],
   ['61VMCb9rs0L', 'Summer Fridays Jet Lag Essentials, Mini Hydrating Skin Care Set', 'beauty', 4.6, 380],
@@ -78,6 +95,10 @@ const RAW = [
   ['51+jDWarkrL', 'BYOMA So Hydrated Travel Size Gift Set, Skincare Minis Bundle', 'beauty', 4.6, 160],
   ['61245ffGcNL', 'LANEIGE Water Bank Blue Hyaluronic Cream Moisturizer for Combination Skin', 'beauty', 4.6, 832],
   ['71KVCB7vltL', 'QUIYUM Daily Skincare Set for Young Women, 6-Piece Facial Care Kit', 'beauty', 4.7, 316],
+  ['61TuwUQ-qvL', 'CeraVe PM Daily Facial Moisturizer for Dry Skin, Oil-Free, 3 oz', 'beauty', 4.7, 63292],
+  ['61e5JrJ-tCL', 'Glow Recipe Glass Skin Essential Korean Skincare Kit, Serum + Toner', 'beauty', 4.7, 91],
+  ['71CssT5FzsL', 'IUNIK Beta-Glucan Edition Skincare Set, Cream 2.02 oz & Serum 0.51 oz', 'beauty', 4.3, 114],
+  ['71XJ8ORYxCL', 'Tower 28 SOS Recovery Hydrating Face Cream for Sensitive Skin, 1.86 oz', 'beauty', 4.6, 117],
   // ── Books ────────────────────────────────────────────────────────────────
   ['81P0NvoRrWL', 'Theo of Golden: A Novel', 'books', 4.7, 1820],
   ['81gOlbDWpeL', 'Yesteryear: A GMA Book Club Pick — A Novel', 'books', 4.2, 1183],
@@ -91,6 +112,10 @@ const RAW = [
   ['91tK0tVAf+L', 'The Let Them Theory: A Tool to Transform Your Life', 'books', 4.6, 48100],
   ['81MSoBp+PAL', 'The Nightingale: A Novel', 'books', 4.7, 42230],
   ['91VZotRPO2L', 'The Housemaid', 'books', 4.5, 73180],
+  ['A1bAAofyAIL', 'The Frozen River: A Novel', 'books', 4.6, 122924],
+  ['71eJ66acl9L', 'The Midnight Library: A GMA Book Club Pick — A Novel', 'books', 4.4, 291175],
+  ['91RVshgQn1S', 'The Silent Patient', 'books', 4.4, 426646],
+  ['81xWV-k-2eL', "First Lie Wins: Reese's Book Club Pick — A Novel", 'books', 4.3, 109689],
   // ── Toys & Games ─────────────────────────────────────────────────────────
   ['71uh0kUACRL', 'Melissa & Doug Get Well Doctor Kit Play Set, 25-Piece Wooden Toy', 'toys', 4.8, 880],
   ['710dSCrRISL', "Masterbee Kids Camera for Girls & Boys, 3-12 Years, 1080P HD Digital Camera", 'toys', 4.6, 150],
@@ -104,6 +129,10 @@ const RAW = [
   ['61Pg7ofgYHL', 'Nex Playground, The Active Play System for Kids & Families', 'toys', 4.7, 520],
   ['61VzFxBrh7L', 'Gesture Control RC Helicopter Toy for Kids, Rechargeable Mini Drone', 'toys', 3.2, 150],
   ['519Oty05lTL', 'Flycatcher smART Sketcher 2.0 Projector, Drawing Toy for Kids Ages 5+', 'toys', 4.6, 260],
+  ['71crrz-3XJL', 'LeapFrog 2-in-1 LeapTop Touch Learning Laptop Toy, Green', 'toys', 4.7, 30889],
+  ['71jVEjU17nL', 'Melissa & Doug 100 Wooden Building Blocks with Storage Box', 'toys', 4.8, 28558],
+  ['7106ox8f2jL', 'Melissa & Doug Wooden Scoop & Serve Ice Cream Counter Play Set, 28 Pieces', 'toys', 4.9, 18634],
+  ['71jn+KpPcTL', 'Melissa & Doug Super Smile Dentist Play Set, 25-Piece Kids Toy', 'toys', 4.8, 11829],
   // ── Sports & Outdoors · Dumbbells ────────────────────────────────────────
   ['71ZbWyz0ndL', 'Adjustable Dumbbells Set of 2, Free Weights Dumbbell Set for Home Gym', 'sports', 4.0, 270],
   ['71qo+BoG6ML', '25/50/55 lbs Pair Adjustable Dumbbell Set for Men and Women', 'sports', 4.7, 407],
@@ -117,6 +146,10 @@ const RAW = [
   ['71lLqhkGDvL', 'Adjustable Dumbbell Set, 20/30/45/70/90lbs Free Weight Set for Home', 'sports', 4.4, 210],
   ['61onq6KzE4L', 'Adjustable Dumbbell Set for Women & Men, 7.5-25LB Each', 'sports', 4.6, 467],
   ['81d+Qj-X74L', '5-in-1 Adjustable Dumbbell Set, Barbell & Kettlebell for Home Gym', 'sports', 4.7, 50],
+  ['81284IT5INL', 'Lifepro Adjustable Dumbbells Set for Home Gym, Quick-Adjust Free Weights', 'sports', 4.6, 3385],
+  ['61WL-9Vt6oL', 'Amazon Basics Adjustable Dumbbell, 25 lb, Single', 'sports', 4.6, 162],
+  ['71iCkaBaXuL', 'FEIERDUN DB3 5-in-1 Adjustable Dumbbell Set, 6/10LB Pair for Women', 'sports', 4.8, 638],
+  ['71sTw6pAXeL', 'Adjustable Dumbbell Set, 20/30/45/70/90lbs, 5-in-1 with Barbell & Kettlebell', 'sports', 4.5, 290],
 ];
 
 const CATEGORIES = {
