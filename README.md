@@ -1,4 +1,4 @@
-# Nile — Amazon storefront rebuild (8x assignment)
+# amz-clone — Amazon storefront rebuild (8x assignment)
 
 A rebuild of the amazon.com shopping experience.
 

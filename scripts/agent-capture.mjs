@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const AUTHOR = 'mp051998';
-const PROJECT = 'nile-store';
+const PROJECT = 'amz-clone';
 const TOOL = 'claude-code';
 
 function readStdin() {
