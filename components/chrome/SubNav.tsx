@@ -16,13 +16,19 @@ export function SubNav({ items, departments, departmentHrefs, itemHrefs }: SubNa
   const hrefForItem = (item: string) => itemHrefs?.[item] ?? '/s';
   return (
     <nav className="relative bg-nav-main text-white">
-      <div className="mx-auto flex h-[39px] max-w-[1500px] items-center gap-4 overflow-x-auto px-3 text-[14px] whitespace-nowrap">
-        <button type="button" aria-expanded={open} aria-controls="all-flyout" onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 rounded-[3px] px-1 font-bold hover:outline hover:outline-1 hover:outline-white">
-          <IconMenu width={18} height={18} /> All
-        </button>
-        {items.map((item) => (
-          <a key={item} href={hrefForItem(item)} className="rounded-[2px] px-1 hover:outline hover:outline-1 hover:outline-white">{item}</a>
-        ))}
+      <div className="relative mx-auto max-w-[1500px]">
+        <div className="flex h-[39px] items-center gap-4 overflow-x-auto px-3 text-[14px] whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button type="button" aria-expanded={open} aria-controls="all-flyout" onClick={() => setOpen((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-[3px] px-1 font-bold hover:outline hover:outline-1 hover:outline-white">
+            <IconMenu width={18} height={18} /> All
+          </button>
+          {items.map((item) => (
+            <a key={item} href={hrefForItem(item)} className="shrink-0 rounded-[2px] px-1 hover:outline hover:outline-1 hover:outline-white">{item}</a>
+          ))}
+          {/* trailing spacer so the last item clears the fade when scrolled to the end */}
+          <span aria-hidden className="w-6 shrink-0" />
+        </div>
+        {/* right-edge fade signalling the strip scrolls horizontally (phones) */}
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-nav-main to-transparent md:hidden" />
       </div>
       {open ? (
         <>

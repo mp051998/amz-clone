@@ -4,7 +4,6 @@ import { cartCount as readCartCount } from '@/lib/cart';
 import { readUser, firstName } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { DeliverToPopover } from './chrome/DeliverToPopover';
 import { LanguageCurrencyFlyout } from './chrome/LanguageCurrencyFlyout';
 import { HeaderBelt } from './chrome/HeaderBelt';
 import { SubNav } from './chrome/SubNav';
@@ -77,8 +76,6 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
     store.nav.subnav.map((item) => [item, storePath(store, ITEM_PATHS[item] ?? '/s')]),
   );
 
-  const deliverLocation = store.id === 'IN' ? 'Bengaluru 560001' : 'Update location';
-
   return (
     <div id="top" className="flex min-h-screen flex-col bg-white">
       <header>
@@ -86,7 +83,6 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
           store={store}
           cartCount={count}
           userName={user ? firstName(user) : undefined}
-          deliverTo={<DeliverToPopover schema={store.address.schema} postcodeLabel={store.address.postcode.label} locationText={deliverLocation} />}
           langSlot={
             <LanguageCurrencyFlyout
               storeName={store.name}
