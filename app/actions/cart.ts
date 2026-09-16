@@ -3,6 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getProduct } from '@/lib/catalog';
 import { readCart, writeCart } from '@/lib/cart';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { storePath } from '@/lib/marketplace';
 
 function qtyOf(formData: FormData, fallback = 1): number {
   const n = Number(formData.get('qty'));
@@ -16,7 +18,8 @@ export async function addToCart(formData: FormData): Promise<void> {
   map[id] = Math.min(30, (map[id] ?? 0) + qtyOf(formData));
   await writeCart(map);
   revalidatePath('/', 'layout');
-  redirect('/cart');
+  const store = await getMarketplace();
+  redirect(storePath(store, '/cart'));
 }
 
 export async function buyNow(formData: FormData): Promise<void> {
@@ -26,7 +29,8 @@ export async function buyNow(formData: FormData): Promise<void> {
   map[id] = Math.min(30, (map[id] ?? 0) + qtyOf(formData));
   await writeCart(map);
   revalidatePath('/', 'layout');
-  redirect('/checkout');
+  const store = await getMarketplace();
+  redirect(storePath(store, '/checkout'));
 }
 
 /** set a line's quantity; qty=0 removes it. */

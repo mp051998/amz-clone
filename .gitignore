@@ -22,3 +22,6 @@ tsconfig.tsbuildinfo
 # NOTE: .agent-logs/ is intentionally NOT ignored.
 # It is part of the 8x submission and ships with the repo, publicly.
 .vercel
+
+# Internal planning docs — kept local, not shipped in the public repo.
+/docs/plans/

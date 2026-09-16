@@ -1,5 +1,7 @@
 import { categories } from '@/lib/catalog';
 import { buildHref, type SearchQuery } from '@/lib/search';
+import { storePath } from '@/lib/marketplace';
+import type { Store } from '../lib/store';
 import { IconStar } from '../icons/index';
 
 function baseParams(q: SearchQuery): Record<string, string | number | undefined> {
@@ -27,22 +29,24 @@ function StarRow({ n }: { n: number }) {
 export interface SearchFacetsProps {
   query: SearchQuery;
   brandFacets: { name: string; count: number }[];
+  store: Store;
 }
 
 /** Link-driven facet rail: department, brand, reviews, deals. SSR — works without JS (design.md §5). */
-export function SearchFacets({ query, brandFacets }: SearchFacetsProps) {
+export function SearchFacets({ query, brandFacets, store }: SearchFacetsProps) {
   const base = baseParams(query);
+  const href = (params: Parameters<typeof buildHref>[0]) => storePath(store, buildHref(params));
 
-  const deptHref = (slug?: string) => buildHref({ ...base, dept: slug, brand: undefined });
+  const deptHref = (slug?: string) => href({ ...base, dept: slug, brand: undefined });
 
   const toggleBrand = (name: string) => {
     const set = new Set(query.brand ?? []);
     if (set.has(name)) set.delete(name); else set.add(name);
-    return buildHref({ ...base, brand: set.size ? [...set].join(',') : undefined });
+    return href({ ...base, brand: set.size ? [...set].join(',') : undefined });
   };
 
-  const ratingHref = (n?: number) => buildHref({ ...base, rating: query.rating === n ? undefined : n });
-  const dealHref = buildHref({ ...base, deal: query.deal ? undefined : 1 });
+  const ratingHref = (n?: number) => href({ ...base, rating: query.rating === n ? undefined : n });
+  const dealHref = href({ ...base, deal: query.deal ? undefined : 1 });
 
   return (
     <aside className="w-[240px] shrink-0 pr-4 text-[14px]">

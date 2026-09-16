@@ -3,7 +3,7 @@ import { Stars } from '../primitives/Stars';
 import { ratingBreakdown, productReviews } from '@/lib/reviews';
 
 /** PDP customer-reviews block: rating summary + histogram on the left, written reviews on the right. */
-export function Reviews({ product: p }: { product: Product }) {
+export function Reviews({ product: p, country = 'the United States' }: { product: Product; country?: string }) {
   const bars = ratingBreakdown(p);
   const reviews = productReviews(p);
   const ratingText = Number.isInteger(p.rating) ? String(p.rating) : p.rating.toFixed(1);
@@ -43,7 +43,7 @@ export function Reviews({ product: p }: { product: Product }) {
 
         {/* Written reviews */}
         <div className="min-w-0 flex-1">
-          <h3 className="text-[17px] font-bold text-ink">Top reviews from the United States</h3>
+          <h3 className="text-[17px] font-bold text-ink">Top reviews from {country}</h3>
           <ul className="mt-4 divide-y divide-line-soft">
             {reviews.map((r) => (
               <li key={r.id} className="py-5 first:pt-1">
@@ -56,7 +56,7 @@ export function Reviews({ product: p }: { product: Product }) {
                   <a href="#reviews" className="text-[14px] font-bold text-ink hover:text-link-hover hover:underline">{r.title}</a>
                 </div>
                 <p className="mt-1 text-[13px] text-ink-2">
-                  Reviewed in the United States on {r.date}
+                  Reviewed in {country} on {r.date}
                 </p>
                 {r.verified ? <p className="mt-1 text-[13px] font-bold text-warn">Verified Purchase</p> : null}
                 <p className="mt-2 text-[14px] leading-5 text-ink">{r.body}</p>

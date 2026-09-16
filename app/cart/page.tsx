@@ -4,15 +4,21 @@ import { Price } from '@/components/primitives/Price';
 import { CartQty } from '@/components/cart/CartQty';
 import { removeItem } from '@/app/actions/cart';
 import { getCartLines, computeTotals } from '@/lib/cart';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { storePath } from '@/lib/marketplace';
+import { formatMoney } from '@/lib/marketplaces';
 
-export const metadata: Metadata = { title: 'Amazon.com Shopping Cart' };
-
-const usd = (minor: number) => `$${(minor / 100).toFixed(2)}`;
+export const metadata: Metadata = { title: 'Amazon Shopping Cart' };
 
 export default async function CartPage() {
-  const lines = await getCartLines();
+  const store = await getMarketplace();
+  const cur = store.currency.code;
+  const money = (minor: number) => formatMoney(minor, cur);
+  const sp = (path: string) => storePath(store, path);
+  const lines = await getCartLines(cur);
   const count = lines.reduce((a, l) => a + l.qty, 0);
-  const { subtotalMinor } = computeTotals(lines.reduce((a, l) => a + l.lineTotalMinor, 0));
+  const { subtotalMinor } = computeTotals(lines.reduce((a, l) => a + l.lineTotalMinor, 0), store);
+  const freeThreshold = store.delivery.freeThresholdMinor;
 
   if (lines.length === 0) {
     return (
@@ -23,9 +29,9 @@ export default async function CartPage() {
               <div>
                 <h1 className="text-[28px] font-normal text-ink">Your Amazon Cart is empty</h1>
                 <p className="mt-1 text-[14px] text-ink-2">
-                  Check your Saved for later items below or <a href="/" className="text-link hover:text-link-hover hover:underline">continue shopping</a>.
+                  Check your Saved for later items below or <a href={sp('/')} className="text-link hover:text-link-hover hover:underline">continue shopping</a>.
                 </p>
-                <a href="/" className="mt-4 inline-flex h-[33px] items-center rounded-pill bg-cta-yellow px-5 text-[14px] text-ink hover:bg-cta-yellow-hover">
+                <a href={sp('/deals')} className="mt-4 inline-flex h-[33px] items-center rounded-pill bg-cta-yellow px-5 text-[14px] text-ink hover:bg-cta-yellow-hover">
                   Shop today&apos;s deals
                 </a>
               </div>
@@ -49,11 +55,11 @@ export default async function CartPage() {
 
             {lines.map((l) => (
               <div key={l.product.id} className="flex gap-4 border-b border-line-3 py-4">
-                <a href={`/product/${l.product.id}`} className="flex h-[140px] w-[140px] shrink-0 items-center justify-center bg-white">
+                <a href={sp(`/product/${l.product.id}`)} className="flex h-[140px] w-[140px] shrink-0 items-center justify-center bg-white">
                   <img src={l.product.image} alt={l.product.title} className="max-h-full max-w-full object-contain" />
                 </a>
                 <div className="min-w-0 flex-1">
-                  <a href={`/product/${l.product.id}`} className="line-clamp-2 text-[17px] font-medium text-ink hover:text-link-hover hover:underline">{l.product.title}</a>
+                  <a href={sp(`/product/${l.product.id}`)} className="line-clamp-2 text-[17px] font-medium text-ink hover:text-link-hover hover:underline">{l.product.title}</a>
                   <p className="mt-1 text-[12px] text-success">In Stock</p>
                   <p className="text-[12px] text-ink-2">Ships from {l.product.shipsFrom} · Sold by {l.product.seller}</p>
                   {l.product.deal ? <p className="mt-0.5 text-[12px] text-price-deal">Limited time deal</p> : null}
@@ -67,31 +73,31 @@ export default async function CartPage() {
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <Price minor={l.lineTotalMinor} currency="USD" size={17} />
-                  {l.qty > 1 ? <p className="mt-1 text-[12px] text-ink-2">{usd(l.product.priceMinor)} each</p> : null}
+                  <Price minor={l.lineTotalMinor} currency={cur} size={17} />
+                  {l.qty > 1 ? <p className="mt-1 text-[12px] text-ink-2">{money(Math.round(l.lineTotalMinor / l.qty))} each</p> : null}
                 </div>
               </div>
             ))}
 
             <div className="pt-3 text-right text-[18px] text-ink">
-              Subtotal ({count} {count === 1 ? 'item' : 'items'}): <span className="font-bold">{usd(subtotalMinor)}</span>
+              Subtotal ({count} {count === 1 ? 'item' : 'items'}): <span className="font-bold">{money(subtotalMinor)}</span>
             </div>
           </div>
 
           {/* summary */}
           <aside className="lg:w-[300px] lg:shrink-0">
             <div className="rounded-[8px] bg-white p-5 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
-              {subtotalMinor >= 3500 ? (
+              {subtotalMinor >= freeThreshold ? (
                 <p className="mb-2 text-[13px] text-success-deep">
                   <span className="mr-1">✓</span>Your order qualifies for FREE Shipping.
                 </p>
               ) : (
-                <p className="mb-2 text-[13px] text-ink-2">Add {usd(3500 - subtotalMinor)} of eligible items to qualify for FREE Shipping.</p>
+                <p className="mb-2 text-[13px] text-ink-2">Add {money(freeThreshold - subtotalMinor)} of eligible items to qualify for FREE Shipping.</p>
               )}
               <p className="text-[18px] text-ink">
-                Subtotal ({count} {count === 1 ? 'item' : 'items'}): <span className="font-bold">{usd(subtotalMinor)}</span>
+                Subtotal ({count} {count === 1 ? 'item' : 'items'}): <span className="font-bold">{money(subtotalMinor)}</span>
               </p>
-              <a href="/checkout" className="mt-3 flex h-[33px] w-full items-center justify-center rounded-pill bg-cta-yellow text-[14px] text-ink hover:bg-cta-yellow-hover">
+              <a href={sp('/checkout')} className="mt-3 flex h-[33px] w-full items-center justify-center rounded-pill bg-cta-yellow text-[14px] text-ink hover:bg-cta-yellow-hover">
                 Proceed to checkout
               </a>
             </div>

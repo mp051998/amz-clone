@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { amazon } from '@/lib/amazon';
 import { categories } from '@/lib/catalog';
 import { cartCount as readCartCount } from '@/lib/cart';
 import { readUser, firstName } from '@/lib/auth';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { storePath } from '@/lib/marketplace';
 import { DeliverToPopover } from './chrome/DeliverToPopover';
 import { LanguageCurrencyFlyout } from './chrome/LanguageCurrencyFlyout';
 import { HeaderBelt } from './chrome/HeaderBelt';
@@ -11,8 +12,9 @@ import { Footer } from './chrome/Footer';
 
 const CATALOG_SLUGS = new Set(categories.map((c) => c.slug));
 
-/** amazon.com department label → catalog category slug (only some departments carry products). */
+/** department label → catalog category slug (only some departments carry products). */
 const DEPT_SLUG: Record<string, string> = {
+  Mobiles: 'electronics',
   Electronics: 'electronics',
   Computers: 'computers',
   'Home & Kitchen': 'home-kitchen',
@@ -23,17 +25,20 @@ const DEPT_SLUG: Record<string, string> = {
   'Sports & Outdoors': 'sports',
 };
 
-function deptHref(label: string): string {
-  const slug = DEPT_SLUG[label];
-  return slug && CATALOG_SLUGS.has(slug) ? `/s?dept=${slug}` : '/s';
-}
-
-const ITEM_HREFS: Record<string, string> = {
+/** sub-nav item → path (before store prefixing). Covers both US and IN sub-nav labels. */
+const ITEM_PATHS: Record<string, string> = {
   "Today's Deals": '/deals',
   'Customer Service': '/account',
   Registry: '/s',
   'Gift Cards': '/s',
   Sell: '/s',
+  Fresh: '/s?dept=home-kitchen',
+  Mobiles: '/s?dept=electronics',
+  'Prime Video': '/s',
+  'Amazon Pay': '/s',
+  Bestsellers: '/deals',
+  'New Releases': '/s',
+  Prime: '/s',
 };
 
 const FOOTER_COLUMNS = [
@@ -48,30 +53,50 @@ export interface AppShellProps {
   cartCount?: number;
 }
 
-/** Amazon chrome wrapper: header belt + sub-nav on top, footer below (design.md §5). */
+/** Amazon chrome wrapper: header belt + sub-nav on top, footer below (design.md §5). Store-aware. */
 export async function AppShell({ children, cartCount }: AppShellProps) {
+  const store = await getMarketplace();
   const count = cartCount ?? (await readCartCount());
   const user = await readUser();
-  const departments = amazon.nav.departments;
+
+  const departments = store.nav.departments;
+  const deptHref = (label: string) => {
+    const slug = DEPT_SLUG[label];
+    return storePath(store, slug && CATALOG_SLUGS.has(slug) ? `/s?dept=${slug}` : '/s');
+  };
+  const itemHrefs: Record<string, string> = Object.fromEntries(
+    store.nav.subnav.map((item) => [item, storePath(store, ITEM_PATHS[item] ?? '/s')]),
+  );
+
+  const deliverLocation = store.id === 'IN' ? 'Bengaluru 560001' : 'Update location';
+
   return (
     <div id="top" className="flex min-h-screen flex-col bg-white">
       <header>
         <HeaderBelt
-          store={amazon}
+          store={store}
           cartCount={count}
           userName={user ? firstName(user) : undefined}
-          deliverTo={<DeliverToPopover schema="US" postcodeLabel={amazon.address.postcode.label} locationText="Update location" />}
-          langSlot={<LanguageCurrencyFlyout storeName={amazon.name} languages={['EN', 'ES', 'ZH', 'DE', 'PT']} showCurrency={false} currencies={[]} />}
+          deliverTo={<DeliverToPopover schema={store.address.schema} postcodeLabel={store.address.postcode.label} locationText={deliverLocation} />}
+          langSlot={
+            <LanguageCurrencyFlyout
+              storeName={store.name}
+              countryId={store.id}
+              languages={store.locale.supported.map((l) => l.split('-')[0].toUpperCase())}
+              showCurrency={false}
+              currencies={[]}
+            />
+          }
         />
         <SubNav
-          items={amazon.nav.subnav}
+          items={store.nav.subnav}
           departments={departments}
           departmentHrefs={departments.map(deptHref)}
-          itemHrefs={ITEM_HREFS}
+          itemHrefs={itemHrefs}
         />
       </header>
       <main className="flex-1">{children}</main>
-      <Footer storeName={amazon.name} columns={FOOTER_COLUMNS} />
+      <Footer storeName={store.name} tld={store.hostname.split('.').pop()} columns={FOOTER_COLUMNS} />
     </div>
   );
 }

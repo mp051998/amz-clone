@@ -4,14 +4,16 @@ export interface SearchDept { label: string; value: string }
 export interface SearchBarProps {
   storeName: string;
   departments: SearchDept[];
+  /** where the GET search submits — '/s' for US, '/in/s' for India */
+  actionPath?: string;
   defaultQuery?: string;
   defaultDept?: string;
 }
 
 /** 38px search with department select + brand-search submit (design.md §5 Search). GET /s?k= so results are shareable. */
-export function SearchBar({ storeName, departments, defaultQuery, defaultDept = '' }: SearchBarProps) {
+export function SearchBar({ storeName, departments, actionPath = '/s', defaultQuery, defaultDept = '' }: SearchBarProps) {
   return (
-    <form action="/s" method="get" role="search" className="flex h-[40px] min-w-0 flex-1 overflow-hidden rounded-[8px] bg-white focus-within:ring-[3px] focus-within:ring-[rgb(255_153_0_/_0.65)]">
+    <form action={actionPath} method="get" role="search" className="flex h-[40px] min-w-0 flex-1 overflow-hidden rounded-[8px] bg-white focus-within:ring-[3px] focus-within:ring-[rgb(255_153_0_/_0.65)]">
       <select name="dept" aria-label="Category" className="hidden max-w-[130px] shrink-0 cursor-pointer border-r border-line bg-gradient-to-b from-surface-4 to-surface-2 px-2.5 text-[12px] text-ink-2 outline-none hover:to-line-soft sm:block" defaultValue={defaultDept}>
         {departments.map((d) => (<option key={d.value} value={d.value}>{d.label}</option>))}
       </select>

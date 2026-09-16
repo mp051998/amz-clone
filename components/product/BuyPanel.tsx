@@ -1,10 +1,15 @@
 import type { Product } from '@/lib/catalog';
+import type { Store } from '../lib/store';
+import { toStoreMinor } from '@/lib/fx';
+import { formatMoney } from '@/lib/marketplaces';
 import { addToCart, buyNow } from '@/app/actions/cart';
+import { selectClass } from '../lib/controls';
 import { Price } from '../primitives/Price';
 import { IconLock } from '../icons/index';
 
 export interface BuyPanelProps {
   product: Product;
+  store: Store;
   /** free-delivery date, e.g. "Tue, Sep 19" */
   promise: string;
   /** fastest date, e.g. "Tomorrow" */
@@ -12,18 +17,20 @@ export interface BuyPanelProps {
 }
 
 /** PDP buy box — server-action form: qty + Add to Cart + Buy Now (design.md §5 Buy box). */
-export function BuyPanel({ product: p, promise, fastest }: BuyPanelProps) {
+export function BuyPanel({ product: p, store, promise, fastest }: BuyPanelProps) {
+  const cur = store.currency.code;
   return (
     <div className="w-full rounded-[8px] border border-line p-[14px] text-[14px] text-ink lg:w-[260px]">
       <div className="flex items-baseline gap-2">
         {p.deal && p.dealPct ? <span className="text-[20px] text-price-deal">-{p.dealPct}%</span> : null}
-        <Price minor={p.priceMinor} currency="USD" listMinor={p.listMinor} size={28} />
+        <Price minor={toStoreMinor(p.priceMinor, cur)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur) : undefined} size={28} />
       </div>
       {p.listMinor ? (
         <p className="mt-1 text-[12px] text-ink-2">
-          List Price: <s>{`$${(p.listMinor / 100).toFixed(2)}`}</s>
+          {store.pricing.listLabel}: <s>{formatMoney(toStoreMinor(p.listMinor, cur), cur)}</s>
         </p>
       ) : null}
+      {store.pricing.taxNote ? <p className="mt-0.5 text-[12px] text-ink-2">{store.pricing.taxNote}</p> : null}
 
       <p className="mt-3 text-[14px]">
         FREE delivery <b>{promise}</b>
@@ -38,7 +45,7 @@ export function BuyPanel({ product: p, promise, fastest }: BuyPanelProps) {
         <input type="hidden" name="id" value={p.id} />
         <label className="flex items-center gap-2 text-[13px]">
           <span className="sr-only">Quantity</span>
-          <select name="qty" defaultValue="1" className="h-[30px] rounded-[8px] border border-line-2 bg-surface-2 px-2 text-[13px] shadow-input">
+          <select name="qty" defaultValue="1" className={selectClass}>
             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>Qty: {n}</option>
             ))}

@@ -10,11 +10,17 @@ import { Reviews } from '@/components/product/Reviews';
 import { ProductRail } from '@/components/home/ProductRail';
 import { getProduct, productsIn, categoryName } from '@/lib/catalog';
 import { deliveryDate } from '@/lib/dates';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { storePath } from '@/lib/marketplace';
+import { toStoreMinor } from '@/lib/fx';
+import { formatMoney } from '@/lib/marketplaces';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const p = getProduct(id);
-  return { title: p ? `${p.title} : Amazon.com` : 'Product : Amazon.com' };
+  const store = await getMarketplace();
+  const site = `Amazon.${store.hostname.split('.').pop()}`;
+  return { title: p ? `${p.title} : ${site}` : `Product : ${site}` };
 }
 
 function badgeFor(badge?: string) {
@@ -29,11 +35,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const p = getProduct(id);
   if (!p) notFound();
 
-  const savingsMinor = p.listMinor && p.listMinor > p.priceMinor ? p.listMinor - p.priceMinor : 0;
+  const store = await getMarketplace();
+  const cur = store.currency.code;
+  const priceMinor = toStoreMinor(p.priceMinor, cur);
+  const listMinor = p.listMinor ? toStoreMinor(p.listMinor, cur) : 0;
+  const savingsMinor = listMinor && listMinor > priceMinor ? listMinor - priceMinor : 0;
   const similar = productsIn(p.category).filter((x) => x.id !== p.id);
   const trail = [
-    { label: 'Home', href: '/' },
-    { label: categoryName(p.category), href: `/s?dept=${p.category}` },
+    { label: 'Home', href: storePath(store, '/') },
+    { label: categoryName(p.category), href: storePath(store, `/s?dept=${p.category}`) },
     { label: p.title.length > 60 ? p.title.slice(0, 60) + '…' : p.title },
   ];
 
@@ -59,7 +69,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <div className="min-w-0 flex-1">
             <h1 className="text-[24px] font-medium leading-8 text-ink">{p.title}</h1>
             {p.brand ? (
-              <a href={`/s?brand=${encodeURIComponent(p.brand)}`} className="mt-1 inline-block text-[14px] text-link hover:text-link-hover hover:underline">
+              <a href={storePath(store, `/s?brand=${encodeURIComponent(p.brand)}`)} className="mt-1 inline-block text-[14px] text-link hover:text-link-hover hover:underline">
                 Visit the {p.brand} Store
               </a>
             ) : null}
@@ -73,14 +83,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
             <div className="flex items-baseline gap-2">
               {p.deal && p.dealPct ? <span className="text-[26px] text-price-deal">-{p.dealPct}%</span> : null}
-              <Price minor={p.priceMinor} currency="USD" size={30} />
+              <Price minor={priceMinor} currency={cur} size={30} />
             </div>
-            {p.listMinor ? (
+            {listMinor ? (
               <p className="mt-1 text-[13px] text-ink-2">
-                List Price: <s>{`$${(p.listMinor / 100).toFixed(2)}`}</s>
-                {savingsMinor ? <span className="ml-2">You Save: <b className="text-price-deal">{`$${(savingsMinor / 100).toFixed(2)}`}</b></span> : null}
+                {store.pricing.listLabel}: <s>{formatMoney(listMinor, cur)}</s>
+                {savingsMinor ? <span className="ml-2">{store.id === 'IN' ? 'Save' : 'You Save'}: <b className="text-price-deal">{formatMoney(savingsMinor, cur)}</b></span> : null}
               </p>
             ) : null}
+            {store.pricing.taxNote ? <p className="mt-0.5 text-[12px] text-ink-2">{store.pricing.taxNote}</p> : null}
 
             <hr className="my-3 border-line-3" />
 
@@ -99,15 +110,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
           {/* Buy box */}
           <div className="lg:w-[260px] lg:shrink-0">
-            <BuyPanel product={p} promise={deliveryDate(3)} fastest={deliveryDate(1)} />
+            <BuyPanel product={p} store={store} promise={deliveryDate(3, store)} fastest={deliveryDate(1, store)} />
           </div>
         </div>
 
-        <Reviews product={p} />
+        <Reviews product={p} country={store.id === 'IN' ? 'India' : 'the United States'} />
 
         {similar.length > 0 ? (
           <div className="mt-8">
-            <ProductRail title="Products related to this item" seeMoreHref={`/s?dept=${p.category}`} products={similar} />
+            <ProductRail title="Products related to this item" seeMoreHref={storePath(store, `/s?dept=${p.category}`)} products={similar} store={store} />
           </div>
         ) : null}
       </div>

@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers';
 import { getProduct, type Product } from './catalog';
+import type { CurrencyCode, PublicMarketplace } from './contracts';
+import { toStoreMinor } from './fx';
 
 export const CART_COOKIE = 'amz_cart';
 export type CartMap = Record<string, number>;
@@ -49,18 +51,19 @@ export async function cartCount(): Promise<number> {
   return Object.values(map).reduce((a, b) => a + b, 0);
 }
 
-export async function getCartLines(): Promise<CartLine[]> {
+/** Cart lines priced in `cur` (line unit price converted once, then × qty). */
+export async function getCartLines(cur: CurrencyCode = 'USD'): Promise<CartLine[]> {
   const map = await readCart();
   const lines: CartLine[] = [];
   for (const [id, qty] of Object.entries(map)) {
     const product = getProduct(id);
-    if (product) lines.push({ product, qty, lineTotalMinor: product.priceMinor * qty });
+    if (product) lines.push({ product, qty, lineTotalMinor: toStoreMinor(product.priceMinor, cur) * qty });
   }
   return lines;
 }
 
-export async function cartSubtotalMinor(): Promise<number> {
-  const lines = await getCartLines();
+export async function cartSubtotalMinor(cur: CurrencyCode = 'USD'): Promise<number> {
+  const lines = await getCartLines(cur);
   return lines.reduce((a, l) => a + l.lineTotalMinor, 0);
 }
 
@@ -71,9 +74,19 @@ export interface OrderTotals {
   totalMinor: number;
 }
 
-/** free shipping at/over $35, otherwise $5.99; flat 8% estimated tax. */
-export function computeTotals(subtotalMinor: number): OrderTotals {
-  const shipMinor = subtotalMinor === 0 || subtotalMinor >= 3500 ? 0 : 599;
-  const taxMinor = Math.round(subtotalMinor * 0.08);
+/** flat shipping fee below the free threshold, per store currency. */
+function shipFeeMinor(store: PublicMarketplace): number {
+  return store.currency.code === 'INR' ? 4000 : 599; // ₹40 / $5.99
+}
+
+/**
+ * Totals in the store's currency. `subtotalMinor` must already be in that currency.
+ * Free shipping at/over the store threshold, else a flat fee; tax is added on top
+ * for tax-exclusive stores (US 8%) and folded into the price for tax-inclusive ones (IN).
+ */
+export function computeTotals(subtotalMinor: number, store: PublicMarketplace): OrderTotals {
+  const free = subtotalMinor === 0 || subtotalMinor >= store.delivery.freeThresholdMinor;
+  const shipMinor = free ? 0 : shipFeeMinor(store);
+  const taxMinor = store.pricing.taxInclusive ? 0 : Math.round(subtotalMinor * 0.08);
   return { subtotalMinor, shipMinor, taxMinor, totalMinor: subtotalMinor + shipMinor + taxMinor };
 }

@@ -6,6 +6,8 @@ import { SearchResultRow } from '@/components/search/SearchResultRow';
 import { SortSelect } from '@/components/search/SortSelect';
 import { categoryName } from '@/lib/catalog';
 import { buildHref, parseQuery, runSearch, SORTS, PAGE_SIZE, type SearchQuery } from '@/lib/search';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { storePath } from '@/lib/marketplace';
 
 /** current params minus `sort`/`page` (both reset when those controls change) */
 function paramsBase(q: SearchQuery) {
@@ -24,6 +26,7 @@ export default async function SearchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
+  const store = await getMarketplace();
   const query = parseQuery(sp);
   const { items, total, pageCount, brandFacets, headingLabel, query: q } = runSearch(query);
 
@@ -31,14 +34,14 @@ export default async function SearchPage({
   const sortOptions = SORTS.map((s) => ({
     label: s.label,
     value: s.key,
-    href: buildHref({ ...base, sort: s.key === 'featured' ? undefined : s.key }),
+    href: storePath(store, buildHref({ ...base, sort: s.key === 'featured' ? undefined : s.key })),
   }));
 
   const start = total === 0 ? 0 : (q.page - 1) * PAGE_SIZE + 1;
   const end = Math.min(q.page * PAGE_SIZE, total);
 
   const trail = [
-    { label: 'Home', href: '/' },
+    { label: 'Home', href: storePath(store, '/') },
     ...(q.dept ? [{ label: categoryName(q.dept) }] : q.k ? [{ label: `Results for "${q.k}"` }] : [{ label: 'All' }]),
   ];
 
@@ -65,20 +68,20 @@ export default async function SearchPage({
         </div>
 
         <div className="flex gap-4 py-4">
-          <SearchFacets query={q} brandFacets={brandFacets} />
+          <SearchFacets query={q} brandFacets={brandFacets} store={store} />
 
           <div className="min-w-0 flex-1">
             {total === 0 ? (
               <div className="py-16 text-center">
                 <p className="text-[21px] font-bold text-ink">No results found</p>
                 <p className="mt-2 text-[15px] text-ink-2">Try checking your spelling or using more general terms.</p>
-                <a href="/s" className="mt-4 inline-block text-[14px] text-link hover:text-link-hover hover:underline">Clear all filters</a>
+                <a href={storePath(store, '/s')} className="mt-4 inline-block text-[14px] text-link hover:text-link-hover hover:underline">Clear all filters</a>
               </div>
             ) : (
               <>
-                {items.map((p) => (<SearchResultRow key={p.id} product={p} />))}
+                {items.map((p) => (<SearchResultRow key={p.id} product={p} store={store} />))}
                 {pageCount > 1 ? (
-                  <Pagination page={q.page} pageCount={pageCount} hrefFor={(n) => buildHref({ ...base, sort: q.sort === 'featured' ? undefined : q.sort, page: n })} />
+                  <Pagination page={q.page} pageCount={pageCount} hrefFor={(n) => storePath(store, buildHref({ ...base, sort: q.sort === 'featured' ? undefined : q.sort, page: n }))} />
                 ) : null}
               </>
             )}

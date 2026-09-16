@@ -1,4 +1,7 @@
 import type { Product } from '@/lib/catalog';
+import type { Store } from '../lib/store';
+import { storePath } from '@/lib/marketplace';
+import { toStoreMinor } from '@/lib/fx';
 import { Price } from '../primitives/Price';
 import { Stars } from '../primitives/Stars';
 import { addToCart } from '@/app/actions/cart';
@@ -11,8 +14,9 @@ function claimedPct(id: string): number {
 }
 
 /** Today's-Deals card: image + quick-add, % off, claimed bar, brand deals link (design.md §5 Deals). */
-export function DealCard({ product: p }: { product: Product }) {
-  const href = `/product/${p.id}`;
+export function DealCard({ product: p, store }: { product: Product; store: Store }) {
+  const href = storePath(store, `/product/${p.id}`);
+  const cur = store.currency.code;
   const claimed = claimedPct(p.id);
   return (
     <article className="flex flex-col rounded-[8px] bg-white p-3 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
@@ -37,7 +41,7 @@ export function DealCard({ product: p }: { product: Product }) {
       ) : null}
 
       <div className="mt-2">
-        <Price minor={p.priceMinor} currency="USD" listMinor={p.listMinor} size={22} />
+        <Price minor={toStoreMinor(p.priceMinor, cur)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur) : undefined} size={22} />
       </div>
 
       <div className="mt-1.5">
@@ -49,7 +53,7 @@ export function DealCard({ product: p }: { product: Product }) {
 
       <a href={href} className="mt-1.5 line-clamp-2 text-[13px] leading-4 text-ink hover:text-link-hover hover:underline">{p.title}</a>
       <div className="mt-1"><Stars rating={p.rating} count={p.reviewCount} size={12} /></div>
-      <a href={`/s?dept=${p.category}&deal=1`} className="mt-2 text-[13px] text-link-teal hover:text-brand-count hover:underline">
+      <a href={storePath(store, `/s?dept=${p.category}&deal=1`)} className="mt-2 text-[13px] text-link-teal hover:text-brand-count hover:underline">
         Shop {p.brand ?? 'more'} deals
       </a>
     </article>

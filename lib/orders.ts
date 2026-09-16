@@ -1,13 +1,15 @@
 import { cookies } from 'next/headers';
+import type { CurrencyCode } from './contracts';
 
 export const ORDERS_COOKIE = 'amz_orders';
 
-/** compact stored shape (kept small to fit the cookie budget) */
+/** compact stored shape (kept small to fit the cookie budget). `p` = unit price in `cur`. */
 export interface StoredOrderItem { id: string; q: number; p: number }
 export interface StoredOrder {
   id: string;
   ts: number;
   items: StoredOrderItem[];
+  cur: CurrencyCode;
   sub: number;
   ship: number;
   tax: number;
