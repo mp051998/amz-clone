@@ -120,7 +120,7 @@ const RAW = [
 ];
 
 const CATEGORIES = {
-  electronics: { name: 'Electronics', min: 1999, max: 34999 },
+  electronics: { name: 'Electronics', min: 1799, max: 16999 },
   computers: { name: 'Computers', min: 29900, max: 149900 },
   'home-kitchen': { name: 'Home & Kitchen', min: 3900, max: 24900 },
   fashion: { name: 'Fashion', min: 4900, max: 15900 },

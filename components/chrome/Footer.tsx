@@ -22,7 +22,9 @@ export function Footer({ storeName, columns }: FooterProps) {
         </div>
         <div className="border-t border-[#3A4553] py-6 text-center"><Wordmark /></div>
       </div>
-      <div className="bg-nav-bottom py-6 text-center text-[12px] text-line-2">{storeName} is an exploration clone. Not affiliated with Amazon.</div>
+      <div className="bg-nav-bottom px-4 py-6 text-center text-[12px] text-line-2">
+        Unofficial demo clone built as a coding exercise — not affiliated with, endorsed by, or connected to Amazon.com, Inc. Product names, logos, and images belong to their respective owners.
+      </div>
     </footer>
   );
 }
