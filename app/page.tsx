@@ -77,7 +77,7 @@ export default async function Home() {
             <CategoryCard title="Deals in Electronics" seeMore={{ label: 'See all deals', href: sp('/s?dept=electronics') }} items={items('electronics', store)} />
             <CategoryCard title="Get fit at home" seeMore={{ label: 'Shop Sports & Outdoors', href: sp('/s?dept=sports') }} items={items('sports', store)} />
             <CategoryCard title="Beauty picks for you" seeMore={{ label: 'Shop Beauty', href: sp('/s?dept=beauty') }} items={items('beauty', store)} />
-            <CategoryCard title="Level up your setup" variant="single" seeMore={{ label: 'Shop Computers', href: sp('/s?dept=computers') }} items={items('computers', store, 1)} />
+            <CategoryCard title="Level up your setup" seeMore={{ label: 'Shop Computers', href: sp('/s?dept=computers') }} items={items('computers', store)} />
 
             <CategoryCard title="Kitchen essentials" seeMore={{ label: 'Shop Home & Kitchen', href: sp('/s?dept=home-kitchen') }} items={items('home-kitchen', store)} />
             <CategoryCard title="Shoes for every run" seeMore={{ label: 'Shop Fashion', href: sp('/s?dept=fashion') }} items={items('fashion', store)} />

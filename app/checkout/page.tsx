@@ -59,7 +59,7 @@ export default async function CheckoutPage() {
       {/* slim checkout header */}
       <div className="border-b border-line-3 bg-white">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-4 py-3">
-          <span className="scale-90"><Wordmark tld={tld} /></span>
+          <span className="scale-90"><Wordmark tld={tld} tone="dark" /></span>
           <h1 className="text-[22px] font-normal text-ink">Secure checkout</h1>
           <span className="w-[80px]" />
         </div>
