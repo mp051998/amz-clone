@@ -61,11 +61,63 @@ export interface AppShellProps {
   cartCount?: number;
 }
 
+/** Amazon's family of companies — the sub-brand grid at the very bottom of the real footer. */
+const FOOTER_SUBBRANDS: Record<'US' | 'IN', { name: string; blurb: string }[]> = {
+  US: [
+    { name: 'Amazon Music', blurb: 'Stream millions of songs' },
+    { name: 'Amazon Ads', blurb: 'Reach customers wherever they spend their time' },
+    { name: '6pm', blurb: 'Score deals on fashion brands' },
+    { name: 'AbeBooks', blurb: 'Books, art & collectibles' },
+    { name: 'ACX', blurb: 'Audiobook Publishing Made Easy' },
+    { name: 'Sell on Amazon', blurb: 'Start a Selling Account' },
+    { name: 'Amazon Business', blurb: 'Everything For Your Business' },
+    { name: 'AmazonGlobal', blurb: 'Ship Orders Internationally' },
+    { name: 'Home Services', blurb: 'Experienced Pros · Happiness Guarantee' },
+    { name: 'Amazon Web Services', blurb: 'Scalable Cloud Computing Services' },
+    { name: 'Audible', blurb: 'Listen to Books & Original Audio Performances' },
+    { name: 'Box Office Mojo', blurb: 'Find Movie Box Office Data' },
+    { name: 'Goodreads', blurb: 'Book reviews & recommendations' },
+    { name: 'IMDb', blurb: 'Movies, TV & Celebrities' },
+    { name: 'IMDbPro', blurb: 'Get Info Entertainment Professionals Need' },
+    { name: 'Kindle Direct Publishing', blurb: 'Indie Digital & Print Publishing Made Easy' },
+    { name: 'Prime Video Direct', blurb: 'Video Distribution Made Easy' },
+    { name: 'Shopbop', blurb: 'Designer Fashion Brands' },
+    { name: 'Woot!', blurb: 'Deals and Shenanigans' },
+    { name: 'Zappos', blurb: 'Shoes & Clothing' },
+    { name: 'Ring', blurb: 'Smart Home Security Systems' },
+    { name: 'eero WiFi', blurb: 'Stream 4K Video in Every Room' },
+    { name: 'Blink', blurb: 'Smart Security for Every Home' },
+    { name: 'Amazon Pharmacy', blurb: 'Prescriptions delivered to your door' },
+  ],
+  IN: [
+    { name: 'AbeBooks', blurb: 'Books, art & collectibles' },
+    { name: 'Amazon Web Services', blurb: 'Scalable Cloud Computing Services' },
+    { name: 'Audible', blurb: 'Download Audio Books' },
+    { name: 'IMDb', blurb: 'Movies, TV & Celebrities' },
+    { name: 'Shopbop', blurb: 'Designer Fashion Brands' },
+    { name: 'Amazon Business', blurb: 'Everything For Your Business' },
+    { name: 'Prime Now', blurb: '2-Hour Delivery on Everyday Items' },
+    { name: 'Amazon Prime Music', blurb: '100 million songs, ad-free' },
+  ],
+};
+
+/** Locale bar + legal line, mirroring each store's real footer. */
+const FOOTER_LOCALE: Record<'US' | 'IN', { language: string; currency?: string; country: string }> = {
+  US: { language: 'English', currency: '$ USD - U.S. Dollar', country: '🇺🇸 United States' },
+  IN: { language: 'English', country: '🇮🇳 India' },
+};
+const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
+  US: ['Conditions of Use', 'Privacy Notice', 'Consumer Health Data Privacy Disclosure', 'Your Ads Privacy Choices'],
+  IN: ['Conditions of Use & Sale', 'Privacy Notice', 'Interest-Based Ads'],
+};
+const FOOTER_COPYRIGHT = '© 1996–2024, Amazon.com, Inc. or its affiliates';
+
 /** Amazon chrome wrapper: header belt + sub-nav on top, footer below (design.md §5). Store-aware. */
 export async function AppShell({ children, cartCount }: AppShellProps) {
   const store = await getMarketplace();
   const count = cartCount ?? (await readCartCount());
   const user = await readUser();
+  const key = store.id === 'IN' ? 'IN' : 'US';
 
   const departments = store.nav.departments;
   const deptHref = (label: string) => {
@@ -101,7 +153,15 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
         />
       </header>
       <main className="flex-1">{children}</main>
-      <Footer storeName={store.name} tld={store.hostname.split('.').pop()} columns={FOOTER_COLUMNS[store.id === 'IN' ? 'IN' : 'US']} />
+      <Footer
+        storeName={store.name}
+        tld={store.hostname.split('.').pop()}
+        columns={FOOTER_COLUMNS[key]}
+        locale={FOOTER_LOCALE[key]}
+        subBrands={FOOTER_SUBBRANDS[key]}
+        legal={FOOTER_LEGAL[key]}
+        copyright={FOOTER_COPYRIGHT}
+      />
     </div>
   );
 }

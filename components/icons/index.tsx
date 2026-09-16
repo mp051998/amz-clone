@@ -13,7 +13,20 @@ function Line({ children, ...props }: IconProps) {
 }
 
 export const IconSearch = (p: IconProps) => (<Line {...p}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></Line>);
-export const IconCart = (p: IconProps) => (<Line {...p}><path d="M3 4h2l2.2 11.2a1 1 0 0 0 1 .8h8.6a1 1 0 0 0 1-.8L20 8H6" /><circle cx="9" cy="20" r="1.3" /><circle cx="17" cy="20" r="1.3" /></Line>);
+/** Amazon shopping cart: left handle sweeping up, open trapezoidal basket (wider at top),
+ *  two wheels — the recognizable amazon.com nav-cart silhouette. */
+export const IconCart = (props: IconProps) => {
+  const labelled = props['aria-label'] != null;
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden={labelled ? undefined : true} role={labelled ? 'img' : undefined} {...props}>
+      <path d="M2.4 4.3h2.2l.7 2.5" />
+      <path d="M5.3 6.8H21l-2.3 6.7H7.5z" />
+      <path d="M7.5 13.5l.6 2.2M18.7 13.5l-.6 2.2" />
+      <circle cx="8.7" cy="18.2" r="1.4" />
+      <circle cx="17.3" cy="18.2" r="1.4" />
+    </svg>
+  );
+};
 export const IconPin = (p: IconProps) => (<Line {...p}><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11Z" /><circle cx="12" cy="10" r="2.4" /></Line>);
 export const IconChevronDown = (p: IconProps) => (<Line {...p}><path d="m6 9 6 6 6-6" /></Line>);
 export const IconChevronRight = (p: IconProps) => (<Line {...p}><path d="m9 6 6 6-6 6" /></Line>);
