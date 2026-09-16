@@ -6,6 +6,7 @@ import { Stars } from '@/components/primitives/Stars';
 import { Price } from '@/components/primitives/Price';
 import { Badge } from '@/components/primitives/Badge';
 import { BuyPanel } from '@/components/product/BuyPanel';
+import { Reviews } from '@/components/product/Reviews';
 import { ProductRail } from '@/components/home/ProductRail';
 import { getProduct, productsIn, categoryName } from '@/lib/catalog';
 import { deliveryDate } from '@/lib/dates';
@@ -101,6 +102,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <BuyPanel product={p} promise={deliveryDate(3)} fastest={deliveryDate(1)} />
           </div>
         </div>
+
+        <Reviews product={p} />
 
         {similar.length > 0 ? (
           <div className="mt-8">

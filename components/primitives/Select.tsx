@@ -1,5 +1,6 @@
 import { useId, type SelectHTMLAttributes } from 'react';
 import { cn } from '../lib/cn';
+import { selectClass } from '../lib/controls';
 
 export interface SelectOption { value: string; label: string }
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
@@ -16,7 +17,7 @@ export function Select({ label, options, id, className, ...props }: SelectProps)
       {label ? <label htmlFor={fieldId} className="text-[13px] font-bold text-ink">{label}</label> : null}
       <select
         id={fieldId}
-        className={cn('h-[31px] rounded-[8px] border border-line-2 bg-surface-2 px-2 text-[13px] text-ink outline-none focus:border-[#E77600]', className)}
+        className={cn(selectClass, className)}
         {...props}
       >
         {options.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}

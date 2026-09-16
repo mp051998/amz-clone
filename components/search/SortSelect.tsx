@@ -1,5 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { selectClass } from '../lib/controls';
 
 export interface SortOption { label: string; value: string; href: string }
 
@@ -16,7 +17,7 @@ export function SortSelect({ options, value }: { options: SortOption[]; value: s
           const opt = options.find((o) => o.value === e.target.value);
           if (opt) router.push(opt.href);
         }}
-        className="h-[33px] rounded-[8px] border border-line-2 bg-surface-2 px-2 text-[13px] shadow-input hover:bg-surface-3"
+        className={selectClass}
       >
         {options.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
       </select>

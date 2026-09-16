@@ -1,5 +1,6 @@
 'use client';
 import { updateQty } from '@/app/actions/cart';
+import { selectClass } from '../lib/controls';
 
 /** Qty dropdown that submits updateQty on change (design.md cart). Falls back to a Update button without JS. */
 export function CartQty({ id, qty }: { id: string; qty: number }) {
@@ -12,7 +13,7 @@ export function CartQty({ id, qty }: { id: string; qty: number }) {
           name="qty"
           defaultValue={qty}
           onChange={(e) => e.currentTarget.form?.requestSubmit()}
-          className="h-[29px] rounded-[8px] border border-line-2 bg-surface-2 px-2 text-[13px] shadow-input hover:bg-surface-3"
+          className={selectClass}
         >
           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
             <option key={n} value={n}>Qty: {n}</option>
