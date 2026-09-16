@@ -10,8 +10,8 @@ import { cn } from '../lib/cn';
  * so there is no vertical padding to trim.
  */
 export function Wordmark({ tld = 'com', className, tone = 'light' }: { tld?: string; className?: string; tone?: 'light' | 'dark' }) {
-  // widen the box just enough for the TLD text; ".in" needs less room than ".com".
-  const vbW = !tld ? 610 : tld.length <= 2 ? 742 : 838;
+  // widen the box just enough for the TLD text so it never clips; ".in" needs less than ".com".
+  const vbW = !tld ? 610 : tld.length <= 2 ? 756 : 878;
   return (
     <svg
       className={cn('block h-[30px] w-auto select-none', tone === 'dark' ? 'text-ink' : 'text-white', className)}

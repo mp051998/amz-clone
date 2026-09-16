@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { getProduct, type Product } from './catalog';
 import type { CurrencyCode, PublicMarketplace } from './contracts';
 import { toStoreMinor } from './fx';
+import { getMarketplace } from './marketplace-server';
 
 export const CART_COOKIE = 'amz_cart';
 export type CartMap = Record<string, number>;
@@ -12,9 +13,20 @@ export interface CartLine {
   lineTotalMinor: number;
 }
 
-/** parse the cart cookie into an {id: qty} map (safe on malformed input). */
+/**
+ * Cart cookie name for the active store. amazon.com and amazon.in are separate
+ * marketplaces (like the real sites), so each keeps its own cart: US -> `amz_cart`,
+ * IN -> `amz_cart_in`. The store is read from the request (x-amz-country), so the
+ * same code path scopes the cart correctly in server components and server actions.
+ */
+async function cartCookieName(): Promise<string> {
+  const store = await getMarketplace();
+  return store.id === 'IN' ? `${CART_COOKIE}_in` : CART_COOKIE;
+}
+
+/** parse the active store's cart cookie into an {id: qty} map (safe on malformed input). */
 export async function readCart(): Promise<CartMap> {
-  const raw = (await cookies()).get(CART_COOKIE)?.value;
+  const raw = (await cookies()).get(await cartCookieName())?.value;
   if (!raw) return {};
   try {
     const obj = JSON.parse(raw);
@@ -30,15 +42,16 @@ export async function readCart(): Promise<CartMap> {
   }
 }
 
-/** persist the cart map. Only callable inside a Server Action / Route Handler. */
+/** persist the active store's cart map. Only callable inside a Server Action / Route Handler. */
 export async function writeCart(map: CartMap): Promise<void> {
   const jar = await cookies();
+  const name = await cartCookieName();
   const clean = Object.fromEntries(Object.entries(map).filter(([, q]) => q > 0));
   if (Object.keys(clean).length === 0) {
-    jar.delete(CART_COOKIE);
+    jar.delete(name);
     return;
   }
-  jar.set(CART_COOKIE, JSON.stringify(clean), {
+  jar.set(name, JSON.stringify(clean), {
     httpOnly: false,
     sameSite: 'lax',
     path: '/',

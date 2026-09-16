@@ -41,12 +41,21 @@ const ITEM_PATHS: Record<string, string> = {
   Prime: '/s',
 };
 
-const FOOTER_COLUMNS = [
-  { heading: 'Get to Know Us', links: ['Careers', 'Blog', 'About Amazon', 'Investor Relations', 'Amazon Devices'] },
-  { heading: 'Make Money with Us', links: ['Sell products on Amazon', 'Sell on Amazon Business', 'Become an Affiliate', 'Advertise Your Products', 'Self-Publish with Us'] },
-  { heading: 'Amazon Payment Products', links: ['Amazon Business Card', 'Shop with Points', 'Reload Your Balance', 'Currency Converter', 'Gift Cards'] },
-  { heading: 'Let Us Help You', links: ['Your Account', 'Your Orders', 'Shipping Rates & Policies', 'Returns & Replacements', 'Help'] },
-];
+/** Footer link columns per marketplace, mirroring the real amazon.com / amazon.in footers. */
+const FOOTER_COLUMNS: Record<'US' | 'IN', { heading: string; links: string[] }[]> = {
+  US: [
+    { heading: 'Get to Know Us', links: ['Careers', 'Blog', 'About Amazon', 'Investor Relations', 'Amazon Devices', 'Amazon Science'] },
+    { heading: 'Make Money with Us', links: ['Sell products on Amazon', 'Sell on Amazon Business', 'Sell apps on Amazon', 'Become an Affiliate', 'Advertise Your Products', 'Self-Publish with Us', 'Host an Amazon Hub'] },
+    { heading: 'Amazon Payment Products', links: ['Amazon Business Card', 'Shop with Points', 'Reload Your Balance', 'Amazon Currency Converter'] },
+    { heading: 'Let Us Help You', links: ['Your Account', 'Your Orders', 'Shipping Rates & Policies', 'Returns & Replacements', 'Help'] },
+  ],
+  IN: [
+    { heading: 'Get to Know Us', links: ['About Us', 'Careers', 'Press Releases', 'Amazon Science'] },
+    { heading: 'Connect with Us', links: ['Facebook', 'Twitter', 'Instagram'] },
+    { heading: 'Make Money with Us', links: ['Sell on Amazon', 'Sell under Amazon Accelerator', 'Protect and Build Your Brand', 'Amazon Global Selling', 'Become an Affiliate', 'Fulfilment by Amazon', 'Advertise Your Products', 'Amazon Pay on Merchants'] },
+    { heading: 'Let Us Help You', links: ['Your Account', 'Returns Centre', '100% Purchase Protection', 'Amazon App Download', 'Help'] },
+  ],
+};
 
 export interface AppShellProps {
   children: ReactNode;
@@ -96,7 +105,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
         />
       </header>
       <main className="flex-1">{children}</main>
-      <Footer storeName={store.name} tld={store.hostname.split('.').pop()} columns={FOOTER_COLUMNS} />
+      <Footer storeName={store.name} tld={store.hostname.split('.').pop()} columns={FOOTER_COLUMNS[store.id === 'IN' ? 'IN' : 'US']} />
     </div>
   );
 }
