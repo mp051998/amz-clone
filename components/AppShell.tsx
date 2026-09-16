@@ -46,13 +46,13 @@ const FOOTER_COLUMNS: Record<'US' | 'IN', { heading: string; links: string[] }[]
     { heading: 'Get to Know Us', links: ['Careers', 'Blog', 'About Amazon', 'Investor Relations', 'Amazon Devices', 'Amazon Science'] },
     { heading: 'Make Money with Us', links: ['Sell products on Amazon', 'Sell on Amazon Business', 'Sell apps on Amazon', 'Become an Affiliate', 'Advertise Your Products', 'Self-Publish with Us', 'Host an Amazon Hub'] },
     { heading: 'Amazon Payment Products', links: ['Amazon Business Card', 'Shop with Points', 'Reload Your Balance', 'Amazon Currency Converter'] },
-    { heading: 'Let Us Help You', links: ['Your Account', 'Your Orders', 'Shipping Rates & Policies', 'Returns & Replacements', 'Help'] },
+    { heading: 'Let Us Help You', links: ['Your Account', 'Your Orders', 'Shipping Rates & Policies', 'Returns & Replacements', 'Manage Your Content and Devices', 'Help'] },
   ],
   IN: [
-    { heading: 'Get to Know Us', links: ['About Us', 'Careers', 'Press Releases', 'Amazon Science'] },
+    { heading: 'Get to Know Us', links: ['About Amazon', 'Careers', 'Press Releases', 'Amazon Science'] },
     { heading: 'Connect with Us', links: ['Facebook', 'Twitter', 'Instagram'] },
-    { heading: 'Make Money with Us', links: ['Sell on Amazon', 'Sell under Amazon Accelerator', 'Protect and Build Your Brand', 'Amazon Global Selling', 'Become an Affiliate', 'Fulfilment by Amazon', 'Advertise Your Products', 'Amazon Pay on Merchants'] },
-    { heading: 'Let Us Help You', links: ['Your Account', 'Returns Centre', '100% Purchase Protection', 'Amazon App Download', 'Help'] },
+    { heading: 'Make Money with Us', links: ['Sell on Amazon', 'Sell under Amazon Accelerator', 'Protect and Build Your Brand', 'Amazon Global Selling', 'Supply to Amazon', 'Become an Affiliate', 'Fulfilment by Amazon', 'Advertise Your Products', 'Amazon Pay on Merchants'] },
+    { heading: 'Let Us Help You', links: ['Your Account', 'Returns Centre', 'Recalls and Product Safety Alerts', '100% Purchase Protection', 'Amazon App Download', 'Help'] },
   ],
 };
 
@@ -110,7 +110,7 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
   US: ['Conditions of Use', 'Privacy Notice', 'Consumer Health Data Privacy Disclosure', 'Your Ads Privacy Choices'],
   IN: ['Conditions of Use & Sale', 'Privacy Notice', 'Interest-Based Ads'],
 };
-const FOOTER_COPYRIGHT = '© 1996–2024, Amazon.com, Inc. or its affiliates';
+const FOOTER_COPYRIGHT = '© 1996–2026, Amazon.com, Inc. or its affiliates';
 
 /** Amazon chrome wrapper: header belt + sub-nav on top, footer below (design.md §5). Store-aware. */
 export async function AppShell({ children, cartCount }: AppShellProps) {
