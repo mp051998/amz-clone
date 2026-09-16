@@ -27,17 +27,17 @@ const DEPT_SLUG: Record<string, string> = {
 /** sub-nav item → path (before store prefixing). Covers both US and IN sub-nav labels. */
 const ITEM_PATHS: Record<string, string> = {
   "Today's Deals": '/deals',
-  'Customer Service': '/account',
-  Registry: '/s',
-  'Gift Cards': '/s',
-  Sell: '/s',
+  'Customer Service': '/customer-service',
+  Registry: '/registry',
+  'Gift Cards': '/gift-cards',
+  Sell: '/sell',
   Fresh: '/s?dept=home-kitchen',
   Mobiles: '/s?dept=electronics',
   'Prime Video': '/prime-video',
-  'Amazon Pay': '/s',
-  Bestsellers: '/deals',
-  'New Releases': '/s',
-  Prime: '/s',
+  'Amazon Pay': '/amazon-pay',
+  Bestsellers: '/bestsellers',
+  'New Releases': '/new-releases',
+  Prime: '/prime',
 };
 
 /** Footer link columns per marketplace, mirroring the real amazon.com / amazon.in footers. */
