@@ -54,8 +54,8 @@ export default async function CartPage() {
             </div>
 
             {lines.map((l) => (
-              <div key={l.product.id} className="flex gap-4 border-b border-line-3 py-4">
-                <a href={sp(`/product/${l.product.id}`)} className="flex h-[140px] w-[140px] shrink-0 items-center justify-center bg-white">
+              <div key={l.product.id} className="flex gap-3 border-b border-line-3 py-4 sm:gap-4">
+                <a href={sp(`/product/${l.product.id}`)} className="flex h-[100px] w-[100px] shrink-0 items-center justify-center bg-white sm:h-[140px] sm:w-[140px]">
                   <img src={l.product.image} alt={l.product.title} className="max-h-full max-w-full object-contain" />
                 </a>
                 <div className="min-w-0 flex-1">
