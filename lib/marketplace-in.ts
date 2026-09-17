@@ -26,7 +26,7 @@ export const amazonIn: PublicMarketplace = {
   delivery: { methods: ['standard', 'one-day', 'same-day'], freeThresholdMinor: 49900 },
   membership: { name: 'Prime' },
   nav: {
-    subnav: ['Fresh', 'Mobiles', 'Prime Video', "Today's Deals", 'Amazon Pay', 'Bestsellers', 'Customer Service', 'New Releases', 'Prime', 'Sell'],
+    subnav: ['Mobiles', 'Prime Video', "Today's Deals", 'Amazon Pay', 'Bestsellers', 'Customer Service', 'New Releases', 'Prime', 'Sell'],
     departments: [
       'Mobiles',
       'Electronics',

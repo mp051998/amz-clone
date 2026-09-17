@@ -31,7 +31,6 @@ const ITEM_PATHS: Record<string, string> = {
   Registry: '/registry',
   'Gift Cards': '/gift-cards',
   Sell: '/sell',
-  Fresh: '/s?dept=home-kitchen',
   Mobiles: '/s?dept=mobiles',
   'Prime Video': '/prime-video',
   'Amazon Pay': '/amazon-pay',
