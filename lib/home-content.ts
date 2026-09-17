@@ -1,6 +1,6 @@
 import type { MerchandisingCardData } from '../components/home/MerchandisingCard';
 import type { HomeCampaign, HomeModule, PublicMarketplace } from './contracts';
-import { categories, categoryName, deals, productsIn, type Product } from './catalog-market';
+import { categoriesFor, categoryName, deals, productsIn, type Product } from './catalog-market';
 import { storePath } from './marketplace';
 import { formatMoney } from './marketplaces';
 import { toStoreMinor } from './fx';
@@ -32,7 +32,7 @@ export function getHomeContent(store: PublicMarketplace): HomeContent {
   const campaignModule = store.ui.home.find((module) => module.kind === 'campaign');
   if (!campaignModule) throw new Error(`Missing home campaign for ${store.id}`);
 
-  const catalog = categories.flatMap((category) => productsIn(category.slug, store.id));
+  const catalog = categoriesFor(store.id).flatMap((category) => productsIn(category.slug, store.id));
   const byId = new Map(catalog.map((product) => [product.id, product]));
   const cards: HomeContent['cards'] = [];
   const rails: HomeContent['rails'] = [];
@@ -70,15 +70,20 @@ export function getHomeContent(store: PublicMarketplace): HomeContent {
   };
 }
 
+const RAIL_MAX = 14;
+
 function resolveRail(module: Extract<HomeModule, { kind: 'deal-rail' }>, byId: Map<string, Product>, store: PublicMarketplace): HomeContent['rails'][number] {
+  // Curated ids lead the rail; top up with the market's other deals so the rail
+  // isn't stranded at just the handful of hand-picked headliners.
+  const curated = module.productIds.flatMap((id) => {
+    const product = byId.get(id);
+    return product ? [product] : [];
+  });
+  const seen = new Set(curated.map((product) => product.id));
+  const filler = deals(store.id).filter((product) => !seen.has(product.id));
   return {
     id: module.id,
     title: module.title,
-    products: module.productIds.length
-      ? module.productIds.flatMap((id) => {
-        const product = byId.get(id);
-        return product ? [product] : [];
-      })
-      : deals(store.id).slice(0, 14),
+    products: [...curated, ...filler].slice(0, RAIL_MAX),
   };
 }

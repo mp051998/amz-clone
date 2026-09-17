@@ -32,13 +32,19 @@ test.each([amazon, amazonIn])('$id cards link to their catalog with meaningful p
   }
 });
 
-test('resolves configured rail products without copying records or crossing marketplaces', () => {
+test('leads the rail with curated products then tops it up, without copying records or crossing marketplaces', () => {
   const us = getHomeContent(amazon).rails[0];
   const india = getHomeContent(amazonIn).rails[0];
-  expect(us.products.map((product) => product.id)).toEqual(['6181VJVcgSL', '51CnDMbXZzL', '61hzm0JOv3L', '71Hx8b6HGbL']);
-  expect(india.products.map((product) => product.id)).toEqual(['in-61BWskzWNIL', 'in-711l4y8aNlL', 'in-71QdB7hDCAL', 'in-51lPcFkwYmL']);
-  for (const product of [...us.products, ...india.products]) {
+  // curated headliners come first, in configured order
+  expect(us.products.slice(0, 4).map((product) => product.id)).toEqual(['6181VJVcgSL', '51CnDMbXZzL', '61hzm0JOv3L', '71Hx8b6HGbL']);
+  expect(india.products.slice(0, 4).map((product) => product.id)).toEqual(['in-61BWskzWNIL', 'in-711l4y8aNlL', 'in-71QdB7hDCAL', 'in-51lPcFkwYmL']);
+  // the rail is topped up past the handful of curated headliners
+  expect(india.products.length).toBeGreaterThan(4);
+  // records stay catalog-owned (not copied) and never cross marketplaces
+  for (const product of us.products) expect(product).toBe(getProduct(product.id));
+  for (const product of india.products) {
     expect(product).toBe(getProduct(product.id));
+    expect(product.id.startsWith('in-')).toBe(true);
   }
 });
 
@@ -56,7 +62,10 @@ test('honors configured card and product order instead of fixed marketplace defa
   expect(content.cards.map((card) => card.id)).toEqual(['beauty', 'electronics']);
   expect(content.rails[0].id).toBe('custom-rail');
   expect(content.rails[0].title).toBe('Custom picks');
-  expect(content.rails[0].products.map((product) => product.id)).toEqual(['in-711l4y8aNlL', 'in-61BWskzWNIL']);
+  // resolvable curated ids lead in order (US id + 'missing' dropped — no cross-market leak) …
+  expect(content.rails[0].products.slice(0, 2).map((product) => product.id)).toEqual(['in-711l4y8aNlL', 'in-61BWskzWNIL']);
+  // … and the rest of the rail is topped up with this market's deals only
+  expect(content.rails[0].products.every((product) => product.id.startsWith('in-'))).toBe(true);
 });
 
 test('uses marketplace deals when a rail has no curated product IDs', () => {
