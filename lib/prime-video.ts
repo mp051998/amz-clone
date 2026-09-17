@@ -53,6 +53,8 @@ const US: PVContent = {
         { title: 'Invincible', meta: 'Animation · 18+', imdb: 8.7, tag: 'Prime', hue: 140, poster: '/prime/invincible.jpg', desc: "A teenager inherits superpowers from his father — the world's greatest hero — and learns the brutal cost of the cape." },
         { title: 'The Wheel of Time', meta: 'Fantasy · 16+', imdb: 7.1, tag: 'Prime', hue: 265, poster: '/prime/the-wheel-of-time.jpg', desc: 'A powerful sorceress leads five villagers on a perilous journey to find the one prophesied to save — or break — the world.' },
         { title: 'The Terminal List', meta: 'Thriller · 18+', imdb: 8.0, tag: 'Prime', hue: 200, poster: '/prime/the-terminal-list.jpg', desc: 'A Navy SEAL uncovers a conspiracy behind the ambush that wiped out his platoon, and hunts those responsible.' },
+        { title: 'Citadel', meta: 'Action · 16+', imdb: 6.9, tag: 'Prime', hue: 18, poster: '/prime/citadel.jpg', desc: "Years ago, elite spies Mason Kane and Nadia Sinh had their minds wiped; now they're recalled to action as sinister forces emerge from the past." },
+        { title: 'Hunters', meta: 'Thriller · 18+', imdb: 7.1, tag: 'Prime', hue: 41, poster: '/prime/hunters.jpg', desc: 'A diverse band of Nazi hunters in 1977 New York City discovers high-ranking Nazi officials conspiring to create a Fourth Reich in the U.S.' },
       ],
     },
     {
@@ -64,6 +66,8 @@ const US: PVContent = {
         { title: 'Air', meta: '2023 · Drama · R', imdb: 7.4, hue: 8, poster: '/prime/air.jpg', desc: 'The true story of how Nike gambled everything to sign a rookie Michael Jordan and change sports forever.' },
         { title: 'Argylle', meta: '2024 · Action · PG-13', imdb: 5.6, hue: 250, poster: '/prime/argylle.jpg', desc: "A spy novelist's fictional plots start colliding with real-world espionage — and she becomes the target." },
         { title: 'The Tomorrow War', meta: '2021 · Sci-Fi · PG-13', imdb: 6.5, hue: 190, poster: '/prime/the-tomorrow-war.jpg', desc: 'A father is drafted to fight a future alien war and must save humanity before time runs out.' },
+        { title: 'The Boys in the Boat', meta: '2023 · Sports Drama · PG-13', imdb: 7.2, hue: 32, poster: '/prime/the-boys-in-the-boat.jpg', desc: 'The underdog University of Washington rowing team stuns the world by competing at the 1936 Berlin Olympics.' },
+        { title: 'Red, White & Royal Blue', meta: '2023 · Romance · R', imdb: 7.9, hue: 25, poster: '/prime/red-white-and-royal-blue.jpg', desc: "When the U.S. president's son and Britain's prince are forced into a staged truce, their icy feud thaws into something far deeper." },
       ],
     },
     {
@@ -75,6 +79,19 @@ const US: PVContent = {
         { title: 'Bosch', meta: 'Crime · 16+', imdb: 8.5, tag: 'Prime', hue: 215, poster: '/prime/bosch.jpg', desc: 'A relentless LAPD homicide detective bends the rules on the belief that everybody counts or nobody counts.' },
         { title: 'Upload', meta: 'Comedy · 16+', imdb: 8.0, tag: 'Prime', hue: 168, poster: '/prime/upload.jpg', desc: 'In a near future, people upload their consciousness into luxury digital afterlives — for the right price.' },
         { title: 'Cross', meta: '2024 · Crime · 18+', imdb: 7.3, tag: 'Prime', hue: 268, poster: '/prime/cross.jpg', desc: 'Detective Alex Cross hunts a killer who is targeting him and everyone he loves.' },
+        { title: 'Carnival Row', meta: 'Fantasy · 18+', imdb: 7.7, tag: 'Prime', hue: 39, poster: '/prime/carnival-row.jpg', desc: 'In a dark city of humans and mythical creatures, a detective investigating gruesome fairy murders becomes the prime suspect himself.' },
+        { title: 'Good Omens', meta: 'Fantasy · 13+', imdb: 8.0, tag: 'Prime', hue: 26, poster: '/prime/good-omens.jpg', desc: "An angel and a demon who've grown fond of Earth team up to stop Armageddon after misplacing the Antichrist." },
+      ],
+    },
+    {
+      heading: 'New releases',
+      titles: [
+        { title: 'The Peripheral', meta: 'Sci-Fi · 18+', imdb: 7.6, tag: 'Prime', hue: 29, poster: '/prime/the-peripheral.jpg', desc: 'Stuck in a small Appalachian town, a young gamer tests a new game system that unlocks her dreams — and puts her family in real danger.' },
+        { title: 'The Summer I Turned Pretty', meta: 'Romance · 13+', imdb: 8.1, tag: 'Prime', hue: 198, poster: '/prime/the-summer-i-turned-pretty.jpg', desc: 'Every summer Belly returns to Cousins Beach, but the year she turns sixteen brings first love, first heartbreak and a life-changing love triangle.' },
+        { title: 'Daisy Jones & The Six', meta: 'Drama · 18+', imdb: 8.0, tag: 'Prime', hue: 27, poster: '/prime/daisy-jones-and-the-six.jpg', desc: 'In 1977 the band Daisy Jones & The Six rose from obscurity to fame, then broke up at their peak; decades later they finally reveal why.' },
+        { title: 'The Underground Railroad', meta: 'Drama · 18+', imdb: 7.2, tag: 'Prime', hue: 209, poster: '/prime/the-underground-railroad.jpg', desc: 'Fleeing her Georgia plantation, young Cora discovers the Underground Railroad is a real network of tracks and tunnels beneath the Southern soil.' },
+        { title: 'Role Play', meta: '2024 · Action Comedy · R', imdb: 6.0, hue: 39, poster: '/prime/role-play.jpg', desc: 'Emma is a suburban mom with a secret life as an assassin — a secret her husband uncovers when they spice up their marriage with role play.' },
+        { title: 'Foe', meta: '2023 · Sci-Fi · R', imdb: 5.8, hue: 29, poster: '/prime/foe.jpg', desc: "A couple's quiet farm life is upended when a stranger arrives with a startling proposal that threatens their relationship and identity." },
       ],
     },
   ],
