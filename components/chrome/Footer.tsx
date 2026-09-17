@@ -1,7 +1,8 @@
 import { Wordmark } from './Wordmark';
 
-export interface FooterColumn { heading: string; links: string[] }
-export interface FooterSubBrand { name: string; blurb: string }
+export interface FooterLink { label: string; href: string; external?: boolean }
+export interface FooterColumn { heading: string; links: FooterLink[] }
+export interface FooterSubBrand { name: string; blurb: string; href: string; external?: boolean }
 export interface FooterLocale { language: string; currency?: string; country: string }
 export interface FooterProps {
   storeName: string;
@@ -9,9 +10,12 @@ export interface FooterProps {
   columns: FooterColumn[];
   locale: FooterLocale;
   subBrands: FooterSubBrand[];
-  legal: string[];
+  legal: FooterLink[];
   copyright: string;
 }
+
+/** Attributes that open external links safely in a new tab (nothing extra for internal links). */
+const extAttrs = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
 
 /** Back-to-top band → 4 link columns → locale bar → sub-brand grid → legal line
  *  (mirrors the real amazon.com / amazon.in footer stack; design.md §5 Footer). */
@@ -25,7 +29,7 @@ export function Footer({ storeName, tld = 'com', columns, locale, subBrands, leg
           {columns.map((c) => (
             <div key={c.heading}>
               <h3 className="mb-2 text-[16px] font-bold">{c.heading}</h3>
-              <ul className="space-y-2">{c.links.map((l) => (<li key={l}><a href="#" className="text-[14px] text-line-2 hover:underline">{l}</a></li>))}</ul>
+              <ul className="space-y-2">{c.links.map((l) => (<li key={l.label}><a href={l.href} {...extAttrs(l.external)} className="text-[14px] text-line-2 hover:underline">{l.label}</a></li>))}</ul>
             </div>
           ))}
         </div>
@@ -47,7 +51,7 @@ export function Footer({ storeName, tld = 'com', columns, locale, subBrands, leg
       <div className="bg-nav-bottom">
         <div className="mx-auto grid max-w-[820px] grid-cols-2 gap-x-6 gap-y-6 px-4 py-9 text-center sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {subBrands.map((b) => (
-            <a key={b.name} href="#" className="group block leading-tight">
+            <a key={b.name} href={b.href} {...extAttrs(b.external)} className="group block leading-tight">
               <span className="block text-[12px] font-bold text-white group-hover:underline">{b.name}</span>
               <span className="mt-1 block text-[11px] text-[#DDD]">{b.blurb}</span>
             </a>
@@ -57,7 +61,7 @@ export function Footer({ storeName, tld = 'com', columns, locale, subBrands, leg
         {/* legal links + copyright */}
         <div className="border-t border-[#3A4553] px-4 py-7 text-center">
           <ul className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12px] text-line-2">
-            {legal.map((l) => (<li key={l}><a href="#" className="hover:underline">{l}</a></li>))}
+            {legal.map((l) => (<li key={l.label}><a href={l.href} {...extAttrs(l.external)} className="hover:underline">{l.label}</a></li>))}
           </ul>
           <p className="mt-2 text-[12px] text-[#999]">{copyright}</p>
         </div>

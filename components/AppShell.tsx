@@ -4,6 +4,7 @@ import { cartCount as readCartCount } from '@/lib/cart';
 import { readUser, firstName } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { footerDest } from '@/lib/footer-links';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { HeaderBelt } from './chrome/HeaderBelt';
 import { SubNav } from './chrome/SubNav';
@@ -130,6 +131,21 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
   const deptLinks = departments.map((label) => ({ label, href: deptHref(label) }));
   const programLinks = store.nav.subnav.map((label) => ({ label, href: itemHrefs[label] }));
 
+  // resolve every footer label to a real href: internal routes get store-prefixed,
+  // external brand/legal sites open in a new tab.
+  const toLink = (label: string) => {
+    const dest = footerDest(label);
+    return 'url' in dest
+      ? { label, href: dest.url, external: true }
+      : { label, href: storePath(store, dest.path), external: false };
+  };
+  const footerColumns = FOOTER_COLUMNS[key].map((c) => ({ heading: c.heading, links: c.links.map(toLink) }));
+  const footerSubBrands = FOOTER_SUBBRANDS[key].map((b) => {
+    const { href, external } = toLink(b.name);
+    return { name: b.name, blurb: b.blurb, href, external };
+  });
+  const footerLegal = FOOTER_LEGAL[key].map(toLink);
+
   return (
     <div id="top" className="flex min-h-screen flex-col bg-white">
       <header>
@@ -163,10 +179,10 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
       <Footer
         storeName={store.name}
         tld={store.hostname.split('.').pop()}
-        columns={FOOTER_COLUMNS[key]}
+        columns={footerColumns}
         locale={FOOTER_LOCALE[key]}
-        subBrands={FOOTER_SUBBRANDS[key]}
-        legal={FOOTER_LEGAL[key]}
+        subBrands={footerSubBrands}
+        legal={footerLegal}
         copyright={FOOTER_COPYRIGHT}
       />
     </div>
