@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
+import { PrimeLogo } from '@/components/brand/PrimeLogo';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
@@ -10,17 +11,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `Amazon Prime | Amazon.${store.id === 'IN' ? 'in' : 'com'}` };
 }
 
-/** The little Prime "smile" arrow, drawn inline so the page needs no external images. */
+/** The Prime wordmark for the dark hero — white with the smile underneath. */
 function PrimeMark() {
-  return (
-    <span className="inline-flex select-none items-baseline">
-      <span className="text-[26px] font-bold lowercase leading-none tracking-tight text-white">prime</span>
-      <svg width="30" height="12" viewBox="0 0 30 12" fill="none" aria-hidden className="ml-1 self-end">
-        <path d="M2 4c7 6 19 6 26 0" stroke={PRIME_BLUE} strokeWidth="3" strokeLinecap="round" />
-        <path d="M24 1l4 3-4 3" stroke={PRIME_BLUE} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </span>
-  );
+  return <PrimeLogo tone="white" className="h-[30px]" />;
 }
 
 interface Plan {
