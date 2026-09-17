@@ -167,7 +167,7 @@ export default async function PrimeVideoPage() {
           </div>
 
           <p className="border-t border-white/10 py-6 text-center text-[12px] text-white/40">
-            Titles shown for this demo reflect {store.id === 'IN' ? 'Prime Video India' : 'Prime Video US'} programming. Unofficial clone — not affiliated with Amazon or Prime Video.
+            Titles shown for this demo reflect Prime Video US programming. Unofficial clone — not affiliated with Amazon or Prime Video.
           </p>
         </div>
       </div>
