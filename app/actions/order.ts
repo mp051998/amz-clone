@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { computeTotals, getCartLines, writeCart } from '@/lib/cart';
 import { newOrderId, writeOrder, type StoredOrder } from '@/lib/orders';
+import { readUser } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { stripe, stripeConfigured } from '@/lib/stripe';
@@ -35,6 +36,8 @@ function payLabel(method: string, digits: string): string {
 /** Place the order: snapshot the cart, persist it, clear the cart, go to confirmation. */
 export async function placeOrder(formData: FormData): Promise<void> {
   const store = await getMarketplace();
+  // orders belong to a signed-in account — guests must sign in first.
+  if (!(await readUser())) redirect(storePath(store, '/signin?next=/checkout'));
   const cur = store.currency.code;
   const lines = await getCartLines(cur);
   if (lines.length === 0) redirect(storePath(store, '/cart'));
@@ -87,6 +90,8 @@ async function siteOrigin(): Promise<string> {
 export async function startStripeCheckout(formData: FormData): Promise<void> {
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
+  // orders belong to a signed-in account — guests must sign in first.
+  if (!(await readUser())) redirect(sp('/signin?next=/checkout'));
   if (!stripe) redirect(sp('/checkout?error=stripe'));
 
   const cur = store.currency.code;

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { AddressFields } from '@/components/checkout/AddressFields';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
@@ -29,6 +30,8 @@ export default async function CheckoutPage() {
   // form (placeholders hint). Fall back to just the account name when no address
   // is saved yet.
   const user = await readUser();
+  // checkout requires a signed-in account (orders are stored per signed-in user).
+  if (!user) redirect(sp('/signin?next=/checkout'));
   const defName = user?.name ?? '';
   const savedAddr = user ? await getDefaultAddress() : undefined;
   const shipDefaults = savedAddr ?? (defName ? { name: defName } : undefined);

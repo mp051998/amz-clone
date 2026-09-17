@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { getProduct } from '@/lib/catalog-market';
 import { getOrder } from '@/lib/orders';
+import { readUser } from '@/lib/auth';
 import { deliveryDate } from '@/lib/dates';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -22,10 +23,11 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
   const { placed } = await searchParams;
+  const store = await getMarketplace();
+  if (!(await readUser())) redirect(storePath(store, '/signin?next=/orders'));
   const order = await getOrder(id);
   if (!order) notFound();
 
-  const store = await getMarketplace();
   const cur = order.cur ?? 'USD';
   const money = (minor: number) => formatMoney(minor, cur);
   const sp = (path: string) => storePath(store, path);

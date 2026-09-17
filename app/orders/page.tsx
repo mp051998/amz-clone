@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { getProduct } from '@/lib/catalog-market';
 import { readOrders } from '@/lib/orders';
+import { readUser } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -14,6 +16,7 @@ const dateStr = (ts: number, locale: string) =>
 
 export default async function OrdersPage() {
   const store = await getMarketplace();
+  if (!(await readUser())) redirect(storePath(store, '/signin?next=/orders'));
   const sp = (path: string) => storePath(store, path);
   const money = (minor: number, cur: CurrencyCode) => formatMoney(minor, cur);
   const orders = await readOrders();
