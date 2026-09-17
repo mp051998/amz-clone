@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import type { Product } from '../../lib/catalog';
 import type { Store } from '../lib/store';
 import { storePath } from '../../lib/marketplace';
@@ -17,6 +17,7 @@ export interface DealRailProps {
 /** Compact deal strip with touch scrolling and keyboard-accessible scroll controls. */
 export function DealRail({ title, products, store }: DealRailProps) {
   const track = useRef<HTMLDivElement>(null);
+  const headingId = useId();
   const scroll = (direction: number) => {
     const element = track.current;
     element?.scrollBy({ left: direction * 0.85 * element.clientWidth, behavior: 'smooth' });
@@ -24,8 +25,8 @@ export function DealRail({ title, products, store }: DealRailProps) {
   const currency = store.currency.code;
 
   return (
-    <section aria-labelledby={`${title}-heading`} className="bg-white p-5 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
-      <h2 id={`${title}-heading`} className="mb-3 text-[21px] font-bold text-ink">{title}</h2>
+    <section aria-labelledby={headingId} className="bg-white p-5 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
+      <h2 id={headingId} className="mb-3 text-[21px] font-bold text-ink">{title}</h2>
       <div className="relative">
         <div ref={track} aria-label={`${title} products`} className="flex touch-pan-x gap-3 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {products.map((product) => (

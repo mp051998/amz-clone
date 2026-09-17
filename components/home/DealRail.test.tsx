@@ -28,3 +28,20 @@ it('renders deal media, savings badge, and labelled carousel controls', () => {
   expect(screen.getByRole('button', { name: /scroll left/i })).toBeEnabled();
   expect(screen.getByRole('button', { name: /scroll right/i })).toBeEnabled();
 });
+
+it('gives same-title deal rails distinct heading references', () => {
+  const { container } = render(
+    <>
+      <DealRail title="Today's deals" products={[dealProduct]} store={amazon} />
+      <DealRail title="Today's deals" products={[dealProduct]} store={amazon} />
+    </>,
+  );
+
+  const rails = Array.from(container.querySelectorAll('section[aria-labelledby]'));
+  const headingIds = rails.map((rail) => rail.getAttribute('aria-labelledby'));
+
+  expect(headingIds[0]).toBeTruthy();
+  expect(headingIds[1]).toBeTruthy();
+  expect(headingIds[0]).not.toBe(headingIds[1]);
+  headingIds.forEach((headingId) => expect(document.getElementById(headingId!)).toHaveTextContent("Today's deals"));
+});
