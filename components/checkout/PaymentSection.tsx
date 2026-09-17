@@ -10,6 +10,8 @@ export interface PaymentSectionProps {
   curSymbol: string;
   /** default name to prefill card/gift-card holder fields. */
   defaultName: string;
+  /** when true, card payments redirect to Stripe Checkout — hide the demo card fields. */
+  stripeCard?: boolean;
 }
 
 const LABEL: Record<string, string> = {
@@ -25,13 +27,17 @@ const LABEL: Record<string, string> = {
 const BANKS = ['HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank', 'Kotak Mahindra Bank', 'Yes Bank'];
 
 /** Interactive (demo) payment picker: choosing a method reveals that method's dummy fields. */
-export function PaymentSection({ methods, curSymbol, defaultName }: PaymentSectionProps) {
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false }: PaymentSectionProps) {
   const [selected, setSelected] = useState(methods[0] ?? 'card');
 
   return (
     <section className="rounded-[8px] border border-line bg-white p-5">
       <h2 className="mb-1 text-[18px] font-bold text-ink">2. Payment method</h2>
-      <p className="mb-3 text-[12px] text-ink-2">Demo only — no real payment is processed. Any values work.</p>
+      <p className="mb-3 text-[12px] text-ink-2">
+        {stripeCard
+          ? 'Card payments are handled on Stripe’s secure checkout page — no card details are entered here. Other methods are demo only.'
+          : 'Demo only — no real payment is processed. Any values work.'}
+      </p>
 
       <div className="max-w-[560px] divide-y divide-line-3 rounded-[6px] border border-line-3">
         {methods.map((m) => {
@@ -44,12 +50,24 @@ export function PaymentSection({ methods, curSymbol, defaultName }: PaymentSecti
                 {m === 'cod' ? <span className="rounded-[3px] bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-2">No card needed</span> : null}
                 {m === 'upi' ? <span className="rounded-[3px] bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-2">Instant</span> : null}
               </label>
-              {active ? <div className="px-3 pb-4 pt-1">{fields(m, curSymbol, defaultName)}</div> : null}
+              {active ? <div className="px-3 pb-4 pt-1">{m === 'card' && stripeCard ? stripeCardNotice() : fields(m, curSymbol, defaultName)}</div> : null}
             </div>
           );
         })}
       </div>
     </section>
+  );
+}
+
+/** shown for the card method when Stripe is live: card entry happens on Stripe, not here. */
+function stripeCardNotice() {
+  return (
+    <div className="max-w-[440px] rounded-[6px] border border-line-3 bg-surface-2 p-3 text-[13px] text-ink-2">
+      <p className="flex items-center gap-1.5 font-medium text-ink">
+        <span aria-hidden>🔒</span> You&apos;ll enter your card on Stripe&apos;s secure page.
+      </p>
+      <p className="mt-1">After you place the order, we redirect you to Stripe Checkout to pay. Use test card <b className="text-ink">4242 4242 4242 4242</b>, any future expiry and any CVC.</p>
+    </div>
   );
 }
 

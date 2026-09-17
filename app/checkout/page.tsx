@@ -3,7 +3,8 @@ import { AppShell } from '@/components/AppShell';
 import { Input } from '@/components/primitives/Input';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { Wordmark } from '@/components/chrome/Wordmark';
-import { placeOrder } from '@/app/actions/order';
+import { submitCheckout } from '@/app/actions/order';
+import { stripeConfigured } from '@/lib/stripe';
 import { getCartLines, computeTotals } from '@/lib/cart';
 import { deliveryDate } from '@/lib/dates';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -58,7 +59,7 @@ export default async function CheckoutPage() {
       <div className="mx-auto max-w-[1100px] px-4 py-6">
         <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex-1">
-            <form id={FORM_ID} action={placeOrder} className="space-y-5">
+            <form id={FORM_ID} action={submitCheckout} className="space-y-5">
               <input type="hidden" name="schema" value={store.address.schema} />
               {/* shipping */}
               <section className="rounded-[8px] border border-line bg-white p-5">
@@ -99,6 +100,7 @@ export default async function CheckoutPage() {
                 methods={store.payments.map((pm) => pm.method)}
                 curSymbol={store.currency.symbol}
                 defaultName={isIN ? 'Aarav Sharma' : 'Alex Morgan'}
+                stripeCard={stripeConfigured}
               />
 
               {/* review */}
@@ -126,7 +128,11 @@ export default async function CheckoutPage() {
           <aside className="lg:w-[300px] lg:shrink-0">
             <div className="sticky top-4 rounded-[8px] border border-line bg-white p-5">
               <div className="mb-3">{PlaceOrderButton}</div>
-              <p className="mb-3 text-[11px] text-ink-2">By placing your order, you agree to this demo&apos;s terms. No real charge is made.</p>
+              <p className="mb-3 text-[11px] text-ink-2">
+                {stripeConfigured
+                  ? `By placing your order, you agree to this demo’s terms. Card payments are processed securely by Stripe in ${cur}; use test card 4242 4242 4242 4242.`
+                  : 'By placing your order, you agree to this demo’s terms. No real charge is made.'}
+              </p>
               <h2 className="border-b border-line-3 pb-2 text-[18px] font-bold text-ink">Order Summary</h2>
               <dl className="mt-2 space-y-1 text-[14px] text-ink">
                 <div className="flex justify-between"><dt>Items ({count}):</dt><dd>{money(totals.subtotalMinor)}</dd></div>
