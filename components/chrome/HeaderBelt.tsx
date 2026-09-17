@@ -1,5 +1,4 @@
 'use client';
-import type { ReactNode } from 'react';
 import type { Store } from '../lib/store';
 import { categoriesFor } from '@/lib/catalog-market';
 import { storePath } from '@/lib/marketplace';
@@ -15,8 +14,6 @@ export interface HeaderBeltProps {
   cartCount?: number;
   /** first name of the signed-in user; undefined when signed out. */
   userName?: string;
-  /** slot for the language/currency flyout trigger (desktop only). */
-  langSlot?: ReactNode;
   /** shop-by-department links for the mobile drawer. */
   departments?: NavLink[];
   /** programs & features links (sub-nav items) for the mobile drawer. */
@@ -24,7 +21,7 @@ export interface HeaderBeltProps {
 }
 
 /** 60px belt: wordmark, deliver-to, search, language, account, orders, cart (design.md §5 Header belt). */
-export function HeaderBelt({ store, cartCount = 0, userName, langSlot, departments = [], programs = [] }: HeaderBeltProps) {
+export function HeaderBelt({ store, cartCount = 0, userName, departments = [], programs = [] }: HeaderBeltProps) {
   const tld = store.hostname.split('.').pop();
   const searchDepts = [{ label: 'All', value: '' }, ...categoriesFor(store.id).map((c) => ({ label: c.name, value: c.slug }))];
   const search = <SearchBar storeName={store.name} departments={searchDepts} actionPath={storePath(store, '/s')} />;
@@ -44,7 +41,6 @@ export function HeaderBelt({ store, cartCount = 0, userName, langSlot, departmen
           <div className="hidden min-w-0 flex-1 md:flex">{search}</div>
           {/* spacer: on mobile the search moves to its own row, so push actions to the right */}
           <div className="flex-1 md:hidden" />
-          {langSlot ? <div className="hidden md:block">{langSlot}</div> : null}
           {/* account: two-line on desktop, compact on mobile — flyout on md+ */}
           <AccountMenu store={store} userName={userName} />
           <a href={storePath(store, '/orders')} className="hidden shrink-0 rounded-[3px] px-2 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white md:block">

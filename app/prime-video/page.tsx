@@ -101,7 +101,7 @@ export default async function PrimeVideoPage() {
         <div className="bg-[#0f171e] text-white">
           <div className="mx-auto max-w-[1500px] px-4 py-4">
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-[22px] font-bold tracking-tight">prime video</span>
+              <img src="/prime/pv-logo-white.png" alt="Prime Video" className="h-[26px] w-auto" />
               <span className="rounded-[3px] bg-[#1399FF] px-1.5 py-0.5 text-[11px] font-bold">amazon</span>
             </div>
             <NonPrimeLanding signInHref={sp('/signin')} rentHref={sp('/signin')} heroImages={heroImages} rentImages={rentImages} channels={channels} />
@@ -117,7 +117,7 @@ export default async function PrimeVideoPage() {
         <div className="mx-auto max-w-[1500px] px-4 py-4">
           {/* Prime Video wordmark row */}
           <div className="mb-4 flex items-center gap-2">
-            <span className="text-[22px] font-bold tracking-tight">prime video</span>
+            <img src="/prime/pv-logo-white.png" alt="Prime Video" className="h-[26px] w-auto" />
             <span className="rounded-[3px] bg-[#1399FF] px-1.5 py-0.5 text-[11px] font-bold">amazon</span>
           </div>
 

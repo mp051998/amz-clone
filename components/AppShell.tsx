@@ -4,7 +4,6 @@ import { cartCount as readCartCount } from '@/lib/cart';
 import { readUser, firstName } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { LanguageCurrencyFlyout } from './chrome/LanguageCurrencyFlyout';
 import { HeaderBelt } from './chrome/HeaderBelt';
 import { SubNav } from './chrome/SubNav';
 import { Footer } from './chrome/Footer';
@@ -140,15 +139,6 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
           userName={user ? firstName(user) : undefined}
           departments={deptLinks}
           programs={programLinks}
-          langSlot={
-            <LanguageCurrencyFlyout
-              storeName={store.name}
-              countryId={store.id}
-              languages={store.locale.supported.map((l) => l.split('-')[0].toUpperCase())}
-              showCurrency={false}
-              currencies={[]}
-            />
-          }
         />
         <SubNav
           items={store.nav.subnav}
