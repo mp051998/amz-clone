@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 620" role="img" aria-labelledby="title desc">
+  <title id="title">Colorful boxes for daily deals</title>
+  <desc id="desc">Original illustration of packages, a discount tag, and a bright daily deals banner.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#d9f3f8"/><stop offset="1" stop-color="#f9df9a"/></linearGradient>
+    <linearGradient id="blueBox" x1="0" x2="1"><stop stop-color="#147d9b"/><stop offset="1" stop-color="#07536c"/></linearGradient>
+  </defs>
+  <rect width="1600" height="620" fill="url(#sky)"/>
+  <circle cx="130" cy="90" r="68" fill="#fff3cf" opacity=".8"/><circle cx="1460" cy="510" r="145" fill="#bde6e1"/>
+  <path d="M0 482c267-87 414 75 661-13s410-20 639-107 300-62 300-62v320H0z" fill="#f8b941" opacity=".72"/>
+  <g transform="translate(220 120) rotate(-8)">
+    <path d="M0 106 142 42l190 68-142 71z" fill="#ffca47"/><path d="M0 106v180l190 74V181z" fill="#f57a2d"/><path d="M190 181l142-71v178l-142 72z" fill="#d84a28"/>
+    <path d="m128 66 24-11 190 69-24 11z" fill="#fff4d2"/><path d="M128 66v199l24 10V77z" fill="#fff4d2"/>
+  </g>
+  <g transform="translate(1010 182) rotate(9)">
+    <path d="M0 82 160 18l213 83-160 80z" fill="#6cd1cf"/><path d="M0 82v204l213 78V181z" fill="url(#blueBox)"/><path d="M213 181l160-80v198l-160 65z" fill="#0a627c"/>
+    <path d="m146 30 27-11 212 83-27 12z" fill="#fff4d2"/><path d="M146 30v232l27 10V42z" fill="#fff4d2"/>
+  </g>
+  <g transform="translate(652 309) rotate(-2)">
+    <path d="M0 73 134 17l177 72-134 68z" fill="#ee8dae"/><path d="M0 73v158l177 72V157z" fill="#bd3260"/><path d="M177 157l134-68v156l-134 58z" fill="#8b1e49"/>
+    <path d="m120 22 24-10 177 72-24 11z" fill="#fff4d2"/><path d="M120 22v185l24 10V32z" fill="#fff4d2"/>
+  </g>
+  <g transform="translate(745 105) rotate(8)"><path d="M0 42 42 0l120 20 18 105-42 43-120-21z" fill="#c51744"/><path d="m37 47 97 17 12 70-97-17z" fill="#fff3d1"/><text x="91" y="108" text-anchor="middle" font-family="Arial, sans-serif" font-size="35" font-weight="700" fill="#c51744">DEAL</text></g>
+</svg>
