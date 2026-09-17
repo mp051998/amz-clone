@@ -9,14 +9,14 @@ export interface CategoryCardProps {
   seeMore: { label: string; href: string };
   /** quad = 2×2 labeled grid; single = one large image */
   variant?: 'quad' | 'single';
-  items: CategoryCardItem[];
+  items: readonly CategoryCardItem[];
 }
 
 /** White home card over the grey band: heading, image(s), teal see-more (design.md §5 Home cards). */
 export function CategoryCard({ title, seeMore, variant = 'quad', items }: CategoryCardProps) {
   const single = variant === 'single';
   return (
-    <div className="flex h-full flex-col bg-white p-5 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
+    <section className="flex h-full flex-col bg-white p-5 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
       <h2 className="mb-3 text-[21px] font-bold leading-6 text-ink">{title}</h2>
       {single ? (
         <a href={items[0]?.href ?? seeMore.href} className="group block flex-1">
@@ -26,8 +26,8 @@ export function CategoryCard({ title, seeMore, variant = 'quad', items }: Catego
         </a>
       ) : (
         <div className="grid flex-1 grid-cols-2 gap-x-3 gap-y-2">
-          {items.slice(0, 4).map((it, k) => (
-            <a key={k} href={it.href} className="group block">
+          {items.slice(0, 4).map((it) => (
+            <a key={it.href} href={it.href} className="group block">
               <div className="flex h-[86px] items-center justify-center overflow-hidden bg-white">
                 <img src={it.image} alt={it.label} className="h-full w-full object-contain transition group-hover:scale-[1.04]" loading="lazy" />
               </div>
@@ -37,6 +37,6 @@ export function CategoryCard({ title, seeMore, variant = 'quad', items }: Catego
         </div>
       )}
       <a href={seeMore.href} className="mt-3 text-[13px] text-link-teal hover:text-brand-count hover:underline">{seeMore.label}</a>
-    </div>
+    </section>
   );
 }

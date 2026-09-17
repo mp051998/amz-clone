@@ -30,6 +30,25 @@ const InAddressSchema = z.object({
 export const AddressInputSchema = z.discriminatedUnion('schema', [UsAddressSchema, InAddressSchema]);
 export type AddressInput = z.infer<typeof AddressInputSchema>;
 
+export interface HomeCampaign {
+  id: string;
+  title: string;
+  cta?: string;
+  href: string;
+  image: string;
+  alt: string;
+}
+
+export type HomeModule =
+  | { kind: 'campaign'; id: string; campaign: HomeCampaign }
+  | { kind: 'merchandising-grid'; id: string; cardIds: readonly string[] }
+  | { kind: 'deal-rail'; id: string; title: string; productIds: readonly string[] };
+
+export interface MarketplaceUi {
+  navPromotion?: { label: string; href: string };
+  home: readonly HomeModule[];
+}
+
 /** The projection every UI component renders from. */
 export interface PublicMarketplace {
   id: 'US' | 'IN';
@@ -45,5 +64,6 @@ export interface PublicMarketplace {
   delivery: { methods: string[]; freeThresholdMinor: number };
   membership: { name: string };
   nav: { subnav: string[]; departments: string[] };
+  ui: MarketplaceUi;
   features: Record<string, boolean>;
 }

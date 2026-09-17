@@ -34,5 +34,29 @@ export const amazon: PublicMarketplace = {
       'Grocery',
     ],
   },
+  ui: {
+    navPromotion: { label: 'Shop deals', href: '/deals' },
+    home: [
+      {
+        kind: 'campaign',
+        id: 'us-deals-campaign',
+        campaign: {
+          id: 'us-deals',
+          title: 'Deals for every day',
+          cta: 'Shop deals',
+          href: '/deals',
+          image: '/campaigns/us-deals.svg',
+          alt: 'Colorful boxes for a daily deals campaign',
+        },
+      },
+      { kind: 'merchandising-grid', id: 'us-category-deals', cardIds: ['electronics', 'home-kitchen', 'beauty', 'computers'] },
+      {
+        kind: 'deal-rail',
+        id: 'us-top-deals',
+        title: 'Top deals',
+        productIds: ['6181VJVcgSL', '51CnDMbXZzL', '61hzm0JOv3L', '71Hx8b6HGbL'],
+      },
+    ],
+  },
   features: { displayCurrencySwitch: false, protectionPlans: true, giftWrap: true },
 };

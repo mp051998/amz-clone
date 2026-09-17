@@ -64,3 +64,56 @@
 html { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--color-ink); background: #fff; }
 * { box-sizing: border-box; }
 body { margin: 0; }
+
+.campaign-hero {
+  overflow: hidden;
+  background: var(--color-surface-band);
+}
+
+.campaign-hero__link {
+  position: relative;
+  display: block;
+  min-height: 220px;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.campaign-hero__link:focus-visible {
+  outline: 3px solid var(--color-brand-orange);
+  outline-offset: -3px;
+}
+
+.campaign-hero__image {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  object-fit: cover;
+}
+
+.campaign-hero__copy {
+  position: absolute;
+  inset: auto auto 12% max(5%, calc((100% - 1500px) / 2 + 24px));
+  display: grid;
+  gap: 6px;
+  max-width: min(440px, 70%);
+}
+
+.campaign-hero__title {
+  color: var(--color-ink);
+  font-size: clamp(24px, 3vw, 42px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.campaign-hero__cta {
+  color: var(--color-link-teal);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.campaign-hero__link:hover .campaign-hero__cta { color: var(--color-link-hover); text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .campaign-hero__copy { inset: auto auto 10% 24px; }
+  .campaign-hero__title { font-size: 26px; }
+}

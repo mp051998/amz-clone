@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 620" role="img" aria-labelledby="title desc">
+  <title id="title">Festival gift boxes for Great Indian Festival</title>
+  <desc id="desc">Original illustration of celebratory gift boxes, lanterns, and festive patterns.</desc>
+  <defs>
+    <linearGradient id="night" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#41143c"/><stop offset=".55" stop-color="#8e2350"/><stop offset="1" stop-color="#e17a32"/></linearGradient>
+    <pattern id="dots" width="56" height="56" patternUnits="userSpaceOnUse"><circle cx="8" cy="8" r="3" fill="#ffcf61" opacity=".65"/><circle cx="34" cy="29" r="2" fill="#ffd990" opacity=".65"/></pattern>
+  </defs>
+  <rect width="1600" height="620" fill="url(#night)"/><rect width="1600" height="620" fill="url(#dots)"/>
+  <path d="M0 496c178-113 355 47 565-37s354-154 579-88 310-1 456-105v354H0z" fill="#f8a230" opacity=".45"/>
+  <g fill="#ffcf61"><path d="M171 48h48l18 43-42 101-42-101z"/><path d="M1415 88h48l18 43-42 101-42-101z"/></g>
+  <g fill="#ffe5a0"><circle cx="195" cy="213" r="21"/><circle cx="1439" cy="253" r="21"/></g>
+  <g transform="translate(241 198) rotate(-7)">
+    <path d="M0 90 150 20l201 78-150 80z" fill="#ffc950"/><path d="M0 90v215l201 81V178z" fill="#e84737"/><path d="M201 178l150-80v210l-150 78z" fill="#af243c"/>
+    <path d="m132 28 28-13 202 79-28 13z" fill="#ffe8a1"/><path d="M132 28v251l28 11V41z" fill="#ffe8a1"/>
+  </g>
+  <g transform="translate(1002 202) rotate(8)">
+    <path d="M0 95 145 24l196 80-145 82z" fill="#f7b23c"/><path d="M0 95v198l196 78V186z" fill="#197d86"/><path d="M196 186l145-82v194l-145 73z" fill="#115f72"/>
+    <path d="m129 32 27-13 196 80-27 13z" fill="#ffe8a1"/><path d="M129 32v232l27 10V45z" fill="#ffe8a1"/>
+  </g>
+  <g transform="translate(692 92)"><path d="M72 0c25 42 78 50 78 113 0 50-35 89-78 89S-6 163-6 113C-6 50 47 42 72 0Z" fill="#ffcf61"/><path d="M72 42c14 29 40 36 40 72 0 25-17 45-40 45s-40-20-40-45c0-36 26-43 40-72Z" fill="#fff1ba"/><path d="M72 159v87" stroke="#ffcf61" stroke-width="9"/></g>
+</svg>

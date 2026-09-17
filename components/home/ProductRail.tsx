@@ -10,7 +10,7 @@ import { IconChevronRight } from '../icons/index';
 export interface ProductRailProps {
   title: string;
   seeMoreHref: string;
-  products: Product[];
+  products: readonly Product[];
   store: Store;
 }
 
@@ -27,7 +27,7 @@ export function ProductRail({ title, seeMoreHref, products, store }: ProductRail
         <a href={seeMoreHref} className="text-[13px] text-link-teal hover:text-brand-count hover:underline">See more</a>
       </div>
       <div className="relative">
-        <div ref={track} className="flex gap-4 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={track} className="flex touch-pan-x gap-4 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {products.map((p) => (
             <a key={p.id} href={storePath(store, `/product/${p.id}`)} className="group w-[170px] shrink-0">
               <div className="flex h-[170px] items-center justify-center overflow-hidden bg-white p-2">
