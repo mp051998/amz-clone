@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { readUser } from '@/lib/auth';
 import { readOrders } from '@/lib/orders';
+import { readAddresses } from '@/lib/addresses';
 import { signOut } from '@/app/actions/auth';
 
 export const metadata: Metadata = { title: 'Your Account | Amazon.com' };
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: 'Your Account | Amazon.com' };
 const TILES = [
   { title: 'Your Orders', desc: 'Track, return, or buy things again', href: '/orders', icon: '📦' },
   { title: 'Login & Security', desc: 'Edit login, name, and mobile number', href: '/account', icon: '🔒' },
-  { title: 'Your Addresses', desc: 'Edit addresses for orders and gifts', href: '/account', icon: '📍' },
+  { title: 'Your Addresses', desc: 'Edit addresses for orders and gifts', href: '/account/addresses', icon: '📍' },
   { title: 'Your Payments', desc: 'Manage payment methods and settings', href: '/account', icon: '💳' },
   { title: 'Prime', desc: 'Manage your membership and benefits', href: '/account', icon: '⭐' },
   { title: 'Digital Services', desc: 'Manage devices, content, and apps', href: '/account', icon: '📱' },
@@ -20,6 +21,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect('/signin?next=/account');
   const orderCount = (await readOrders()).length;
+  const addressCount = (await readAddresses()).length;
 
   return (
     <AppShell>
@@ -34,7 +36,9 @@ export default async function AccountPage() {
               <span>
                 <span className="block text-[17px] font-bold text-ink">{t.title}</span>
                 <span className="block text-[13px] text-ink-2">
-                  {t.title === 'Your Orders' && orderCount > 0 ? `${orderCount} order${orderCount === 1 ? '' : 's'} · ` : ''}{t.desc}
+                  {t.title === 'Your Orders' && orderCount > 0 ? `${orderCount} order${orderCount === 1 ? '' : 's'} · ` : ''}
+                  {t.title === 'Your Addresses' && addressCount > 0 ? `${addressCount} saved · ` : ''}
+                  {t.desc}
                 </span>
               </span>
             </a>
