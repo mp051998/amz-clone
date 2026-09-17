@@ -50,7 +50,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
             </div>
             <div className="hidden flex-1 grid-cols-2 gap-3 sm:grid">
               {slide.images.slice(0, 4).map((src, k) => (
-                <div key={k} className="flex h-[100px] items-center justify-center rounded-[10px] bg-white/95 p-2 shadow-md md:h-[130px]">
+                <div key={k} className="flex h-[100px] items-center justify-center rounded-[10px] bg-white p-2 shadow-md md:h-[130px]">
                   <img src={src} alt="" className="h-full w-full object-contain" loading={idx === 0 ? 'eager' : 'lazy'} />
                 </div>
               ))}

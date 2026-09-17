@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
-import { Input } from '@/components/primitives/Input';
+import { AddressFields } from '@/components/checkout/AddressFields';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { Wordmark } from '@/components/chrome/Wordmark';
 import { submitCheckout } from '@/app/actions/order';
 import { stripeConfigured } from '@/lib/stripe';
+import { readUser } from '@/lib/auth';
+import { getDefaultAddress } from '@/lib/addresses';
 import { getCartLines, computeTotals } from '@/lib/cart';
 import { deliveryDate } from '@/lib/dates';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -23,6 +25,14 @@ export default async function CheckoutPage() {
   const isIN = store.id === 'IN';
   const tld = store.hostname.split('.').pop() ?? 'com';
   const lines = await getCartLines(cur);
+  // Prefill from the signed-in user's default saved address; guests get an empty
+  // form (placeholders hint). Fall back to just the account name when no address
+  // is saved yet.
+  const user = await readUser();
+  const defName = user?.name ?? '';
+  const savedAddr = user ? await getDefaultAddress() : undefined;
+  const shipDefaults = savedAddr ?? (defName ? { name: defName } : undefined);
+  const prefillName = savedAddr?.name ?? defName;
 
   if (lines.length === 0) {
     return (
@@ -63,43 +73,22 @@ export default async function CheckoutPage() {
               <input type="hidden" name="schema" value={store.address.schema} />
               {/* shipping */}
               <section className="rounded-[8px] border border-line bg-white p-5">
-                <h2 className="mb-3 text-[18px] font-bold text-ink">1. Shipping address</h2>
-                {isIN ? (
-                  <div className="grid max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Input name="fullName" label="Full name" required defaultValue="Aarav Sharma" />
-                    <Input name="phone" label="Mobile number" inputMode="numeric" required defaultValue="9820098200" />
-                    <div className="sm:col-span-2"><Input name="line1" label="Flat, House no., Building, Company" required defaultValue="12, Prestige Residency" /></div>
-                    <div className="sm:col-span-2"><Input name="line2" label="Area, Street, Sector, Village" required defaultValue="Koramangala 4th Block" /></div>
-                    <div className="sm:col-span-2"><Input name="landmark" label="Landmark (optional)" placeholder="e.g. near Forum Mall" /></div>
-                    <Input name="city" label="Town/City" required defaultValue="Bengaluru" />
-                    <Input name="state" label="State" required defaultValue="Karnataka" />
-                    <Input name="postcode" label="Pincode" inputMode="numeric" required defaultValue="560034" />
-                    <div className="sm:col-span-2">
-                      <span className="mb-1 block text-[13px] text-ink-2">Address type</span>
-                      <div className="flex gap-4 text-[13px]">
-                        <label className="flex items-center gap-1.5"><input type="radio" name="addressType" value="home" defaultChecked /> Home (7 am – 9 pm delivery)</label>
-                        <label className="flex items-center gap-1.5"><input type="radio" name="addressType" value="office" /> Office/Commercial (10 am – 6 pm delivery)</label>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Input name="fullName" label="Full name" required defaultValue="Alex Morgan" />
-                    <Input name="phone" label="Phone number" inputMode="numeric" required defaultValue="2065550142" />
-                    <div className="sm:col-span-2"><Input name="line1" label="Address" required defaultValue="410 Terry Ave N" /></div>
-                    <div className="sm:col-span-2"><Input name="line2" label="Apt, suite, etc. (optional)" /></div>
-                    <Input name="city" label="City" required defaultValue="Seattle" />
-                    <Input name="state" label="State" required defaultValue="WA" />
-                    <Input name="postcode" label="ZIP Code" inputMode="numeric" required defaultValue="98109" />
-                  </div>
-                )}
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-[18px] font-bold text-ink">1. Shipping address</h2>
+                  {user ? (
+                    <a href={sp('/account/addresses')} className="text-[13px] text-link hover:text-link-hover hover:underline">
+                      {savedAddr ? 'Manage addresses' : 'Add an address'}
+                    </a>
+                  ) : null}
+                </div>
+                <AddressFields isIN={isIN} address={shipDefaults} />
               </section>
 
               {/* payment */}
               <PaymentSection
                 methods={store.payments.map((pm) => pm.method)}
                 curSymbol={store.currency.symbol}
-                defaultName={isIN ? 'Aarav Sharma' : 'Alex Morgan'}
+                defaultName={prefillName}
                 stripeCard={stripeConfigured}
               />
 

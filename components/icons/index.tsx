@@ -13,17 +13,18 @@ function Line({ children, ...props }: IconProps) {
 }
 
 export const IconSearch = (p: IconProps) => (<Line {...p}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></Line>);
-/** Amazon shopping cart: left handle sweeping up, open trapezoidal basket (wider at top),
- *  two wheels — the recognizable amazon.com nav-cart silhouette. */
+/** Amazon shopping cart: left handle sweeping up into a wide trapezoidal basket
+ *  (wider at top so the item count nests over the rim), short legs, two wheels —
+ *  the recognizable amazon.com nav-cart silhouette. */
 export const IconCart = (props: IconProps) => {
   const labelled = props['aria-label'] != null;
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden={labelled ? undefined : true} role={labelled ? 'img' : undefined} {...props}>
-      <path d="M2.4 4.3h2.2l.7 2.5" />
-      <path d="M5.3 6.8H21l-2.3 6.7H7.5z" />
-      <path d="M7.5 13.5l.6 2.2M18.7 13.5l-.6 2.2" />
-      <circle cx="8.7" cy="18.2" r="1.4" />
-      <circle cx="17.3" cy="18.2" r="1.4" />
+      <path d="M1.6 4.2h2.7l.7 2.6" />
+      <path d="M5 6.8h16.4l-2.5 7.6H7.5z" />
+      <path d="M7.5 14.4l.7 2.3M18.9 14.4l-.7 2.3" />
+      <circle cx="8.9" cy="18.6" r="1.5" />
+      <circle cx="17.5" cy="18.6" r="1.5" />
     </svg>
   );
 };
