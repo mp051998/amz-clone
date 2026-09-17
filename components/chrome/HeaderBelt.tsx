@@ -54,7 +54,8 @@ export function HeaderBelt({ store, cartCount = 0, userName, langSlot, departmen
           <a href={storePath(store, '/cart')} aria-label={`Cart, ${cartCount} items`} className="flex shrink-0 items-end gap-1 rounded-[3px] px-1 py-1 hover:outline hover:outline-1 hover:outline-white sm:px-2">
             <span className="relative">
               <IconCart aria-label="Cart" width={34} height={34} />
-              <span className="absolute -top-1 left-4 text-[16px] font-bold text-brand-count">{cartCount}</span>
+              {/* item count nested over the basket rim (centered on the basket, not the icon) */}
+              <span className="absolute left-[18px] top-0 -translate-x-1/2 text-[18px] font-bold leading-none text-brand-count tabular-nums">{cartCount}</span>
             </span>
             <span className="text-[14px] font-bold">Cart</span>
           </a>
