@@ -4,6 +4,7 @@ import { cartCount as readCartCount } from '@/lib/cart';
 import { readUser, firstName } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { CountryFlyout } from './chrome/CountryFlyout';
 import { HeaderBelt } from './chrome/HeaderBelt';
 import { SubNav } from './chrome/SubNav';
 import { Footer } from './chrome/Footer';
@@ -139,6 +140,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
           userName={user ? firstName(user) : undefined}
           departments={deptLinks}
           programs={programLinks}
+          regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
         />
         <SubNav
           items={store.nav.subnav}
