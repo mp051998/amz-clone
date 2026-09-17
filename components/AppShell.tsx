@@ -155,6 +155,17 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
           departments={departments}
           departmentHrefs={departments.map(deptHref)}
           itemHrefs={itemHrefs}
+          flyout={
+            store.id === 'IN'
+              ? {
+                  item: 'Prime',
+                  heading: 'Shopping plans starting at ₹399/year',
+                  sub: 'Get FREE same/1-day delivery, Prime offers & more',
+                  cta: 'Join Prime Now',
+                  href: itemHrefs['Prime'] ?? storePath(store, '/prime'),
+                }
+              : undefined
+          }
         />
       </header>
       <main className="flex-1">{children}</main>

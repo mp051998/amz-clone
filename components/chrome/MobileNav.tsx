@@ -96,8 +96,9 @@ export function MobileNav({ store, userName, departments, programs }: MobileNavP
           </a>
 
           <div className="min-h-0 flex-1 overflow-y-auto pb-6">
-            <Section title="Shop by Department" links={departments.map((l) => ({ ...l, href: to(l.href) }))} onNavigate={close} />
-            <Section title="Programs & Features" links={programs.map((l) => ({ ...l, href: to(l.href) }))} onNavigate={close} />
+            {/* departments/programs arrive already store-resolved from AppShell — do not re-prefix */}
+            <Section title="Shop by Department" links={departments} onNavigate={close} />
+            <Section title="Programs & Features" links={programs} onNavigate={close} />
             <Section title="Help & Settings" links={helpLinks} onNavigate={close} />
             {userName ? (
               <div className="border-t border-line py-2.5">
