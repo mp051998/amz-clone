@@ -2,12 +2,28 @@
 // catalogs (different products, brands, sellers, images, native prices); this module
 // picks the right one per marketplace and exposes the selection/lookup helpers the app
 // uses. The generated data lives in ./catalog (US) and ./catalog-in (IN).
-import { products as productsUS, categories, categoryName, type Product, type Category } from './catalog';
+import { products as productsUS, categories as baseCategories, type Product, type Category } from './catalog';
 import { productsIN } from './catalog-in';
 
 export type Market = 'US' | 'IN';
 export type { Product, Category };
-export { categories, categoryName };
+
+// amazon.in carries a dedicated "Mobiles" department (its own top-nav entry);
+// amazon.com folds phones into Electronics, so Mobiles is India-only.
+const IN_ONLY_CATEGORIES: Category[] = [{ slug: 'mobiles', name: 'Mobiles' }];
+
+/** categories shown for a market. IN leads with Mobiles (mirrors amazon.in nav). */
+export const categoriesFor = (market: Market): Category[] =>
+  market === 'IN' ? [...IN_ONLY_CATEGORIES, ...baseCategories] : baseCategories;
+
+const ALL_CATEGORIES: Category[] = [...baseCategories, ...IN_ONLY_CATEGORIES];
+/** every valid category slug across both markets (for href validation). */
+export const allCategorySlugs = new Set(ALL_CATEGORIES.map((c) => c.slug));
+export const categoryName = (slug: string): string =>
+  ALL_CATEGORIES.find((c) => c.slug === slug)?.name ?? slug;
+
+// base list (both markets) — kept for callers that don't vary by market.
+export const categories = baseCategories;
 
 function catalogFor(market: Market): Product[] {
   return market === 'IN' ? productsIN : productsUS;

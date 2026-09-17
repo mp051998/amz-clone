@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { categories } from '@/lib/catalog';
+import { allCategorySlugs } from '@/lib/catalog-market';
 import { cartCount as readCartCount } from '@/lib/cart';
 import { readUser, firstName } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -9,11 +9,11 @@ import { HeaderBelt } from './chrome/HeaderBelt';
 import { SubNav } from './chrome/SubNav';
 import { Footer } from './chrome/Footer';
 
-const CATALOG_SLUGS = new Set(categories.map((c) => c.slug));
+const CATALOG_SLUGS = allCategorySlugs;
 
 /** department label → catalog category slug (only some departments carry products). */
 const DEPT_SLUG: Record<string, string> = {
-  Mobiles: 'electronics',
+  Mobiles: 'mobiles',
   Electronics: 'electronics',
   Computers: 'computers',
   'Home & Kitchen': 'home-kitchen',
@@ -32,7 +32,7 @@ const ITEM_PATHS: Record<string, string> = {
   'Gift Cards': '/gift-cards',
   Sell: '/sell',
   Fresh: '/s?dept=home-kitchen',
-  Mobiles: '/s?dept=electronics',
+  Mobiles: '/s?dept=mobiles',
   'Prime Video': '/prime-video',
   'Amazon Pay': '/amazon-pay',
   Bestsellers: '/bestsellers',

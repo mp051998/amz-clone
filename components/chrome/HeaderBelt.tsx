@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import type { Store } from '../lib/store';
-import { categories } from '@/lib/catalog';
+import { categoriesFor } from '@/lib/catalog-market';
 import { storePath } from '@/lib/marketplace';
 import { IconCart } from '../icons/index';
 import { SearchBar } from './SearchBar';
@@ -26,7 +26,7 @@ export interface HeaderBeltProps {
 /** 60px belt: wordmark, deliver-to, search, language, account, orders, cart (design.md §5 Header belt). */
 export function HeaderBelt({ store, cartCount = 0, userName, langSlot, departments = [], programs = [] }: HeaderBeltProps) {
   const tld = store.hostname.split('.').pop();
-  const searchDepts = [{ label: 'All', value: '' }, ...categories.map((c) => ({ label: c.name, value: c.slug }))];
+  const searchDepts = [{ label: 'All', value: '' }, ...categoriesFor(store.id).map((c) => ({ label: c.name, value: c.slug }))];
   const search = <SearchBar storeName={store.name} departments={searchDepts} actionPath={storePath(store, '/s')} />;
   const locationText = store.id === 'IN' ? 'Bengaluru 560001' : 'Update location';
   const deliverTo = (

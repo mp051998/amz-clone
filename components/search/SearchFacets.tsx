@@ -1,4 +1,4 @@
-import { categories } from '@/lib/catalog';
+import { categoriesFor } from '@/lib/catalog-market';
 import { buildHref, type SearchQuery } from '@/lib/search';
 import { storePath } from '@/lib/marketplace';
 import type { Store } from '../lib/store';
@@ -59,7 +59,7 @@ export function SearchFacets({ query, brandFacets, store }: SearchFacetsProps) {
               All Departments
             </a>
           </li>
-          {categories.map((c) => (
+          {categoriesFor(store.id).map((c) => (
             <li key={c.slug}>
               <a href={deptHref(c.slug)} className={query.dept === c.slug ? 'font-bold text-ink' : 'text-link hover:text-link-hover hover:underline'}>
                 {c.name}

@@ -115,6 +115,58 @@ const RAW = [
   ['710SxepIfiL', 'Lifelong PVC Hex Dumbbells Pack of 2 (3 Kg x 2) for Home Gym, Fitness Weights for Men & Women', 'sports', 4.0, 22000, 354],
   ['71uneWbTPpL', 'Kore 20 Kg PVC-DM Combo Home Gym Dumbbells Kit (3 Kg x 4 + 2 Kg x 4 Plates), Black', 'sports', 3.6, 19800, 749],
   ['61mUc9vBJqL', 'RUBX Rubber Coated Professional Hex Dumbbells (Pack of 2), 5 Kg x 2 (Total 10 Kg), Silver', 'sports', 4.6, 10200, 1609],
+  // ── Mobiles (amazon.in dedicated Mobiles nav) ────────────────────────────
+  ['719GNPKA8OL', 'Redmi 15C 5G Prime Edition (Dusk Purple, 6GB RAM, 128GB Storage), 6000mAh Battery, 50MP AI Camera', 'mobiles', 4.1, 8421, 19499],
+  ['71UzHCLBm1L', 'Samsung Galaxy M36 5G (Serene Green, 8GB RAM, 128GB Storage), Corning Gorilla Glass Victus+, 50MP Triple Camera', 'mobiles', 4.1, 6033, 25250],
+  ['71K8ghTEGlL', 'Samsung Galaxy M06 5G (Blazing Black, 6GB RAM, 128GB Storage), 5000mAh Battery, 25W Fast Charging', 'mobiles', 4.1, 12894, 18999],
+  ['61poC8L0VAL', 'realme C71 4G (Black, 4GB RAM, 64GB Storage), 6300mAh Titan Battery, IP67 Dust & Water Resistant', 'mobiles', 3.6, 5127, 12899],
+  ['61ImCLk1sqL', 'iQOO Z10 Lite 5G (Cyber Green, 4GB RAM, 64GB Storage), 6000mAh Battery, Snapdragon 4 Gen 2', 'mobiles', 4.1, 3402, 16999],
+  ['51A42gljwLL', 'Motorola G57 Power 5G (Fluidity, 8GB RAM, 128GB Storage), 7000mAh Battery, Snapdragon 6s Gen 3', 'mobiles', 4.2, 2188, 20999],
+  ['71MJioULjzL', 'Samsung Galaxy A56 5G (Awesome Olive, 8GB RAM, 256GB Storage), Gorilla Glass Victus+, 50MP OIS Camera', 'mobiles', 4.4, 4761, 38999],
+  ['41t4RIHRQtL', 'OPPO K14x 5G (Icy Blue, 6GB RAM, 128GB Storage), 7000mAh Battery, 45W SuperVOOC Charging, IP69 Rated', 'mobiles', 3.8, 1043, 21699],
+  ['617O+RkwdPL', 'Apple iPhone 17 (256 GB), A19 Chip, 6.3" Super Retina XDR Display, 48MP Dual Fusion Camera System', 'mobiles', 4.6, 2274, 99900],
+  ['71En5htph8L', 'Samsung Galaxy M17 5G (Moonlight Silver, 8GB RAM, 128GB Storage), 50MP OIS Camera, 5000mAh Battery', 'mobiles', 4.2, 3612, 26499],
+  ['61D9CLCf5KL', 'Lava Bold N4 Lite (Ghost Silver, 3GB RAM, 32GB Storage), 5000mAh Battery, Made in India', 'mobiles', 3.9, 918, 8399],
+  // ── Electronics · Smartwatches (Indian wearable brands) ──────────────────
+  ['819ZWX2Nm9L', 'Noise Diva Araya Smartwatch for Women, 1.32" AMOLED Display, BT Calling, 100+ Sports Modes, Metal Build', 'electronics', 4.3, 1204, 5499],
+  ['61Cx3vx0mLL', 'Fire-Boltt Phoenix Pro 1.39" Bluetooth Calling Smartwatch, 120+ Sports Modes, SpO2 & Heart Rate Monitor', 'electronics', 3.9, 41230, 1299],
+  ['61aIxLJVJCL', 'Noise Pulse 4 Max 1.96" AMOLED Display Smartwatch, AI Voice Assistant, BT Calling, Metallic Finish', 'electronics', 4.0, 8760, 2799],
+  ['61ATaTpvEQL', 'Noise Twist Round 1.38" TFT Display Smartwatch, BT Calling, 100 Sports Modes, 7-Day Battery Life', 'electronics', 4.0, 15420, 1599],
+  ['71JLQrCFF+L', 'boAt Wave Sigma 3 Smartwatch, 2.01" HD Display, BT Calling, 700+ Watch Faces, IP68 Water Resistant', 'electronics', 4.1, 9330, 1499],
+  // ── Home & Kitchen · Mixer grinders ──────────────────────────────────────
+  ['71S8pDT9EiL', 'Havells Prisma 750W Mixer Grinder, 4 Jars, 3 Speed with Pulse, Stainless Steel Blades, 5-Year Motor Warranty', 'home-kitchen', 4.1, 3820, 4290],
+  ['71Swqb9mXvL', 'Philips HR7732 Mixer Grinder 1000W, 4 Jars, Double Ball Bearing Motor, Unique Modes for Different Textures', 'home-kitchen', 4.2, 9120, 7699],
+  ['71nBpK+0uJL', 'Bosch TrueMixx Pro Mixer Grinder MGM8642BIN, 750W, 4 Jars, Stone Pounding Technology, Black', 'home-kitchen', 4.3, 4210, 6099],
+  ['61P8ZSaqBHL', 'Sujata MG01 Mixer Grinder 1000W, 3 Jars, Double Ball Bearing Motor, 24000 RPM, 90 Min Non-Stop Running', 'home-kitchen', 4.6, 22400, 6690],
+  ['61Cln50mffL', 'Bajaj Rex 500W Mixer Grinder, 3 Stainless Steel Jars, Multifunctional Blades, Nutri-Pro Feature', 'home-kitchen', 4.2, 18900, 2199],
+  // ── Beauty & Personal Care · Face wash (Indian favourites) ───────────────
+  ['518N3l4z1-L', 'Himalaya Purifying Neem Face Wash, 150ml, Soap-Free, Paraben & Phthalate Free, for Acne-Prone Skin', 'beauty', 4.3, 88400, 178],
+  ['71gqGCYkFuL', 'Himalaya Hydrating Aloe Vera Face Wash, 200ml, Aloe Vera & Vitamin E, Creamy Gentle Cleanser', 'beauty', 4.1, 12600, 225],
+  ['61ddBs1gCaL', 'CeraVe Foaming Cleanser for Normal to Oily Skin, 236ml, Dermatologist-Developed with Ceramides & Niacinamide', 'beauty', 4.3, 9800, 1116],
+  ['71ZrMvjZXZL', 'Muuchstac Ocean Face Wash for Men, Fights Acne & Pimples, Oil Control, Brightens Skin, Pack of 3', 'beauty', 3.9, 21300, 290],
+  // ── Fashion · Men's t-shirts ─────────────────────────────────────────────
+  ['717qtxFpeaL', 'Jockey Mens Cotton Rich Regular Fit Half Sleeve Round Neck T-Shirt, Breathable Everyday Tee', 'fashion', 4.1, 6420, 999],
+  ['514vCNWtZDL', 'ADRO Mens Regular Fit Cotton Half Sleeve Round Neck Solid Casual T-Shirt', 'fashion', 3.9, 3180, 599],
+  ['41uhw1abTpL', 'TURMS Anti-Stain Mens Cotton Blend Half Sleeve Polo T-Shirt, Stretchable All-Day Comfort', 'fashion', 3.8, 940, 948],
+  ['41T5wfyFb8L', 'AWG All Weather Gear Mens Dry-Fit Round Neck Half Sleeve Sports & Gym T-Shirt', 'fashion', 4.0, 2210, 699],
+  ['61xTfKaqUlL', 'Lymio Mens Oversized Cotton Half Sleeve Round Neck Casual T-Shirt', 'fashion', 3.7, 5600, 399],
+  // ── Books (India bestsellers) ────────────────────────────────────────────
+  ['91Sy3S-198L', 'The Lost Bookshop: The most charming and uplifting novel of the year', 'books', 4.4, 48200, 352],
+  ['919dIRLFTeL', "Broken Country: Amazon's Book of the Year, the Million-Copy Bestseller", 'books', 4.4, 15700, 431],
+  ['71q6gvpgW8L', 'Greatest Works of Jane Austen (Set of 5 Books): Pride and Prejudice, Emma, Sense and Sensibility & more', 'books', 4.6, 3120, 749],
+  ['41y8H3QmVqL', 'White Nights by Fyodor Dostoyevsky: A Timeless Story of Love, Longing & Solitude, Classic Russian Novella', 'books', 4.6, 8900, 107],
+  ['71m8hR9ZUfL', 'Best of George Orwell Boxed Set (Animal Farm & 1984), Set of 2 Books', 'books', 4.7, 6740, 249],
+  // ── Sports & Outdoors · Yoga mats ────────────────────────────────────────
+  ['81q-gtF5lNL', 'Wiselife True Alignment Yoga Mat with Strap, 6mm Anti-Slip TPE, Eco-Friendly for Men & Women', 'sports', 4.2, 5240, 1182],
+  ['61mx7nZOGnL', 'Lifelong Dual Color 6mm Anti-Slip TPE Yoga Mat for Gym Workout & Fitness, for Men & Women', 'sports', 4.2, 8630, 579],
+  ['710zYiyB7XL', 'Permo Fitness Mat 12mm, Foldable High-Density TPE Multi-Purpose Yoga Mat with Carry Strap', 'sports', 4.1, 1120, 3999],
+  ['51izPGxd0SL', 'Lifelong 4mm EVA Anti-Slip Yoga Mat for Gym Workout & Home Exercise, for Men & Women, Black', 'sports', 4.4, 6410, 550],
+  // ── Toys & Games · Building blocks ───────────────────────────────────────
+  ['81yuVZ1RhiL', 'Building Blocks Toy for Kids 5+, 200+ Piece STEM Construction Set, Creative Learning Play', 'toys', 4.1, 3420, 609],
+  ['918VkKHJgvL', 'Magnetic Building Tiles for Kids, Set of 50 Big 75mm Tiles, Educational Stacking Blocks', 'toys', 4.3, 2180, 1799],
+  ['71WasaFL9UL', 'Nesta Toys 115-Piece Wooden City Building Blocks Set, Alphabet A-Z, Numbers 0-9 & City Vehicles', 'toys', 4.3, 1240, 2298],
+  ['714xdznLhsL', 'Skillmatics Brain Blocks, 3D Early STEM Building Blocks Game for Kids 4-8 Years', 'toys', 4.4, 2760, 948],
+  ['61T829hkQLL', 'DIY Building Blocks Set for Kids, 200 Pieces Construction Toy with 32 Wheels, Build 8 Toy Vehicles', 'toys', 4.1, 4130, 299],
 ];
 
 // ── deterministic pseudo-random seeded by id ──────────────────────────────
@@ -133,7 +185,9 @@ function seed(str) {
 }
 
 // Brands recognised at the start of a title (longest-first so "boAt" wins before "bo").
-const BRANDS = ['boAt', 'Noise', 'Boult', 'Zebronics', 'Portronics', 'Lenovo', 'HP', 'ASUS', 'Apple', 'Hawkins', 'Prestige', 'Campus', 'Sparx', 'Boldfit', 'Impakto', 'Mamaearth', 'Minimalist', 'Lakme', 'Lotus', 'Novo', 'Storio', 'Eitheo', 'Flexnest', 'Burnlab', 'FitBox', 'Sparnod', 'OnePlus', 'Acer', 'Pigeon', 'Butterfly', 'ASIAN', 'The Derma Co', 'Aqualogica', 'Dot & Key', 'Smartivity', 'VEBETO', 'WireScorts', 'Humming Bird', 'Amazon Basics', 'Lifelong', 'Kore', 'RUBX'];
+const BRANDS = ['boAt', 'Noise', 'Boult', 'Zebronics', 'Portronics', 'Lenovo', 'HP', 'ASUS', 'Apple', 'Hawkins', 'Prestige', 'Campus', 'Sparx', 'Boldfit', 'Impakto', 'Mamaearth', 'Minimalist', 'Lakme', 'Lotus', 'Novo', 'Storio', 'Eitheo', 'Flexnest', 'Burnlab', 'FitBox', 'Sparnod', 'OnePlus', 'Acer', 'Pigeon', 'Butterfly', 'ASIAN', 'The Derma Co', 'Aqualogica', 'Dot & Key', 'Smartivity', 'VEBETO', 'WireScorts', 'Humming Bird', 'Amazon Basics', 'Lifelong', 'Kore', 'RUBX',
+  // Mobiles + enrichment brands (harvested from amazon.in)
+  'Redmi', 'Samsung', 'realme', 'iQOO', 'Motorola', 'OPPO', 'Poco', 'Lava', 'Fire-Boltt', 'Havells', 'Philips', 'Bosch', 'Sujata', 'Bajaj', 'Himalaya', 'CeraVe', 'Muuchstac', 'Jockey', 'ADRO', 'TURMS', 'AWG', 'Lymio', 'Wiselife', 'Permo', 'Nesta', 'Skillmatics'];
 
 function brandOf(title) {
   if (/^Amazon Brand Symactive/i.test(title)) return 'Symactive';
@@ -142,6 +196,7 @@ function brandOf(title) {
 }
 
 const BULLETS = {
+  mobiles: ['5G-ready with fast, lag-free everyday performance', 'Big, bright display for video, gaming & scrolling', 'All-day battery with fast charging support', 'Sharp AI cameras capture crisp photos day or night', 'Sleek, premium design that feels great in hand'],
   electronics: ['Immersive sound with deep, punchy bass', 'Bluetooth 5.3 stable wireless connection up to 10 m', 'Built-in mic with ENx tech for clear calls', 'Fast USB-C charging — 10 min for hours of play', 'Comfortable cushions for all-day wear'],
   computers: ['Snappy everyday performance for work and study', 'Crisp Full-HD anti-glare display', 'All-day battery for work on the go', 'Fast SSD storage boots in seconds', 'Windows 11 with lifetime validity'],
   'home-kitchen': ['ISI-marked, made in India for everyday cooking', 'Works on gas and induction cooktops', 'Sturdy build with a secure locking lid', 'Even heat for faster, fuel-saving cooking', 'Backed by a manufacturer warranty'],
@@ -151,6 +206,11 @@ const BULLETS = {
   toys: ['Sparks imaginative, screen-free play', 'Made from kid-safe, durable materials', 'Builds learning, creativity and motor skills', 'A great return-gift or birthday present', 'Recommended for hours of independent fun'],
   sports: ['Adjustable weight adapts as your strength grows', 'Space-saving design for a home gym', 'Secure locking mechanism for safe lifting', 'Durable, non-slip grip handle', 'Ideal for home strength training'],
 };
+
+// Smartwatches live under `electronics` but the headphone bullets don't fit —
+// swap in watch-specific bullets when the title reads like a smartwatch.
+const WATCH_BULLETS = ['Bright display with hundreds of customisable watch faces', 'Bluetooth calling with built-in mic & speaker', 'Tracks heart rate, SpO2, sleep & 100+ sports modes', 'Multi-day battery life on a single charge', 'Water-resistant, built for workouts and daily wear'];
+const isSmartwatch = (title) => /smart\s*watch|smartwatch/i.test(title);
 
 // India marketplace sellers (mirrors real amazon.in "Sold by").
 const AMZ_SELLERS = ['Appario Retail Private Ltd', 'Cocoblu Retail', 'Cloudtail India', 'RetailEZ Private Limited'];
@@ -198,7 +258,7 @@ async function main() {
       ? AMZ_SELLERS[Math.floor(rng() * AMZ_SELLERS.length)]
       : brand ? `${brand} Official Store` : 'RetailEZ Private Limited';
 
-    const bset = BULLETS[category];
+    const bset = isSmartwatch(title) ? WATCH_BULLETS : BULLETS[category];
     const bstart = Math.floor(rng() * Math.max(1, bset.length - 3));
     const bullets = bset.slice(bstart, bstart + 4);
 

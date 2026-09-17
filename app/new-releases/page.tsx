@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { RankCard } from '@/components/bestsellers/RankCard';
-import { allProducts, categories, categoryName } from '@/lib/catalog-market';
+import { allProducts, categoriesFor, categoryName } from '@/lib/catalog-market';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
@@ -17,7 +17,7 @@ export default async function NewReleasesPage({ searchParams }: { searchParams: 
   const store = await getMarketplace();
   const all = allProducts(store.id);
   const present = new Set(all.map((p) => p.category));
-  const chips = categories.filter((cat) => present.has(cat.slug));
+  const chips = categoriesFor(store.id).filter((cat) => present.has(cat.slug));
   const items = (c ? all.filter((p) => p.category === c) : all).slice().sort(byFreshness).slice(0, 40);
 
   return (

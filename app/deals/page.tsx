@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { DealCard } from '@/components/deals/DealCard';
-import { deals, categories, categoryName } from '@/lib/catalog-market';
+import { deals, categoriesFor, categoryName } from '@/lib/catalog-market';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
@@ -12,7 +12,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const store = await getMarketplace();
   const all = deals(store.id);
   const present = new Set(all.map((p) => p.category));
-  const chips = categories.filter((cat) => present.has(cat.slug));
+  const chips = categoriesFor(store.id).filter((cat) => present.has(cat.slug));
   const items = c ? all.filter((p) => p.category === c) : all;
 
   return (
