@@ -8,6 +8,7 @@ dist/
 # secrets — never commit
 .env
 .env.*
+.env.all
 !.env.example
 
 .DS_Store

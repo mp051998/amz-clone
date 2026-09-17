@@ -3,6 +3,8 @@ import { AppShell } from '@/components/AppShell';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { primeVideoContent, backdropFor, type PVTitle } from '@/lib/prime-video';
 import { PosterImage } from '@/components/prime/PosterImage';
+import { NonPrimeLanding } from '@/components/prime/NonPrimeLanding';
+import { storePath } from '@/lib/marketplace';
 
 export async function generateMetadata(): Promise<Metadata> {
   const store = await getMarketplace();
@@ -82,6 +84,32 @@ export default async function PrimeVideoPage() {
   const { hero, rails } = content;
   const heroBackdrop = backdropFor(hero.poster);
   const featured = rails[0]?.titles.slice(0, 3) ?? [];
+
+  // amazon.in shows the non-subscriber landing (mirrors primevideo.com's
+  // nonprimehomepage): promo panels selling the membership, not browse rails.
+  if (store.id === 'IN') {
+    const sp = (p: string) => storePath(store, p);
+    const heroImages = [hero.poster, ...rails.flatMap((r) => r.titles.map((t) => t.poster))]
+      .map((p) => backdropFor(p))
+      .filter((x): x is string => Boolean(x));
+    const rentImages = [...(rails[1]?.titles ?? []), ...(rails[2]?.titles ?? [])]
+      .map((t) => t.poster)
+      .filter((x): x is string => Boolean(x));
+    const channels = ['Apple TV+', 'Lionsgate Play', 'MUBI', 'Anime Times', 'ManoramaMAX', 'Chaupal', 'BBC Player', 'Sun NXT', 'MovieSphere+'];
+    return (
+      <AppShell>
+        <div className="bg-[#0f171e] text-white">
+          <div className="mx-auto max-w-[1500px] px-4 py-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[22px] font-bold tracking-tight">prime video</span>
+              <span className="rounded-[3px] bg-[#1399FF] px-1.5 py-0.5 text-[11px] font-bold">amazon</span>
+            </div>
+            <NonPrimeLanding signInHref={sp('/signin')} rentHref={sp('/signin')} heroImages={heroImages} rentImages={rentImages} channels={channels} />
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
