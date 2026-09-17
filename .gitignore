@@ -26,3 +26,6 @@ tsconfig.tsbuildinfo
 
 # Internal planning docs — kept local, not shipped in the public repo.
 /docs/plans/
+
+# Isolated agent workspaces; never part of the repository.
+/.worktrees/
