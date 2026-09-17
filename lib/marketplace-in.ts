@@ -39,5 +39,29 @@ export const amazonIn: PublicMarketplace = {
       'Sports & Outdoors',
     ],
   },
+  ui: {
+    navPromotion: { label: 'Great Indian Festival', href: '/deals' },
+    home: [
+      {
+        kind: 'campaign',
+        id: 'in-festival-campaign',
+        campaign: {
+          id: 'in-festival',
+          title: 'Great Indian Festival',
+          cta: 'Shop deals',
+          href: '/s?dept=electronics',
+          image: '/campaigns/in-festival.svg',
+          alt: 'Festival gift boxes for a Great Indian Festival campaign',
+        },
+      },
+      {
+        kind: 'deal-rail',
+        id: 'in-festival-deals',
+        title: 'Deals of the day',
+        productIds: ['in-61BWskzWNIL', 'in-711l4y8aNlL', 'in-71QdB7hDCAL', 'in-51lPcFkwYmL'],
+      },
+      { kind: 'merchandising-grid', id: 'in-value-finds', cardIds: ['electronics', 'home-kitchen', 'fashion', 'beauty'] },
+    ],
+  },
   features: { displayCurrencySwitch: true, languageSwitch: true, codAvailable: true, protectionPlans: true, giftWrap: true },
 };
