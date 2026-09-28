@@ -1,0 +1,231 @@
+import 'server-only';
+import type { Db } from '../db/client';
+import { listProducts, searchCatalog } from '../data/catalog';
+import { getInsight as readInsight, getInsights } from '../data/insights';
+import { formatMoney } from '../marketplaces';
+import { PAGE_SIZE, type SortKey } from '../search';
+import { db as requestDb } from '../supabase/server';
+import type { Market, Product } from '../types';
+import { decisionConfig, weightsFor } from './attributes';
+import { pricePercentiles } from './derive';
+import { kindMatch, productKind, sameKind } from './kind';
+import { rankProducts, scoresFor, type RankSort } from './rank';
+import type { ParsedQuery, ProductInsight, RankedProduct, Weights } from './types';
+import { shortTitle } from './verdict';
+
+/**
+ * Server-side decision helpers: candidate retrieval + ranking for search,
+ * insights, alternatives and cart accessories. Every function takes an
+ * optional Supabase client (defaults to the request's cookie-bound client;
+ * REST routes pass their bearer client).
+ */
+
+/** Candidates pulled per ranked search (3 search pages). */
+export const CANDIDATE_LIMIT = 48;
+
+export interface RankFilters {
+  brand?: string[];
+  /** minimum star rating 1..5 */
+  rating?: number;
+  deal?: boolean;
+  sort?: RankSort;
+}
+
+export interface RankedSearchResult {
+  /** candidates within budget, ranked (all of them — paginate in the UI) */
+  items: RankedProduct[];
+  /** items.length */
+  total: number;
+  /** candidates considered before the budget filter */
+  candidates: number;
+}
+
+async function client(c?: Db): Promise<Db> {
+  return c ?? (await requestDb());
+}
+
+async function searchCandidates(c: Db, market: Market, q: ParsedQuery, f: RankFilters): Promise<Product[]> {
+  const pages = Math.ceil(CANDIDATE_LIMIT / PAGE_SIZE);
+  const sort: SortKey = 'featured';
+  const base = {
+    k: q.keywords || undefined,
+    dept: q.category ?? undefined,
+    brand: f.brand?.length ? f.brand : undefined,
+    rating: f.rating,
+    deal: f.deal || undefined,
+    sort,
+  };
+  const first = await searchCatalog(c, market, { ...base, page: 1 });
+  const rest = await Promise.all(
+    Array.from({ length: Math.min(pages, first.pageCount) - 1 }, (_, i) => searchCatalog(c, market, { ...base, page: i + 2 })),
+  );
+  const seen = new Set<string>();
+  return [first, ...rest]
+    .flatMap((r) => r.items)
+    .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+    .slice(0, CANDIDATE_LIMIT);
+}
+
+/**
+ * Ranked search. Pulls up to 48 candidates via `searchCatalog` (keywords,
+ * category and facet filters); when keywords match nothing inside a detected
+ * category, falls back to that category's popular products. Candidates are
+ * then filtered to `budgetMinor` and ranked against `weights`
+ * (`filters.sort`, default 'match').
+ */
+export async function rankedSearch(
+  market: Market,
+  parsedQuery: ParsedQuery,
+  weights: Weights | null,
+  budgetMinor: number | null,
+  filters: RankFilters = {},
+  c?: Db,
+): Promise<RankedSearchResult> {
+  const db = await client(c);
+  let products = await searchCandidates(db, market, parsedQuery, filters);
+  if (!products.length && parsedQuery.category && parsedQuery.keywords) {
+    products = await listProducts(db, market, { category: parsedQuery.category, order: 'popular', limit: CANDIDATE_LIMIT });
+    if (filters.rating) products = products.filter((p) => p.rating >= filters.rating!);
+    if (filters.brand?.length) products = products.filter((p) => p.brand && filters.brand!.includes(p.brand));
+    if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
+  }
+  const insights = await getInsights(db, products.map((p) => p.id));
+  const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);
+  const items = rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' });
+  return { items, total: items.length, candidates: products.length };
+}
+
+/** A product's stored insight (public), or null. */
+export async function getInsight(productId: string, c?: Db): Promise<ProductInsight | null> {
+  return readInsight(await client(c), productId);
+}
+
+export interface Alternative extends RankedProduct {
+  /** signed price difference vs the base product, minor units (negative = cheaper) */
+  priceDeltaMinor: number;
+  /** one line, e.g. "₹800 cheaper · better battery life" */
+  diff: string;
+}
+
+function diffLine(base: Product, alt: Product, baseScores: Record<string, number>, altScores: Record<string, number>): string {
+  const cfg = decisionConfig(base.category);
+  const delta = alt.priceMinor - base.priceMinor;
+  const better = cfg.attributes
+    .filter((a) => a.key !== 'value')
+    .map((a) => ({ a, d: (altScores[a.key] ?? 3) - (baseScores[a.key] ?? 3) }))
+    .sort((x, y) => y.d - x.d)[0];
+  const worse = cfg.attributes
+    .filter((a) => a.key !== 'value')
+    .map((a) => ({ a, d: (altScores[a.key] ?? 3) - (baseScores[a.key] ?? 3) }))
+    .sort((x, y) => x.d - y.d)[0];
+  const money = formatMoney(Math.abs(delta), base.curBase);
+  const price = Math.abs(delta) < 100 ? 'Same price' : delta < 0 ? `${money} cheaper` : `${money} more`;
+  if (better && better.d > 0) return `${price} · better ${better.a.phrase}`;
+  if (delta < 0 && worse && worse.d < 0) return `${price} · trades some ${worse.a.phrase}`;
+  if (alt.rating > base.rating) return `${price} · rated ${alt.rating.toFixed(1)}★`;
+  return `${price} · similar overall`;
+}
+
+/**
+ * Up to `n` alternatives to `product`: same category and market, priced within
+ * ±50% (nearest price first, then rating), each with a one-line difference.
+ * `weights` (default: the category defaults) sets their match %.
+ */
+export async function alternativesFor(product: Product, n = 3, weights?: Weights, c?: Db): Promise<Alternative[]> {
+  const db = await client(c);
+  const pool = await listProducts(db, product.market, { category: product.category, excludeId: product.id, order: 'popular', limit: CANDIDATE_LIMIT });
+  // category is broad (headphones vs smartwatches) — keep to the same sort of product
+  const near = sameKind(product.title, pool)
+    .filter((p) => p.priceMinor >= product.priceMinor * 0.5 && p.priceMinor <= product.priceMinor * 1.5 && p.stock > 0)
+    .sort(
+      (a, b) =>
+        Math.abs(a.priceMinor - product.priceMinor) - Math.abs(b.priceMinor - product.priceMinor) || b.rating - a.rating,
+    )
+    .slice(0, Math.max(0, n));
+  if (!near.length) return [];
+  const insights = await getInsights(db, [product.id, ...near.map((p) => p.id)]);
+  const pct = pricePercentiles([product, ...pool]);
+  const cfg = decisionConfig(product.category);
+  const baseScores = scoresFor(product, insights.get(product.id), pct.get(product.id) ?? 0.5, cfg);
+  const w = weights ?? cfg.defaultWeights;
+  const ranked = rankProducts(near, insights, w, { config: cfg });
+  const order = new Map(near.map((p, i) => [p.id, i]));
+  return ranked
+    .sort((a, b) => order.get(a.product.id)! - order.get(b.product.id)!)
+    .map((r) => ({
+      ...r,
+      priceDeltaMinor: r.product.priceMinor - product.priceMinor,
+      diff: diffLine(product, r.product, baseScores, scoresFor(r.product, r.insight, pct.get(r.product.id) ?? 0.5, cfg)),
+    }));
+}
+
+/** Where accessories for a category come from. */
+const ACCESSORY_CATEGORIES: Record<string, string[]> = {
+  electronics: ['electronics', 'mobiles'],
+  computers: ['electronics', 'computers'],
+  mobiles: ['electronics', 'mobiles'],
+  'home-kitchen': ['home-kitchen'],
+  fashion: ['fashion', 'sports'],
+  beauty: ['beauty'],
+  books: ['books'],
+  toys: ['toys', 'books'],
+  sports: ['sports', 'fashion'],
+};
+
+/** Round a price up to a friendly ceiling: 1/2/2.5/5 × 10^k major units (minor in, minor out). */
+export function niceCeiling(minor: number): number {
+  const major = Math.max(minor / 100, 1);
+  const mag = 10 ** Math.floor(Math.log10(major));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v > major) ?? 10 * mag;
+  return Math.round(step * 100);
+}
+
+export interface Accessory {
+  product: Product;
+  /** e.g. "Goes with your Sony WH-1000XM5 · under ₹1,000" */
+  reason: string;
+}
+
+/**
+ * Up to `n` cheap add-ons for a cart: popular in-stock products from related
+ * categories priced at ≤ 30% of the priciest cart item they pair with, not
+ * already in the cart. Each carries a short reason line.
+ */
+export async function accessoriesFor(cartProducts: Product[], n = 4, c?: Db): Promise<Accessory[]> {
+  if (!cartProducts.length) return [];
+  const db = await client(c);
+  const market = cartProducts[0].market;
+  const inCart = new Set(cartProducts.map((p) => p.id));
+  // anchor per related category: the priciest cart product that maps to it
+  const anchors = new Map<string, Product>();
+  for (const p of [...cartProducts].sort((a, b) => b.priceMinor - a.priceMinor)) {
+    for (const cat of ACCESSORY_CATEGORIES[p.category] ?? [p.category]) if (!anchors.has(cat)) anchors.set(cat, p);
+  }
+  const pools = await Promise.all(
+    [...anchors.keys()].map((cat) => listProducts(db, market, { category: cat, order: 'popular', limit: 24 })),
+  );
+  const out: Accessory[] = [];
+  const seen = new Set<string>();
+  const cats = [...anchors.keys()];
+  // round-robin across categories so one department doesn't take every slot
+  const lists = pools.map((pool, i) => {
+    const anchor = anchors.get(cats[i])!;
+    const cap = Math.max(anchor.priceMinor * 0.3, 1);
+    const anchorKind = productKind(anchor.title);
+    // a cheaper thing of the same sort is an alternative, not an accessory
+    return pool
+      .filter((p) => !inCart.has(p.id) && p.stock > 0 && p.priceMinor <= cap)
+      .filter((p) => !kindMatch(anchorKind, productKind(p.title)))
+      .map((p) => ({ p, anchor, cap }));
+  });
+  for (let round = 0; out.length < n && lists.some((l) => l.length > round); round++) {
+    for (const l of lists) {
+      const hit = l[round];
+      if (!hit || seen.has(hit.p.id) || out.length >= n) continue;
+      seen.add(hit.p.id);
+      const ceiling = formatMoney(niceCeiling(hit.p.priceMinor), hit.p.curBase);
+      out.push({ product: hit.p, reason: `Goes with your ${shortTitle(hit.anchor.title)} · under ${ceiling}` });
+    }
+  }
+  return out;
+}

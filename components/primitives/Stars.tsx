@@ -4,33 +4,30 @@ export interface StarsProps {
   rating: number;
   count?: number;
   href?: string;
-  size?: 12 | 16 | 18;
+  size?: 12 | 14 | 16 | 18 | 20;
+  /** show the numeric rating after the stars ("4.4"). */
+  showValue?: boolean;
   className?: string;
 }
 
-/** 5-star rating with a clip-based partial fill; count link beside (design.md §5 Stars). */
-export function Stars({ rating, count, href, size = 16, className }: StarsProps) {
+/** ★★★★★ in `star`, partial fill by clipping; optional value + count (design.md §5 Stars). */
+export function Stars({ rating, count, href, size = 16, showValue = false, className }: StarsProps) {
   const r = Math.max(0, Math.min(5, rating));
-  const label = `${Number.isInteger(r) ? r : r.toFixed(1)} out of 5 stars`;
+  const value = Number.isInteger(r) ? String(r) : r.toFixed(1);
+  const label = `${value} out of 5 stars`;
   const pct = (r / 5) * 100;
+  const countText = count != null ? count.toLocaleString('en-US') : null;
   return (
-    <span className={cn('inline-flex items-center gap-1.5', className)}>
-      <span role="img" aria-label={label} className="relative inline-block leading-none" style={{ width: size * 5, height: size }}>
-        <span className="absolute inset-0 flex text-line-2" aria-hidden>{[0, 1, 2, 3, 4].map((i) => <Star key={i} size={size} />)}</span>
-        <span className="absolute inset-0 flex overflow-hidden text-star" style={{ width: `${pct}%` }} aria-hidden>{[0, 1, 2, 3, 4].map((i) => <Star key={i} size={size} />)}</span>
+    <span className={cn('inline-flex items-center gap-1.5 text-[14px] text-ink-2', className)}>
+      <span role="img" aria-label={label} className="relative inline-block whitespace-nowrap leading-none" style={{ fontSize: size }}>
+        <span aria-hidden className="text-line-3">★★★★★</span>
+        <span aria-hidden className="absolute inset-0 overflow-hidden text-star" style={{ width: `${pct}%` }}>★★★★★</span>
       </span>
-      {count != null ? (
-        href ? <a href={href} className="text-[14px] text-link hover:text-link-hover hover:underline">{count.toLocaleString('en-US')}</a>
-             : <span className="text-[12px] text-ink-2">({count.toLocaleString('en-US')})</span>
+      {showValue ? <strong className="font-semibold text-ink">{value}</strong> : null}
+      {countText ? (
+        href ? <a href={href} className="text-ink-2 underline underline-offset-2 hover:text-accent-ink">{countText}</a>
+             : <span>({countText})</span>
       ) : null}
     </span>
-  );
-}
-
-function Star({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden className="shrink-0">
-      <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.6L12 17.9 6.1 20.6l1.2-6.6L2.5 9.4l6.6-.9z" />
-    </svg>
   );
 }

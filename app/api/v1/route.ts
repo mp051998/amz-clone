@@ -1,0 +1,62 @@
+import { json, preflight } from '@/lib/api/http';
+
+/** GET /api/v1 — endpoint index (full reference: docs/API.md). */
+export function GET(): Response {
+  return json({
+    name: 'Storefront API',
+    version: 'v1',
+    docs: 'docs/API.md',
+    conventions: {
+      auth: 'Authorization: Bearer <accessToken> from POST /auth/token (or the web session cookie)',
+      market: '?market=US|IN (default US) or X-Market header',
+      guestCart: 'X-Cart-Token header; minted on the first guest cart write and returned in the X-Cart-Token response header',
+      money: 'integer minor units (cents / paise) with an ISO currency code',
+      errors: '{ error: { code, message, detail? } } with a matching HTTP status',
+    },
+    endpoints: [
+      'POST   /auth/signup',
+      'POST   /auth/token',
+      'POST   /auth/refresh',
+      'GET    /me',
+      'GET    /categories',
+      'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
+      'GET    /products/:id',
+      'GET    /products/:id/insights?summarize=',
+      'GET    /products/:id/reviews?limit=&offset=',
+      'POST   /products/:id/reviews',
+      'DELETE /reviews/:id',
+      'POST   /reviews/:id/helpful',
+      'POST   /reviews/:id/report',
+      'GET    /cart',
+      'DELETE /cart',
+      'POST   /cart/items',
+      'PATCH  /cart/items/:productId',
+      'DELETE /cart/items/:productId',
+      'POST   /cart/merge',
+      'GET    /orders',
+      'POST   /orders',
+      'GET    /orders/:id',
+      'POST   /orders/:id/cancel',
+      'GET    /addresses',
+      'POST   /addresses',
+      'GET    /addresses/:id',
+      'PATCH  /addresses/:id',
+      'DELETE /addresses/:id',
+      'POST   /addresses/:id/default',
+      'GET    /collections',
+      'POST   /collections',
+      'GET    /collections/:id',
+      'PATCH  /collections/:id',
+      'DELETE /collections/:id',
+      'POST   /collections/:id/items',
+      'DELETE /collections/:id/items/:productId',
+      'GET    /ai/status',
+      'POST   /ai/parse-query',
+      'POST   /ai/profile',
+      'POST   /ai/compare',
+      'POST   /webhooks/stripe',
+    ],
+  });
+}
+
+export const OPTIONS = preflight;

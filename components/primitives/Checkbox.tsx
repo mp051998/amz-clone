@@ -5,13 +5,13 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
   label: string;
 }
 
-/** 13px square, checked accent link-teal (design.md §5 Inputs). */
+/** 18px native checkbox, ink accent, label is the 44px-tall hit area (design.md §5 Inputs). */
 export function Checkbox({ label, id, className, ...props }: CheckboxProps) {
   const auto = useId();
   const fieldId = id ?? auto;
   return (
-    <label htmlFor={fieldId} className="inline-flex items-center gap-2 text-[14px] text-ink">
-      <input id={fieldId} type="checkbox" className={cn('h-[13px] w-[13px] rounded-[3px] accent-[#007185]', className)} {...props} />
+    <label htmlFor={fieldId} className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-[15px] text-ink">
+      <input id={fieldId} type="checkbox" className={cn('h-[18px] w-[18px] shrink-0 cursor-pointer accent-ink', className)} {...props} />
       {label}
     </label>
   );

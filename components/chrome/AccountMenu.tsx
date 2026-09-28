@@ -3,127 +3,74 @@ import { useEffect, useRef, useState } from 'react';
 import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
+import { buttonClasses } from '../primitives/Button';
 
-interface Link { label: string; href: string }
-
-const YOUR_LISTS: Link[] = [
-  { label: 'Create a List', href: '#' },
-  { label: 'Find a List or Registry', href: '/registry' },
-];
-
-const YOUR_ACCOUNT: Link[] = [
-  { label: 'Account', href: '/account' },
+const SIGNED_IN_LINKS = [
+  { label: 'Collections', href: '/collections' },
   { label: 'Orders', href: '/orders' },
-  { label: 'Recommendations', href: '#' },
-  { label: 'Browsing History', href: '#' },
-  { label: 'Your Shopping preferences', href: '#' },
-  { label: 'Watchlist', href: '/prime-video' },
-  { label: 'Video Purchases & Rentals', href: '/prime-video' },
-  { label: 'Kindle Unlimited', href: '#' },
-  { label: 'Content & Devices', href: '#' },
-  { label: 'Subscribe & Save Items', href: '#' },
-  { label: 'Memberships & Subscriptions', href: '/prime' },
-  { label: 'Music Library', href: '#' },
+  { label: 'Account', href: '/account' },
+  { label: 'Addresses', href: '/account/addresses' },
 ];
 
-/** Account & Lists flyout — mirrors amazon.com's hover/click menu: Sign in CTA (or Sign out
- *  when signed in), then "Your Lists" + "Your Account" columns. Store-aware links. */
+/**
+ * "Hello, Monish / Account & Collections" (design.md §5 Header). The trigger is a real link
+ * (→ /collections, or /signin when signed out); on hover/focus a small menu adds Orders, Account
+ * and Sign out.
+ */
 export function AccountMenu({ store, userName }: { store: Store; userName?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const to = (href: string) => storePath(store, href);
 
-  const to = (href: string) => (href.startsWith('/') ? storePath(store, href) : href);
-  const accountHref = storePath(store, userName ? '/account' : '/signin');
-
-  // hover with a small close delay so moving between trigger and panel doesn't flicker shut.
-  const openNow = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpen(true);
-  };
-  const closeSoon = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
-  };
+  const openNow = () => { if (closeTimer.current) clearTimeout(closeTimer.current); setOpen(true); };
+  const closeSoon = () => { if (closeTimer.current) clearTimeout(closeTimer.current); closeTimer.current = setTimeout(() => setOpen(false), 140); };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDown);
-    };
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDown); };
   }, [open]);
 
   return (
-    <div ref={ref} className="relative shrink-0" onMouseEnter={openNow} onMouseLeave={closeSoon}>
+    <div ref={ref} className="relative flex-none" onMouseEnter={openNow} onMouseLeave={closeSoon} onFocus={openNow} onBlur={closeSoon}>
       <a
-        href={accountHref}
+        href={to(userName ? '/collections' : '/signin')}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="block rounded-[3px] px-1.5 py-1 leading-[14px] hover:outline hover:outline-1 hover:outline-white sm:px-2"
+        className="block rounded-chip p-1 leading-[1.25] text-ink no-underline hover:bg-surface-2 hover:text-ink"
       >
-        <span className="hidden text-[12px] sm:block">{userName ? `Hello, ${userName}` : 'Hello, sign in'}</span>
-        <div className="flex items-center gap-0.5 text-[13px] font-bold sm:text-[14px]">
-          <span className="md:hidden">{userName ? 'Account' : 'Sign in'}</span>
-          <span className="hidden md:inline">Account &amp; Lists</span>
-          <span aria-hidden className="hidden text-[10px] text-[#ccc] md:inline">▾</span>
-        </div>
+        <span className="block text-[12px] text-ink-3">{userName ? `Hello, ${userName}` : 'Hello, sign in'}</span>
+        <span className="block text-[14px] font-semibold">Account &amp; Collections</span>
       </a>
-
       {open ? (
-        <div className="absolute right-0 top-full z-50 hidden pt-3 md:block">
-          <div className="relative w-[480px] rounded-[7px] border border-line bg-white p-5 text-ink shadow-dropdown">
-            {/* caret pointing up at the trigger */}
-            <span aria-hidden className="absolute -top-[7px] right-[52px] h-3 w-3 rotate-45 border-l border-t border-line bg-white" />
-
+        <div className="absolute right-0 top-full z-[55] pt-2">
+          <div className="w-[260px] rounded-card border border-line bg-surface p-3 shadow-pop">
             {userName ? (
-              <div className="flex flex-col items-center gap-2 pb-2">
-                <p className="text-[13px] text-ink-2">Hello, <b className="text-ink">{userName}</b></p>
-                <form action={signOut}>
-                  <button type="submit" className="h-[33px] rounded-pill bg-cta-yellow px-10 text-[13px] font-bold text-ink shadow-input hover:bg-cta-yellow-hover">
-                    Sign Out
-                  </button>
+              <>
+                <ul className="m-0 list-none p-0">
+                  {SIGNED_IN_LINKS.map((l) => (
+                    <li key={l.href}>
+                      <a href={to(l.href)} className="flex min-h-10 items-center rounded-input px-2 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink">{l.label}</a>
+                    </li>
+                  ))}
+                </ul>
+                <form action={signOut} className="mt-2 border-t border-line-2 pt-2">
+                  <button type="submit" className="flex min-h-10 w-full items-center rounded-input px-2 text-left text-[14px] text-ink-2 hover:bg-surface-2">Sign out</button>
                 </form>
-              </div>
+              </>
             ) : (
-              <div className="flex flex-col items-center gap-1.5 pb-2">
-                <a href={storePath(store, '/signin')} className="flex h-[33px] w-[220px] items-center justify-center rounded-pill bg-cta-yellow text-[13px] font-bold text-ink shadow-input hover:bg-cta-yellow-hover">
-                  Sign in
-                </a>
-                <p className="text-[12px] text-ink-2">
-                  New customer? <a href={storePath(store, '/signin?new=1')} className="text-link-teal hover:text-brand-count hover:underline">Start here.</a>
+              <div className="flex flex-col gap-2">
+                <a href={to('/signin')} className={buttonClasses({ variant: 'primary', size: 'md', block: true })}>Sign in</a>
+                <p className="m-0 text-center text-[13px] text-ink-3">
+                  New here? <a href={to('/signin?new=1')} className="text-ink underline underline-offset-2">Create an account</a>
                 </p>
+                <p className="m-0 border-t border-line-2 pt-2 text-[13px] text-ink-3">Sign in to save products into collections and track their prices.</p>
               </div>
             )}
-
-            <div className="mt-3 grid grid-cols-2 gap-5 border-t border-line pt-4">
-              <div>
-                <h3 className="mb-2 text-[15px] font-bold text-ink">Your Lists</h3>
-                <ul className="space-y-2">
-                  {YOUR_LISTS.map((l) => (
-                    <li key={l.label}>
-                      <a href={to(l.href)} className="text-[13px] text-ink-2 hover:text-link-hover hover:underline">{l.label}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="border-l border-line pl-5">
-                <h3 className="mb-2 text-[15px] font-bold text-ink">Your Account</h3>
-                <ul className="space-y-2">
-                  {YOUR_ACCOUNT.map((l) => (
-                    <li key={l.label}>
-                      <a href={to(l.href)} className="text-[13px] text-ink-2 hover:text-link-hover hover:underline">{l.label}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
           </div>
         </div>
       ) : null}

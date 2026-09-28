@@ -1,131 +1,85 @@
 import type { ReactNode } from 'react';
+import { buttonClasses } from '../primitives/Button';
+import { Kicker } from '../decision/Badges';
+import { PosterImage } from './PosterImage';
 
-/** amazon.in's Prime Video entry point for non-subscribers mirrors
- *  primevideo.com/offers/nonprimehomepage: a stack of full-bleed promo panels
- *  (join hero, movie rentals, bundled subscriptions) — no browse rails, because
- *  you are being sold the membership. Media collages are built from our own
- *  self-hosted Prime artwork. Purely presentational; the page supplies the data. */
-
+/**
+ * Plus Video landing for non-members (IN store): three calm panels selling the membership — join,
+ * rentals, add-on channels — instead of browse rails. Artwork sits on the hatched frame so a missing
+ * image degrades to the placeholder (design.md §5 ProductFrame). Purely presentational.
+ */
 export interface NonPrimeLandingProps {
   signInHref: string;
   rentHref: string;
-  /** landscape 16:9 backdrops for the hero mosaic. */
+  /** landscape 16:9 backdrops for the join mosaic. */
   heroImages: string[];
-  /** portrait posters for the rentals collage. */
+  /** portrait posters for the rentals row. */
   rentImages: string[];
-  /** third-party channel/subscription names for the grid. */
+  /** add-on channel names. */
   channels: string[];
 }
 
-function Pill({ href, children }: { href: string; children: ReactNode }) {
+function Panel({ kicker, heading, sub, cta, children }: { kicker: string; heading: string; sub: string; cta: ReactNode; children: ReactNode }) {
   return (
-    <a href={href} className="inline-flex h-[46px] items-center justify-center rounded-[6px] bg-white px-7 text-[15px] font-bold text-black transition hover:bg-white/90">
-      {children}
-    </a>
-  );
-}
-
-function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <section className={`grid items-center gap-8 py-14 sm:py-20 lg:grid-cols-2 lg:gap-10 ${className}`}>
-      {children}
+    <section className="grid items-center gap-6 rounded-panel border border-line bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-10">
+      <div className="flex max-w-[460px] flex-col gap-3">
+        <Kicker>{kicker}</Kicker>
+        <h2 className="m-0 text-[clamp(22px,2.6vw,28px)] font-semibold leading-tight tracking-[-0.01em] text-ink">{heading}</h2>
+        <p className="m-0 text-[15px] leading-relaxed text-ink-2">{sub}</p>
+        <div className="mt-1">{cta}</div>
+      </div>
+      <div>{children}</div>
     </section>
   );
 }
 
-function Copy({ heading, sub, cta }: { heading: string; sub: string; cta: ReactNode }) {
+function Frame({ src, ratio }: { src: string; ratio: string }) {
   return (
-    <div className="max-w-[440px]">
-      <h2 className="text-[32px] font-extrabold leading-[1.1] sm:text-[40px]">{heading}</h2>
-      <p className="mt-4 text-[15px] leading-6 text-white/70 sm:text-[16px]">{sub}</p>
-      <div className="mt-7">{cta}</div>
+    <div className="hatch relative overflow-hidden rounded-image" style={{ aspectRatio: ratio }}>
+      <PosterImage src={src} alt="" />
     </div>
   );
 }
 
 export function NonPrimeLanding({ signInHref, rentHref, heroImages, rentImages, channels }: NonPrimeLandingProps) {
   return (
-    <div className="pb-6">
-      {/* Panel 1 — Join hero: title mosaic of landscape backdrops on a blue glow */}
-      <Panel>
-        <Copy
-          heading="Welcome to Prime Video"
-          sub="Join Prime to watch the latest movies, TV shows and award-winning Amazon Originals."
-          cta={<Pill href={signInHref}>Sign in to join Prime</Pill>}
-        />
-        <div className="relative isolate">
-          <div className="pointer-events-none absolute -inset-8 -z-10 bg-[radial-gradient(circle_at_55%_45%,rgba(31,79,143,0.55),transparent_62%)]" />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {heroImages.slice(0, 9).map((src, i) => (
-              <div
-                key={src}
-                className={`overflow-hidden rounded-[8px] shadow-[0_8px_24px_rgba(0,0,0,0.45)] ring-1 ring-white/10 ${i % 3 === 1 ? 'sm:translate-y-5' : ''}`}
-              >
-                <img src={src} alt="" loading="lazy" className="aspect-video h-full w-full object-cover" />
-              </div>
-            ))}
-          </div>
+    <div className="flex flex-col gap-4">
+      <Panel
+        kicker="Included with Plus"
+        heading="Movies, series and originals, included"
+        sub="Join Plus to watch the latest movies, series and original shows at no extra cost."
+        cta={<a href={signInHref} className={buttonClasses({ variant: 'primary' })}>Sign in to join Plus</a>}
+      >
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {heroImages.slice(0, 6).map((src) => (<Frame key={src} src={src} ratio="16/9" />))}
         </div>
       </Panel>
 
-      {/* Panel 2 — Movie rentals: portrait posters, slightly fanned */}
-      <Panel className="border-t border-white/10">
-        <Copy
-          heading="Movie rentals on Prime Video"
-          sub="Early Access to new movies, before digital subscription. Rent the latest releases without a membership."
-          cta={<Pill href={rentHref}>Rent now</Pill>}
-        />
-        <div className="relative isolate lg:order-first">
-          <div className="pointer-events-none absolute -inset-8 -z-10 bg-[radial-gradient(circle_at_45%_45%,rgba(31,79,143,0.5),transparent_62%)]" />
-          <div className="flex justify-center gap-3 sm:gap-4">
-            {rentImages.slice(0, 5).map((src, i) => {
-              const rot = ['-rotate-6', '-rotate-3', 'rotate-0', 'rotate-3', 'rotate-6'][i] ?? 'rotate-0';
-              const lift = i === 2 ? '-translate-y-3' : i === 1 || i === 3 ? '-translate-y-1' : 'translate-y-2';
-              return (
-                <div
-                  key={src}
-                  className={`w-[19%] overflow-hidden rounded-[8px] shadow-[0_10px_28px_rgba(0,0,0,0.5)] ring-1 ring-white/10 transition ${rot} ${lift} hover:z-10 hover:rotate-0`}
-                >
-                  <img src={src} alt="" loading="lazy" className="aspect-[2/3] h-full w-full object-cover" />
-                </div>
-              );
-            })}
-          </div>
+      <Panel
+        kicker="No membership needed"
+        heading="Rent new movies"
+        sub="Early access to new movies before they reach the subscription. Rent the latest releases, pay per title."
+        cta={<a href={rentHref} className={buttonClasses({ variant: 'secondary' })}>Rent a movie</a>}
+      >
+        <div className="grid grid-cols-5 gap-2">
+          {rentImages.slice(0, 5).map((src) => (<Frame key={src} src={src} ratio="2/3" />))}
         </div>
       </Panel>
 
-      {/* Panel 3 — Bundled subscriptions: grid of channel wordmark tiles */}
-      <Panel className="border-t border-white/10">
-        <Copy
-          heading="Your favourite subscriptions all in one place"
-          sub="Subscribe to a variety of premium and specialty content, all easily accessible within the Prime Video app."
-          cta={<Pill href={signInHref}>Explore subscriptions</Pill>}
-        />
-        <div className="relative isolate">
-          <div className="pointer-events-none absolute -inset-8 -z-10 bg-[radial-gradient(circle_at_55%_45%,rgba(31,79,143,0.45),transparent_62%)]" />
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
-            {channels.slice(0, 9).map((name) => (
-              <div
-                key={name}
-                className="flex aspect-[16/10] items-center justify-center rounded-[10px] bg-gradient-to-br from-[#1b3a63] to-[#0f2138] px-2 text-center text-[13px] font-bold leading-tight text-white/90 ring-1 ring-white/10 sm:text-[15px]"
-              >
-                {name}
-              </div>
-            ))}
-          </div>
-        </div>
+      <Panel
+        kicker="Add-on channels"
+        heading="Your other subscriptions, in one place"
+        sub="Add premium and specialty channels and watch them in the same app — billed separately, cancel anytime."
+        cta={<a href={signInHref} className={buttonClasses({ variant: 'secondary' })}>Explore channels</a>}
+      >
+        <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-3">
+          {channels.slice(0, 9).map((name) => (
+            <li key={name} className="flex min-h-[64px] items-center justify-center rounded-card border border-line bg-surface-3 px-2 text-center text-[14px] font-semibold leading-tight text-ink">
+              {name}
+            </li>
+          ))}
+        </ul>
       </Panel>
-
-      {/* mini prime video sign-off, echoing the reference footer */}
-      <div className="mt-4 border-t border-white/10 pt-8 text-center">
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-[18px] font-bold tracking-tight">prime video</span>
-        </div>
-        <p className="mt-3 text-[12px] text-white/45">
-          Terms and Privacy Notice · Send us feedback · Help
-        </p>
-        <p className="mt-2 text-[12px] text-white/35">Unofficial clone — not affiliated with Amazon or Prime Video.</p>
-      </div>
     </div>
   );
 }

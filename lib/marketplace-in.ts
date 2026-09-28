@@ -3,7 +3,7 @@ import type { PublicMarketplace } from './contracts';
 /** amazon.in (India) store config — the second marketplace, selected via the /in path prefix. */
 export const amazonIn: PublicMarketplace = {
   id: 'IN',
-  name: 'Amazon',
+  name: 'Store',
   hostname: 'amazon.in',
   country: 'IN',
   locale: { default: 'en-IN', supported: ['en-IN', 'hi-IN', 'ta-IN', 'te-IN', 'kn-IN', 'bn-IN'] },
@@ -24,7 +24,7 @@ export const amazonIn: PublicMarketplace = {
     { method: 'amazonpay', phase: 1 },
   ],
   delivery: { methods: ['standard', 'one-day', 'same-day'], freeThresholdMinor: 49900 },
-  membership: { name: 'Prime' },
+  membership: { name: 'Plus' },
   nav: {
     subnav: ['Mobiles', 'Prime Video', "Today's Deals", 'Amazon Pay', 'Bestsellers', 'Customer Service', 'New Releases', 'Prime', 'Sell'],
     departments: [

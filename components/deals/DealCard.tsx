@@ -1,61 +1,52 @@
-import type { Product } from '@/lib/catalog';
+import type { Product } from '@/lib/types';
 import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { toStoreMinor } from '@/lib/fx';
 import { Price } from '../primitives/Price';
-import { Stars } from '../primitives/Stars';
-import { addToCart } from '@/app/actions/cart';
+import { ProductFrame } from '../decision/ProductFrame';
+import { CompareToggle } from '../decision/Compare';
+import { SaveButton } from '../decision/SaveButton';
+import { QuickAdd } from './QuickAdd';
 
-/** deterministic "% claimed" from the id so the bar is stable across renders. */
-function claimedPct(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return 38 + (h % 58); // 38–95%
-}
-
-/** Today's-Deals card: image + quick-add, % off, claimed bar, brand deals link (design.md §5 Deals). */
-export function DealCard({ product: p, store }: { product: Product; store: Store }) {
+/**
+ * Deal card after the prototype's "Deals for you" card (design-import … ~line 124): hatched frame on the
+ * left, accent "N% off" tag, name, price with struck list/M.R.P., ★ rating; Compare + Save underneath.
+ * No fake urgency (claimed bars, timers) — the saving itself is the reason it's here (design.md §12).
+ */
+export function DealCard({ product: p, store, saved = false }: { product: Product; store: Store; saved?: boolean }) {
   const href = storePath(store, `/product/${p.id}`);
   const cur = store.currency.code;
-  const claimed = claimedPct(p.id);
+  const price = toStoreMinor(p.priceMinor, cur, p.curBase);
+  const list = p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined;
+  const pct = p.dealPct ?? (list && list > price ? Math.round((1 - price / list) * 100) : 0);
   return (
-    <article className="flex flex-col rounded-[8px] bg-white p-3 shadow-[0_1px_2px_rgba(15,17,17,0.15)]">
-      <div className="relative">
-        <a href={href} className="flex h-[190px] items-center justify-center bg-white p-2">
-          <img src={p.image} alt={p.title} className="max-h-full max-w-full object-contain" loading="lazy" />
-        </a>
-        <form action={addToCart} className="absolute bottom-0 right-0">
-          <input type="hidden" name="id" value={p.id} />
-          <input type="hidden" name="qty" value="1" />
-          <button type="submit" aria-label={`Add ${p.title} to cart`} className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-[22px] leading-none text-ink shadow-md hover:bg-surface-2">
-            +
-          </button>
-        </form>
-      </div>
-
-      {p.dealPct ? (
-        <div className="mt-2 flex items-center gap-2">
-          <span className="rounded-[4px] bg-badge-deal px-2 py-0.5 text-[15px] font-bold text-white">{p.dealPct}% off</span>
-          <span className="text-[13px] font-bold text-price-deal">Limited time deal</span>
+    <article className="flex flex-col gap-3 rounded-card border border-line bg-surface p-3.5 transition-colors hover:border-ink">
+      <div className="flex items-stretch gap-3.5">
+        <div className="relative w-[104px] flex-none">
+          <a href={href} tabIndex={-1} aria-hidden className="block">
+            <ProductFrame src={p.image} alt="" aspect="4/5" inset="10%" />
+          </a>
         </div>
-      ) : null}
-
-      <div className="mt-2">
-        <Price minor={toStoreMinor(p.priceMinor, cur, p.curBase)} currency={cur} listMinor={p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined} size={22} />
-      </div>
-
-      <div className="mt-1.5">
-        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
-          <div className="h-full rounded-full bg-[#FF6138]" style={{ width: `${claimed}%` }} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {pct > 0 ? (
+            <span className="self-start rounded-tag bg-accent px-[7px] py-[3px] text-[13px] font-bold leading-none text-ink">{pct}% off</span>
+          ) : null}
+          <a href={href} className="line-clamp-2 text-[15px] font-semibold leading-tight text-ink no-underline hover:text-accent-ink">
+            {p.title}
+          </a>
+          <Price minor={price} currency={cur} listMinor={list} showSavings={false} size={18} />
+          <span className="text-[13px] text-ink-2">
+            <span aria-hidden className="text-star">★</span> {p.rating.toFixed(1)}
+            <span className="text-ink-3"> · {p.reviewCount.toLocaleString('en-US')} ratings</span>
+          </span>
+          {p.brand ? <span className="truncate text-[13px] text-ink-3">{p.brand}</span> : null}
         </div>
-        <p className="mt-0.5 text-[12px] font-bold text-ink">{claimed}% claimed</p>
       </div>
-
-      <a href={href} className="mt-1.5 line-clamp-2 text-[13px] leading-4 text-ink hover:text-link-hover hover:underline">{p.title}</a>
-      <div className="mt-1"><Stars rating={p.rating} count={p.reviewCount} size={12} /></div>
-      <a href={storePath(store, `/s?dept=${p.category}&deal=1`)} className="mt-2 text-[13px] text-link-teal hover:text-brand-count hover:underline">
-        Shop {p.brand ?? 'more'} deals
-      </a>
+      <div className="flex items-center gap-2 border-t border-line-2 pt-3">
+        <CompareToggle item={{ id: p.id, name: p.title, image: p.image }} />
+        <SaveButton productId={p.id} saved={saved} name={p.title} />
+        <QuickAdd productId={p.id} name={p.title} />
+      </div>
     </article>
   );
 }

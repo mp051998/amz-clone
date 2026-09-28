@@ -1,7 +1,6 @@
 import type { CurrencyCode } from '@/lib/contracts';
 import { Button } from '../primitives/Button';
 import { Price } from '../primitives/Price';
-import { Select } from '../primitives/Select';
 
 export interface BuyBoxProps {
   priceMinor: number;
@@ -11,20 +10,22 @@ export interface BuyBoxProps {
   taxNote?: string;
 }
 
-/** 244px buy box: price → promise → In Stock → qty → Add to Cart → Buy Now (design.md §5 Buy box). */
+/**
+ * Static buy card (showcase/presentational): price → delivery promise → In stock → Add to Cart (accent)
+ * → Buy Now (dark). The live PDP uses components/product/BuyPanel.
+ */
 export function BuyBox({ priceMinor, currency, promise, soldBy, taxNote }: BuyBoxProps) {
   return (
-    <div className="w-[244px] rounded-[8px] border border-line p-[14px] text-[14px]">
+    <div className="flex w-full max-w-[300px] flex-col gap-2 rounded-card border border-line bg-surface p-4 text-[14px] text-ink">
       <Price minor={priceMinor} currency={currency} size={28} />
-      {taxNote ? <p className="mt-1 text-[12px] text-ink-2">{taxNote}</p> : null}
-      <p className="mt-2">FREE delivery <b>{promise}</b></p>
-      <p className="mt-1 text-[18px] text-success">In Stock</p>
-      <div className="mt-2"><Select label="Qty" options={Array.from({ length: 9 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))} /></div>
-      <div className="mt-3 space-y-2">
-        <Button className="w-full">Add to Cart</Button>
-        <Button variant="orange" className="w-full">Buy Now</Button>
+      {taxNote ? <p className="m-0 text-[12px] text-ink-3">{taxNote}</p> : null}
+      <p className="m-0">FREE delivery <strong className="font-semibold">{promise}</strong></p>
+      <p className="m-0 font-semibold text-good">In stock</p>
+      <div className="mt-1 flex flex-col gap-2">
+        <Button variant="primary" size="lg" block>Add to Cart</Button>
+        <Button variant="dark" size="lg" block>Buy Now</Button>
       </div>
-      <p className="mt-3 text-[12px] text-ink-2">Sold by <span className="text-link-teal">{soldBy}</span></p>
+      <p className="m-0 text-[13px] text-ink-2">Sold by <span className="text-ink">{soldBy}</span></p>
     </div>
   );
 }

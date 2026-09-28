@@ -1,101 +1,100 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { EmptyState } from '@/components/decision';
+import { Alert } from '@/components/primitives/Alert';
+import { Button, buttonClasses } from '@/components/primitives/Button';
+import { Checkbox } from '@/components/primitives/Checkbox';
 import { AddressFields } from '@/components/checkout/AddressFields';
 import { readUser } from '@/lib/auth';
-import { readAddresses, type Address } from '@/lib/addresses';
+import { db } from '@/lib/supabase/server';
+import { listAddresses } from '@/lib/data/addresses';
+import { messageFor } from '@/lib/data/errors';
+import type { Address } from '@/lib/types';
 import { saveAddress, deleteAddress, setDefaultAddress } from '@/app/actions/address';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
-export const metadata: Metadata = { title: 'Your Addresses | Amazon' };
+export const metadata: Metadata = { title: 'Addresses · Store' };
 
-/** one saved address, with Default badge and Edit / Remove / Set-as-default controls. */
+const textBtn = 'min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink';
+
+/** one saved address, with Default chip and Edit / Remove / Set-as-default controls. */
 function AddressCard({ a, sp }: { a: Address; sp: (p: string) => string }) {
   const parts = [a.line1, a.line2, a.landmark, `${a.city}, ${a.state} ${a.zip}`].filter(Boolean);
   return (
-    <div className="flex flex-col rounded-[8px] border border-line bg-white p-4">
-      {a.isDefault ? (
-        <span className="mb-2 flex items-center gap-1 border-b border-line-3 pb-2 text-[12px] font-bold text-ink-2">
-          <span aria-hidden>✔</span> Default address
-        </span>
-      ) : null}
-      <p className="text-[15px] font-bold text-ink">{a.name}</p>
-      <div className="mt-1 flex-1 text-[13px] leading-5 text-ink-2">
-        {parts.map((p) => <p key={p}>{p}</p>)}
-        <p className="mt-1">Phone: {a.phone}</p>
-        {a.kind ? <p className="mt-1 capitalize">{a.kind}</p> : null}
+    <li className="flex flex-col gap-2 rounded-card border border-line bg-surface p-[18px]">
+      <div className="flex items-start justify-between gap-2">
+        <strong className="text-[16px] font-semibold">{a.name}</strong>
+        {a.isDefault ? <span className="flex-none rounded-chip bg-ink px-2 py-1 text-[12px] font-semibold text-white">Default</span> : null}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line-3 pt-2 text-[13px]">
-        <a href={sp(`/account/addresses?edit=${a.id}`)} className="text-link hover:text-link-hover hover:underline">Edit</a>
-        <span className="text-line-2">|</span>
+      <div className="flex-1 text-[14px] leading-[1.5] text-ink-2">
+        {parts.map((p) => <p key={p} className="m-0">{p}</p>)}
+        <p className="m-0 mt-1">Phone {a.phone}{a.kind ? ` · ${a.kind === 'office' ? 'Office' : 'Home'}` : ''}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-t border-line-2 pt-1">
+        <a href={sp(`/account/addresses?edit=${a.id}#form`)} className={textBtn} aria-label={`Edit address for ${a.name}`}>Edit</a>
         <form action={deleteAddress}>
           <input type="hidden" name="id" value={a.id} />
-          <button type="submit" className="text-link hover:text-link-hover hover:underline">Remove</button>
+          <button type="submit" className={textBtn} aria-label={`Remove address for ${a.name}`}>Remove</button>
         </form>
         {a.isDefault ? null : (
-          <>
-            <span className="text-line-2">|</span>
-            <form action={setDefaultAddress}>
-              <input type="hidden" name="id" value={a.id} />
-              <button type="submit" className="text-link hover:text-link-hover hover:underline">Set as default</button>
-            </form>
-          </>
+          <form action={setDefaultAddress}>
+            <input type="hidden" name="id" value={a.id} />
+            <button type="submit" className={textBtn}>Set as default</button>
+          </form>
         )}
       </div>
-    </div>
+    </li>
   );
 }
 
-export default async function AddressesPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+export default async function AddressesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edit?: string; error?: string; msg?: string }>;
+}) {
   const store = await getMarketplace();
   const sp = (p: string) => storePath(store, p);
   const user = await readUser();
-  if (!user) redirect('/signin?next=/account/addresses');
+  if (!user) redirect(sp('/signin?next=/account/addresses'));
 
-  const addresses = await readAddresses();
-  const { edit } = await searchParams;
+  const addresses = await listAddresses(await db(), store.id);
+  const { edit, error, msg } = await searchParams;
+  const problem = error ? (error === 'invalid_input' && msg ? msg : messageFor(error) ?? 'Could not save that address.') : null;
   const editing = edit ? addresses.find((a) => a.id === edit) : undefined;
   const isIN = store.id === 'IN';
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1000px] px-4 py-5">
-        <nav className="text-[13px] text-ink-2">
-          <a href={sp('/account')} className="text-link hover:text-link-hover hover:underline">Your Account</a>
-          <span className="px-1.5">›</span>
-          <span className="text-ink">Your Addresses</span>
-        </nav>
-        <h1 className="mt-2 text-[28px] font-normal text-ink">Your Addresses</h1>
+      <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-[120px] pt-7">
+        <div className="flex flex-col gap-1.5">
+          <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
+          <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Addresses</h1>
+          <span className="text-[15px] text-ink-2">Saved {isIN ? 'Indian' : 'US'} delivery addresses — choose one at checkout.</span>
+        </div>
 
         {addresses.length > 0 ? (
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5 p-0">
             {addresses.map((a) => <AddressCard key={a.id} a={a} sp={sp} />)}
-          </div>
+          </ul>
         ) : (
-          <p className="mt-5 text-[14px] text-ink-2">You have no saved addresses. Add one below to speed up checkout.</p>
+          <EmptyState title="No saved addresses">Add one below to speed up checkout.</EmptyState>
         )}
 
-        {/* add / edit form */}
-        <section id="form" className="mt-8 max-w-[600px] rounded-[8px] border border-line bg-white p-5">
-          <h2 className="mb-3 text-[18px] font-bold text-ink">{editing ? 'Edit address' : 'Add a new address'}</h2>
-          <form action={saveAddress} className="space-y-4">
+        <section id="form" className="flex max-w-[680px] flex-col gap-3.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="form-h">
+          <h2 id="form-h" className="m-0 text-[20px] font-semibold">{editing ? 'Edit address' : 'Add a new address'}</h2>
+          {problem ? <Alert tone="error">{problem}</Alert> : null}
+          <form action={saveAddress} className="flex flex-col gap-4">
             <input type="hidden" name="schema" value={store.address.schema} />
             {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
             <AddressFields isIN={isIN} address={editing} />
             {editing?.isDefault ? null : (
-              <label className="flex items-center gap-2 text-[13px] text-ink">
-                <input type="checkbox" name="makeDefault" defaultChecked={addresses.length === 0} />
-                Make this my default address
-              </label>
+              <Checkbox name="makeDefault" label="Make this my default address" defaultChecked={addresses.length === 0} />
             )}
-            <div className="flex items-center gap-3">
-              <button type="submit" className="h-[33px] rounded-pill bg-cta-yellow px-6 text-[14px] text-ink shadow-input hover:bg-cta-yellow-hover">
-                {editing ? 'Save changes' : 'Add address'}
-              </button>
-              {editing ? (
-                <a href={sp('/account/addresses')} className="text-[13px] text-link hover:text-link-hover hover:underline">Cancel</a>
-              ) : null}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Button type="submit" variant="primary">{editing ? 'Save changes' : 'Add address'}</Button>
+              {editing ? <a href={sp('/account/addresses')} className={buttonClasses({ variant: 'secondary' })}>Cancel</a> : null}
             </div>
           </form>
         </section>

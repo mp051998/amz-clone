@@ -1,41 +1,59 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '../lib/cn';
 
-type Variant = 'yellow' | 'orange' | 'secondary' | 'dark';
-type Size = 'sm' | 'md' | 'lg';
+/**
+ * `primary` = the one accent (commit: Add to cart, Search, Place order). `dark` = ink fill (Buy now,
+ * strong secondary). `secondary` = white + line-3 border. `dashed` = 1.5px dashed ink ("Tune for me…").
+ * `link` = underlined text button (design.md §5 Buttons).
+ */
+export type ButtonVariant = 'primary' | 'dark' | 'secondary' | 'dashed' | 'link';
+/** sm 36px · md 44px (touch target) · lg 48px (primary page CTA). */
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant;
-  size?: Size;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
+  /** stretch to the container width. */
+  block?: boolean;
 }
 
-const VARIANT: Record<Variant, string> = {
-  yellow: 'bg-cta-yellow hover:bg-cta-yellow-hover text-ink border-[#FCD200]',
-  orange: 'bg-cta-orange hover:bg-cta-orange-hover text-ink border-[#FF8F00]',
-  secondary: 'bg-white hover:bg-surface-3 text-ink border-line',
-  dark: 'bg-nav-main hover:bg-nav-back text-white border-transparent',
+const VARIANT: Record<ButtonVariant, string> = {
+  primary: 'bg-accent text-ink border-transparent hover:bg-accent-hover',
+  dark: 'bg-ink text-white border-transparent hover:bg-ink-raised',
+  secondary: 'bg-surface text-ink border-line-3 hover:border-ink',
+  dashed: 'bg-surface text-ink border-[1.5px] border-dashed border-ink hover:bg-surface-2',
+  link: 'bg-transparent text-ink border-transparent underline underline-offset-2 hover:text-accent-ink !px-0 !h-auto',
 };
-const SIZE: Record<Size, string> = { sm: 'h-[26px] text-[13px] px-3', md: 'h-[32px] text-[13px] px-4', lg: 'h-[40px] text-[15px] px-5' };
+const SIZE: Record<ButtonSize, string> = {
+  sm: 'min-h-9 text-[14px] px-3.5',
+  md: 'min-h-11 text-[14px] px-4',
+  lg: 'min-h-12 text-[16px] px-5',
+};
 
-/** Amazon-style pill button (design.md §5 Buttons). 400 weight, 1px border same as fill, hover darkens, focus ring. */
-export function Button({ variant = 'yellow', size = 'md', loading = false, disabled, className, children, ...props }: ButtonProps) {
+/** Class string for anything that should *look* like a Button (e.g. an `<a>`). */
+export function buttonClasses({ variant = 'primary', size = 'md', block = false }: { variant?: ButtonVariant; size?: ButtonSize; block?: boolean } = {}): string {
+  return cn(
+    'inline-flex items-center justify-center gap-2 rounded-pill border font-semibold leading-none transition-colors duration-100 no-underline',
+    'disabled:cursor-not-allowed disabled:bg-surface-4 disabled:text-ink-4 disabled:border-transparent aria-disabled:cursor-not-allowed',
+    VARIANT[variant],
+    variant === 'link' ? 'font-medium' : SIZE[size],
+    block && 'w-full',
+  );
+}
+
+/** Pill button in the decision-store language (design.md §5 Buttons). */
+export function Button({ variant = 'primary', size = 'md', loading = false, block = false, disabled, className, children, ...props }: ButtonProps) {
   return (
     <button
       type={props.type ?? 'button'}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={cn(
-        'inline-flex items-center justify-center rounded-pill border font-normal leading-none transition-colors duration-100',
-        'focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[#C8F3FA] focus-visible:border-link-teal',
-        'disabled:bg-surface-2 disabled:text-ink-4 disabled:border-line disabled:cursor-not-allowed',
-        VARIANT[variant],
-        SIZE[size],
-        className,
-      )}
+      className={cn(buttonClasses({ variant, size, block }), className)}
       {...props}
     >
-      {loading ? <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink border-t-transparent" aria-hidden /> : children}
+      {loading ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> : null}
+      {children}
     </button>
   );
 }

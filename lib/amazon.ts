@@ -3,7 +3,7 @@ import type { PublicMarketplace } from './contracts';
 /** amazon.com (US) store config — the single marketplace this clone renders. */
 export const amazon: PublicMarketplace = {
   id: 'US',
-  name: 'Amazon',
+  name: 'Store',
   hostname: 'amazon.com',
   country: 'US',
   locale: { default: 'en-US', supported: ['en-US', 'es-US', 'zh-CN', 'de-DE', 'pt-BR'] },
@@ -16,7 +16,7 @@ export const amazon: PublicMarketplace = {
     { method: 'giftcard', phase: 1 },
   ],
   delivery: { methods: ['standard', 'two-day', 'one-day', 'same-day'], freeThresholdMinor: 3500 },
-  membership: { name: 'Prime' },
+  membership: { name: 'Plus' },
   nav: {
     subnav: ["Today's Deals", 'Prime Video', 'Customer Service', 'Registry', 'Gift Cards', 'Sell'],
     departments: [

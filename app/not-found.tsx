@@ -1,18 +1,29 @@
 import { AppShell } from '@/components/AppShell';
+import { Page, PageHead } from '@/components/brand/Page';
+import { buttonClasses } from '@/components/primitives/Button';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { storePath } from '@/lib/marketplace';
 
-export default function NotFound() {
+export default async function NotFound() {
+  const store = await getMarketplace();
+  const sp = (p: string) => storePath(store, p);
   return (
     <AppShell>
-      <div className="mx-auto flex max-w-[900px] flex-col items-center px-4 py-20 text-center">
-        <p className="text-[52px] font-bold text-nav-main">404</p>
-        <h1 className="mt-2 text-[24px] font-bold text-ink">Looking for something?</h1>
-        <p className="mt-2 text-[15px] text-ink-2">
-          We&apos;re sorry. The web address you entered is not a functioning page on our site.
-        </p>
-        <a href="/" className="mt-5 inline-flex h-[36px] items-center rounded-pill bg-cta-yellow px-6 text-[14px] text-ink hover:bg-cta-yellow-hover">
-          Go to Amazon.com&apos;s home page
-        </a>
-      </div>
+      <Page className="min-h-[50vh]">
+        <PageHead
+          kicker="404 · page not found"
+          title="We couldn't find that page"
+          actions={
+            <>
+              <a href={sp('/')} className={buttonClasses({ variant: 'primary' })}>Back to the store</a>
+              <a href={sp('/deals')} className={buttonClasses({ variant: 'secondary' })}>Today&apos;s deals</a>
+              <a href={sp('/customer-service')} className={buttonClasses({ variant: 'secondary' })}>Get help</a>
+            </>
+          }
+        >
+          The link may be old or mistyped. Search for what you need from the bar above, or start again from the home page.
+        </PageHead>
+      </Page>
     </AppShell>
   );
 }

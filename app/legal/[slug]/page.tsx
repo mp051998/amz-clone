@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { PageHead, pageXNarrow } from '@/components/brand/Page';
+import { Kicker } from '@/components/decision/Badges';
+import { Alert } from '@/components/primitives/Alert';
+import { cn } from '@/components/lib/cn';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { getLegalPage, legalSlugs } from '@/lib/legal';
@@ -12,9 +16,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const page = getLegalPage(slug);
-  const store = await getMarketplace();
-  const tld = store.id === 'IN' ? 'in' : 'com';
-  return { title: page ? `${page.title} | Amazon.${tld}` : `Amazon.${tld}` };
+  return { title: page ? `${page.title} · Store` : 'Store' };
 }
 
 export default async function LegalContentPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -25,46 +27,43 @@ export default async function LegalContentPage({ params }: { params: Promise<{ s
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[820px] px-4 py-8">
-        <nav className="text-[12px] text-ink-2">
-          <a href={storePath(store, '/')} className="text-link hover:text-link-hover hover:underline">Amazon</a>
-          <span className="mx-1 text-ink-3">›</span>
-          <span>{page.title}</span>
-        </nav>
+      <article className={cn(pageXNarrow, 'flex flex-col gap-6 pb-16 pt-7 sm:pt-10')}>
+        <PageHead kicker={`Policies · updated ${page.updated}`} title={page.title} />
 
-        <h1 className="mt-2 text-[28px] font-bold text-ink">{page.title}</h1>
-        <p className="mt-1 text-[13px] text-ink-3">Last updated {page.updated}</p>
+        <Alert tone="warning">
+          Portfolio demo — this is an unofficial demo store. The text below is illustrative, written for the demo only. It is not a legal
+          agreement and is not affiliated with, endorsed by, or connected to Amazon.com, Inc. or any other retailer.
+        </Alert>
 
-        <div className="mt-4 rounded-[8px] border border-[#E0C200] bg-[#FEF8E7] p-3 text-[13px] leading-5 text-ink-2">
-          Portfolio demo — this is an unofficial Amazon clone. The text below is illustrative, written for the demo only. It is not a legal agreement and is not affiliated with, endorsed by, or connected to Amazon.com, Inc.
-        </div>
-
-        <p className="mt-5 text-[14px] leading-6 text-ink">{page.intro}</p>
+        <p className="m-0 text-[16px] leading-relaxed text-ink">{page.intro}</p>
 
         {page.sections.map((s) => (
-          <section key={s.heading} className="mt-6">
-            <h2 className="text-[18px] font-bold text-ink">{s.heading}</h2>
+          <section key={s.heading} className="flex flex-col gap-2">
+            <h2 className="m-0 text-[20px] font-semibold leading-tight text-ink">{s.heading}</h2>
             {s.body.map((para, j) => (
-              <p key={j} className="mt-2 text-[14px] leading-6 text-ink">{para}</p>
+              <p key={j} className="m-0 text-[15px] leading-relaxed text-ink-2">{para}</p>
             ))}
           </section>
         ))}
 
-        <div className="mt-9 border-t border-line pt-4">
-          <h2 className="text-[13px] font-bold text-ink-2">More policies</h2>
-          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+        <nav aria-label="More policies" className="mt-4 flex flex-col gap-3 border-t border-line-2 pt-5">
+          <Kicker as="h2">More policies</Kicker>
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
             {legalSlugs
               .filter((sl) => sl !== slug)
               .map((sl) => (
                 <li key={sl}>
-                  <a href={storePath(store, `/legal/${sl}`)} className="text-link hover:text-link-hover hover:underline">
+                  <a
+                    href={storePath(store, `/legal/${sl}`)}
+                    className="inline-flex min-h-11 items-center rounded-pill border border-line-3 bg-surface px-4 text-[14px] font-medium text-ink no-underline transition-colors hover:border-ink hover:text-ink"
+                  >
                     {getLegalPage(sl)!.title}
                   </a>
                 </li>
               ))}
           </ul>
-        </div>
-      </div>
+        </nav>
+      </article>
     </AppShell>
   );
 }

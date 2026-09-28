@@ -1,11 +1,10 @@
 import Stripe from 'stripe';
 
 /**
- * Server-only Stripe client, gated on STRIPE_SECRET_KEY (like supabaseConfigured):
- * when the key is absent the app still builds and the checkout falls back to the
- * demo order flow. The key is read from the environment only — never hard-coded.
- * Charges are made in the active store's currency: USD for amazon.com, INR for
- * amazon.in (see startStripeCheckout in app/actions/order.ts).
+ * Server-only Stripe client, gated on STRIPE_SECRET_KEY: when the key is absent
+ * the app still builds and checkout simply hides the card method. The key is read
+ * from the environment only — never hard-coded. Charges are made in the order's
+ * store currency (USD for amazon.com, INR for amazon.in); see lib/data/payments.ts.
  */
 const secretKey = process.env.STRIPE_SECRET_KEY;
 

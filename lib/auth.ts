@@ -1,8 +1,9 @@
-import { cookies } from 'next/headers';
-
-export const USER_COOKIE = 'amz_user';
+import 'server-only';
+import { cache } from 'react';
+import { db } from './supabase/server';
 
 export interface SessionUser {
+  id: string;
   name: string;
   email: string;
 }
@@ -15,17 +16,14 @@ export function nameFromEmail(email: string): string {
   return titled || 'there';
 }
 
-export async function readUser(): Promise<SessionUser | null> {
-  const raw = (await cookies()).get(USER_COOKIE)?.value;
-  if (!raw) return null;
-  try {
-    const obj = JSON.parse(raw);
-    if (obj && typeof obj.email === 'string' && typeof obj.name === 'string') return obj as SessionUser;
-    return null;
-  } catch {
-    return null;
-  }
-}
+/** The signed-in user (verified with Supabase Auth), or null. Once per request. */
+export const readUser = cache(async (): Promise<SessionUser | null> => {
+  const { data } = await (await db()).auth.getUser();
+  const user = data.user;
+  if (!user || !user.email) return null;
+  const metaName = typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
+  return { id: user.id, name: metaName || nameFromEmail(user.email), email: user.email };
+});
 
 export function firstName(user: SessionUser): string {
   return user.name.split(' ')[0] || user.name;

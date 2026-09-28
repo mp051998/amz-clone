@@ -1,256 +1,155 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
+import { Page, PageHead, Section, DemoNote } from '@/components/brand/Page';
+import { buttonClasses } from '@/components/primitives/Button';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const store = await getMarketplace();
-  return { title: `Customer Service | Amazon.${store.id === 'IN' ? 'in' : 'com'}` };
-}
+export const metadata: Metadata = { title: 'Help · Store' };
 
-/** Big quick-action tiles — one-line descriptor differs per store where the flow does. */
+/** Quick-action cards — the descriptor differs per store where the flow does. */
 function quickActions(isIN: boolean) {
   return [
+    { title: 'Track an order', line: 'See where a package is, edit or cancel an order, and view invoices.', href: '/orders' },
     {
-      icon: '📦',
-      title: "Where's my stuff?",
-      line: 'Track packages, edit or cancel orders, and view invoices.',
+      title: 'Returns & refunds',
+      line: isIN ? 'Return or replace items, schedule a pickup, and track refunds.' : 'Return or replace items and track your refund.',
       href: '/orders',
     },
     {
-      icon: '↩️',
-      title: 'Returns & Refunds',
-      line: isIN
-        ? 'Return or replace items, schedule pickup, and track refunds.'
-        : 'Return or replace items and track your refund.',
-      href: '/orders',
-    },
-    {
-      icon: '💳',
-      title: 'Payment & Gift Cards',
-      line: isIN
-        ? 'Manage cards, UPI, Amazon Pay balance, and gift cards.'
-        : 'Manage payment methods, gift cards, and your balance.',
+      title: 'Payments & gift cards',
+      line: isIN ? 'Manage cards, UPI, your store balance and gift cards.' : 'Manage payment methods, gift cards and your balance.',
       href: '/account',
     },
-    {
-      icon: '⭐',
-      title: 'Manage Prime',
-      line: 'View benefits, update, or cancel your Prime membership.',
-      href: '/account',
-    },
-    {
-      icon: '🔒',
-      title: 'Login & Security',
-      line: 'Change your password, email, name, or mobile number.',
-      href: '/account',
-    },
-    {
-      icon: '📱',
-      title: 'Devices & Digital',
-      line: 'Get help with your devices, apps, and digital content.',
-      href: '/account',
-    },
+    { title: 'Plus membership', line: 'View benefits, change plan, or cancel your Plus membership.', href: '/prime' },
+    { title: 'Login & security', line: 'Change your password, email, name or mobile number.', href: '/account' },
+    { title: 'Saved items & collections', line: 'Find what you saved, and turn price tracking on or off.', href: '/collections' },
   ];
 }
 
-/** Two-column "Browse help topics" list. */
+/** Help topics → a store search for that topic. */
 const HELP_TOPICS = [
   'Ordering',
-  'Shipping & Delivery',
-  'Returns, Refunds & Exchanges',
-  'Managing Your Account',
-  'Payments, Pricing & Promotions',
-  'Amazon Prime',
+  'Shipping & delivery',
+  'Returns, refunds & exchanges',
+  'Managing your account',
+  'Payments, pricing & promotions',
+  'Plus membership',
   'Devices',
 ];
 
-/** Plain, styled "Common questions" list — question + short answer, no JS. */
+/** Common questions — native <details>, no JS. */
 function commonQuestions(isIN: boolean) {
   return [
-    {
-      q: 'How do I track a package?',
-      a: 'Go to Your Orders, find the order, and select "Track package" to see the latest status and estimated delivery date.',
-    },
+    { q: 'How do I track a package?', a: 'Open Orders, choose the order, and select “Track order” to see each step and the expected delivery date.' },
     {
       q: 'How do I return an item?',
       a: isIN
-        ? 'Open Your Orders, choose "Return or replace items", pick a reason, and schedule a pickup. Cash on Delivery orders are refunded to your bank account or Amazon Pay balance.'
-        : 'Open Your Orders, choose "Return or replace items", pick a reason, and print the prepaid return label to drop the package off.',
+        ? 'Open Orders, choose “Return or replace”, pick a reason, and schedule a pickup. Cash on Delivery orders are refunded to your bank account or store balance.'
+        : 'Open Orders, choose “Return or replace”, pick a reason, and print the prepaid label to drop the package off.',
     },
     {
       q: 'How do I change my payment method?',
       a: isIN
-        ? 'Visit Your Account, then "Payment options", to add or remove cards, UPI, net banking, or your Amazon Pay balance.'
-        : 'Visit Your Account, then "Payment options", to add, edit, or remove cards and your gift card balance.',
+        ? 'Go to Account, then Payment options, to add or remove cards, UPI, net banking, or your store balance.'
+        : 'Go to Account, then Payment options, to add, edit or remove cards and your gift card balance.',
     },
-    {
-      q: 'Where is my refund?',
-      a: 'Once we receive your return, refunds are issued to your original payment method. Most refunds complete within 3–5 business days after processing.',
-    },
-    {
-      q: 'How do I cancel my Prime membership?',
-      a: 'Go to Your Account, open "Prime", and select "Manage membership" to update or cancel. You keep benefits until the current period ends.',
-    },
+    { q: 'Where is my refund?', a: 'Once we receive your return, the refund goes to your original payment method. Most complete within 3–5 business days.' },
+    { q: 'How do I cancel Plus?', a: 'Go to Account, open Plus membership, and choose “Manage membership”. You keep the benefits until the current period ends.' },
+    { q: 'Why is a product ranked above another?', a: 'Search results are ranked by how well each product matches the priorities you set. Every card shows why it’s there and its main trade-off.' },
   ];
 }
 
 export default async function CustomerServicePage() {
   const store = await getMarketplace();
   const isIN = store.id === 'IN';
+  const sp = (p: string) => storePath(store, p);
   const tiles = quickActions(isIN);
   const questions = commonQuestions(isIN);
 
   return (
     <AppShell>
-      {/* 1. Header band with search */}
-      <section className="bg-nav-main">
-        <div className="mx-auto max-w-[1200px] px-4 py-8">
-          <h1 className="text-[26px] font-bold text-white sm:text-[30px]">
-            Hello. What can we help you with?
-          </h1>
-          <p className="mt-2 max-w-[640px] text-[14px] text-white/70">
-            Browse help topics, manage your orders, or get in touch with {store.name} Customer
-            Service.
-          </p>
-          <form
-            action={storePath(store, '/s')}
-            className="mt-5 flex max-w-[640px] overflow-hidden rounded-[8px] shadow-input"
-          >
-            <input
-              type="text"
-              name="q"
-              aria-label="Search help"
-              placeholder="Search our help library"
-              className="h-[44px] flex-1 bg-white px-4 text-[15px] text-ink outline-none placeholder:text-ink-3"
-            />
-            <button
-              type="submit"
-              className="h-[44px] shrink-0 bg-cta-yellow px-6 text-[14px] font-bold text-ink hover:bg-cta-yellow-hover"
-            >
-              Search
-            </button>
-          </form>
-        </div>
-      </section>
+      <Page>
+        <PageHead kicker="Help" title="What can we help you with?">
+          Manage an order, find an answer, or get in touch.
+        </PageHead>
 
-      {/* 2. Quick-action tiles */}
-      <section className="mx-auto max-w-[1200px] px-4 py-8">
-        <h2 className="text-[21px] font-bold text-ink">What can we help you with?</h2>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tiles.map((t) => (
-            <a
-              key={t.title}
-              href={storePath(store, t.href)}
-              className="flex items-start gap-4 rounded-[8px] border border-line bg-white p-5 hover:shadow-[0_1px_2px_rgba(15,17,17,0.15)]"
-            >
-              <span
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[24px]"
-                aria-hidden
-              >
-                {t.icon}
-              </span>
-              <span>
-                <span className="block text-[16px] font-bold text-ink">{t.title}</span>
-                <span className="mt-1 block text-[13px] text-ink-2">{t.line}</span>
-              </span>
-            </a>
-          ))}
-        </div>
-      </section>
+        <form action={sp('/s')} role="search" className="flex max-w-[680px] items-center gap-2 rounded-panel border-[1.5px] border-ink bg-surface p-2 shadow-hero focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
+          <label htmlFor="help-q" className="sr-only">Search help and products</label>
+          <input
+            id="help-q"
+            type="text"
+            name="k"
+            placeholder="Search help or products"
+            className="h-11 min-w-0 flex-1 rounded-input bg-surface px-3 text-[16px] text-ink outline-none placeholder:text-ink-4"
+          />
+          <button type="submit" className={buttonClasses({ variant: 'primary' })}>Search</button>
+        </form>
 
-      {/* 3. Browse help topics */}
-      <section className="bg-surface-band">
-        <div className="mx-auto max-w-[1200px] px-4 py-8">
-          <h2 className="text-[21px] font-bold text-ink">Browse help topics</h2>
-          <ul className="mt-4 grid grid-cols-1 gap-x-10 gap-y-1 sm:grid-cols-2">
-            {HELP_TOPICS.map((topic) => (
-              <li key={topic} className="border-b border-line/70 py-2.5">
-                <a
-                  href={storePath(store, '/s')}
-                  className="flex items-center justify-between text-[14px] text-link-teal hover:text-brand-count hover:underline"
-                >
-                  {topic}
-                  <span className="text-ink-3" aria-hidden>
-                    ›
-                  </span>
+        <Section title="Quick actions">
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3.5 p-0">
+            {tiles.map((t) => (
+              <li key={t.title}>
+                <a href={sp(t.href)} className="flex h-full flex-col gap-1.5 rounded-card border border-line bg-surface p-[18px] text-ink no-underline transition-colors hover:border-ink">
+                  <span className="text-[17px] font-semibold leading-tight">{t.title} <span aria-hidden className="text-ink-3">→</span></span>
+                  <span className="text-[14px] leading-relaxed text-ink-2">{t.line}</span>
                 </a>
               </li>
             ))}
           </ul>
-        </div>
-      </section>
+        </Section>
 
-      {/* 4. Common questions */}
-      <section className="mx-auto max-w-[1200px] px-4 py-8">
-        <h2 className="text-[21px] font-bold text-ink">Common questions</h2>
-        <div className="mt-4 divide-y divide-line rounded-[8px] border border-line bg-white">
-          {questions.map((item) => (
-            <details key={item.q} className="group px-5 py-4">
-              <summary className="flex cursor-pointer list-none items-center justify-between text-[15px] font-bold text-ink">
-                {item.q}
-                <span
-                  className="ml-3 text-[18px] text-ink-3 group-open:rotate-180"
-                  aria-hidden
-                >
-                  ⌄
-                </span>
-              </summary>
-              <p className="mt-2 text-[14px] leading-[20px] text-ink-2">{item.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. Contact band */}
-      <section className="bg-surface-band">
-        <div className="mx-auto max-w-[1200px] px-4 py-8">
-          <div className="rounded-[8px] border border-line bg-white p-6 sm:p-8">
-            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-              <div>
-                <h2 className="text-[21px] font-bold text-ink">Still need help?</h2>
-                <p className="mt-1 text-[14px] text-ink-2">
-                  {isIN
-                    ? '24x7 help — reach us over chat, phone, or email, whichever suits you.'
-                    : 'Available 24/7 — chat with us or get a call from an associate.'}
-                </p>
-                <p className="mt-1 text-[13px] text-ink-3">
-                  {isIN
-                    ? `Get help with orders, returns, refunds, and ${store.name} Pay/UPI payments.`
-                    : `Get help with orders, returns, refunds, and payments.`}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  className="h-[40px] rounded-pill bg-cta-yellow px-6 text-[14px] font-bold text-ink shadow-input hover:bg-cta-yellow-hover"
-                >
-                  Start chat
-                </button>
-                <button
-                  type="button"
-                  className="h-[40px] rounded-pill border border-line bg-white px-6 text-[14px] text-ink hover:bg-surface-2"
-                >
-                  Call us
-                </button>
-                {isIN && (
-                  <button
-                    type="button"
-                    className="h-[40px] rounded-pill border border-line bg-white px-6 text-[14px] text-ink hover:bg-surface-2"
+        <div className="grid items-start gap-11 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:gap-8">
+          <Section title="Browse help topics">
+            <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">
+              {HELP_TOPICS.map((topic) => (
+                <li key={topic} className="border-b border-line-2 last:border-b-0">
+                  <a
+                    href={sp(`/s?k=${encodeURIComponent(topic)}`)}
+                    className="flex min-h-12 items-center justify-between px-[18px] text-[15px] text-ink no-underline hover:bg-surface-2 hover:text-ink"
                   >
-                    Email us
-                  </button>
-                )}
-              </div>
+                    {topic}
+                    <span className="text-ink-3" aria-hidden>›</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Section>
+
+          <Section title="Common questions">
+            <div className="overflow-hidden rounded-card border border-line bg-surface">
+              {questions.map((item) => (
+                <details key={item.q} className="group border-b border-line-2 last:border-b-0">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-[18px] py-3 text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                    {item.q}
+                    <span className="flex-none text-[14px] text-ink-3 transition-transform group-open:rotate-180" aria-hidden>▾</span>
+                  </summary>
+                  <p className="m-0 px-[18px] pb-4 text-[14px] leading-relaxed text-ink-2">{item.a}</p>
+                </details>
+              ))}
             </div>
-            <p className="mt-5 border-t border-line pt-4 text-[12px] text-ink-3">
-              This is a demo of {store.name}.{store.hostname.split('.').pop() === 'in' ? 'in' : 'com'}{' '}
-              Customer Service. The chat, call{isIN ? ', and email' : ''} buttons are for
-              presentation only and do not contact anyone.
+          </Section>
+        </div>
+
+        <section className="flex flex-col items-start gap-4 rounded-panel border border-line bg-surface p-5 sm:p-7 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-1.5">
+            <h2 className="m-0 text-[22px] font-semibold leading-tight text-ink">Still need help?</h2>
+            <p className="m-0 text-[15px] text-ink-2">
+              {isIN ? 'Help around the clock — chat, phone or email, whichever suits you.' : 'Available 24/7 — chat with us or ask for a call back.'}
             </p>
           </div>
-        </div>
-      </section>
+          <div className="flex flex-wrap gap-2.5">
+            <button type="button" className={buttonClasses({ variant: 'dark' })}>Start chat</button>
+            <button type="button" className={buttonClasses({ variant: 'secondary' })}>Call us</button>
+            {isIN ? <button type="button" className={buttonClasses({ variant: 'secondary' })}>Email us</button> : null}
+          </div>
+        </section>
+
+        <DemoNote>
+          Demo store — the chat, call{isIN ? ' and email' : ''} buttons are for presentation only and don&apos;t contact anyone. See the{' '}
+          <a href={sp('/legal/conditions-of-use')} className="text-ink-2 underline underline-offset-2 hover:text-accent-ink">conditions of use</a>.
+        </DemoNote>
+      </Page>
     </AppShell>
   );
 }
