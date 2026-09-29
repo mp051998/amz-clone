@@ -11,14 +11,17 @@ const MOVES = ['receive', 'reject', 'refund'] as const;
 type Move = (typeof MOVES)[number];
 
 /**
- * One admin move on a return (bound to the return id, the move and the list filter the admin was
- * on, all checked here since a client can send anything); reject reads its note from the form.
- * Back to the same list with a notice or the error.
+ * One admin move on a return (bound to the return id, the move and where the admin was: a returns
+ * list filter, or `order` for the order page; all checked here since a client can send anything).
+ * Reject reads its note from the form. Back to the same page with a notice or the error.
  */
-export async function returnAction(returnId: string, move: string, filter: string, formData?: FormData): Promise<void> {
+export async function returnAction(returnId: string, move: string, from: string, formData?: FormData): Promise<void> {
   const store = await getMarketplace();
+  let orderId: string | null = null;
   const back = (qs: string) => {
-    const f = returnFilter(filter);
+    // the order page's notices are the return ones, prefixed
+    if (from === 'order' && orderId) return storePath(store, `/admin/orders/${encodeURIComponent(orderId)}?${qs.replace(/^done=/, 'done=return_')}`);
+    const f = returnFilter(from);
     return storePath(store, `/admin/returns?${f === 'open' ? '' : `filter=${f}&`}${qs}`);
   };
   if (typeof returnId !== 'string' || !(MOVES as readonly string[]).includes(move)) redirect(back('error=return_not_found'));
@@ -27,7 +30,7 @@ export async function returnAction(returnId: string, move: string, filter: strin
   let code: string | null = null;
   let done: string = move;
   try {
-    await getStoreReturn(client, store.id, returnId);
+    orderId = (await getStoreReturn(client, store.id, returnId)).order.id;
     if ((move as Move) === 'receive') {
       // the refund can lag behind the receipt (card refunds on Stripe); say so
       const r = await receiveReturn(client, returnId);

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setCartQty } from '@/lib/data/cart';
 import { deliverOrder } from '@/lib/data/admin-orders';
-import { getStoreReturn, listAdminReturns, receiveReturn, rejectReturn, retryReturnRefund } from '@/lib/data/admin-returns';
+import { getStoreReturn, listAdminReturns, listOrderReturns, receiveReturn, rejectReturn, retryReturnRefund } from '@/lib/data/admin-returns';
 import { DataError } from '@/lib/data/errors';
 import { placeOrder } from '@/lib/data/orders';
 import { refundReturn, type RefundStripe } from '@/lib/data/refunds';
@@ -175,6 +175,20 @@ describe('returns', () => {
     expect(write.error ?? write.data?.length).toBeTruthy();
     expect(write.data ?? []).toEqual([]);
     expect(await buyer.db.rpc('record_return_refund', { p_return_id: mine![0].id, p_refund_id: null, p_status: 'succeeded' }).then((r) => r.error?.code)).toBe('42501');
+  });
+
+  it('the admin order page gets the order’s returns, oldest first; admins read every return', async () => {
+    const returns = await listOrderReturns(boss.db, order.id);
+    expect(returns.map((r) => r.order.id)).toEqual([order.id, order.id]);
+    expect(returns[0].createdAt <= returns[1].createdAt).toBe(true);
+    expect(returns[0]).toMatchObject({ customer: { id: buyer.id }, order: { market: 'US', paymentMethod: 'giftcard' } });
+    expect(await listOrderReturns(boss.db, 'no-such-order')).toEqual([]);
+    expect(await failure(listOrderReturns(buyer.db, order.id))).toBe('forbidden');
+    // the orders-list chips read the table: admins see everyone's, shoppers only their own
+    expect((await returnSummaries(boss.db, [order.id])).get(order.id)).toBeDefined();
+    expect((await returnSummaries(other.db, [order.id])).size).toBe(0);
+    const { data: items } = await boss.db.from('return_items').select('return_id').in('return_id', returns.map((r) => r.id));
+    expect(items?.length).toBeGreaterThan(0);
   });
 });
 

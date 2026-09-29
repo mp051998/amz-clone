@@ -96,6 +96,13 @@ export async function listAdminReturns(
   };
 }
 
+/** One order's returns, oldest first (admin order page). Empty before the function is deployed. */
+export async function listOrderReturns(db: Db, orderId: string): Promise<AdminReturn[]> {
+  const res = await db.rpc('admin_order_returns', { p_order_id: orderId });
+  if (res.error?.code === 'PGRST202') return [];
+  return ((unwrap(res) ?? []) as Row[]).map(toAdminReturn);
+}
+
 /** A return of `market` (another store's is "not found"). Non-admins get `forbidden`. */
 export async function getStoreReturn(db: Db, market: Market, id: string): Promise<AdminReturn> {
   const r = toAdminReturn(unwrap(await db.rpc('admin_get_return', { p_return_id: uuid(id) })));

@@ -521,6 +521,9 @@ isOneToOne: false
 "admin_get_return":
 { Args: { "p_return_id": string }; Returns: Json
                            },
+"admin_order_returns":
+{ Args: { "p_order_id": string }; Returns: Json
+                           },
 "admin_list_orders":
 { Args: { "p_filter"?: string,"p_market": string,"p_page"?: number,"p_page_size"?: number,"p_q"?: string }; Returns: Json
                            },
