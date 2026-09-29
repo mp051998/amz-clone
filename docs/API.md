@@ -40,12 +40,19 @@ Max 30 units per cart line. Quantities are also capped at available stock.
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | `{email, password, name?}` | `201` token pair. If the project requires email confirmation: `202 {confirmationRequired: true, user}` |
+| POST | `/auth/signup` | `{email, password, name?}` | `201` token pair. The account is active at once: this demo store doesn't verify email addresses |
 | POST | `/auth/token` | `{email, password}` | `200` token pair |
 | POST | `/auth/refresh` | `{refreshToken}` | `200` new token pair |
 | GET 🔒 | `/me` | | `{user: {id, email, name, createdAt}}` |
+| PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
 
 Token pair: `{tokenType: "bearer", accessToken, refreshToken, expiresAt, expiresIn, user: {id, email}}`.
+
+`PATCH /me`:
+- Changing `email` or setting `newPassword` needs `currentPassword` (`422 invalid_input`, `detail: "currentPassword"` when it's wrong). A taken email is `409 duplicate`.
+- Every field is checked before anything changes: name 1–80 characters, password 6–72.
+- A new password ends every session of the account, including the caller's, so switch to the returned `session`.
+- Password resets are web only: `/signin/forgot` emails a link that opens `/auth/confirm` and then the Login & security page.
 Access tokens are Supabase JWTs (1 h by default). The API only uses them to call
 Postgres as that user, so RLS decides what each caller can see.
 
@@ -309,7 +316,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Eleven migrations live in `supabase/migrations/`:
+Twelve migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -324,15 +331,17 @@ Eleven migrations live in `supabase/migrations/`:
 | split IN categories | data only: moves India's smartwatches, mixer grinders and yoga mats into `wearables`, `kitchen-appliances` and `yoga`, and re-derives their insights. A no-op on a fresh database, where the seed already has them |
 | order lifecycle | `markets.time_zone`; the saved delivery schedule on `orders` (filled by trigger when an order is placed, backfilled for existing ones); cancellation and refund columns; `cancel_my_order()`; the admin order functions `admin_list_orders()`, `admin_get_order()`, `admin_ship_order()`, `admin_deliver_order()`, `admin_cancel_order()`; and the service-role `record_payment_intent()`, `record_refund()`, `mark_sold_out()` |
 | catalog enrichment | `products.description` and `products.details` (admin-writable, read by the product page and API, not the catalog views); for databases seeded earlier, the seeded products' descriptions, spec tables and missing brands (book authors) and category-specific wording for the seeded reviews. A no-op on a fresh database, where the seed has them |
+| email in use | `email_in_use()`, service role only: whether an account already has an email address, checked before the server changes an account's email |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
-- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund` and `mark_sold_out` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
+- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund`, `mark_sold_out` and `email_in_use` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
 - **Guest carts.** They are only reachable through the `cart_*` functions with their token. `purge_stale_guest_carts()` deletes guest carts that have been idle for 30 days. It is service-role only, so schedule it with pg_cron or call it from a cron job.
 
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
+- account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
 - order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds

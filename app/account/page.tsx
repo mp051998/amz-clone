@@ -36,6 +36,7 @@ export default async function AccountPage() {
     { title: 'Orders', meta: orderCount ? plural(orderCount, 'order') : 'No orders yet', desc: 'Track deliveries and see what you bought.', href: '/orders' },
     { title: 'Collections', meta: saved ? `${plural(saved, 'saved item')} · ${plural(collections.length, 'list')}` : 'Nothing saved yet', desc: 'Saved products with prices tracked since you saved them.', href: '/collections' },
     { title: 'Addresses', meta: addresses.length ? `${plural(addresses.length, 'address', 'addresses')}${defaultAddr ? ` · default ${defaultAddr.city}` : ''}` : 'None saved', desc: 'Where your orders go. Pick one at checkout.', href: '/account/addresses' },
+    { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
   ];
 
