@@ -12,7 +12,7 @@ import {
   uploadProductImage,
   type ProductInput,
 } from '@/lib/data/admin-catalog';
-import { getProduct } from '@/lib/data/catalog';
+import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { addItem, createCollection, getCollection } from '@/lib/data/collections';
 import { DataError } from '@/lib/data/errors';
 import { getInsight } from '@/lib/data/insights';
@@ -43,6 +43,8 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   seller: 'Lumen Store',
   shipsFrom: 'Store',
   bullets: ['Warm white', 'USB-C'],
+  description: null,
+  details: [],
   stock: 30,
   ...over,
 });
@@ -109,6 +111,38 @@ describe('catalog management', () => {
     expect(await getAdminProduct(boss.db, id)).toMatchObject({ title: 'Renamed lamp', priceMinor: 1999, listMinor: null, deal: false, stock: 0 });
     const move = await boss.db.from('products').update({ market_id: 'IN' } as never).eq('id', id);
     expect(move.error?.code).toBe('42501');
+  });
+
+  it('saves the description and spec table, which shoppers read and cannot change', async () => {
+    const details: [string, string][] = [['Brand', 'Lumen'], ['Bulb', 'LED, 2700 K'], ['Power', 'USB-C, 5 V']];
+    const id = await createProduct(boss.db, 'US', input({ description: 'A small warm lamp.', details }));
+    created.push(id);
+    expect(await getProductInfo(anon(), id)).toEqual({ description: 'A small warm lamp.', details });
+    expect(await getAdminProduct(boss.db, id)).toMatchObject({ description: 'A small warm lamp.', details });
+
+    await updateProduct(boss.db, id, input({ description: '  ', details: details.slice(0, 1) }));
+    expect(await getProductInfo(anon(), id)).toEqual({ description: null, details: [['Brand', 'Lumen']] });
+
+    const forged = await shopper.db.from('products').update({ description: 'hacked', details: [] }).eq('id', id).select('id');
+    expect(forged.data ?? []).toEqual([]);
+    expect((await getProductInfo(anon(), id)).description).toBeNull();
+    // the database refuses a table that isn't an array, even from a trusted writer
+    const bad = await admin().from('products').update({ details: { Brand: 'Lumen' } }).eq('id', id);
+    expect(bad.error?.code).toBe('23514');
+  });
+
+  it('seeded products carry a description, a spec table and a brand or author', async () => {
+    const { data } = await anon().from('products').select('id, brand, description, details').in('id', ['81MSoBpPAL', 'in-7144dxKjVL']);
+    expect(data).toHaveLength(2);
+    for (const row of data!) {
+      expect(row.brand).toBeTruthy();
+      expect(row.description?.length).toBeGreaterThan(100);
+      expect((row.details as unknown[]).length).toBeGreaterThanOrEqual(5);
+    }
+    // both are books: their sample reviews come from the books pool, not the gadget one
+    const { data: reviews } = await anon().from('reviews').select('body').eq('product_id', '81MSoBpPAL').eq('seeded', true);
+    expect(reviews!.length).toBeGreaterThan(0);
+    expect(reviews!.some((r) => /setup was simple|out of the box/i.test(r.body))).toBe(false);
   });
 
   it('only accepts categories the store carries', async () => {

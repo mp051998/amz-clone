@@ -3,8 +3,13 @@
 // - products with deterministic stock (seeded by id → stable across runs)
 // - product_ratings baseline: each product's historical rating volume + star histogram
 // - a handful of sample written reviews per product (seeded = true; already counted
-//   in the baseline, so real customer reviews add on top via trigger)
+//   in the baseline, so real customer reviews add on top via trigger), worded from the
+//   product's category pool (supabase/seed/review-pools.json)
+// - each product's description and "Product information" rows, plus brands/authors the
+//   scraped titles lacked (supabase/seed/enrichment-*.json)
 // Run: node scripts/build-seed.mjs   (then: npx supabase db reset)
+//      node scripts/build-seed.mjs --migration <file>   also writes the same product copy and
+//      review wording as UPDATEs, for a database seeded before they existed
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -104,21 +109,29 @@ function sampleStars(rating) {
 
 const REF_DATE = Date.parse('2026-09-10T00:00:00Z');
 
-function sampleReviews(p, market) {
+/** Category pools as {title, body} lists; categories without one use the generic wording above. */
+const GENERIC_POOL = {
+  positive: POSITIVE_TITLES.map((title, i) => ({ title, body: POSITIVE_BODIES[i % POSITIVE_BODIES.length] })),
+  mixed: MIXED_TITLES.map((title, i) => ({ title, body: MIXED_BODIES[i % MIXED_BODIES.length] })),
+  critical: CRITICAL_TITLES.map((title, i) => ({ title, body: CRITICAL_BODIES[i % CRITICAL_BODIES.length] })),
+};
+
+function sampleReviews(p, market, pools) {
   const stars = sampleStars(p.rating);
+  // Author order comes from the first sample generator's draws (six shuffles, then the
+  // names), kept as-is so each seeded review keeps its author, stars and date: the
+  // --migration output finds already-seeded rows by them.
   const pool = seed(`${p.id}#pool`);
-  const posT = shuffle(POSITIVE_TITLES, pool), posB = shuffle(POSITIVE_BODIES, pool);
-  const mixT = shuffle(MIXED_TITLES, pool), mixB = shuffle(MIXED_BODIES, pool);
-  const criT = shuffle(CRITICAL_TITLES, pool), criB = shuffle(CRITICAL_BODIES, pool);
+  for (const list of [POSITIVE_TITLES, POSITIVE_BODIES, MIXED_TITLES, MIXED_BODIES, CRITICAL_TITLES, CRITICAL_BODIES]) shuffle(list, pool);
   const names = shuffle(market === 'IN' ? AUTHORS_IN : AUTHORS_US, pool);
+  const words = seed(`${p.id}#words`);
+  const cat = pools[p.category] ?? GENERIC_POOL;
+  const pos = shuffle(cat.positive, words), mix = shuffle(cat.mixed, words), cri = shuffle(cat.critical, words);
   let pi = 0, mi = 0, ci = 0;
 
   return stars.map((star, i) => {
     const rng = seed(`${p.id}#rev${i}`);
-    let title, body;
-    if (star >= 4) { title = posT[pi % posT.length]; body = posB[pi % posB.length]; pi++; }
-    else if (star === 3) { title = mixT[mi % mixT.length]; body = mixB[mi % mixB.length]; mi++; }
-    else { title = criT[ci % criT.length]; body = criB[ci % criB.length]; ci++; }
+    const { title, body } = star >= 4 ? pos[pi++ % pos.length] : star === 3 ? mix[mi++ % mix.length] : cri[ci++ % cri.length];
     const daysAgo = 6 + Math.floor(rng() * 430);
     return {
       product_id: p.id,
@@ -147,6 +160,7 @@ const q = (v) => (v === undefined || v === null ? 'null' : `'${String(v).replace
 const n = (v) => (v === undefined || v === null ? 'null' : String(Number(v)));
 const b = (v) => (v ? 'true' : 'false');
 const arr = (list) => `array[${list.map(q).join(', ')}]::text[]`;
+const jsonb = (v) => `${q(JSON.stringify(v))}::jsonb`;
 
 function insert(table, cols, rows) {
   if (!rows.length) return '';
@@ -158,9 +172,43 @@ function insert(table, cols, rows) {
   return chunks.join('\n');
 }
 
+const readJson = async (name) => JSON.parse(await readFile(join(SEED_DIR, name), 'utf8'));
+
+/** --migration: product copy and review wording as UPDATEs, matched by product id and by review author, stars and date. */
+function backfillSql(catalog, reviews) {
+  const products = catalog.map((p) => `(${q(p.id)}, ${q(p.enrichedBrand)}::text, ${q(p.description)}, ${jsonb(p.details)})`);
+  const rows = reviews.map((r) => `(${q(r.product_id)}, ${q(r.author_name)}, ${q(r.created_at)}::timestamptz, ${n(r.rating)}::smallint, ${q(r.title)}, ${q(r.body)})`);
+  const chunks = (list, size) => Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));
+  return [
+    ...chunks(products, 100).map(
+      (c) => `update public.products p
+set brand = coalesce(p.brand, v.brand),
+    description = coalesce(p.description, v.description),
+    details = case when p.details = '[]'::jsonb then v.details else p.details end
+from (values
+  ${c.join(',\n  ')}
+) as v (id, brand, description, details)
+where p.id = v.id;
+`,
+    ),
+    ...chunks(rows, 400).map(
+      (c) => `update public.reviews r
+set title = v.title, body = v.body
+from (values
+  ${c.join(',\n  ')}
+) as v (product_id, author_name, created_at, rating, title, body)
+where r.seeded and r.product_id = v.product_id and r.author_name = v.author_name
+  and r.created_at = v.created_at and r.rating = v.rating;
+`,
+    ),
+  ].join('\n');
+}
+
 async function main() {
-  const us = JSON.parse(await readFile(join(SEED_DIR, 'catalog-us.json'), 'utf8'));
-  const inn = JSON.parse(await readFile(join(SEED_DIR, 'catalog-in.json'), 'utf8'));
+  const us = await readJson('catalog-us.json');
+  const inn = await readJson('catalog-in.json');
+  const enrichment = { ...(await readJson('enrichment-us.json')), ...(await readJson('enrichment-in.json')) };
+  const pools = await readJson('review-pools.json');
 
   const categories = [...us.categories, ...inn.categories].map(({ slug, name }) => ({ slug, name }));
   const baseSlugs = us.categories.map((c) => c.slug);
@@ -176,12 +224,16 @@ async function main() {
   const catalog = [
     ...us.products.map((p, i) => ({ ...p, market: 'US', position: i })),
     ...inn.products.map((p, i) => ({ ...p, market: 'IN', position: i })),
-  ];
+  ].map((p) => {
+    const e = enrichment[p.id];
+    if (!e) throw new Error(`no enrichment for ${p.id}`);
+    return { ...p, brand: p.brand ?? e.brand, enrichedBrand: p.brand ? null : e.brand ?? null, description: e.description, details: e.details };
+  });
 
   const productRows = catalog.map((p) => [
     q(p.id), q(p.market), q(p.category), q(p.title), q(p.brand), q(p.image),
     n(p.priceMinor), n(p.listMinor), n(p.dealPct), b(p.deal), q(p.badge), q(p.boughtPastMonth),
-    q(p.seller), q(p.shipsFrom), arr(p.bullets ?? []), n(stockFor(p.id)), n(p.position),
+    q(p.seller), q(p.shipsFrom), arr(p.bullets ?? []), q(p.description), jsonb(p.details), n(stockFor(p.id)), n(p.position),
   ]);
 
   const ratingRows = catalog.map((p) => {
@@ -189,11 +241,10 @@ async function main() {
     return [q(p.id), n(p.reviewCount), (p.rating * p.reviewCount).toFixed(1), n(s1), n(s2), n(s3), n(s4), n(s5)];
   });
 
-  const reviewRows = catalog.flatMap((p) =>
-    sampleReviews(p, p.market).map((r) => [
-      q(r.product_id), q(r.author_name), n(r.rating), q(r.title), q(r.body), b(r.verified), 'true', n(r.helpful_count), q(r.created_at),
-    ]),
-  );
+  const reviews = catalog.flatMap((p) => sampleReviews(p, p.market, pools));
+  const reviewRows = reviews.map((r) => [
+    q(r.product_id), q(r.author_name), n(r.rating), q(r.title), q(r.body), b(r.verified), 'true', n(r.helpful_count), q(r.created_at),
+  ]);
 
   const sql = [
     '-- AUTO-GENERATED by scripts/build-seed.mjs from supabase/seed/catalog-*.json — do not edit by hand.',
@@ -203,7 +254,7 @@ async function main() {
     insert('public.market_categories', ['market_id', 'category_slug', 'position'], marketCategories.map(([m, s, i]) => [q(m), q(s), n(i)])),
     insert(
       'public.products',
-      ['id', 'market_id', 'category_slug', 'title', 'brand', 'image', 'price_minor', 'list_minor', 'deal_pct', 'deal', 'badge', 'bought_past_month', 'seller', 'ships_from', 'bullets', 'stock', 'position'],
+      ['id', 'market_id', 'category_slug', 'title', 'brand', 'image', 'price_minor', 'list_minor', 'deal_pct', 'deal', 'badge', 'bought_past_month', 'seller', 'ships_from', 'bullets', 'description', 'details', 'stock', 'position'],
       productRows,
     ),
     insert('public.product_ratings', ['product_id', 'rating_count', 'rating_sum', 'star_1', 'star_2', 'star_3', 'star_4', 'star_5'], ratingRows),
@@ -212,6 +263,14 @@ async function main() {
 
   await writeFile(join(ROOT, 'supabase', 'seed.sql'), sql);
   console.log(`wrote supabase/seed.sql — ${categories.length} categories, ${catalog.length} products, ${reviewRows.length} sample reviews`);
+
+  const at = process.argv.indexOf('--migration');
+  if (at > 0) {
+    const file = process.argv[at + 1];
+    if (!file) throw new Error('--migration needs a file');
+    await writeFile(file, backfillSql(catalog, reviews));
+    console.log(`wrote ${file}`);
+  }
 }
 
 main();

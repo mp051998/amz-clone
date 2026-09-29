@@ -1,4 +1,5 @@
 import type { Db } from '../db/client';
+import { toDetailRows, type DetailRow } from '../product-details';
 import type { Category, Market, Product, RatingSummary } from '../types';
 import { PAGE_SIZE, type SearchQuery, type SearchResult } from '../search';
 import { unwrap } from './errors';
@@ -37,6 +38,25 @@ async function productRows(db: Db, ids: readonly string[], opts: ProductReadOpti
 export async function getProduct(db: Db, id: string, opts: ProductReadOptions = {}): Promise<Product | null> {
   const [row] = await productRows(db, [id], opts);
   return row ? toProduct(row) : null;
+}
+
+/** The long-form copy a product page shows under the fold. */
+export interface ProductInfo {
+  description: string | null;
+  details: DetailRow[];
+}
+
+const NO_INFO: ProductInfo = { description: null, details: [] };
+
+/**
+ * A product's description and "Product information" rows. Empty when the columns aren't there
+ * yet (Vercel can deploy this a minute before the migration that adds them) or the id is unknown.
+ */
+export async function getProductInfo(db: Db, id: string): Promise<ProductInfo> {
+  const res = await db.from('products').select('description, details').eq('id', id).maybeSingle();
+  if (res.error?.code === '42703') return NO_INFO;
+  const row = unwrap(res);
+  return row ? { description: row.description, details: toDetailRows(row.details) } : NO_INFO;
 }
 
 /** Products by id, in the order the ids were given (unknown ids are skipped). */

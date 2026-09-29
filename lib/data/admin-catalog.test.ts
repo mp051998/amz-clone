@@ -14,6 +14,8 @@ const good: ProductInput = {
   seller: 'Acme Store',
   shipsFrom: 'Store',
   bullets: ['40h battery'],
+  description: null,
+  details: [],
   stock: 12,
 };
 
@@ -48,6 +50,26 @@ describe('validateProduct', () => {
   it('caps bullets at 10', () => {
     const res = validateProduct({ ...good, bullets: Array.from({ length: 11 }, (_, i) => `point ${i}`) });
     expect(!res.ok && res.errors.bullets).toBe('Up to 10 points');
+  });
+});
+
+describe('validateProduct: description and details', () => {
+  it('defaults both when an API client leaves them out', () => {
+    const { description: _d, details: _t, ...legacy } = good;
+    expect(validateProduct(legacy)).toEqual({ ok: true, data: { ...good, description: null, details: [] } });
+  });
+
+  it('trims rows and blanks an empty description to null', () => {
+    const res = validateProduct({ ...good, description: '   ', details: [[' Brand ', ' Acme ']] });
+    expect(res).toEqual({ ok: true, data: { ...good, description: null, details: [['Brand', 'Acme']] } });
+  });
+
+  it('caps the table and its cells', () => {
+    const many = Array.from({ length: 21 }, (_, i) => [`Row ${i}`, 'x']);
+    expect(validateProduct({ ...good, details: many })).toMatchObject({ ok: false, errors: { details: 'Up to 20 rows' } });
+    expect(validateProduct({ ...good, details: [['L'.repeat(41), 'x']] })).toMatchObject({ ok: false, errors: { details: 'Keep labels under 40 characters' } });
+    expect(validateProduct({ ...good, details: [['Brand', '']] })).toMatchObject({ ok: false, errors: { details: 'Every row needs a value' } });
+    expect(validateProduct({ ...good, description: 'd'.repeat(2001) })).toMatchObject({ ok: false, errors: { description: 'Keep it under 2000 characters' } });
   });
 });
 

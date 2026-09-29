@@ -24,6 +24,9 @@ export interface ProductFormValues {
   seller: string;
   shipsFrom: string;
   bullets: string;
+  description: string;
+  /** "Label: value", one row per line. */
+  details: string;
   stock: string;
 }
 
@@ -65,6 +68,8 @@ export function ProductForm({ action, initial, categories, badges, currencySymbo
   const val = (k: Exclude<keyof ProductFormValues, 'deal'>) => v?.[k] ?? initial[k];
   const e = state.errors ?? {};
   const bulletsId = useId();
+  const descriptionId = useId();
+  const detailsId = useId();
   const badgeList = useId();
 
   const [preview, setPreview] = useState<string | null>(null);
@@ -115,7 +120,7 @@ export function ProductForm({ action, initial, categories, badges, currencySymbo
             </div>
           </Group>
 
-          <Group title="Key features">
+          <Group title="Product details">
             <div className="flex flex-col gap-1.5">
               <label htmlFor={bulletsId} className="text-[14px] font-semibold">About this item</label>
               <textarea
@@ -127,6 +132,32 @@ export function ProductForm({ action, initial, categories, badges, currencySymbo
                 className={cn(fieldClass, 'h-auto py-2.5 leading-normal', e.bullets && 'border-bad')}
               />
               {e.bullets ? <span className="text-[13px] text-bad">⚠ {e.bullets}</span> : <span className="text-[13px] text-ink-3">One point per line, up to 10.</span>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={descriptionId} className="text-[14px] font-semibold">Product description</label>
+              <textarea
+                id={descriptionId}
+                name="description"
+                rows={4}
+                maxLength={2000}
+                defaultValue={val('description')}
+                aria-invalid={e.description ? true : undefined}
+                className={cn(fieldClass, 'h-auto py-2.5 leading-normal', e.description && 'border-bad')}
+              />
+              {e.description ? <span className="text-[13px] text-bad">⚠ {e.description}</span> : <span className="text-[13px] text-ink-3">Optional. A short paragraph under the specifications.</span>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={detailsId} className="text-[14px] font-semibold">Product information</label>
+              <textarea
+                id={detailsId}
+                name="details"
+                rows={7}
+                defaultValue={val('details')}
+                placeholder={'Brand: Acme\nColor: Black\nItem weight: 1.2 lb'}
+                aria-invalid={e.details ? true : undefined}
+                className={cn(fieldClass, 'h-auto py-2.5 font-mono text-[13px] leading-normal', e.details && 'border-bad')}
+              />
+              {e.details ? <span className="text-[13px] text-bad">⚠ {e.details}</span> : <span className="text-[13px] text-ink-3">One “Label: value” per line, up to 20. Shown as a table on the product page.</span>}
             </div>
           </Group>
         </div>

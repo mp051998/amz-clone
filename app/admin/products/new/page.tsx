@@ -21,7 +21,7 @@ export default async function NewProductPage() {
         action={saveProduct.bind(null, null)}
         initial={{
           title: '', brand: '', category: categories[0]?.slug ?? '', image: '', price: '', listPrice: '', deal: false,
-          badge: '', boughtPastMonth: '', seller: '', shipsFrom: '', bullets: '', stock: '0',
+          badge: '', boughtPastMonth: '', seller: '', shipsFrom: '', bullets: '', description: '', details: '', stock: '0',
         }}
         categories={categories.map((c) => ({ value: c.slug, label: c.name }))}
         badges={PRODUCT_BADGES}

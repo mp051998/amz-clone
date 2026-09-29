@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Db } from '../db/client';
 import { decisionConfig } from '../decision/attributes';
 import { deriveInsight, pricePercentiles } from '../decision/derive';
+import { DETAIL_LIMITS, toDetailRows, type DetailRow } from '../product-details';
 import type { Market } from '../types';
 import { getProduct } from './catalog';
 import { DataError, fromPostgrest, unwrap } from './errors';
@@ -52,6 +53,10 @@ export interface ProductInput {
   seller: string;
   shipsFrom: string;
   bullets: string[];
+  /** the "Product description" paragraph. */
+  description: string | null;
+  /** the "Product information" table, most important row first. */
+  details: DetailRow[];
   stock: number;
 }
 
@@ -78,6 +83,16 @@ const ProductInputSchema = z
     seller: required('the seller', 120),
     shipsFrom: required('where it ships from', 120),
     bullets: z.array(z.string().trim().min(1).max(300, 'Keep each point under 300 characters')).max(10, 'Up to 10 points'),
+    description: optional(DETAIL_LIMITS.description).default(null),
+    details: z
+      .array(
+        z.tuple([
+          z.string().trim().min(1, 'Every row needs a label').max(DETAIL_LIMITS.label, `Keep labels under ${DETAIL_LIMITS.label} characters`),
+          z.string().trim().min(1, 'Every row needs a value').max(DETAIL_LIMITS.value, `Keep values under ${DETAIL_LIMITS.value} characters`),
+        ]),
+      )
+      .max(DETAIL_LIMITS.rows, `Up to ${DETAIL_LIMITS.rows} rows`)
+      .default([]),
     stock: z.number().int('Enter a whole number').min(0, 'Stock can’t be negative').max(1_000_000, 'That’s a lot of stock'),
   })
   .superRefine((v, ctx) => {
@@ -138,6 +153,8 @@ function toRow(p: ProductInput) {
     seller: p.seller,
     ships_from: p.shipsFrom,
     bullets: p.bullets,
+    description: p.description,
+    details: p.details,
     stock: p.stock,
   };
 }
@@ -268,6 +285,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     seller: r.seller,
     shipsFrom: r.ships_from,
     bullets: r.bullets,
+    description: r.description,
+    details: toDetailRows(r.details),
     stock: r.stock,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
