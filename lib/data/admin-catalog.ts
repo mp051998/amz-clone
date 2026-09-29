@@ -355,8 +355,7 @@ export async function productHasOrders(db: Db, id: string): Promise<boolean> {
 
 /** Add a product to a store (placed last in catalog order). Returns its id. */
 export async function createProduct(db: Db, market: Market, input: unknown): Promise<string> {
-  const p = parse(input);
-  await checkVariantGroup(db, market, null, p);
+  const p = await checkVariantGroup(db, market, null, parse(input));
   const last = unwrap(
     await db.from('products').select('position').eq('market_id', market).order('position', { ascending: false }).limit(1).maybeSingle(),
   );
@@ -376,11 +375,10 @@ export async function createProduct(db: Db, market: Market, input: unknown): Pro
  * wording re-derives its rules insight (see `refreshInsight`).
  */
 export async function updateProduct(db: Db, id: string, input: unknown): Promise<void> {
-  const p = parse(input);
   const before = unwrap(await db.from('products').select('market_id, category_slug, title, brand, bullets').eq('id', id).maybeSingle());
   // RLS hides the row from non-admins, so "no row" is either missing or not allowed
   if (!before) throw new DataError('product_not_found');
-  await checkVariantGroup(db, before.market_id as Market, id, p);
+  const p = await checkVariantGroup(db, before.market_id as Market, id, parse(input));
   const updated = await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle();
   if (updated.error) throw writeError(updated.error);
   if (!updated.data) throw new DataError('product_not_found');
@@ -390,11 +388,12 @@ export async function updateProduct(db: Db, id: string, input: unknown): Promise
 }
 
 /**
- * A group's option name is shared: joining a group means using its name (Color, Size, …). Labels
- * are unique per group (products_variant_label_key), checked here for a clear message too.
+ * A group's option name is shared: joining a group means using its name (Color, Size, …), spelled
+ * as the group already does. Labels are unique per group (products_variant_label_key), checked
+ * here for a clear message too. Returns the input with the group's spelling.
  */
-async function checkVariantGroup(db: Db, market: Market, id: string | null, p: ProductInput): Promise<void> {
-  if (!p.variantGroup) return;
+async function checkVariantGroup(db: Db, market: Market, id: string | null, p: ProductInput): Promise<ProductInput> {
+  if (!p.variantGroup) return p;
   let q = db.from('products').select('id, variant_axis, variant_label').eq('market_id', market).eq('variant_group', p.variantGroup);
   if (id) q = q.neq('id', id);
   const others = unwrap(await q);
@@ -405,6 +404,7 @@ async function checkVariantGroup(db: Db, market: Market, id: string | null, p: P
   if (others.some((o) => o.variant_label?.toLowerCase() === p.variantLabel?.toLowerCase())) {
     throw new DataError('invalid_input', 'variantLabel', 'Another product in this group already uses that option');
   }
+  return axis ? { ...p, variantAxis: axis } : p;
 }
 
 /** A failed product write: a duplicate option label (a race past the check) reads as a field error. */

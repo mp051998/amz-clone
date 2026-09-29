@@ -87,6 +87,7 @@ describe('product variants', () => {
     // the same name in another case is the same name
     const slate = await createProduct(boss.db, 'US', input({ variantAxis: 'color', variantLabel: 'Slate' }));
     created.push(slate);
+    expect((await getAdminProduct(boss.db, slate))?.variantAxis).toBe('Color'); // spelled as the group does
     expect((await getProductInfo(anon(), slate)).variants?.options.map((o) => o.label)).toEqual(['Clay', 'Sage', 'Slate']);
   });
 
