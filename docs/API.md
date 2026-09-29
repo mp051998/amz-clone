@@ -107,6 +107,8 @@ Prices and totals are computed by the database on every read.
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
 | POST | `/orders/:id/cancel` | | Abandons an `awaiting_payment` card order. Releases the reserved stock. The cart is kept. |
 
+There is no guest checkout. Orders belong to an account, so every route here needs a signed-in user (`401 not_authenticated`), and so does `place_order()` in the database. A guest's cart carries over: sign in, then `POST /cart/merge`.
+
 How `POST /orders` works:
 - In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). It then snapshots each line's title, price and seller and computes the totals.
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
@@ -189,11 +191,39 @@ How AI replies are handled:
 | GET | `/ai/status` | | `{provider: "gemini:<model>" \| null, enabled}` |
 | POST | `/ai/parse-query` | `{q}` | `{query: {keywords, category, budgetMinor, use, intents: [{kind: category\|budget\|use\|keyword, label, param, value, removable}], title, source}}`. `category` is one of the store's slugs. `use` is a preset id. Each intent's `param` is the `/s` search param it maps to (`dept`, `budget`, `use`, `k`). |
 | POST | `/ai/profile` | `{category?, answers: {use: [], duration, priceVsQuality, pain: [], note}, budgetMinor?}` | `{profile: {weights: {<key>: 0..5}, reasons: {<key>: sentence}, summary, watch, source}}`. Answer labels come from the category's quiz. |
-| POST | `/ai/compare` | `{productIds: [2..4], weights?, use?}` | `{weights, ranked: RankedProduct[], verdict: {winnerId, text, perProduct: [{productId, bestFor, strengths, tradeoffs}], source}, table: {rows: [{label, cells: [{text, best}]}], same: []}}`. `RankedProduct` is `{product, insight, match: 0..100, why: [], warn}`. Every product must be from this store. |
+| POST | `/ai/compare` | `{productIds: [2..4], weights?, use?, allowMixed?}` | `{mixed: false, weights, ranked: RankedProduct[], verdict: {winnerId, text, perProduct: [{productId, bestFor, strengths, tradeoffs}], source}, table: {rows: [{label, cells: [{text, best}]}], same: []}}`. `RankedProduct` is `{product, insight, match: 0..100, why: [], warn}`. Every product must be from this store. Products from different categories can't be ranked on a shared basis, so they fail with `409 mixed_categories` (`detail` lists the category slugs). With `allowMixed: true` the response is `{mixed: true, categories: [{slug, name, ids}], products, table}` instead: no weights, ranking or verdict, and the table has only the rows every product has (category, price, rating, discount, brand, seller, shipping, availability), with no `best` flags. |
 
 Configuration (`.env.local` / Vercel):
 - `GEMINI_API_KEY`: secret, optional. With it blank, the whole site runs on rules.
 - `GEMINI_MODEL`: optional, default `gemini-2.5-flash`.
+
+## Admin 🔒
+
+Catalog management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products` and the `product-images` bucket), so going around these routes doesn't help. Everything is per store (`?market=` / `X-Market`), and a product never moves between stores.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/products?q=&category=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt}], total, page, pageCount}`. Most recently changed first. `q` matches the title, or an exact id. |
+| POST | `/admin/products` | `ProductInput` | `201 {product}`. The id is generated (`n…`, or `in-n…` in India) and the product goes last in catalog order. |
+| GET | `/admin/products/:id` | | `{product}`: every editable field plus `id, market, createdAt, updatedAt`. |
+| PATCH | `/admin/products/:id` | any `ProductInput` fields | `{product}`. Fields you leave out keep their values. |
+| DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: set `stock` to 0 instead. |
+
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], stock}`:
+- `category` must be a slug this store carries (`422 invalid_category`).
+- `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
+- `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.
+- `bullets`: up to 10, each up to 300 characters.
+- Validation errors are `422 invalid_input` with the field in `detail`.
+
+**Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
+
+```bash
+npm run admin:grant -- shopper@example.com            # uses .env.local
+npm run admin:grant -- shopper@example.com --revoke
+```
+
+The web UI is at `/admin/products` (and `/in/admin/products`). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -202,12 +232,12 @@ Configuration (`.env.local` / Vercel):
 | 400 | `invalid_json`, `unknown_market`, `cart_token_required`, `invalid_signature` |
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
-| 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function) |
+| 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
 | 404 | `product_not_found`, `order_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
+| 409 | `mixed_categories`, `product_has_orders`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
 | 415 | `unsupported_media_type` |
-| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `payment_method_unavailable` |
+| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable` |
 | 503 | `payments_unavailable` |
 
 ## Walkthrough
@@ -238,7 +268,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Six migrations live in `supabase/migrations/`:
+Seven migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -247,10 +277,11 @@ Six migrations live in `supabase/migrations/`:
 | accounts | `profiles` (created by trigger on signup) and `addresses` (per-store validation, default handling, limit) |
 | commerce | `carts`/`cart_items` (user or guest token), `orders`/`order_items` (snapshots) and these functions: `cart_*`, `order_totals()`, `place_order()`, `cancel_pending_order()`, `attach_checkout_session()`, `confirm_order_payment()`, `release_checkout_session()`, `purge_stale_guest_carts()` |
 | reviews | `reviews` (one per user per product), `review_votes`, `review_reports`, and the `product_ratings` rollup kept by triggers |
+| admin | `admins` (no API access), `is_admin()`, admin-only insert/update/delete policies and column grants on `products`, a trigger that keeps a product in a category its store carries, and the public `product-images` Storage bucket (admin-only writes) |
 | decision | `product_insights` (public read, server-written; seeded from `supabase/seed-insights.sql`, built by `npm run db:insights:build`), `collections`/`collection_items` (owner RLS, limit + saved-price triggers), `ai_cache` (service role only) |
 
 About the tables and functions:
-- **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Price, stock, order and total columns are never client-writable.
+- **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
 - **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session` and `release_checkout_session` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
 - **Guest carts.** They are only reachable through the `cart_*` functions with their token. `purge_stale_guest_carts()` deletes guest carts that have been idle for 30 days. It is service-role only, so schedule it with pg_cron or call it from a cron job.
 

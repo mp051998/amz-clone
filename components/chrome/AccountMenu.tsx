@@ -17,7 +17,7 @@ const SIGNED_IN_LINKS = [
  * (→ /collections, or /signin when signed out); on hover/focus a small menu adds Orders, Account
  * and Sign out.
  */
-export function AccountMenu({ store, userName }: { store: Store; userName?: string }) {
+export function AccountMenu({ store, userName, isAdmin = false }: { store: Store; userName?: string; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,7 +52,7 @@ export function AccountMenu({ store, userName }: { store: Store; userName?: stri
             {userName ? (
               <>
                 <ul className="m-0 list-none p-0">
-                  {SIGNED_IN_LINKS.map((l) => (
+                  {(isAdmin ? [...SIGNED_IN_LINKS, { label: 'Admin · Catalogue', href: '/admin/products' }] : SIGNED_IN_LINKS).map((l) => (
                     <li key={l.href}>
                       <a href={to(l.href)} className="flex min-h-10 items-center rounded-input px-2 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink">{l.label}</a>
                     </li>

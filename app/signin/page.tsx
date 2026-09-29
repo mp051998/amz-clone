@@ -29,6 +29,7 @@ function reasonFor(next: string): string | null {
   if (path.startsWith('/collections') || path.startsWith('/product') || path.startsWith('/s')) return 'Sign in to save products and track their prices.';
   if (path.startsWith('/orders')) return 'Sign in to see and track your orders.';
   if (path.startsWith('/account')) return 'Sign in to manage your account.';
+  if (path.startsWith('/admin')) return 'Sign in with an admin account to manage the catalogue.';
   return null;
 }
 

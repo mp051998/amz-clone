@@ -1,5 +1,4 @@
 'use client';
-import { useEffect, useState } from 'react';
 import { ProductFrame } from '../decision/ProductFrame';
 import { MatchBadge } from '../decision/Badges';
 import { useCompare, type CompareItem } from '../decision/Compare';
@@ -23,28 +22,17 @@ export interface AlternativeCard {
  * Compare button that puts this product and the alternative in the compare tray (its "Compare N →").
  */
 export function Alternatives({ base, items }: { base: CompareItem; items: AlternativeCard[] }) {
-  const compare = useCompare();
-  const { items: tray, max, toggle } = compare;
+  const { items: tray, add } = useCompare();
   const { toast } = useToast();
-  // toggle() closes over the current list, so add one item per render
-  const [queue, setQueue] = useState<CompareItem[]>([]);
-  useEffect(() => {
-    if (!queue.length) return;
-    const [next, ...rest] = queue;
-    if (!tray.some((t) => t.id === next.id)) toggle(next);
-    setQueue(rest);
-  }, [queue, tray, toggle]);
 
   const onCompare = (alt: AlternativeCard) => {
-    const want = [base, { id: alt.id, name: alt.name, image: alt.image }];
-    const missing = want.filter((w) => !tray.some((t) => t.id === w.id));
-    if (!missing.length) { toast('Both are already in your compare tray'); return; }
-    if (tray.length + missing.length > max) {
-      toast(`You can compare up to ${max} products — remove one from the tray first`);
-      return;
+    // alternatives come from the base product's category
+    const result = add([base, { id: alt.id, name: alt.name, image: alt.image, category: base.category, categoryName: base.categoryName }]);
+    if (result === 'noop') toast('Both are already in your compare tray');
+    if (result === 'added') {
+      const count = new Set([...tray.map((t) => t.id), base.id, alt.id]).size;
+      toast(`Added to compare · ${count} in the tray`);
     }
-    setQueue(missing);
-    toast(`Added to compare · ${tray.length + missing.length} in the tray`);
   };
 
   return (

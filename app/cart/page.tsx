@@ -233,12 +233,15 @@ export default async function CartPage() {
             ) : null}
             {blocked ? (
               <Alert tone="warning">Some items no longer have enough stock. Update them to check out.</Alert>
-            ) : (
+            ) : user ? (
               <a href={sp('/checkout')} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</a>
+            ) : (
+              // no guest checkout: orders belong to an account, so guests sign in first (the cart comes along)
+              <a href={sp(`/signin?next=${encodeURIComponent('/checkout')}`)} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Sign in to check out</a>
             )}
             <span className="text-[13px] leading-[1.4] text-ink-2">
               Arrives {etaText}.{' '}
-              {user ? 'You can review everything before you pay.' : 'You’ll sign in at checkout — your cart comes with you.'}
+              {user ? 'You can review everything before you pay.' : 'Orders need an account. Sign in or create one — your cart comes with you.'}
             </span>
           </aside>
         </div>

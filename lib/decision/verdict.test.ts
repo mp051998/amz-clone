@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { product } from '@/test/fixtures/decision';
 import { decisionConfig } from './attributes';
 import { rankProducts } from './rank';
-import { compareTable, compareVerdict, shortTitle } from './verdict';
+import { categoryGroups, compareTable, compareVerdict, mixedCompareTable, shortTitle } from './verdict';
 import type { ProductInsight } from './types';
 
 const ins = (id: string, scores: Record<string, number>): ProductInsight => ({
@@ -42,5 +42,29 @@ describe('verdict', () => {
 
   it('handles an empty list', () => {
     expect(compareVerdict([], weights).winnerId).toBe('');
+  });
+});
+
+describe('mixed-category compare', () => {
+  const phone = product({ id: 'm1', category: 'mobiles', categoryName: 'Mobiles', priceMinor: 20000, brand: 'Acme' });
+  const phone2 = product({ id: 'm2', category: 'mobiles', categoryName: 'Mobiles', priceMinor: 25000, brand: 'Acme' });
+  const book = product({ id: 'b1', category: 'books', categoryName: 'Books', priceMinor: 1500, brand: 'Penguin', rating: 4.8 });
+
+  it('groups products by category in first-seen order', () => {
+    expect(categoryGroups([phone, book, phone2])).toEqual([
+      { slug: 'mobiles', name: 'Mobiles', ids: ['m1', 'm2'] },
+      { slug: 'books', name: 'Books', ids: ['b1'] },
+    ]);
+    expect(categoryGroups([phone, phone2])).toHaveLength(1);
+  });
+
+  it('keeps only shared facts and never marks a BEST', () => {
+    const t = mixedCompareTable([phone, book]);
+    const labels = t.rows.map((r) => r.label);
+    expect(labels).toEqual(['Category', 'Price', 'Rating', 'Brand']);
+    expect(t.rows[0].cells.map((c) => c.text)).toEqual(['Mobiles', 'Books']);
+    expect(t.rows.flatMap((r) => r.cells).some((c) => c.best)).toBe(false);
+    expect(labels).not.toContain('Match for you');
+    expect(t.same).toContain('Sold by: Acme');
   });
 });

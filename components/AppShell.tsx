@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { readUser, firstName } from '@/lib/auth';
+import { readIsAdmin, readUser, firstName } from '@/lib/auth';
 import { storeCategories, viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -61,7 +61,7 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  */
 export async function AppShell({ children, cartCount }: AppShellProps) {
   const store = await getMarketplace();
-  const [cart, user, categories] = await Promise.all([viewerCart(), readUser(), storeCategories()]);
+  const [cart, user, categories, admin] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin()]);
   const count = cartCount ?? cart.count;
   const key = store.id === 'IN' ? 'IN' : 'US';
 
@@ -93,6 +93,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
             store={store}
             cartCount={count}
             userName={user ? firstName(user) : undefined}
+            isAdmin={admin}
             categories={strip}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />

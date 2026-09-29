@@ -42,6 +42,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"admins": {
+                  Row: {
+                    "created_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ai_cache": {
                   Row: {
                     "created_at": string,"expires_at": string,"feature": string,"key": string,"provider": string,"value": NonNullable<Json>
@@ -452,6 +465,9 @@ isOneToOne: false
                            },
 "confirm_order_payment":
 { Args: { "p_amount_minor": number,"p_currency": string,"p_order_id": string,"p_payment_label": string,"p_session_id": string }; Returns: Json
+                           },
+"is_admin":
+{ Args: never; Returns: boolean
                            },
 "order_totals":
 { Args: { "p_market": string,"p_subtotal": number }; Returns: {

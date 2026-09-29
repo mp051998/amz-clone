@@ -4,12 +4,15 @@ import { DataError } from '@/lib/data/errors';
 import { getInsights } from '@/lib/data/insights';
 import { clampWeights, decisionConfig, weightsFor } from '@/lib/decision/attributes';
 import { rankProducts } from '@/lib/decision/rank';
-import { compareTable } from '@/lib/decision/verdict';
+import { categoryGroups, compareTable, mixedCompareTable } from '@/lib/decision/verdict';
 import { compareVerdictAI } from '@/lib/ai/features/compare';
 
 /**
- * POST /api/v1/ai/compare { productIds: [2..4], weights?, use? } — ranked products
+ * POST /api/v1/ai/compare { productIds: [2..4], weights?, use?, allowMixed? } — ranked products
  * (input order), a verdict and the "What's different" / "Same on all" table.
+ * Products from different categories are rejected with `mixed_categories` (409); with
+ * `allowMixed: true` the response is `{ mixed: true, categories, products, table }` instead:
+ * no ranking or verdict, and only the rows every product has.
  */
 export const POST = route(async (ctx) => {
   const b = await body(ctx.req);
@@ -17,6 +20,13 @@ export const POST = route(async (ctx) => {
   if (ids.length < 2 || ids.length > 4) throw new DataError('invalid_input', 'productIds', 'Compare 2 to 4 products.');
   const products = (await getProducts(ctx.db, ids)).filter((p) => p.market === ctx.market);
   if (products.length !== ids.length) throw new DataError('product_not_found');
+  const order = new Map(ids.map((id, i) => [id, i]));
+  products.sort((x, y) => order.get(x.id)! - order.get(y.id)!);
+  const groups = categoryGroups(products);
+  if (groups.length > 1) {
+    if (b.allowMixed !== true) throw new DataError('mixed_categories', groups.map((g) => g.slug).join(','));
+    return json({ mixed: true, categories: groups, products, table: mixedCompareTable(products) });
+  }
   const category = products[0].category;
   const cfg = decisionConfig(category);
   const weights =
@@ -24,12 +34,11 @@ export const POST = route(async (ctx) => {
       ? clampWeights(category, b.weights as Record<string, unknown>)
       : weightsFor(category, typeof b.use === 'string' ? b.use : null);
   const insights = await getInsights(ctx.db, ids);
-  const order = new Map(ids.map((id, i) => [id, i]));
   const ranked = rankProducts(products, insights, weights, { config: cfg }).sort(
     (x, y) => order.get(x.product.id)! - order.get(y.product.id)!,
   );
   const verdict = await compareVerdictAI(ranked, weights, cfg);
-  return json({ weights, ranked, verdict, table: compareTable(ranked, cfg) });
+  return json({ mixed: false, weights, ranked, verdict, table: compareTable(ranked, cfg) });
 });
 
 export const OPTIONS = preflight;
