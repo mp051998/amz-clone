@@ -2,16 +2,15 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { nameFromEmail } from '@/lib/auth';
+import { safeNext } from '@/lib/safe-next';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createAccount } from '@/lib/data/account';
+import { DataError } from '@/lib/data/errors';
 import { db } from '@/lib/supabase/server';
 import { clearGuestToken, getMarket, readGuestToken } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import type { Market } from '@/lib/types';
 import { mergeGuestCart } from '@/lib/data/cart';
-
-/** keep `next` a safe in-app path so the redirect can't be pointed off-site. */
-function safeNext(next: string): string {
-  return next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/';
-}
 
 /** `next` is an in-store path; land back in the store the form was posted from. */
 function inStore(market: Market, next: string): string {
@@ -52,25 +51,17 @@ export async function signIn(formData: FormData): Promise<void> {
   const supabase = await db();
 
   if (creating) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name || nameFromEmail(email) } },
-    });
-    if (error) {
-      const m = error.message.toLowerCase();
-      const code = /already|registered/.test(m)
-        ? 'exists'
-        : /password/.test(m)
-          ? 'weakpw'
-          : /rate limit|confirm/.test(m)
-            ? 'confirm'
-            : 'signup';
+    try {
+      await createAccount(createAdminClient(), { email, password, name: name || nameFromEmail(email) });
+    } catch (err) {
+      if (!(err instanceof DataError)) throw err;
+      const code =
+        err.code === 'duplicate' ? 'exists' : err.detail === 'password' || err.detail === 'email' || err.detail === 'name' ? err.detail : 'signup';
+      if (code === 'signup') console.error('[auth] sign-up failed', err.code, err.detail ?? '');
       signinError(market, code, next, true);
     }
-    // Email-confirmation ON → user created but no active session. Tell them to sign in
-    // once confirmed rather than silently landing logged-out.
-    if (!data.session) signinError(market, 'confirm', next, true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) signinError(market, 'signup', next, true);
   } else {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) signinError(market, 'badcreds', next, false);

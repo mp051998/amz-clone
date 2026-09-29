@@ -30,8 +30,7 @@ SUPABASE_SERVICE_ROLE_KEY=<printed "service_role key" / secret key>
 
 The local services are:
 - **Studio:** http://127.0.0.1:54323
-- **Mail catcher:** http://127.0.0.1:54324. Email confirmation is off locally,
-  so sign-up works immediately.
+- **Mail catcher:** http://127.0.0.1:54324. Password-reset emails land here.
 - **Postgres:** `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
 
 ### Catalog seed
@@ -72,9 +71,15 @@ test-mode Checkout Sessions.
    ```
    (or paste `seed.sql` into the dashboard's SQL editor).
 4. **Configure auth.** Go to **Authentication → Providers → Email** and make sure it
-   is enabled. For a demo, turn **Confirm email** off. If you keep it on,
-   `POST /auth/signup` returns `202 confirmationRequired`. Then set **URL
-   Configuration → Site URL** to the deployed origin.
+   is enabled. Sign-up doesn't send email: the server creates accounts already
+   confirmed (with the service role key), so the **Confirm email** switch doesn't
+   matter. Only password resets send email. For them to work:
+   - Under **URL Configuration**, set **Site URL** to the deployed origin and add
+     `https://<your-app>/auth/confirm**` to **Redirect URLs**. Without that, reset
+     links open the Site URL instead of the store.
+   - Supabase's built-in mailer only delivers to your project team's addresses, a
+     few times an hour. To reach shoppers, add your own SMTP server under
+     **Authentication → Emails → SMTP Settings**.
 5. **Get the keys.** Under **Project Settings → API**, copy the Project URL, the
    anon/publishable key and the service_role/secret key.
 

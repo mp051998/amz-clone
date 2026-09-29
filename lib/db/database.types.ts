@@ -509,6 +509,9 @@ isOneToOne: false
 "confirm_order_payment":
 { Args: { "p_amount_minor": number,"p_currency": string,"p_order_id": string,"p_payment_label": string,"p_session_id": string }; Returns: Json
                            },
+"email_in_use":
+{ Args: { "p_email": string }; Returns: boolean
+                           },
 "is_admin":
 { Args: never; Returns: boolean
                            },
