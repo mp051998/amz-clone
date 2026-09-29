@@ -14,7 +14,7 @@ import { summarizeReviews } from '@/lib/ai/features/reviews';
  * provider when one is configured (cached; otherwise ignored).
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
-  const product = await getProduct(ctx.db, id);
+  const product = await getProduct(ctx.db, id, { includeArchived: true });
   if (!product || product.market !== ctx.market) throw new DataError('product_not_found');
   let insight = await getInsight(ctx.db, id);
   if (ctx.req.nextUrl.searchParams.get('summarize') === '1' && getProvider()) {

@@ -162,12 +162,15 @@ async function main() {
   const us = JSON.parse(await readFile(join(SEED_DIR, 'catalog-us.json'), 'utf8'));
   const inn = JSON.parse(await readFile(join(SEED_DIR, 'catalog-in.json'), 'utf8'));
 
-  const categories = [...us.categories, ...inn.categories];
+  const categories = [...us.categories, ...inn.categories].map(({ slug, name }) => ({ slug, name }));
   const baseSlugs = us.categories.map((c) => c.slug);
-  // amazon.in leads with its Mobiles department; amazon.com folds phones into Electronics.
+  // India-only departments: one without `after` leads the nav (amazon.in opens with Mobiles;
+  // amazon.com folds phones into Electronics), the rest follow the department they split from.
+  const inOrder = inn.categories.filter((c) => !c.after).map((c) => c.slug);
+  for (const slug of baseSlugs) inOrder.push(slug, ...inn.categories.filter((c) => c.after === slug).map((c) => c.slug));
   const marketCategories = [
     ...baseSlugs.map((slug, i) => ['US', slug, i]),
-    ...['mobiles', ...baseSlugs].map((slug, i) => ['IN', slug, i]),
+    ...inOrder.map((slug, i) => ['IN', slug, i]),
   ];
 
   const catalog = [

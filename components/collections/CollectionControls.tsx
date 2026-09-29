@@ -159,12 +159,14 @@ export function CollectionMenu({ id, name, market }: { id: string; name: string;
 }
 
 /** Add to cart (accent, stays on the page) + Remove from this collection. */
-export function ItemActions({ collectionId, collectionName, productId, productName, inStock, market }: {
+export function ItemActions({ collectionId, collectionName, productId, productName, inStock, unavailable = false, market }: {
   collectionId: string;
   collectionName: string;
   productId: string;
   productName: string;
   inStock: boolean;
+  /** archived: can't be bought any more, only removed. */
+  unavailable?: boolean;
   market: MarketId;
 }) {
   const [pending, start] = useTransition();
@@ -198,8 +200,8 @@ export function ItemActions({ collectionId, collectionName, productId, productNa
 
   return (
     <div className="flex flex-none gap-2">
-      <Button variant="primary" onClick={add} disabled={pending || !inStock} aria-label={`Add ${productName} to cart`}>
-        {inStock ? 'Add to cart' : 'Out of stock'}
+      <Button variant="primary" onClick={add} disabled={pending || !inStock || unavailable} aria-label={`Add ${productName} to cart`}>
+        {unavailable ? 'Unavailable' : inStock ? 'Add to cart' : 'Out of stock'}
       </Button>
       <Button variant="secondary" onClick={remove} disabled={pending} aria-label={`Remove ${productName} from ${collectionName}`}>
         Remove

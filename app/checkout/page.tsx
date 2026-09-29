@@ -65,6 +65,7 @@ export default async function CheckoutPage({
   // invalid_input carries the specific field message from validation
   const problem = error ? (error === 'invalid_input' && msg ? msg : messageFor(error) ?? 'Something went wrong. Please try again.') : null;
   const blocked = lines.some((l) => !l.inStock);
+  const unavailable = lines.some((l) => !l.available);
   const now = new Date();
   const eta = cartEta(now, store);
   const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
@@ -78,7 +79,8 @@ export default async function CheckoutPage({
       ) : null}
       {blocked ? (
         <Alert tone="warning">
-          Some items no longer have enough stock. <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
+          {unavailable ? 'Some items are no longer available.' : 'Some items no longer have enough stock.'}{' '}
+          <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
         </Alert>
       ) : null}
 
@@ -101,7 +103,11 @@ export default async function CheckoutPage({
                   <span className="min-w-0">
                     {l.product.title}
                     <span className="text-ink-3"> × {l.qty}</span>
-                    {!l.inStock ? <span className="block text-[13px] font-semibold text-warn">⚠ Not enough stock</span> : null}
+                    {!l.available ? (
+                      <span className="block text-[13px] font-semibold text-warn">⚠ No longer available</span>
+                    ) : !l.inStock ? (
+                      <span className="block text-[13px] font-semibold text-warn">⚠ Not enough stock</span>
+                    ) : null}
                   </span>
                   <span className="flex-none font-semibold tabular-nums">{money(l.lineTotalMinor)}</span>
                 </li>

@@ -2,14 +2,14 @@ import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
 import type { Address, Cart, Market, Order, OrderStatus, PaymentMethod, Product } from '../types';
 
-type ProductRow = Database['public']['Views']['catalog_products']['Row'];
+type ProductRow = Database['public']['Views']['catalog_products_all']['Row'];
 type AddressRow = Database['public']['Tables']['addresses']['Row'];
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 
 const opt = <T>(v: T | null | undefined): T | undefined => (v === null ? undefined : v);
 
-/** catalog_products row (from a select or embedded in RPC JSON) → Product. */
+/** catalog_products(_all) row (from a select or embedded in RPC JSON) → Product. */
 export function toProduct(row: Partial<ProductRow>): Product {
   return {
     id: row.id ?? '',
@@ -32,6 +32,7 @@ export function toProduct(row: Partial<ProductRow>): Product {
     boughtPastMonth: opt(row.bought_past_month),
     stock: row.stock ?? 0,
     curBase: (row.currency ?? 'USD') as CurrencyCode,
+    archived: row.archived_at ? true : undefined,
   };
 }
 
@@ -40,7 +41,7 @@ interface CartJson {
   currency: CurrencyCode;
   free_ship_threshold_minor: number;
   count: number;
-  lines: { product: Partial<ProductRow>; qty: number; line_total_minor: number; in_stock: boolean }[];
+  lines: { product: Partial<ProductRow>; qty: number; line_total_minor: number; in_stock: boolean; available?: boolean }[];
   totals: { subtotal_minor: number; ship_minor: number; tax_minor: number; total_minor: number };
 }
 
@@ -57,6 +58,8 @@ export function toCart(json: unknown): Cart {
       qty: l.qty,
       lineTotalMinor: l.line_total_minor,
       inStock: l.in_stock,
+      // absent before the archive migration: every line was available
+      available: l.available ?? true,
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,

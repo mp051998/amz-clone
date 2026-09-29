@@ -20,7 +20,7 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
  */
 export const POST = route<{ id: string }>(async (ctx, { id }) => {
   const user = requireUser(ctx);
-  if (!(await getProduct(ctx.db, id))) throw new DataError('product_not_found');
+  if (!(await getProduct(ctx.db, id, { includeArchived: true }))) throw new DataError('product_not_found');
   const review = await upsertReview(ctx.db, id, user.id, await body(ctx.req));
   return json({ review }, { status: 201 });
 });

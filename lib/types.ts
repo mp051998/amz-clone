@@ -27,6 +27,8 @@ export interface Product {
   stock: number;
   /** currency the price fields are in — always the product's market currency. */
   curBase: CurrencyCode;
+  /** taken off sale by an admin: out of every listing, its page says "no longer available". */
+  archived?: boolean;
 }
 
 export interface Category {
@@ -45,8 +47,10 @@ export interface CartLine {
   product: Product;
   qty: number;
   lineTotalMinor: number;
-  /** false when stock dropped below the quantity in the cart. */
+  /** false when stock dropped below the quantity in the cart, or the product was archived. */
   inStock: boolean;
+  /** false when the product was archived: it must be removed before checkout. */
+  available: boolean;
 }
 
 export interface Cart {

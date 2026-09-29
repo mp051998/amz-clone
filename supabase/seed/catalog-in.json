@@ -3,6 +3,21 @@
   {
    "slug": "mobiles",
    "name": "Mobiles"
+  },
+  {
+   "slug": "wearables",
+   "name": "Wearables",
+   "after": "electronics"
+  },
+  {
+   "slug": "kitchen-appliances",
+   "name": "Kitchen Appliances",
+   "after": "home-kitchen"
+  },
+  {
+   "slug": "yoga",
+   "name": "Yoga",
+   "after": "sports"
   }
  ],
  "products": [
@@ -2060,7 +2075,7 @@
    "id": "in-819ZWX2Nm9L",
    "title": "Noise Diva Araya Smartwatch for Women, 1.32\" AMOLED Display, BT Calling, 100+ Sports Modes, Metal Build",
    "brand": "Noise",
-   "category": "electronics",
+   "category": "wearables",
    "image": "/products/in/819ZWX2Nm9L.jpg",
    "priceMinor": 549900,
    "listMinor": 662900,
@@ -2082,7 +2097,7 @@
    "id": "in-61Cx3vx0mLL",
    "title": "Fire-Boltt Phoenix Pro 1.39\" Bluetooth Calling Smartwatch, 120+ Sports Modes, SpO2 & Heart Rate Monitor",
    "brand": "Fire-Boltt",
-   "category": "electronics",
+   "category": "wearables",
    "image": "/products/in/61Cx3vx0mLL.jpg",
    "priceMinor": 129900,
    "rating": 3.9,
@@ -2102,7 +2117,7 @@
    "id": "in-61aIxLJVJCL",
    "title": "Noise Pulse 4 Max 1.96\" AMOLED Display Smartwatch, AI Voice Assistant, BT Calling, Metallic Finish",
    "brand": "Noise",
-   "category": "electronics",
+   "category": "wearables",
    "image": "/products/in/61aIxLJVJCL.jpg",
    "priceMinor": 279900,
    "listMinor": 389900,
@@ -2125,7 +2140,7 @@
    "id": "in-61ATaTpvEQL",
    "title": "Noise Twist Round 1.38\" TFT Display Smartwatch, BT Calling, 100 Sports Modes, 7-Day Battery Life",
    "brand": "Noise",
-   "category": "electronics",
+   "category": "wearables",
    "image": "/products/in/61ATaTpvEQL.jpg",
    "priceMinor": 159900,
    "rating": 4,
@@ -2146,7 +2161,7 @@
    "id": "in-71JLQrCFFL",
    "title": "boAt Wave Sigma 3 Smartwatch, 2.01\" HD Display, BT Calling, 700+ Watch Faces, IP68 Water Resistant",
    "brand": "boAt",
-   "category": "electronics",
+   "category": "wearables",
    "image": "/products/in/71JLQrCFFL.jpg",
    "priceMinor": 149900,
    "listMinor": 220900,
@@ -2169,7 +2184,7 @@
    "id": "in-71S8pDT9EiL",
    "title": "Havells Prisma 750W Mixer Grinder, 4 Jars, 3 Speed with Pulse, Stainless Steel Blades, 5-Year Motor Warranty",
    "brand": "Havells",
-   "category": "home-kitchen",
+   "category": "kitchen-appliances",
    "image": "/products/in/71S8pDT9EiL.jpg",
    "priceMinor": 429000,
    "rating": 4.1,
@@ -2177,10 +2192,10 @@
    "seller": "Havells Official Store",
    "shipsFrom": "Amazon",
    "bullets": [
-    "ISI-marked, made in India for everyday cooking",
-    "Works on gas and induction cooktops",
-    "Sturdy build with a secure locking lid",
-    "Even heat for faster, fuel-saving cooking"
+    "Grinds masalas, chutneys and batters in seconds",
+    "Stainless steel jars and blades for wet and dry grinding",
+    "Overload protection keeps the motor safe on long runs",
+    "Locking lids and anti-skid feet for steady, spill-free use"
    ],
    "curBase": "INR",
    "boughtPastMonth": "1K+ bought in past month"
@@ -2189,7 +2204,7 @@
    "id": "in-71Swqb9mXvL",
    "title": "Philips HR7732 Mixer Grinder 1000W, 4 Jars, Double Ball Bearing Motor, Unique Modes for Different Textures",
    "brand": "Philips",
-   "category": "home-kitchen",
+   "category": "kitchen-appliances",
    "image": "/products/in/71Swqb9mXvL.jpg",
    "priceMinor": 769900,
    "rating": 4.2,
@@ -2197,9 +2212,9 @@
    "seller": "Philips Official Store",
    "shipsFrom": "Amazon",
    "bullets": [
-    "Works on gas and induction cooktops",
-    "Sturdy build with a secure locking lid",
-    "Even heat for faster, fuel-saving cooking",
+    "Stainless steel jars and blades for wet and dry grinding",
+    "Overload protection keeps the motor safe on long runs",
+    "Locking lids and anti-skid feet for steady, spill-free use",
     "Backed by a manufacturer warranty"
    ],
    "curBase": "INR",
@@ -2209,7 +2224,7 @@
    "id": "in-71nBpK0uJL",
    "title": "Bosch TrueMixx Pro Mixer Grinder MGM8642BIN, 750W, 4 Jars, Stone Pounding Technology, Black",
    "brand": "Bosch",
-   "category": "home-kitchen",
+   "category": "kitchen-appliances",
    "image": "/products/in/71nBpK0uJL.jpg",
    "priceMinor": 609900,
    "rating": 4.3,
@@ -2217,10 +2232,10 @@
    "seller": "Cocoblu Retail",
    "shipsFrom": "Amazon",
    "bullets": [
-    "ISI-marked, made in India for everyday cooking",
-    "Works on gas and induction cooktops",
-    "Sturdy build with a secure locking lid",
-    "Even heat for faster, fuel-saving cooking"
+    "Grinds masalas, chutneys and batters in seconds",
+    "Stainless steel jars and blades for wet and dry grinding",
+    "Overload protection keeps the motor safe on long runs",
+    "Locking lids and anti-skid feet for steady, spill-free use"
    ],
    "badge": "Amazon's Choice",
    "curBase": "INR",
@@ -2230,7 +2245,7 @@
    "id": "in-61P8ZSaqBHL",
    "title": "Sujata MG01 Mixer Grinder 1000W, 3 Jars, Double Ball Bearing Motor, 24000 RPM, 90 Min Non-Stop Running",
    "brand": "Sujata",
-   "category": "home-kitchen",
+   "category": "kitchen-appliances",
    "image": "/products/in/61P8ZSaqBHL.jpg",
    "priceMinor": 669000,
    "listMinor": 1171900,
@@ -2240,10 +2255,10 @@
    "seller": "RetailEZ Private Limited",
    "shipsFrom": "Amazon",
    "bullets": [
-    "ISI-marked, made in India for everyday cooking",
-    "Works on gas and induction cooktops",
-    "Sturdy build with a secure locking lid",
-    "Even heat for faster, fuel-saving cooking"
+    "Grinds masalas, chutneys and batters in seconds",
+    "Stainless steel jars and blades for wet and dry grinding",
+    "Overload protection keeps the motor safe on long runs",
+    "Locking lids and anti-skid feet for steady, spill-free use"
    ],
    "deal": true,
    "curBase": "INR",
@@ -2253,7 +2268,7 @@
    "id": "in-61Cln50mffL",
    "title": "Bajaj Rex 500W Mixer Grinder, 3 Stainless Steel Jars, Multifunctional Blades, Nutri-Pro Feature",
    "brand": "Bajaj",
-   "category": "home-kitchen",
+   "category": "kitchen-appliances",
    "image": "/products/in/61Cln50mffL.jpg",
    "priceMinor": 219900,
    "rating": 4.2,
@@ -2261,9 +2276,9 @@
    "seller": "Cloudtail India",
    "shipsFrom": "Amazon",
    "bullets": [
-    "Works on gas and induction cooktops",
-    "Sturdy build with a secure locking lid",
-    "Even heat for faster, fuel-saving cooking",
+    "Stainless steel jars and blades for wet and dry grinding",
+    "Overload protection keeps the motor safe on long runs",
+    "Locking lids and anti-skid feet for steady, spill-free use",
     "Backed by a manufacturer warranty"
    ],
    "badge": "Bestseller",
@@ -2577,7 +2592,7 @@
    "id": "in-81qgtF5lNL",
    "title": "Wiselife True Alignment Yoga Mat with Strap, 6mm Anti-Slip TPE, Eco-Friendly for Men & Women",
    "brand": "Wiselife",
-   "category": "sports",
+   "category": "yoga",
    "image": "/products/in/81qgtF5lNL.jpg",
    "priceMinor": 118200,
    "listMinor": 143900,
@@ -2587,10 +2602,10 @@
    "seller": "Wiselife Official Store",
    "shipsFrom": "Amazon",
    "bullets": [
-    "Adjustable weight adapts as your strength grows",
-    "Space-saving design for a home gym",
-    "Secure locking mechanism for safe lifting",
-    "Durable, non-slip grip handle"
+    "Anti-slip texture keeps you steady in every pose",
+    "Cushioned, joint-friendly support for floor workouts",
+    "Light and easy to roll up and carry",
+    "Sweat-resistant surface that wipes clean"
    ],
    "deal": true,
    "curBase": "INR",
@@ -2600,7 +2615,7 @@
    "id": "in-61mx7nZOGnL",
    "title": "Lifelong Dual Color 6mm Anti-Slip TPE Yoga Mat for Gym Workout & Fitness, for Men & Women",
    "brand": "Lifelong",
-   "category": "sports",
+   "category": "yoga",
    "image": "/products/in/61mx7nZOGnL.jpg",
    "priceMinor": 57900,
    "rating": 4.2,
@@ -2608,10 +2623,10 @@
    "seller": "Lifelong Official Store",
    "shipsFrom": "Amazon",
    "bullets": [
-    "Adjustable weight adapts as your strength grows",
-    "Space-saving design for a home gym",
-    "Secure locking mechanism for safe lifting",
-    "Durable, non-slip grip handle"
+    "Anti-slip texture keeps you steady in every pose",
+    "Cushioned, joint-friendly support for floor workouts",
+    "Light and easy to roll up and carry",
+    "Sweat-resistant surface that wipes clean"
    ],
    "curBase": "INR",
    "boughtPastMonth": "1K+ bought in past month"
@@ -2620,7 +2635,7 @@
    "id": "in-710zYiyB7XL",
    "title": "Permo Fitness Mat 12mm, Foldable High-Density TPE Multi-Purpose Yoga Mat with Carry Strap",
    "brand": "Permo",
-   "category": "sports",
+   "category": "yoga",
    "image": "/products/in/710zYiyB7XL.jpg",
    "priceMinor": 399900,
    "rating": 4.1,
@@ -2628,10 +2643,10 @@
    "seller": "Permo Official Store",
    "shipsFrom": "Amazon",
    "bullets": [
-    "Adjustable weight adapts as your strength grows",
-    "Space-saving design for a home gym",
-    "Secure locking mechanism for safe lifting",
-    "Durable, non-slip grip handle"
+    "Anti-slip texture keeps you steady in every pose",
+    "Cushioned, joint-friendly support for floor workouts",
+    "Light and easy to roll up and carry",
+    "Sweat-resistant surface that wipes clean"
    ],
    "curBase": "INR",
    "boughtPastMonth": "500+ bought in past month"
@@ -2640,7 +2655,7 @@
    "id": "in-51izPGxd0SL",
    "title": "Lifelong 4mm EVA Anti-Slip Yoga Mat for Gym Workout & Home Exercise, for Men & Women, Black",
    "brand": "Lifelong",
-   "category": "sports",
+   "category": "yoga",
    "image": "/products/in/51izPGxd0SL.jpg",
    "priceMinor": 55000,
    "listMinor": 93900,
@@ -2650,10 +2665,10 @@
    "seller": "Lifelong Official Store",
    "shipsFrom": "Amazon",
    "bullets": [
-    "Space-saving design for a home gym",
-    "Secure locking mechanism for safe lifting",
-    "Durable, non-slip grip handle",
-    "Ideal for home strength training"
+    "Cushioned, joint-friendly support for floor workouts",
+    "Light and easy to roll up and carry",
+    "Sweat-resistant surface that wipes clean",
+    "Suits yoga, pilates, stretching and home workouts"
    ],
    "badge": "Limited time deal",
    "deal": true,

@@ -1,17 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  countAdminProducts,
   createProduct,
   deleteProduct,
   getAdminProduct,
   isAdmin,
   listAdminProducts,
+  productHasOrders,
+  setArchived,
   updateProduct,
   uploadProductImage,
   type ProductInput,
 } from '@/lib/data/admin-catalog';
+import { getProduct } from '@/lib/data/catalog';
+import { addItem, createCollection, getCollection } from '@/lib/data/collections';
 import { DataError } from '@/lib/data/errors';
+import { getInsight } from '@/lib/data/insights';
 import { placeOrder } from '@/lib/data/orders';
-import { setCartQty } from '@/lib/data/cart';
+import { addToCart, getCart, mergeGuestCart, setCartQty } from '@/lib/data/cart';
+import { attributeKeys } from '@/lib/decision/attributes';
 import { admin, anon, deleteUser, newUser, US_SHIPPING, type TestUser } from './helpers';
 
 const code = async (p: Promise<unknown>) => {
@@ -110,21 +117,175 @@ describe('catalog management', () => {
     expect(await code(createProduct(boss.db, 'US', input({ category: 'no-such-dept' })))).toBe('invalid_category');
   });
 
-  it('keeps ordered products for order history', async () => {
+  it('keeps ordered products for order history: they can be archived, not deleted', async () => {
     const id = await createProduct(boss.db, 'US', input({ stock: 5 }));
     created.push(id);
+    expect(await productHasOrders(boss.db, id)).toBe(false);
     await setCartQty(shopper.db, 'US', id, 1);
     await placeOrder(shopper.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING });
+    expect(await productHasOrders(boss.db, id)).toBe(true);
     expect(await code(deleteProduct(boss.db, id))).toBe('product_has_orders');
     // order_items keep the product row alive; afterAll can't delete it either, so take it off sale
-    await updateProduct(boss.db, id, input({ stock: 0 }));
+    await setArchived(boss.db, id, true);
     created.splice(created.indexOf(id), 1);
+    expect((await getAdminProduct(boss.db, id))?.archivedAt).toEqual(expect.any(String));
+  });
+
+  it('only admins can ask whether a product was ordered', async () => {
+    const id = await createProduct(boss.db, 'US', input());
+    created.push(id);
+    expect(await code(productHasOrders(shopper.db, id))).toBe('forbidden');
+    expect(await code(productHasOrders(anon(), id))).toBe('forbidden');
   });
 
   it('deletes a product nobody ordered', async () => {
     const id = await createProduct(boss.db, 'US', input());
     await deleteProduct(boss.db, id);
     expect(await getAdminProduct(admin(), id)).toBeNull();
+  });
+});
+
+describe('archived products', () => {
+  let id: string;
+  let listId: string;
+  const guest = crypto.randomUUID();
+
+  beforeAll(async () => {
+    id = await createProduct(boss.db, 'US', input({ stock: 20 }));
+    created.push(id);
+    // already in a cart, a guest cart and a saved list when it's archived
+    await addToCart(shopper.db, 'US', id, 2);
+    await addToCart(anon(), 'US', id, 1, guest);
+    listId = (await createCollection(shopper.db, 'US', { name: 'Archive test' })).id;
+    await addItem(shopper.db, listId, id);
+  });
+
+  afterAll(async () => {
+    await setCartQty(shopper.db, 'US', id, 0);
+    await admin().from('collections').delete().eq('id', listId);
+  });
+
+  it('only admins archive', async () => {
+    expect(await code(setArchived(shopper.db, id, true))).toBe('product_not_found');
+    expect((await getAdminProduct(admin(), id))?.archivedAt).toBeNull();
+    await setArchived(boss.db, id, true);
+    const at = (await getAdminProduct(admin(), id))?.archivedAt;
+    expect(at).toEqual(expect.any(String));
+    // archiving again keeps the original date
+    await setArchived(boss.db, id, true);
+    expect((await getAdminProduct(admin(), id))?.archivedAt).toBe(at);
+  });
+
+  it('leaves every listing, but its page still loads', async () => {
+    const listed = await anon().from('catalog_products').select('id').eq('id', id);
+    expect(listed.data).toEqual([]);
+    const title = (await getAdminProduct(admin(), id))!.title;
+    const search = await anon().rpc('search_catalog', { p_market: 'US', p_q: title.split(' ').slice(-1)[0] });
+    expect(JSON.stringify(search.data)).not.toContain(id);
+    expect(await getProduct(anon(), id)).toBeNull();
+    expect(await getProduct(anon(), id, { includeArchived: true })).toMatchObject({ id, archived: true });
+  });
+
+  it('admin lists and counts it under Archived', async () => {
+    const active = await listAdminProducts(boss.db, 'US', { q: id });
+    const archived = await listAdminProducts(boss.db, 'US', { q: id, status: 'archived' });
+    expect(active.items).toEqual([]);
+    expect(archived.items).toEqual([expect.objectContaining({ id, archivedAt: expect.any(String) })]);
+    const counts = await countAdminProducts(boss.db, 'US');
+    expect(counts.archived).toBeGreaterThanOrEqual(1);
+    expect(counts.active).toBeGreaterThan(100);
+  });
+
+  it('carts keep the line, marked unavailable, and refuse more of it', async () => {
+    const line = (await getCart(shopper.db, 'US')).lines.find((l) => l.product.id === id);
+    expect(line).toMatchObject({ qty: 2, available: false, inStock: false });
+    expect(await code(addToCart(shopper.db, 'US', id, 1))).toBe('product_unavailable');
+    expect(await code(setCartQty(shopper.db, 'US', id, 3))).toBe('product_unavailable');
+  });
+
+  it("can't be checked out", async () => {
+    expect(await code(placeOrder(shopper.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING }))).toBe('product_unavailable');
+  });
+
+  it('is dropped when a guest cart merges on sign-in', async () => {
+    const other = await newUser('Merging Shopper');
+    try {
+      expect(await mergeGuestCart(other.db, guest)).toBe(0);
+      expect((await getCart(other.db, 'US')).lines).toEqual([]);
+    } finally {
+      await deleteUser(other);
+    }
+  });
+
+  it('saved lists keep it but cannot gain it', async () => {
+    const list = await getCollection(shopper.db, listId);
+    expect(list?.items).toEqual([expect.objectContaining({ product: expect.objectContaining({ id, archived: true }) })]);
+    const fresh = await createCollection(shopper.db, 'US', { name: 'Archive test 2' });
+    try {
+      expect(await code(addItem(shopper.db, fresh.id, id))).toBe('product_unavailable');
+    } finally {
+      await admin().from('collections').delete().eq('id', fresh.id);
+    }
+  });
+
+  it('restoring puts it back on sale', async () => {
+    await setArchived(boss.db, id, false);
+    expect((await getAdminProduct(admin(), id))?.archivedAt).toBeNull();
+    expect(await getProduct(anon(), id)).toMatchObject({ id });
+    const line = (await getCart(shopper.db, 'US')).lines.find((l) => l.product.id === id);
+    expect(line).toMatchObject({ available: true, inStock: true });
+    await addToCart(shopper.db, 'US', id, 1);
+  });
+
+  it('a never-ordered archived product can still be deleted', async () => {
+    const other = await createProduct(boss.db, 'US', input());
+    await setArchived(boss.db, other, true);
+    await deleteProduct(boss.db, other);
+    expect(await getAdminProduct(admin(), other)).toBeNull();
+  });
+});
+
+describe('insights on save', () => {
+  it('a new product gets a rules insight for its category', async () => {
+    const id = await createProduct(boss.db, 'US', input());
+    created.push(id);
+    const insight = await getInsight(anon(), id);
+    expect(insight?.source).toBe('rules');
+    expect(Object.keys(insight!.scores).sort()).toEqual(attributeKeys('home-kitchen').sort());
+  });
+
+  it('moving category re-derives it, even over an AI insight', async () => {
+    const id = await createProduct(boss.db, 'US', input());
+    created.push(id);
+    await admin().from('product_insights').update({ source: 'ai', summary: 'AI summary' }).eq('product_id', id);
+
+    // new wording alone keeps an AI insight
+    await updateProduct(boss.db, id, input({ title: 'Reworded lamp' }));
+    expect((await getInsight(anon(), id))?.summary).toBe('AI summary');
+
+    await updateProduct(boss.db, id, input({ title: 'Reworded lamp', category: 'electronics' }));
+    const insight = await getInsight(anon(), id);
+    expect(insight?.source).toBe('rules');
+    expect(Object.keys(insight!.scores).sort()).toEqual(attributeKeys('electronics').sort());
+  });
+
+  it('new wording refreshes a rules insight', async () => {
+    const id = await createProduct(boss.db, 'US', input());
+    created.push(id);
+    const before = await getInsight(anon(), id);
+    await updateProduct(boss.db, id, input({ title: 'Reworded lamp' }));
+    const after = await getInsight(anon(), id);
+    expect(after?.source).toBe('rules');
+    expect(after!.updatedAt > before!.updatedAt).toBe(true);
+    // a price-only edit leaves it alone
+    await updateProduct(boss.db, id, input({ title: 'Reworded lamp', priceMinor: 2499 }));
+    expect((await getInsight(anon(), id))?.updatedAt).toBe(after!.updatedAt);
+  });
+
+  it('non-admins cannot write insights', async () => {
+    const { data } = await admin().from('products').select('id').eq('market_id', 'US').limit(1).single();
+    const write = await shopper.db.from('product_insights').update({ summary: 'hacked' }).eq('product_id', data!.id).select('product_id');
+    expect(write.data ?? []).toEqual([]);
   });
 });
 
