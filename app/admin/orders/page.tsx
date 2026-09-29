@@ -3,9 +3,11 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EmptyState } from '@/components/decision/Badges';
 import { fieldClass } from '@/components/lib/controls';
+import { RETURN_SUMMARY_CHIP } from '@/components/orders/Returns';
 import { StatusChip } from '@/components/orders/Tracking';
 import { paymentText } from '@/components/orders/format';
 import { ADMIN_ORDER_FILTERS, listAdminOrders, orderFilter, type AdminOrderFilter } from '@/lib/data/admin-orders';
+import { returnSummaries } from '@/lib/data/returns';
 import { messageFor } from '@/lib/data/errors';
 import { formatMoney } from '@/lib/marketplaces';
 import { storePath } from '@/lib/marketplace';
@@ -34,7 +36,10 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   const q = one(sp, 'q').trim();
   const filter = orderFilter(one(sp, 'filter'));
   const page = Math.max(1, Number.parseInt(one(sp, 'page'), 10) || 1);
-  const result = await listAdminOrders(await db(), store.id, { filter, q, page });
+  const client = await db();
+  const result = await listAdminOrders(client, store.id, { filter, q, page });
+  // admins read every return (a chip per order with one)
+  const returns = await returnSummaries(client, result.orders.map((o) => o.id));
   const pageCount = Math.max(1, Math.ceil(result.total / result.pageSize));
   const to = (path: string) => storePath(store, path);
   const listHref = (n: number, f: AdminOrderFilter = filter) => {
@@ -106,6 +111,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                       <span className="flex flex-wrap gap-1.5">
                         <StatusChip {...STAGE_CHIP[o.stage]} />
                         {refund ? <StatusChip {...refund} /> : null}
+                        {returns.has(o.id) ? <StatusChip {...RETURN_SUMMARY_CHIP[returns.get(o.id)!]} /> : null}
                       </span>
                     </td>
                   </tr>

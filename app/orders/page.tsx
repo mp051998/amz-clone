@@ -8,7 +8,8 @@ import { longDate, orderView } from '@/components/orders/format';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listOrders } from '@/lib/data/orders';
-import { returnSummaries, type ReturnSummary } from '@/lib/data/returns';
+import { returnSummaries } from '@/lib/data/returns';
+import { RETURN_SUMMARY_CHIP } from '@/components/orders/Returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -16,12 +17,6 @@ import { formatMoney } from '@/lib/marketplaces';
 export const metadata: Metadata = { title: 'Orders · Store' };
 
 const THUMBS = 4;
-
-const RETURN_CHIP: Record<ReturnSummary, { label: string; tone: 'good' | 'warn' }> = {
-  requested: { label: 'Return started', tone: 'warn' },
-  refund_pending: { label: 'Return received', tone: 'warn' },
-  refunded: { label: 'Return refunded', tone: 'good' },
-};
 
 export default async function OrdersPage() {
   const store = await getMarketplace();
@@ -57,7 +52,7 @@ export default async function OrdersPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex flex-wrap gap-1.5">
                       <StatusChip label={v.chip.label} tone={v.chip.tone} />
-                      {returns.has(o.id) ? <StatusChip {...RETURN_CHIP[returns.get(o.id)!]} /> : null}
+                      {returns.has(o.id) ? <StatusChip {...RETURN_SUMMARY_CHIP[returns.get(o.id)!]} /> : null}
                     </span>
                     <span className="font-mono text-[12px] text-ink-3">{o.id}</span>
                   </div>

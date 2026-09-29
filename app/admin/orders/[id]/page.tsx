@@ -8,6 +8,7 @@ import { FactsCard, StatusChip, Timeline } from '@/components/orders/Tracking';
 import { paymentText } from '@/components/orders/format';
 import { trackingSteps } from '@/lib/decision/tracking';
 import { canRetryRefund, getAdminOrder, type AdminOrder } from '@/lib/data/admin-orders';
+import { listOrderReturns } from '@/lib/data/admin-returns';
 import { messageFor } from '@/lib/data/errors';
 import { formatMoney } from '@/lib/marketplaces';
 import { storePath } from '@/lib/marketplace';
@@ -15,6 +16,8 @@ import { db } from '@/lib/supabase/server';
 import { adminPage } from '../../guard';
 import { AdminFrame, AdminOnly } from '../../ui';
 import { orderAction } from '../actions';
+import { returnAction } from '../../returns/actions';
+import { ReturnRow } from '../../returns/ReturnRow';
 import { CANCEL_REASON, REFUND_CHIP, REFUND_LABEL, STAGE_CHIP, adminTime } from '../labels';
 
 export const metadata: Metadata = { title: 'Order · Admin · Store' };
@@ -24,6 +27,11 @@ const DONE: Record<string, string> = {
   deliver: 'Marked delivered.',
   cancel: 'Order cancelled and its stock returned.',
   refund: 'Refund sent to Stripe again.',
+  return_receive: 'Return received. The stock is back and the refund went through.',
+  return_receive_pending: 'Return received and the stock is back. The card refund is under way.',
+  return_receive_failed: 'Return received and the stock is back, but the card refund didn’t go through. Retry it below.',
+  return_reject: 'Return rejected. The shopper sees your note.',
+  return_refund: 'Return refund sent again.',
 };
 
 function cancelPrompt(o: AdminOrder, total: string) {
@@ -42,7 +50,8 @@ export default async function AdminOrderPage({ params, searchParams }: {
   const { done, error } = await searchParams;
   const { store, admin } = await adminPage(`/admin/orders/${id}`);
   if (!admin) return <AdminOnly store={store} />;
-  const order = await getAdminOrder(await db(), id);
+  const client = await db();
+  const [order, returns] = await Promise.all([getAdminOrder(client, id), listOrderReturns(client, id)]);
   if (!order) notFound();
   if (order.market !== store.id) redirect(storePath({ id: order.market }, `/admin/orders/${encodeURIComponent(order.id)}`));
 
@@ -60,6 +69,8 @@ export default async function AdminOrderPage({ params, searchParams }: {
   const refund = order.refund;
   const refundChip = refund ? REFUND_CHIP[refund.status] : undefined;
   const s = order.shipTo;
+  const openReturns = returns.filter((r) => r.status === 'requested').length;
+  const actReturn = (rid: string, move: string) => returnAction.bind(null, rid, move, 'order');
 
   return (
     <AdminFrame
@@ -71,7 +82,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
       {error ? (
         <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
       ) : done && DONE[done] ? (
-        <Alert tone="success">{DONE[done]}</Alert>
+        <Alert tone={done === 'return_receive_failed' ? 'error' : 'success'}>{DONE[done]}</Alert>
       ) : null}
 
       <section aria-label="Status and actions" className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4">
@@ -99,7 +110,11 @@ export default async function AdminOrderPage({ params, searchParams }: {
               cancelLabel="Keep order"
             />
           ) : null}
-          {!canShip && !canDeliver && !canCancel && !retry ? <span className="text-[14px] text-ink-3">Nothing left to do on this order.</span> : null}
+          {!canShip && !canDeliver && !canCancel && !retry ? (
+            <span className="text-[14px] text-ink-3">
+              {openReturns ? <a href="#returns-h" className="text-ink underline underline-offset-2">{openReturns === 1 ? 'A return is waiting' : `${openReturns} returns are waiting`}</a> : 'Nothing left to do on this order.'}
+            </span>
+          ) : null}
         </div>
       </section>
 
@@ -129,6 +144,21 @@ export default async function AdminOrderPage({ params, searchParams }: {
               <div className="flex justify-between font-bold"><dt>Total</dt><dd className="m-0 tabular-nums">{money(order.totals.totalMinor)}</dd></div>
             </dl>
           </section>
+
+          {returns.length ? (
+            <section className="flex flex-col gap-3" aria-labelledby="returns-h">
+              <h2 id="returns-h" className="m-0 scroll-mt-24 text-[18px] font-semibold">
+                Returns <span className="font-normal text-ink-3">({returns.length})</span>
+              </h2>
+              <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                {returns.map((r) => (
+                  <li key={r.id}>
+                    <ReturnRow r={r} store={store} to={to} act={actReturn} showOrder={false} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">

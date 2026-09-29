@@ -292,7 +292,7 @@ Orders of this store that were placed or charged (abandoned checkouts are left o
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | GET | `/admin/orders?filter=&q=&page=` | | `{orders: [{id, status, stage, currency, paymentMethod, paymentLabel, totalMinor, createdAt, placedAt, cancelledAt, cancelReason, refundStatus, shipName, customer: {email, name}, itemCount, firstTitle}], total, page, pageSize, counts}`. Newest first, 25 a page. `filter`: `all`, `preparing`, `shipped` (shipped or out for delivery), `delivered`, `cancelled`, `refund_issues` (refund `pending` or `failed`). `q` matches the start of the order number or part of the customer's email. `counts` has each filter's total, ignoring `q`. |
-| GET | `/admin/orders/:id` | | `{order}`: an `Order` plus `stage`, `customer: {id, email, name}`, `stripePaymentIntent`, `stripeRefundId`. Another store's order is `404`. |
+| GET | `/admin/orders/:id` | | `{order, returns}`: an `Order` plus `stage`, `customer: {id, email, name}`, `stripePaymentIntent`, `stripeRefundId`, and its returns as `AdminReturn`s (see below), oldest first. Another store's order is `404`. |
 | POST | `/admin/orders/:id/ship` | | `{order}`. Shipped now; out for delivery and delivered move up to the next delivery morning if that's earlier. Placed orders only (`409 order_not_open`); repeating does nothing. |
 | POST | `/admin/orders/:id/deliver` | | `{order}`. Every step still ahead happens now. Placed orders only. |
 | POST | `/admin/orders/:id/cancel` | | `{order}`. Any order not yet delivered (`409 order_not_cancellable` after). Stock goes back; a card payment is refunded on Stripe. If Stripe refuses, the cancel stands with `refund.status: failed`. |
@@ -376,7 +376,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Fifteen migrations live in `supabase/migrations/`:
+Sixteen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -395,6 +395,7 @@ Fifteen migrations live in `supabase/migrations/`:
 | review moderation | `reviews.hidden_at`, `hidden_reason` (`reports` or `admin`) and `moderated_at`; a trigger on `review_reports` that hides a review at three open reports; hidden reviews leave the public read policy (their author and admins still see them) and the `product_ratings` rollup; the admin functions `admin_review_queue()` and `admin_moderate_review()` (keep, hide, delete) |
 | returns | `markets.return_days` (US 30, IN 10); `returns` and `return_items` (owner read only); `request_return()`, `order_returns()` and `cancel_my_return()` for shoppers; the admin functions `admin_list_returns()`, `admin_get_return()`, `admin_receive_return()` and `admin_reject_return()`; and the service-role `record_return_refund()` |
 | galleries and variants | `products.gallery` (up to 8 more images) and `variant_group`, `variant_axis`, `variant_label`, admin-writable and read by the product page and API; labels unique per store and group (`products_variant_label_key`); for databases seeded earlier, the seeded variant groups (Sony, Brooks and FHUMSH colours in the US; Hawkins sizes and Lenovo configurations in India). A no-op on a fresh database, where the seed has them (`supabase/seed/variants.json`) |
+| admin order returns | admin read policies on `returns` and `return_items` (the admin orders list marks orders with a return) and `admin_order_returns()`, one order's returns for the admin order page |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -404,7 +405,7 @@ About the tables and functions:
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
-- returns: the delivery and window checks, what's left to return, refund pricing (tax shares that add up, delivery only for store-fault reasons), cancel, admin receive (stock back, refund per payment method) and reject, the admin list per store, and real Stripe test-mode partial refunds
+- returns: the delivery and window checks, what's left to return, refund pricing (tax shares that add up, delivery only for store-fault reasons), cancel, admin receive (stock back, refund per payment method) and reject, the admin list per store, an order's returns for the admin order page, and real Stripe test-mode partial refunds
 - review moderation: auto-hide on the third report, who sees a hidden review, the rating rollup, keep resolving reports, admin hide, the queue per store, admin-only access, delete
 - account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook

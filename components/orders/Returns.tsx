@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ConfirmAction } from '../admin/ConfirmAction';
 import { formatMoney } from '@/lib/marketplaces';
 import type { CurrencyCode } from '@/lib/contracts';
+import type { ReturnSummary } from '@/lib/data/returns';
 import type { OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
 import { StatusChip } from './Tracking';
 import { longDate, shortDate, type ChipTone, type StoreDates } from './format';
@@ -26,6 +27,13 @@ export function refundTo(method: PaymentMethod, label: string): string {
   if (method === 'cod') return 'your bank account';
   return label || (method === 'card' ? 'your card' : 'your payment method');
 }
+
+/** The orders-list chip for an order's most pressing return (see `returnSummaries`). */
+export const RETURN_SUMMARY_CHIP: Record<ReturnSummary, { label: string; tone: ChipTone }> = {
+  requested: { label: 'Return started', tone: 'warn' },
+  refund_pending: { label: 'Return received', tone: 'warn' },
+  refunded: { label: 'Return refunded', tone: 'good' },
+};
 
 /** One chip for where a return stands. */
 export function returnChip(r: OrderReturn): { label: string; tone: ChipTone } {
