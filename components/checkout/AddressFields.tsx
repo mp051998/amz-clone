@@ -1,5 +1,5 @@
 import { Input } from '../primitives/Input';
-import type { Address } from '@/lib/addresses';
+import type { Address } from '@/lib/types';
 
 /**
  * The store-aware shipping-address field grid, shared by the checkout form and the
@@ -14,7 +14,7 @@ export function AddressFields({ isIN, address }: { isIN: boolean; address?: Part
 
   if (isIN) {
     return (
-      <div className="grid max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid max-w-[600px] grid-cols-1 gap-3.5 sm:grid-cols-2">
         <Input name="fullName" label="Full name" required defaultValue={a.name ?? ''} placeholder="Enter full name" />
         <Input name="phone" label="Mobile number" inputMode="numeric" required defaultValue={a.phone ?? ''} placeholder="10-digit mobile number" />
         <div className="sm:col-span-2"><Input name="line1" label="Flat, House no., Building, Company" required defaultValue={a.line1 ?? ''} placeholder="e.g. 12, Prestige Residency" /></div>
@@ -23,19 +23,19 @@ export function AddressFields({ isIN, address }: { isIN: boolean; address?: Part
         <Input name="city" label="Town/City" required defaultValue={a.city ?? ''} placeholder="e.g. Bengaluru" />
         <Input name="state" label="State" required defaultValue={a.state ?? ''} placeholder="e.g. Karnataka" />
         <Input name="postcode" label="Pincode" inputMode="numeric" required defaultValue={a.zip ?? ''} placeholder="6-digit pincode" />
-        <div className="sm:col-span-2">
-          <span className="mb-1 block text-[13px] text-ink-2">Address type</span>
-          <div className="flex gap-4 text-[13px]">
-            <label className="flex items-center gap-1.5"><input type="radio" name="addressType" value="home" defaultChecked={kind === 'home'} /> Home (7 am – 9 pm delivery)</label>
-            <label className="flex items-center gap-1.5"><input type="radio" name="addressType" value="office" defaultChecked={kind === 'office'} /> Office/Commercial (10 am – 6 pm delivery)</label>
+        <fieldset className="m-0 border-0 p-0 sm:col-span-2">
+          <legend className="mb-1.5 text-[14px] font-semibold text-ink">Address type</legend>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[14px]">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2"><input type="radio" name="addressType" value="home" defaultChecked={kind === 'home'} className="h-[18px] w-[18px] accent-ink" /> Home <span className="text-ink-3">(7 am – 9 pm delivery)</span></label>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2"><input type="radio" name="addressType" value="office" defaultChecked={kind === 'office'} className="h-[18px] w-[18px] accent-ink" /> Office <span className="text-ink-3">(10 am – 6 pm delivery)</span></label>
           </div>
-        </div>
+        </fieldset>
       </div>
     );
   }
 
   return (
-    <div className="grid max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid max-w-[600px] grid-cols-1 gap-3.5 sm:grid-cols-2">
       <Input name="fullName" label="Full name" required defaultValue={a.name ?? ''} placeholder="Enter full name" />
       <Input name="phone" label="Phone number" inputMode="numeric" required defaultValue={a.phone ?? ''} placeholder="10-digit phone number" />
       <div className="sm:col-span-2"><Input name="line1" label="Address" required defaultValue={a.line1 ?? ''} placeholder="Street address" /></div>

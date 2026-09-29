@@ -1,4 +1,4 @@
-// Prime Video storefront content. Like the real service, the catalog differs by
+// Plus Video (demo streaming) content. Like the real service, the catalog differs by
 // marketplace: amazon.com surfaces US/Hollywood originals and movies, amazon.in
 // surfaces Indian originals, Bollywood blockbusters and regional-language hits.
 // Posters (portrait) live under /public/prime; wide 16:9 backdrops under
@@ -10,7 +10,7 @@ export interface PVTitle {
   /** e.g. "2024 · Action · 16+" */
   meta: string;
   imdb?: number;
-  /** small ribbon, e.g. "Prime" or "Included with Prime" */
+  /** small ribbon, e.g. "Plus" or "Included with Plus" */
   tag?: string;
   hue: number;
   /** self-hosted poster art under /public/prime; falls back to the hue gradient if missing. */
@@ -37,24 +37,24 @@ const US: PVContent = {
   hero: {
     title: 'The Boys',
     blurb: 'Superheroes are as popular as ever — but their fame has gone to their heads. A group of vigilantes sets out to take down corrupt Supes who abuse their powers.',
-    meta: 'Prime Original · Action · Drama · 18+',
-    tag: 'Included with Prime',
+    meta: 'Original · Action · Drama · 18+',
+    tag: 'Included with Plus',
     hue: 352,
     poster: '/prime/the-boys.jpg',
   },
   rails: [
     {
-      heading: 'Prime Originals',
+      heading: 'Originals',
       titles: [
-        { title: 'Reacher', meta: '2024 · Action · 16+', imdb: 8.1, tag: 'Prime', hue: 24, poster: '/prime/reacher.jpg', desc: 'Ex-military investigator Jack Reacher roams America, dispensing justice with his fists and a razor-sharp mind.' },
-        { title: 'Fallout', meta: '2024 · Sci-Fi · 18+', imdb: 8.4, tag: 'Prime', hue: 46, poster: '/prime/fallout.jpg', desc: 'In a world rebuilt from nuclear ash, a sheltered vault dweller ventures to the surface and confronts its brutal chaos.' },
-        { title: 'The Marvelous Mrs. Maisel', meta: 'Comedy · 16+', imdb: 8.7, tag: 'Prime', hue: 330, poster: '/prime/the-marvelous-mrs-maisel.jpg', desc: 'A 1950s Upper West Side housewife discovers a sharp talent for stand-up comedy and chases the spotlight.' },
-        { title: 'Jack Ryan', meta: 'Thriller · 16+', imdb: 8.0, tag: 'Prime', hue: 210, poster: '/prime/jack-ryan.jpg', desc: 'A CIA analyst is thrust from behind his desk into deadly field operations across the globe.' },
-        { title: 'Invincible', meta: 'Animation · 18+', imdb: 8.7, tag: 'Prime', hue: 140, poster: '/prime/invincible.jpg', desc: "A teenager inherits superpowers from his father — the world's greatest hero — and learns the brutal cost of the cape." },
-        { title: 'The Wheel of Time', meta: 'Fantasy · 16+', imdb: 7.1, tag: 'Prime', hue: 265, poster: '/prime/the-wheel-of-time.jpg', desc: 'A powerful sorceress leads five villagers on a perilous journey to find the one prophesied to save — or break — the world.' },
-        { title: 'The Terminal List', meta: 'Thriller · 18+', imdb: 8.0, tag: 'Prime', hue: 200, poster: '/prime/the-terminal-list.jpg', desc: 'A Navy SEAL uncovers a conspiracy behind the ambush that wiped out his platoon, and hunts those responsible.' },
-        { title: 'Citadel', meta: 'Action · 16+', imdb: 6.9, tag: 'Prime', hue: 18, poster: '/prime/citadel.jpg', desc: "Years ago, elite spies Mason Kane and Nadia Sinh had their minds wiped; now they're recalled to action as sinister forces emerge from the past." },
-        { title: 'Hunters', meta: 'Thriller · 18+', imdb: 7.1, tag: 'Prime', hue: 41, poster: '/prime/hunters.jpg', desc: 'A diverse band of Nazi hunters in 1977 New York City discovers high-ranking Nazi officials conspiring to create a Fourth Reich in the U.S.' },
+        { title: 'Reacher', meta: '2024 · Action · 16+', imdb: 8.1, tag: 'Plus', hue: 24, poster: '/prime/reacher.jpg', desc: 'Ex-military investigator Jack Reacher roams America, dispensing justice with his fists and a razor-sharp mind.' },
+        { title: 'Fallout', meta: '2024 · Sci-Fi · 18+', imdb: 8.4, tag: 'Plus', hue: 46, poster: '/prime/fallout.jpg', desc: 'In a world rebuilt from nuclear ash, a sheltered vault dweller ventures to the surface and confronts its brutal chaos.' },
+        { title: 'The Marvelous Mrs. Maisel', meta: 'Comedy · 16+', imdb: 8.7, tag: 'Plus', hue: 330, poster: '/prime/the-marvelous-mrs-maisel.jpg', desc: 'A 1950s Upper West Side housewife discovers a sharp talent for stand-up comedy and chases the spotlight.' },
+        { title: 'Jack Ryan', meta: 'Thriller · 16+', imdb: 8.0, tag: 'Plus', hue: 210, poster: '/prime/jack-ryan.jpg', desc: 'A CIA analyst is thrust from behind his desk into deadly field operations across the globe.' },
+        { title: 'Invincible', meta: 'Animation · 18+', imdb: 8.7, tag: 'Plus', hue: 140, poster: '/prime/invincible.jpg', desc: "A teenager inherits superpowers from his father — the world's greatest hero — and learns the brutal cost of the cape." },
+        { title: 'The Wheel of Time', meta: 'Fantasy · 16+', imdb: 7.1, tag: 'Plus', hue: 265, poster: '/prime/the-wheel-of-time.jpg', desc: 'A powerful sorceress leads five villagers on a perilous journey to find the one prophesied to save — or break — the world.' },
+        { title: 'The Terminal List', meta: 'Thriller · 18+', imdb: 8.0, tag: 'Plus', hue: 200, poster: '/prime/the-terminal-list.jpg', desc: 'A Navy SEAL uncovers a conspiracy behind the ambush that wiped out his platoon, and hunts those responsible.' },
+        { title: 'Citadel', meta: 'Action · 16+', imdb: 6.9, tag: 'Plus', hue: 18, poster: '/prime/citadel.jpg', desc: "Years ago, elite spies Mason Kane and Nadia Sinh had their minds wiped; now they're recalled to action as sinister forces emerge from the past." },
+        { title: 'Hunters', meta: 'Thriller · 18+', imdb: 7.1, tag: 'Plus', hue: 41, poster: '/prime/hunters.jpg', desc: 'A diverse band of Nazi hunters in 1977 New York City discovers high-ranking Nazi officials conspiring to create a Fourth Reich in the U.S.' },
       ],
     },
     {
@@ -73,23 +73,23 @@ const US: PVContent = {
     {
       heading: 'Popular TV shows',
       titles: [
-        { title: 'The Rings of Power', meta: 'Fantasy · 16+', imdb: 6.9, tag: 'Prime', hue: 42, poster: '/prime/the-rings-of-power.jpg', desc: 'Millennia before the Hobbit, heroes confront the long-feared re-emergence of evil across Middle-earth.' },
-        { title: 'Mr. & Mrs. Smith', meta: 'Action · 16+', imdb: 7.4, tag: 'Prime', hue: 356, poster: '/prime/mr-and-mrs-smith.jpg', desc: 'Two strangers become married spy partners, juggling deadly missions and a very real relationship.' },
-        { title: 'Gen V', meta: 'Sci-Fi · 18+', imdb: 7.8, tag: 'Prime', hue: 300, poster: '/prime/gen-v.jpg', desc: 'At an elite college for young superheroes, ambition, secrets and rivalry quickly turn lethal.' },
-        { title: 'Bosch', meta: 'Crime · 16+', imdb: 8.5, tag: 'Prime', hue: 215, poster: '/prime/bosch.jpg', desc: 'A relentless LAPD homicide detective bends the rules on the belief that everybody counts or nobody counts.' },
-        { title: 'Upload', meta: 'Comedy · 16+', imdb: 8.0, tag: 'Prime', hue: 168, poster: '/prime/upload.jpg', desc: 'In a near future, people upload their consciousness into luxury digital afterlives — for the right price.' },
-        { title: 'Cross', meta: '2024 · Crime · 18+', imdb: 7.3, tag: 'Prime', hue: 268, poster: '/prime/cross.jpg', desc: 'Detective Alex Cross hunts a killer who is targeting him and everyone he loves.' },
-        { title: 'Carnival Row', meta: 'Fantasy · 18+', imdb: 7.7, tag: 'Prime', hue: 39, poster: '/prime/carnival-row.jpg', desc: 'In a dark city of humans and mythical creatures, a detective investigating gruesome fairy murders becomes the prime suspect himself.' },
-        { title: 'Good Omens', meta: 'Fantasy · 13+', imdb: 8.0, tag: 'Prime', hue: 26, poster: '/prime/good-omens.jpg', desc: "An angel and a demon who've grown fond of Earth team up to stop Armageddon after misplacing the Antichrist." },
+        { title: 'The Rings of Power', meta: 'Fantasy · 16+', imdb: 6.9, tag: 'Plus', hue: 42, poster: '/prime/the-rings-of-power.jpg', desc: 'Millennia before the Hobbit, heroes confront the long-feared re-emergence of evil across Middle-earth.' },
+        { title: 'Mr. & Mrs. Smith', meta: 'Action · 16+', imdb: 7.4, tag: 'Plus', hue: 356, poster: '/prime/mr-and-mrs-smith.jpg', desc: 'Two strangers become married spy partners, juggling deadly missions and a very real relationship.' },
+        { title: 'Gen V', meta: 'Sci-Fi · 18+', imdb: 7.8, tag: 'Plus', hue: 300, poster: '/prime/gen-v.jpg', desc: 'At an elite college for young superheroes, ambition, secrets and rivalry quickly turn lethal.' },
+        { title: 'Bosch', meta: 'Crime · 16+', imdb: 8.5, tag: 'Plus', hue: 215, poster: '/prime/bosch.jpg', desc: 'A relentless LAPD homicide detective bends the rules on the belief that everybody counts or nobody counts.' },
+        { title: 'Upload', meta: 'Comedy · 16+', imdb: 8.0, tag: 'Plus', hue: 168, poster: '/prime/upload.jpg', desc: 'In a near future, people upload their consciousness into luxury digital afterlives — for the right price.' },
+        { title: 'Cross', meta: '2024 · Crime · 18+', imdb: 7.3, tag: 'Plus', hue: 268, poster: '/prime/cross.jpg', desc: 'Detective Alex Cross hunts a killer who is targeting him and everyone he loves.' },
+        { title: 'Carnival Row', meta: 'Fantasy · 18+', imdb: 7.7, tag: 'Plus', hue: 39, poster: '/prime/carnival-row.jpg', desc: 'In a dark city of humans and mythical creatures, a detective investigating gruesome fairy murders becomes the prime suspect himself.' },
+        { title: 'Good Omens', meta: 'Fantasy · 13+', imdb: 8.0, tag: 'Plus', hue: 26, poster: '/prime/good-omens.jpg', desc: "An angel and a demon who've grown fond of Earth team up to stop Armageddon after misplacing the Antichrist." },
       ],
     },
     {
       heading: 'New releases',
       titles: [
-        { title: 'The Peripheral', meta: 'Sci-Fi · 18+', imdb: 7.6, tag: 'Prime', hue: 29, poster: '/prime/the-peripheral.jpg', desc: 'Stuck in a small Appalachian town, a young gamer tests a new game system that unlocks her dreams — and puts her family in real danger.' },
-        { title: 'The Summer I Turned Pretty', meta: 'Romance · 13+', imdb: 8.1, tag: 'Prime', hue: 198, poster: '/prime/the-summer-i-turned-pretty.jpg', desc: 'Every summer Belly returns to Cousins Beach, but the year she turns sixteen brings first love, first heartbreak and a life-changing love triangle.' },
-        { title: 'Daisy Jones & The Six', meta: 'Drama · 18+', imdb: 8.0, tag: 'Prime', hue: 27, poster: '/prime/daisy-jones-and-the-six.jpg', desc: 'In 1977 the band Daisy Jones & The Six rose from obscurity to fame, then broke up at their peak; decades later they finally reveal why.' },
-        { title: 'The Underground Railroad', meta: 'Drama · 18+', imdb: 7.2, tag: 'Prime', hue: 209, poster: '/prime/the-underground-railroad.jpg', desc: 'Fleeing her Georgia plantation, young Cora discovers the Underground Railroad is a real network of tracks and tunnels beneath the Southern soil.' },
+        { title: 'The Peripheral', meta: 'Sci-Fi · 18+', imdb: 7.6, tag: 'Plus', hue: 29, poster: '/prime/the-peripheral.jpg', desc: 'Stuck in a small Appalachian town, a young gamer tests a new game system that unlocks her dreams — and puts her family in real danger.' },
+        { title: 'The Summer I Turned Pretty', meta: 'Romance · 13+', imdb: 8.1, tag: 'Plus', hue: 198, poster: '/prime/the-summer-i-turned-pretty.jpg', desc: 'Every summer Belly returns to Cousins Beach, but the year she turns sixteen brings first love, first heartbreak and a life-changing love triangle.' },
+        { title: 'Daisy Jones & The Six', meta: 'Drama · 18+', imdb: 8.0, tag: 'Plus', hue: 27, poster: '/prime/daisy-jones-and-the-six.jpg', desc: 'In 1977 the band Daisy Jones & The Six rose from obscurity to fame, then broke up at their peak; decades later they finally reveal why.' },
+        { title: 'The Underground Railroad', meta: 'Drama · 18+', imdb: 7.2, tag: 'Plus', hue: 209, poster: '/prime/the-underground-railroad.jpg', desc: 'Fleeing her Georgia plantation, young Cora discovers the Underground Railroad is a real network of tracks and tunnels beneath the Southern soil.' },
         { title: 'Role Play', meta: '2024 · Action Comedy · R', imdb: 6.0, hue: 39, poster: '/prime/role-play.jpg', desc: 'Emma is a suburban mom with a secret life as an assassin — a secret her husband uncovers when they spice up their marriage with role play.' },
         { title: 'Foe', meta: '2023 · Sci-Fi · R', imdb: 5.8, hue: 29, poster: '/prime/foe.jpg', desc: "A couple's quiet farm life is upended when a stranger arrives with a startling proposal that threatens their relationship and identity." },
       ],
@@ -101,22 +101,22 @@ const IN: PVContent = {
   hero: {
     title: 'The Family Man',
     blurb: 'A middle-class man secretly works as an intelligence officer for the TASC, balancing the impossible demands of his job with the everyday troubles of his family life.',
-    meta: 'Amazon Original · Action · Drama · 16+',
-    tag: 'Included with Prime',
+    meta: 'Original · Action · Drama · 16+',
+    tag: 'Included with Plus',
     hue: 210,
     poster: '/prime/the-family-man.jpg',
   },
   rails: [
     {
-      heading: 'Amazon Originals',
+      heading: 'Originals',
       titles: [
-        { title: 'Mirzapur', meta: 'Crime · Drama · 18+', imdb: 8.4, tag: 'Prime', hue: 26, poster: '/prime/mirzapur.jpg', desc: 'In a lawless town ruled by the mafia don of guns and carpets, two brothers are pulled into a bloody power struggle.' },
-        { title: 'Panchayat', meta: 'Comedy · Drama · 13+', imdb: 8.9, tag: 'Prime', hue: 96, poster: '/prime/panchayat.jpg', desc: 'An engineering grad reluctantly takes a village panchayat secretary job and slowly finds meaning in small-town life.' },
-        { title: 'Made in Heaven', meta: 'Drama · 18+', imdb: 8.3, tag: 'Prime', hue: 42, poster: '/prime/made-in-heaven.jpg', desc: 'Two Delhi wedding planners stage lavish big-fat Indian weddings while hiding their own messy private lives.' },
-        { title: 'Paatal Lok', meta: 'Crime · Thriller · 18+', imdb: 7.5, tag: 'Prime', hue: 205, poster: '/prime/paatal-lok.jpg', desc: "A weary cop's routine case spirals into a dark journey through India's underbelly and its corridors of power." },
-        { title: 'Farzi', meta: 'Crime · Thriller · 16+', imdb: 8.3, tag: 'Prime', hue: 152, poster: '/prime/farzi.jpg', desc: 'A gifted artist is drawn into a counterfeit-currency racket, chased by a firebrand task-force officer.' },
-        { title: 'Guns & Gulaabs', meta: 'Crime · Comedy · 16+', imdb: 8.0, tag: 'Prime', hue: 340, poster: '/prime/guns-and-gulaabs.jpg', desc: "In the 90s, a lovestruck mechanic gets tangled in a small town's chaotic and comic drug trade." },
-        { title: 'Bandish Bandits', meta: 'Musical · Drama · 13+', imdb: 8.5, tag: 'Prime', hue: 278, poster: '/prime/bandish-bandits.jpg', desc: 'A classical-music prodigy and a chart-topping pop star collide in a romance across two very different worlds of song.' },
+        { title: 'Mirzapur', meta: 'Crime · Drama · 18+', imdb: 8.4, tag: 'Plus', hue: 26, poster: '/prime/mirzapur.jpg', desc: 'In a lawless town ruled by the mafia don of guns and carpets, two brothers are pulled into a bloody power struggle.' },
+        { title: 'Panchayat', meta: 'Comedy · Drama · 13+', imdb: 8.9, tag: 'Plus', hue: 96, poster: '/prime/panchayat.jpg', desc: 'An engineering grad reluctantly takes a village panchayat secretary job and slowly finds meaning in small-town life.' },
+        { title: 'Made in Heaven', meta: 'Drama · 18+', imdb: 8.3, tag: 'Plus', hue: 42, poster: '/prime/made-in-heaven.jpg', desc: 'Two Delhi wedding planners stage lavish big-fat Indian weddings while hiding their own messy private lives.' },
+        { title: 'Paatal Lok', meta: 'Crime · Thriller · 18+', imdb: 7.5, tag: 'Plus', hue: 205, poster: '/prime/paatal-lok.jpg', desc: "A weary cop's routine case spirals into a dark journey through India's underbelly and its corridors of power." },
+        { title: 'Farzi', meta: 'Crime · Thriller · 16+', imdb: 8.3, tag: 'Plus', hue: 152, poster: '/prime/farzi.jpg', desc: 'A gifted artist is drawn into a counterfeit-currency racket, chased by a firebrand task-force officer.' },
+        { title: 'Guns & Gulaabs', meta: 'Crime · Comedy · 16+', imdb: 8.0, tag: 'Plus', hue: 340, poster: '/prime/guns-and-gulaabs.jpg', desc: "In the 90s, a lovestruck mechanic gets tangled in a small town's chaotic and comic drug trade." },
+        { title: 'Bandish Bandits', meta: 'Musical · Drama · 13+', imdb: 8.5, tag: 'Plus', hue: 278, poster: '/prime/bandish-bandits.jpg', desc: 'A classical-music prodigy and a chart-topping pop star collide in a romance across two very different worlds of song.' },
       ],
     },
     {

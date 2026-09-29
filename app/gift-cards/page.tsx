@@ -1,12 +1,15 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
+import { Page, PageHead, Section, Card, InfoCard, TextLink, DemoNote, cardGrid } from '@/components/brand/Page';
+import { Kicker } from '@/components/decision/Badges';
+import { Pill } from '@/components/decision/Pill';
+import { buttonClasses } from '@/components/primitives/Button';
+import { fieldClass } from '@/components/lib/controls';
+import { cn } from '@/components/lib/cn';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const store = await getMarketplace();
-  return { title: `Amazon Gift Cards | Amazon.${store.id === 'IN' ? 'in' : 'com'}` };
-}
+export const metadata: Metadata = { title: 'Gift cards · Store' };
 
 const DENOMS: Record<'US' | 'IN', number[]> = {
   US: [25, 50, 100, 150, 250],
@@ -14,122 +17,106 @@ const DENOMS: Record<'US' | 'IN', number[]> = {
 };
 
 const FORMATS = [
-  { icon: '✉️', title: 'eGift Card', desc: 'Delivered by email in minutes — perfect for last-minute gifting.' },
-  { icon: '🖨️', title: 'Print at Home', desc: 'Personalise, print, and hand it over yourself.' },
-  { icon: '📦', title: 'Gift Box', desc: 'A physical card in a keepsake box, shipped to their door.' },
-  { icon: '🏢', title: 'Corporate Gifting', desc: 'Reward employees and clients at scale with bulk gift cards.' },
+  { title: 'eGift card', desc: 'Delivered by email in minutes — good for last-minute gifting.' },
+  { title: 'Print at home', desc: 'Personalise it, print it, and hand it over yourself.' },
+  { title: 'Gift box', desc: 'A physical card in a keepsake box, shipped to their door.' },
+  { title: 'Corporate gifting', desc: 'Reward employees and clients at scale with bulk cards.' },
 ];
 
 export default async function GiftCardsPage() {
   const store = await getMarketplace();
   const isIN = store.id === 'IN';
   const sym = store.currency.symbol;
+  const sp = (p: string) => storePath(store, p);
   const denoms = DENOMS[isIN ? 'IN' : 'US'];
+  const fmt = (n: number) => `${sym}${n.toLocaleString(isIN ? 'en-IN' : 'en-US')}`;
   const occasions = isIN
-    ? ['Birthday', 'Diwali', 'Rakhi', 'Wedding', 'Thank You', 'Congrats']
-    : ['Birthday', 'Thank You', 'Congratulations', 'Holiday', 'Wedding', 'Just Because'];
+    ? ['Birthday', 'Diwali', 'Rakhi', 'Wedding', 'Thank you', 'Congrats']
+    : ['Birthday', 'Thank you', 'Congratulations', 'Holiday', 'Wedding', 'Just because'];
 
   return (
     <AppShell>
-      {/* hero */}
-      <section className="bg-gradient-to-br from-[#232F3E] to-[#37475A] text-white">
-        <div className="mx-auto grid max-w-[1200px] gap-6 px-4 py-12 md:grid-cols-[1fr_360px]">
-          <div className="flex flex-col justify-center">
-            <h1 className="text-[34px] font-bold leading-tight">Amazon Gift Cards</h1>
-            <p className="mt-2 max-w-[520px] text-[15px] text-line-2">
-              The gift they always wanted — however they shop. No fees, and it never expires.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <a href="#denoms" className="rounded-pill bg-cta-yellow px-6 py-2.5 text-[14px] font-bold text-ink shadow-input hover:bg-cta-yellow-hover">Shop gift cards</a>
-              <a href="#redeem" className="rounded-pill border border-white/60 px-6 py-2.5 text-[14px] font-bold text-white hover:bg-white/10">Redeem a card</a>
-            </div>
-          </div>
-          {/* stylised card */}
-          <div className="mx-auto w-full max-w-[360px]">
-            <div className="rounded-[14px] bg-gradient-to-br from-[#FF9900] to-[#e77600] p-6 text-ink shadow-lg">
-              <div className="flex items-end gap-1 text-[22px] font-bold leading-none text-ink">
-                <span>amazon</span><span className="text-white">.{isIN ? 'in' : 'com'}</span>
-              </div>
-              <div className="mt-8 text-[13px] font-bold uppercase tracking-wide text-ink/70">Gift Card</div>
-              <div className="mt-1 text-[30px] font-bold text-ink">{sym}{isIN ? '1,000' : '100'}.00</div>
+      <Page>
+        <div className="grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_340px]">
+          <PageHead
+            kicker="Gift cards"
+            title="Let them choose"
+            actions={
+              <>
+                <a href="#amounts" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Choose an amount</a>
+                <a href="#redeem" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Redeem a card</a>
+              </>
+            }
+          >
+            When you&apos;re not sure what they need, a gift card lets them pick. No fees, and it never expires.
+          </PageHead>
+          {/* the card itself: calm ink panel with the store mark */}
+          <div aria-hidden className="mx-auto flex aspect-[1.6] w-full max-w-[340px] flex-col justify-between rounded-panel bg-ink p-5 text-white">
+            <span className="self-start border-[1.5px] border-dashed border-white px-[9px] py-[6px] font-mono text-[12px] font-semibold leading-none tracking-[0.08em]">[ STORE ]</span>
+            <div>
+              <Kicker tone="onDark">Gift card</Kicker>
+              <p className="m-0 mt-1 text-[30px] font-bold leading-none tabular-nums">{fmt(isIN ? 1000 : 100)}</p>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* denominations */}
-      <section id="denoms" className="mx-auto max-w-[1200px] px-4 py-10">
-        <h2 className="text-[22px] font-bold text-ink">Choose an amount</h2>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {denoms.map((d) => (
-            <a
-              key={d}
-              href={storePath(store, '/signin?new=1')}
-              className="flex flex-col items-center justify-center rounded-[8px] border border-line bg-white py-6 text-ink hover:border-ink hover:shadow-[0_1px_2px_rgba(15,17,17,0.15)]"
-            >
-              <span className="text-[24px] font-bold">{sym}{d.toLocaleString(isIN ? 'en-IN' : 'en-US')}</span>
-              <span className="mt-1 text-[12px] text-link-teal">Buy now</span>
-            </a>
-          ))}
-          <a href={storePath(store, '/signin?new=1')} className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-line bg-surface-3 py-6 text-ink hover:border-ink">
-            <span className="text-[16px] font-bold">Custom</span>
-            <span className="mt-1 text-[12px] text-ink-3">Enter any amount</span>
-          </a>
-        </div>
-      </section>
-
-      {/* formats */}
-      <section className="bg-surface-band">
-        <div className="mx-auto max-w-[1200px] px-4 py-10">
-          <h2 className="text-[22px] font-bold text-ink">Pick how you send it</h2>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {FORMATS.map((f) => (
-              <div key={f.title} className="rounded-[8px] border border-line bg-white p-5">
-                <div className="text-[28px]" aria-hidden>{f.icon}</div>
-                <h3 className="mt-2 text-[15px] font-bold text-ink">{f.title}</h3>
-                <p className="mt-1 text-[13px] leading-5 text-ink-2">{f.desc}</p>
-              </div>
+        <Section id="amounts" title="Choose an amount" note="Delivered by email in minutes">
+          <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6">
+            {denoms.map((d) => (
+              <li key={d}>
+                <a
+                  href={sp('/signin?new=1')}
+                  className="flex min-h-[96px] flex-col items-center justify-center gap-1 rounded-card border border-line bg-surface p-3 text-ink no-underline transition-colors hover:border-ink"
+                >
+                  <span className="text-[22px] font-bold tabular-nums">{fmt(d)}</span>
+                  <span className="text-[13px] text-ink-3">Buy</span>
+                </a>
+              </li>
             ))}
-          </div>
-        </div>
-      </section>
+            <li>
+              <a
+                href={sp('/signin?new=1')}
+                className="flex min-h-[96px] flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line-3 bg-surface p-3 text-ink no-underline transition-colors hover:border-ink"
+              >
+                <span className="text-[16px] font-semibold">Custom</span>
+                <span className="text-[13px] text-ink-3">Any amount</span>
+              </a>
+            </li>
+          </ul>
+        </Section>
 
-      {/* occasions */}
-      <section className="mx-auto max-w-[1200px] px-4 py-10">
-        <h2 className="text-[22px] font-bold text-ink">Shop by occasion</h2>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {occasions.map((o) => (
-            <a key={o} href={storePath(store, '/signin?new=1')} className="rounded-pill border border-line bg-white px-4 py-2 text-[13px] text-ink hover:bg-surface-2">{o}</a>
-          ))}
-        </div>
-      </section>
-
-      {/* redeem + reload */}
-      <section id="redeem" className="bg-surface-band">
-        <div className="mx-auto grid max-w-[1200px] gap-6 px-4 py-10 md:grid-cols-2">
-          <div className="rounded-[8px] border border-line bg-white p-6">
-            <h2 className="text-[18px] font-bold text-ink">Redeem a gift card</h2>
-            <p className="mt-1 text-[13px] text-ink-2">Enter your claim code to add funds to your balance.</p>
-            <div className="mt-3 flex gap-2">
-              <input
-                aria-label="Gift card claim code"
-                placeholder="XXXX-XXXXXX-XXXX"
-                className="h-[38px] flex-1 rounded-[4px] border border-[#A6A6A6] px-3 text-[14px] text-ink shadow-input outline-none focus:border-[#E77600] focus:ring-[3px] focus:ring-[rgb(228_121_17_/_0.5)]"
-              />
-              <a href={storePath(store, '/signin')} className="flex items-center rounded-pill bg-cta-yellow px-5 text-[13px] font-bold text-ink shadow-input hover:bg-cta-yellow-hover">Apply</a>
-            </div>
+        <Section title="Pick how you send it">
+          <div className={cardGrid}>
+            {FORMATS.map((f, i) => (<InfoCard key={f.title} index={String(i + 1).padStart(2, '0')} title={f.title}>{f.desc}</InfoCard>))}
           </div>
-          <div className="rounded-[8px] border border-line bg-white p-6">
-            <h2 className="text-[18px] font-bold text-ink">Reload your balance</h2>
-            <p className="mt-1 text-[13px] text-ink-2">Top up your Amazon Pay balance and shop without re-entering card details.</p>
-            <a href={storePath(store, '/amazon-pay')} className="mt-3 inline-block rounded-pill border border-line bg-surface-3 px-5 py-2 text-[13px] font-bold text-ink hover:bg-surface-2">Reload now</a>
-          </div>
-        </div>
-      </section>
+        </Section>
 
-      <p className="mx-auto max-w-[1200px] px-4 py-6 text-center text-[12px] text-ink-4">
-        Demo experience — gift cards are illustrative and no real payment is processed.
-      </p>
+        <Section title="Shop by occasion">
+          <div className="flex flex-wrap gap-2">
+            {occasions.map((o) => (<Pill key={o} href={sp('/signin?new=1')}>{o}</Pill>))}
+          </div>
+        </Section>
+
+        <Section id="redeem" title="Redeem or reload">
+          <div className="grid gap-3.5 md:grid-cols-2">
+            <Card className="flex flex-col gap-3">
+              <h3 className="m-0 text-[17px] font-semibold text-ink">Redeem a gift card</h3>
+              <p className="m-0 text-[14px] text-ink-2">Enter the claim code to add the amount to your balance.</p>
+              <form action={sp('/signin')} className="flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="claim" className="sr-only">Gift card claim code</label>
+                {/* no name: the demo only routes to sign-in, the code never leaves the page */}
+                <input id="claim" autoComplete="off" placeholder="XXXX-XXXXXX-XXXX" className={cn(fieldClass, 'flex-1 font-mono')} />
+                <button type="submit" className={buttonClasses({ variant: 'dark' })}>Apply</button>
+              </form>
+            </Card>
+            <InfoCard title="Reload your balance" footer={<TextLink href={sp('/amazon-pay')}>Reload now</TextLink>}>
+              Top up your store balance and check out without re-entering card details.
+            </InfoCard>
+          </div>
+        </Section>
+
+        <DemoNote>Demo store — gift cards are illustrative, codes are not checked, and no payment is processed.</DemoNote>
+      </Page>
     </AppShell>
   );
 }

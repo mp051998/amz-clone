@@ -1,36 +1,39 @@
 import type { CurrencyCode } from '@/lib/contracts';
-import { formatMoney, splitMoney } from '@/lib/marketplaces';
+import { formatMoney } from '@/lib/marketplaces';
 import { cn } from '../lib/cn';
 
 export interface PriceProps {
   minor: number;
   currency: CurrencyCode;
+  /** list / M.R.P. price in the same currency; shown struck through when higher than `minor`. */
   listMinor?: number;
+  /** show the green "N% off" when there is a saving (default true). */
   showSavings?: boolean;
-  /** whole-number size in px; symbol/fraction are 13px superscripts (design.md §5 Price). */
+  /** optional prefix for the struck price, e.g. "M.R.P." (store.pricing.listLabel). */
+  listLabel?: string;
+  /** font size of the price in px (default 22). */
   size?: number;
   className?: string;
 }
 
 /**
- * Price anatomy from design.md §5 / §13. Whole number is the accessible label carrier so screen
- * readers read one number. `splitMoney`'s `fraction` is the digits only (no decimal point), so the
- * cents superscript renders `.{fraction}` to make the visual concatenation equal `formatMoney`
- * (both en-US and en-IN use `.` as the decimal separator; INR has no fraction so this never shows).
+ * Bold whole price, struck list/MRP in ink-3, green "% off" (design.md §5 Price). Store-aware through
+ * `currency` (formatMoney: $1,299.00 vs ₹1,29,999). One accessible label carries the full sentence.
  */
-export function Price({ minor, currency, listMinor, showSavings = false, size = 28, className }: PriceProps) {
-  const { symbol, whole, fraction } = splitMoney(minor, currency);
+export function Price({ minor, currency, listMinor, showSavings = true, listLabel, size = 22, className }: PriceProps) {
   const full = formatMoney(minor, currency);
-  const savings = listMinor && listMinor > minor ? Math.round((1 - minor / listMinor) * 100) : 0;
+  const hasList = listMinor != null && listMinor > minor;
+  const savings = hasList ? Math.round((1 - minor / listMinor!) * 100) : 0;
+  const label = hasList ? `${full}, was ${formatMoney(listMinor!, currency)}${savings > 0 ? `, ${savings}% off` : ''}` : full;
   return (
-    <span className={cn('inline-flex items-baseline gap-2', className)}>
-      {showSavings && savings > 0 ? <span className="text-[24px] leading-none text-price-deal">-{savings}%</span> : null}
-      <span role="text" aria-label={full} className="inline-flex items-start leading-none text-ink">
-        <span className="text-[13px] relative top-[2px]">{symbol}</span>
-        <span style={{ fontSize: size, lineHeight: 1 }}>{whole}</span>
-        {fraction ? <span className="text-[13px] relative top-[2px]">.{fraction}</span> : null}
-      </span>
-      {listMinor ? <s className="text-[12px] text-ink-2">{formatMoney(listMinor, currency)}</s> : null}
+    <span role="text" aria-label={label} className={cn('inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5', className)}>
+      <strong aria-hidden className="font-bold leading-none tracking-[-0.01em] text-ink tabular-nums" style={{ fontSize: size }}>{full}</strong>
+      {hasList ? (
+        <s aria-hidden className="text-[14px] text-ink-3 tabular-nums">
+          {listLabel ? `${listLabel} ` : ''}{formatMoney(listMinor!, currency)}
+        </s>
+      ) : null}
+      {showSavings && savings > 0 ? <span aria-hidden className="text-[13px] font-semibold text-good">{savings}% off</span> : null}
     </span>
   );
 }

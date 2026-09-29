@@ -1,7 +1,10 @@
 /**
- * Shared form-control classes so every select/dropdown across the app reads the
- * same: 33px tall, 7px radius, subtle white→gray gradient, orange focus ring
- * (matches the Input primitive). One source of truth = consistent chrome.
+ * Shared form-control classes (design.md §5 Inputs): 44px tall, radius 10, line-3 border,
+ * white fill, border turns ink on hover/focus. One source of truth = consistent controls.
  */
+export const fieldClass =
+  'h-11 w-full rounded-input border border-line-3 bg-surface px-3.5 text-[15px] text-ink placeholder:text-ink-4 outline-none transition-colors hover:border-ink-3 focus:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:bg-surface-2 disabled:text-ink-4';
+
+/** Native <select>: same as a field, with room for the chevron. */
 export const selectClass =
-  'h-[33px] cursor-pointer rounded-[7px] border border-line-2 bg-gradient-to-b from-surface-4 to-surface-2 px-2 text-[13px] text-ink shadow-input outline-none hover:border-line-3 focus:border-[#E77600] focus:ring-[3px] focus:ring-[rgb(228_121_17_/_0.45)]';
+  'h-11 cursor-pointer rounded-input border border-line-3 bg-surface pl-3 pr-8 text-[14px] text-ink outline-none transition-colors hover:border-ink-3 focus:border-ink';

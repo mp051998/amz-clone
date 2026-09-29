@@ -1,119 +1,117 @@
 @import "tailwindcss";
 @source "../components";
 
-/* Measured amazon.com tokens (design.md §2–§4, §12). Semantic names only; components never use raw hex. */
+/*
+ * Decision-store tokens (design.md §2–§5). Derived from design-import/Shopping Prototype.dc.html.
+ * Semantic names only; components never use raw hex/oklch — they use these utilities
+ * (bg-surface, text-ink-3, border-line, bg-accent, rounded-card, shadow-tray, font-mono, …).
+ */
 @theme {
-  /* Chrome */
-  --color-nav-belt: #131921;
-  --color-nav-main: #232F3E;
-  --color-nav-back: #37475A;
-  --color-nav-bottom: #131A22;
-  --color-brand-orange: #FF9900;
-  --color-brand-search: #FEBD69;
-  --color-brand-search-hover: #F3A847;
-  --color-brand-count: #F08804;
-  /* Text */
-  --color-ink: #0F1111;
-  --color-ink-2: #565959;
-  --color-ink-3: #6F7373;
-  --color-ink-4: #888C8C;
-  /* Links */
-  --color-link: #2162A1;
-  --color-link-teal: #007185;
-  --color-link-hover: #C7511F;
-  --color-link-visited: #004B91;
-  /* Actions */
-  --color-cta-yellow: #FFD814;
-  --color-cta-yellow-hover: #F7CA00;
-  --color-cta-orange: #FFA41C;
-  --color-cta-orange-hover: #FA8900;
+  /* Ground + surfaces */
+  --color-bg: #F7F6F3;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F2F0EB;
+  --color-surface-3: #FAF9F6;
+  --color-surface-4: #EFECE6;
+  --color-hatch-a: #EFEDE8;
+  --color-hatch-b: #F7F6F2;
+  --color-scrim: rgb(21 21 21 / 0.45);
+
+  /* Ink (text, dark fills, strong borders) */
+  --color-ink: #151515;
+  --color-ink-2: #3E3C38;
+  --color-ink-3: #5E5C57;
+  --color-ink-4: #6F6C66;
+  --color-ink-raised: #3A3936;
+
+  /* Lines */
+  --color-line: #E7E4DE;
+  --color-line-2: #EFECE6;
+  --color-line-3: #CFCBC3;
+  --color-line-4: #DAD6CE;
+
+  /* The one accent = commit */
+  --color-accent: oklch(0.78 0.16 65);
+  --color-accent-hover: oklch(0.73 0.16 62);
+  --color-accent-ink: oklch(0.52 0.15 55);
+  --color-accent-soft: oklch(0.82 0.14 70);
+
   /* Signals */
-  --color-star: #DE7921;
-  --color-plus: #00A8E1;
-  --color-price-deal: #C10015;
-  --color-price-legacy: #B12704;
-  --color-badge-deal: #CC0C39;
-  --color-badge-pick: #161D26;
-  --color-badge-bestseller: #E67A00;
-  --color-success: #0B7B3C;
-  --color-success-deep: #04705B;
-  --color-warn: #C45500;
-  --color-error: #EB0000;
-  /* Lines + surfaces */
-  --color-line: #D5D9D9;
-  --color-line-2: #DDDDDD;
-  --color-line-3: #CCCCCC;
-  --color-line-soft: #E6E6E6;
-  --color-line-card: #F5F5F5;
-  --color-surface-2: #F0F2F2;
-  --color-surface-3: #F7FAFA;
-  --color-surface-4: #F8F8F8;
-  --color-surface-band: #EAEDED;
-  /* Type */
-  --font-sans: "Amazon Ember", Arial, "Helvetica Neue", Helvetica, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --color-star: oklch(0.62 0.16 60);
+  --color-good: oklch(0.48 0.11 150);
+  --color-good-strong: oklch(0.38 0.1 150);
+  --color-good-bg: oklch(0.96 0.04 150);
+  --color-good-dot: oklch(0.6 0.13 150);
+  --color-warn: oklch(0.52 0.15 35);
+  --color-warn-strong: oklch(0.5 0.15 35);
+  --color-warn-bg: oklch(0.96 0.03 45);
+  --color-bad: oklch(0.5 0.17 28);
+  --color-bad-dot: oklch(0.58 0.17 30);
+  --color-bad-bg: oklch(0.96 0.03 28);
+
   /* Radius */
-  --radius-card: 4px;
-  --radius-box: 8px;
-  --radius-pill: 100px;
+  --radius-tag: 4px;
+  --radius-chip: 6px;
+  --radius-image: 8px;
+  --radius-input: 10px;
+  --radius-card: 12px;
+  --radius-panel: 14px;
+  --radius-tray: 16px;
+  --radius-pill: 999px;
+
   /* Shadows */
-  --shadow-input: inset 0 1px 2px rgb(15 17 17 / 0.15);
-  --shadow-dropdown: 0 1px 3px rgb(0 0 0 / 0.2);
+  --shadow-tray: 0 10px 30px rgb(20 20 20 / 0.14);
+  --shadow-toast: 0 8px 24px rgb(0 0 0 / 0.2);
+  --shadow-hero: 0 1px 0 #151515;
+  --shadow-pop: 0 8px 24px rgb(20 20 20 / 0.12);
+
+  /* Layout */
+  --container-page: 1320px;
 }
 
-html { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--color-ink); background: #fff; }
+/* Fonts come from next/font (app/layout.tsx) as CSS variables on <html>; `inline` makes the
+   utilities reference them directly (node_modules/next/dist/docs … components/font.md §Tailwind). */
+@theme inline {
+  --font-sans: var(--font-instrument-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Base rules live in the base layer: unlayered CSS would beat every Tailwind
+   utility (e.g. `color: inherit` on buttons overriding `text-white`). */
+@layer base {
 * { box-sizing: border-box; }
-body { margin: 0; }
-
-.campaign-hero {
-  overflow: hidden;
-  background: var(--color-surface-band);
-}
-
-.campaign-hero__link {
-  position: relative;
-  display: block;
-  min-height: 220px;
+html { color: var(--color-ink); background: var(--color-bg); }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.45;
   color: var(--color-ink);
-  text-decoration: none;
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button, input, textarea, select { font-family: inherit; color: inherit; }
+a:hover { color: var(--color-accent-ink); }
+
+/* One focus language everywhere: 2px ink ring, offset so it never sits on the fill. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
 }
 
-.campaign-hero__link:focus-visible {
-  outline: 3px solid var(--color-brand-orange);
-  outline-offset: -3px;
+/* Hatched placeholder behind every product image (design.md §5 ProductFrame). */
+@utility hatch {
+  background: repeating-linear-gradient(135deg, var(--color-hatch-a) 0 8px, var(--color-hatch-b) 8px 16px);
 }
 
-.campaign-hero__image {
-  display: block;
-  width: 100%;
-  min-height: 220px;
-  object-fit: cover;
+/* Horizontal scrollers (category strip, chip rows) hide the bar but keep scrolling. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 
-.campaign-hero__copy {
-  position: absolute;
-  inset: auto auto 12% max(5%, calc((100% - 1500px) / 2 + 24px));
-  display: grid;
-  gap: 6px;
-  max-width: min(440px, 70%);
-}
-
-.campaign-hero__title {
-  color: var(--color-ink);
-  font-size: clamp(24px, 3vw, 42px);
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.campaign-hero__cta {
-  color: var(--color-link-teal);
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.campaign-hero__link:hover .campaign-hero__cta { color: var(--color-link-hover); text-decoration: underline; }
-
-@media (max-width: 640px) {
-  .campaign-hero__copy { inset: auto auto 10% 24px; }
-  .campaign-hero__title { font-size: 26px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

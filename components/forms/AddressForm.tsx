@@ -30,7 +30,7 @@ export function AddressForm({ schema, onValid }: AddressFormProps) {
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-[420px] flex-col gap-3">
+    <form onSubmit={submit} className="flex max-w-[480px] flex-col gap-3.5">
       <Input name="fullName" label="Full name" error={errors.fullName} />
       {schema === 'IN' ? <Input name="phone" label="Mobile number" inputMode="numeric" error={errors.phone} /> : <Input name="phone" label="Phone" inputMode="numeric" error={errors.phone} />}
       {schema === 'IN' ? (
@@ -52,7 +52,7 @@ export function AddressForm({ schema, onValid }: AddressFormProps) {
           <Input name="postcode" label="ZIP Code" inputMode="numeric" error={errors.postcode} />
         </>
       )}
-      <div><Button type="submit">Save address</Button></div>
+      <div className="pt-1"><Button type="submit" variant="primary">Save address</Button></div>
     </form>
   );
 }

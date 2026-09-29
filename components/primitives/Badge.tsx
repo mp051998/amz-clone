@@ -1,15 +1,25 @@
 import type { ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
-type Tone = 'deal' | 'pick' | 'bestseller' | 'choice';
-const TONE: Record<Tone, string> = {
-  deal: 'bg-badge-deal text-white',
-  pick: 'bg-badge-pick text-white',
-  bestseller: 'bg-badge-bestseller text-white',
-  choice: 'bg-nav-main text-white',
+/**
+ * New tones: `accent` (Top pick, deal %), `neutral` (surface-2 tag), `dark` (ink, e.g. PLUS),
+ * `good`, `warn`.
+ */
+export type BadgeTone = 'accent' | 'neutral' | 'dark' | 'good' | 'warn';
+const TONE: Record<BadgeTone, string> = {
+  accent: 'bg-accent text-ink',
+  neutral: 'bg-surface-2 text-ink-2',
+  dark: 'bg-ink text-white',
+  good: 'bg-good-bg text-good-strong',
+  warn: 'bg-warn-bg text-warn-strong',
 };
 
-/** Filled chip, 12px, radius 4 (design.md §5 Badges). */
-export function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
-  return <span className={cn('inline-block rounded-[4px] px-1.5 py-0.5 text-[12px] font-normal leading-tight', TONE[tone])}>{children}</span>;
+/** Small filled tag, 12px/700, radius 6 (design.md §5 Badges). */
+export function Badge({ tone = 'neutral', children, className }: { tone?: BadgeTone; children: ReactNode; className?: string }) {
+  return <span className={cn('inline-flex items-center rounded-chip px-2 py-1 text-[12px] font-bold leading-none', TONE[tone], className)}>{children}</span>;
+}
+
+/** Alias: a chip is a Badge in the neutral tone. */
+export function Chip({ children, className }: { children: ReactNode; className?: string }) {
+  return <Badge tone="neutral" className={cn('font-medium text-[13px]', className)}>{children}</Badge>;
 }

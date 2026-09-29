@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Instrument Sans',system-ui,sans-serif;color:#151515;background:#F7F6F3;-webkit-font-smoothing:antialiased}
+button,input,textarea{font-family:inherit;color:inherit}
+a{color:#151515}
+a:hover{color:oklch(0.52 0.15 55)}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column">
+
+<header style="position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #E7E4DE">
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:20px;padding:12px 24px">
+      <button onClick="{{ goHome }}" style="border:1.5px dashed #151515;background:transparent;padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.08em;font-weight:600;cursor:pointer;flex:none">[ STORE ]</button>
+      <div style="display:flex;flex-direction:column;flex:none;line-height:1.25">
+        <span style="font-size:12px;color:#5E5C57">Deliver to</span>
+        <span style="font-size:14px;font-weight:600">Bengaluru 560038</span>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;border:1.5px solid #151515;border-radius:10px;overflow:hidden;background:#fff;min-width:0">
+        <input value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Search products, brands, and more" style="flex:1;border:none;outline:none;padding:11px 14px;font-size:15px;min-width:0;background:transparent">
+        <button onClick="{{ doSearch }}" style="border:none;background:oklch(0.78 0.16 65);padding:0 18px;align-self:stretch;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:oklch(0.73 0.16 62)">Search</button>
+      </div>
+      <button onClick="{{ goCollections }}" style="background:none;border:none;text-align:left;cursor:pointer;line-height:1.25;flex:none;padding:4px">
+        <div style="font-size:12px;color:#5E5C57">Hello, Monish</div>
+        <div style="font-size:14px;font-weight:600">Account &amp; Collections</div>
+      </button>
+      <button onClick="{{ goOrders }}" style="background:none;border:none;cursor:pointer;font-size:14px;font-weight:600;flex:none;padding:4px">Orders</button>
+      <button onClick="{{ goCart }}" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid #E7E4DE;border-radius:999px;padding:8px 14px;cursor:pointer;font-size:14px;font-weight:600;flex:none" style-hover="border-color:#151515">Cart<span style="min-width:22px;height:22px;border-radius:11px;background:oklch(0.78 0.16 65);display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 6px">{{ cartCount }}</span></button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:10px;padding:10px 16px 12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onClick="{{ goHome }}" style="border:1.5px dashed #151515;background:transparent;padding:6px 9px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;font-weight:600;cursor:pointer">[ STORE ]</button>
+        <div style="flex:1"></div>
+        <button onClick="{{ goCollections }}" style="background:none;border:none;font-size:14px;font-weight:600;min-height:44px;padding:0 8px;cursor:pointer">Saved</button>
+        <button onClick="{{ goOrders }}" style="background:none;border:none;font-size:14px;font-weight:600;min-height:44px;padding:0 8px;cursor:pointer">Orders</button>
+        <button onClick="{{ goCart }}" style="display:flex;align-items:center;gap:6px;background:none;border:1px solid #E7E4DE;border-radius:999px;min-height:44px;padding:0 12px;font-size:14px;font-weight:600;cursor:pointer">Cart<span style="min-width:22px;height:22px;border-radius:11px;background:oklch(0.78 0.16 65);display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 6px">{{ cartCount }}</span></button>
+      </div>
+      <div style="display:flex;align-items:center;border:1.5px solid #151515;border-radius:10px;overflow:hidden">
+        <input value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Search or describe what you need" style="flex:1;border:none;outline:none;padding:12px;font-size:16px;min-width:0;background:transparent">
+        <button onClick="{{ doSearch }}" style="border:none;background:oklch(0.78 0.16 65);padding:0 16px;align-self:stretch;font-weight:600;font-size:14px">Search</button>
+      </div>
+      <div style="font-size:13px;color:#5E5C57">Deliver to <strong style="color:#151515">Monish · Bengaluru 560038</strong></div>
+    </div>
+  </sc-if>
+  <nav style="border-top:1px solid #EFECE6">
+    <div style="max-width:1320px;margin:0 auto;display:flex;gap:4px;padding:4px clamp(10px,2vw,18px);overflow-x:auto;white-space:nowrap">
+      <sc-for list="{{ cats }}" as="c" hint-placeholder-count="8">
+        <button onClick="{{ c.go }}" style="background:none;border:none;padding:9px 12px;font-size:14px;color:#3E3C38;cursor:pointer;border-radius:6px;flex:none" style-hover="background:#F2F0EB;color:#151515">{{ c.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+</header>
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<main data-screen-label="Home" style="max-width:1320px;width:100%;margin:0 auto;padding:40px clamp(16px,3vw,24px) 140px;display:flex;flex-direction:column;gap:56px">
+  <section style="display:flex;flex-direction:column;gap:18px;max-width:860px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5E5C57;letter-spacing:.04em">GOOD EVENING, MONISH</span>
+    <h1 style="margin:0;font-size:clamp(30px,4.4vw,44px);line-height:1.08;letter-spacing:-.02em;font-weight:600">What are you looking for?</h1>
+    <div style="display:flex;align-items:stretch;border:1.5px solid #151515;border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 1px 0 #151515">
+      <input value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Search for products, brands, or describe what you need..." style="flex:1;border:none;outline:none;padding:18px 18px;font-size:17px;min-width:0;background:transparent">
+      <button onClick="{{ doSearch }}" style="border:none;background:oklch(0.78 0.16 65);padding:0 26px;font-weight:600;font-size:16px;cursor:pointer" style-hover="background:oklch(0.73 0.16 62)">Search</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <button onClick="{{ openQuizHome }}" style="background:#151515;color:#fff;border:none;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:500;cursor:pointer">Not sure what you need? Answer 5 questions</button>
+      <span style="font-size:14px;color:#5E5C57">or try:</span>
+      <sc-for list="{{ examples }}" as="e" hint-placeholder-count="3">
+        <button onClick="{{ e.run }}" style="background:#fff;border:1px solid #DAD6CE;border-radius:999px;padding:8px 14px;font-size:14px;cursor:pointer;text-align:left;max-width:100%" style-hover="border-color:#151515"><span>{{ e.quoted }}</span></button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <h2 style="margin:0;font-size:22px;font-weight:600">Continue shopping</h2>
+      <span style="font-size:14px;color:#5E5C57">From your last session</span>
+    </div>
+    <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:6px">
+      <sc-for list="{{ continueList }}" as="c" hint-placeholder-count="4">
+        <button onClick="{{ c.open }}" style="flex:0 0 230px;display:flex;flex-direction:column;gap:10px;text-align:left;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:12px;cursor:pointer" style-hover="border-color:#151515">
+          <div style="aspect-ratio:4/3;width:100%;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 8px,#F7F6F2 8px 16px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6F6C66">product shot</div>
+          <span style="font-size:12px;color:#5E5C57;font-family:'JetBrains Mono',monospace">{{ c.seen }}</span>
+          <span style="font-size:16px;font-weight:600;line-height:1.25">{{ c.name }}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><strong style="font-size:16px">{{ c.priceText }}</strong><span><span style="color:oklch(0.62 0.16 60)">★</span> {{ c.rating }}</span></div>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <h2 style="margin:0;font-size:22px;font-weight:600">Picks based on what you've been looking at</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px">
+      <sc-for list="{{ picks }}" as="c" hint-placeholder-count="4">
+        <article style="display:flex;flex-direction:column;gap:10px;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:14px">
+          <span style="font-size:13px;color:#3E3C38;background:#F2F0EB;border-radius:6px;padding:6px 8px;align-self:flex-start">{{ c.reason }}</span>
+          <button onClick="{{ c.open }}" style="aspect-ratio:4/3;width:100%;border:none;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 8px,#F7F6F2 8px 16px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6F6C66;cursor:pointer">product shot</button>
+          <button onClick="{{ c.open }}" style="background:none;border:none;padding:0;text-align:left;font-size:17px;font-weight:600;cursor:pointer;line-height:1.25">{{ c.name }}</button>
+          <div style="font-size:14px;color:#3E3C38"><span style="color:oklch(0.62 0.16 60)">★</span> {{ c.rating }} · {{ c.reviewsText }}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:18px">{{ c.priceText }}</strong><span style="font-size:13px;color:#3E3C38">{{ c.bestFor }}</span></div>
+        </article>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <h2 style="margin:0;font-size:22px;font-weight:600">Deals for you</h2>
+      <span style="font-size:14px;color:#5E5C57">Only on things you've shown interest in</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px">
+      <sc-for list="{{ deals }}" as="d" hint-placeholder-count="3">
+        <button onClick="{{ d.open }}" style="display:flex;gap:14px;text-align:left;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:14px;cursor:pointer;align-items:stretch" style-hover="border-color:#151515">
+          <div style="flex:0 0 96px;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 8px,#F7F6F2 8px 16px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66;min-height:110px">product</div>
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+            <span style="font-size:13px;font-weight:700;background:oklch(0.78 0.16 65);border-radius:4px;padding:3px 7px;align-self:flex-start">{{ d.offText }}</span>
+            <span style="font-size:15px;font-weight:600;line-height:1.25">{{ d.name }}</span>
+            <div style="display:flex;gap:8px;align-items:baseline"><strong style="font-size:18px">{{ d.priceText }}</strong><s style="font-size:13px;color:#5E5C57">{{ d.mrpText }}</s></div>
+            <span style="font-size:13px"><span style="color:oklch(0.62 0.16 60)">★</span> {{ d.rating }}</span>
+            <span style="font-size:13px;font-weight:600;color:oklch(0.5 0.15 35)">{{ d.ends }}</span>
+          </div>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+</main>
+</sc-if>
+
+<sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Search results" style="max-width:1320px;width:100%;margin:0 auto;padding:28px clamp(16px,3vw,24px) 160px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5E5C57">YOU SEARCHED “{{ lastQuery }}”</span>
+    <h1 style="margin:0;font-size:clamp(26px,3.2vw,32px);font-weight:600;letter-spacing:-.01em">{{ title }}</h1>
+    <span style="font-size:15px;color:#3E3C38"><strong>{{ resultCount }} best matches</strong> from 2,481 results, ranked by what you told us matters</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <span style="font-size:14px;color:#5E5C57">We understood:</span>
+    <sc-for list="{{ intents }}" as="c" hint-placeholder-count="3">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#151515;color:#fff;border-radius:999px;padding:6px 6px 6px 12px;font-size:14px">
+        {{ c.label }}
+        <sc-if value="{{ c.removable }}" hint-placeholder-val="{{ true }}"><button onClick="{{ c.remove }}" aria-label="Remove" style="width:22px;height:22px;border-radius:50%;border:none;background:#3A3936;color:#fff;cursor:pointer;font-size:13px;line-height:1">×</button></sc-if>
+        <sc-if value="{{ c.fixed }}" hint-placeholder-val="{{ false }}"><span style="width:6px"></span></sc-if>
+      </span>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Refine what matters</h2>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+      <sc-for list="{{ refine }}" as="c" hint-placeholder-count="6">
+        <button onClick="{{ c.pick }}" style="flex:none;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};border-radius:999px;padding:9px 15px;font-size:14px;font-weight:500;cursor:pointer;min-height:40px">{{ c.label }}</button>
+      </sc-for>
+      <button onClick="{{ openQuiz }}" style="flex:none;border:1.5px dashed #151515;background:#fff;border-radius:999px;padding:9px 15px;font-size:14px;font-weight:600;cursor:pointer;min-height:40px" style-hover="background:#F2F0EB">Tune for me…</button>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <aside style="flex:1 1 270px;display:flex;flex-direction:column;gap:12px;position:sticky;top:{{ asideTop }}">
+      <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ togglePrio }}" style="display:flex;justify-content:space-between;align-items:center;width:100%;background:#fff;border:1px solid #151515;border-radius:10px;padding:12px 14px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px"><span>Your priorities · {{ presetLabel }}</span><span>{{ prioChevron }}</span></button>
+      </sc-if>
+      <sc-if value="{{ showPrio }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-size:18px;font-weight:600">Your priorities</h2><button onClick="{{ resetPrio }}" style="background:none;border:none;font-size:13px;text-decoration:underline;cursor:pointer;color:#3E3C38">Reset</button></div>
+          <sc-if value="{{ hasProfile }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#F2F0EB;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#5E5C57;letter-spacing:.04em">TUNED FROM YOUR ANSWERS</span>
+              <span style="font-size:14px;line-height:1.4">{{ profileSummary }}</span>
+              <button onClick="{{ openQuizResult }}" style="align-self:flex-start;background:none;border:none;padding:0;font-size:13px;text-decoration:underline;cursor:pointer">See why</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noProfile }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ openQuiz }}" style="display:flex;flex-direction:column;gap:2px;text-align:left;background:#fff;border:1.5px dashed #151515;border-radius:10px;padding:12px;cursor:pointer" style-hover="background:#F7F6F3"><span style="font-size:14px;font-weight:600">Not sure? Answer 5 quick questions</span><span style="font-size:13px;color:#3E3C38">We'll set these for you and explain why.</span></button>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;font-size:14px"><span style="font-weight:600">Price</span><span>₹0 — {{ budgetText }}</span></div>
+            <input type="range" min="2000" max="30000" step="500" value="{{ budget }}" onChange="{{ onBudget }}" style="width:100%;accent-color:#151515">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:14px;font-weight:600;margin-bottom:4px">What matters most?</span>
+            <sc-for list="{{ prios }}" as="pr" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <div style="display:flex;flex-direction:column;line-height:1.2"><span style="font-size:15px">{{ pr.label }}</span><span style="font-size:12px;color:#5E5C57">{{ pr.level }}</span></div>
+                <div style="display:flex">
+                  <sc-for list="{{ pr.dots }}" as="d" hint-placeholder-count="5">
+                    <button onClick="{{ d.set }}" aria-label="{{ d.aria }}" style="width:32px;height:36px;border:none;background:none;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #151515;background:{{ d.bg }};display:block"></span></button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <span style="font-size:13px;color:#5E5C57;line-height:1.4">Results re-rank instantly as you adjust. Detailed filters (brand, colour, codec) live under <button onClick="{{ moreFilters }}" style="background:none;border:none;padding:0;font-size:13px;text-decoration:underline;cursor:pointer;color:#151515">More filters</button>.</span>
+        </div>
+      </sc-if>
+    </aside>
+
+    <section style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:14px;color:#3E3C38">{{ rankNote }}</span>
+        <div style="display:flex;gap:4px;background:#EFECE6;border-radius:999px;padding:3px">
+          <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="3">
+            <button onClick="{{ s.pick }}" style="border:none;background:{{ s.bg }};border-radius:999px;padding:7px 12px;font-size:13px;font-weight:500;cursor:pointer">{{ s.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px dashed #CFCBC3;border-radius:12px;padding:28px;font-size:15px">Nothing fits under {{ budgetText }}. <button onClick="{{ widenBudget }}" style="background:none;border:none;text-decoration:underline;font-size:15px;cursor:pointer;padding:0">Widen budget to ₹12,000</button></div>
+      </sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+        <sc-for list="{{ results }}" as="r" hint-placeholder-count="6">
+          <article style="background:#fff;border:1px solid {{ r.border }};border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;min-height:24px;gap:8px">
+              <sc-if value="{{ r.showMatch }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;background:#F2F0EB;border-radius:6px;padding:4px 8px">{{ r.matchText }}</span></sc-if>
+              <sc-if value="{{ r.isTop }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;background:oklch(0.78 0.16 65);border-radius:6px;padding:4px 8px">Top pick for you</span></sc-if>
+            </div>
+            <button onClick="{{ r.open }}" style="aspect-ratio:4/3;width:100%;border:none;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 8px,#F7F6F2 8px 16px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6F6C66;cursor:pointer">product shot</button>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button onClick="{{ r.open }}" style="background:none;border:none;padding:0;text-align:left;font-size:18px;font-weight:600;cursor:pointer;line-height:1.2" style-hover="text-decoration:underline">{{ r.name }}</button>
+              <span style="font-size:14px;color:#3E3C38"><span style="color:oklch(0.62 0.16 60)">★★★★★</span> {{ r.rating }} · {{ r.reviewsText }}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+              <strong style="font-size:22px;letter-spacing:-.01em">{{ r.priceText }}</strong>
+              <s style="font-size:14px;color:#5E5C57">{{ r.mrpText }}</s>
+              <span style="font-size:13px;font-weight:600;color:oklch(0.48 0.11 150)">{{ r.offText }}</span>
+            </div>
+            <span style="font-size:13px;color:#3E3C38"><span style="background:#151515;color:#fff;border-radius:3px;padding:1px 5px;font-size:11px;font-weight:700;margin-right:6px">PLUS</span>FREE delivery tomorrow</span>
+            <sc-if value="{{ r.full }}" hint-placeholder-val="{{ true }}">
+              <div style="border-top:1px solid #EFECE6;padding-top:12px;display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;font-weight:600;color:#5E5C57;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">WHY IT'S HERE</span>
+                <sc-for list="{{ r.why }}" as="w" hint-placeholder-count="3">
+                  <span style="font-size:14px;display:flex;gap:8px"><span style="color:oklch(0.48 0.11 150);font-weight:700">✓</span>{{ w.t }}</span>
+                </sc-for>
+                <span style="font-size:14px;display:flex;gap:8px"><span style="color:oklch(0.52 0.15 35);font-weight:700">⚠</span>{{ r.warn }}</span>
+              </div>
+            </sc-if>
+            <span style="font-size:14px"><strong>Best for:</strong> {{ r.bestFor }}</span>
+            <div style="display:flex;gap:8px;margin-top:auto">
+              <button onClick="{{ r.toggleCompare }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:10px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px" style-hover="border-color:#151515"><span style="width:18px;height:18px;border:1.5px solid #151515;border-radius:4px;background:{{ r.cmpBg }};color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center">{{ r.cmpMark }}</span>{{ r.cmpLabel }}</button>
+              <button onClick="{{ r.toggleSave }}" style="flex:1;background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:10px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px" style-hover="border-color:#151515">{{ r.saveText }}</button>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+</main>
+</sc-if>
+
+<sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Compare" style="max-width:1320px;width:100%;margin:0 auto;padding:28px clamp(16px,3vw,24px) 120px;display:flex;flex-direction:column;gap:22px">
+  <button onClick="{{ goBack }}" style="align-self:flex-start;background:none;border:none;padding:0;font-size:14px;cursor:pointer;text-decoration:underline">← Back</button>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <h1 style="margin:0;font-size:clamp(26px,3.2vw,32px);font-weight:600">Compare products</h1>
+      <span style="font-size:14px;color:#3E3C38">Ranked using your priorities: {{ weightsLine }}</span>
+    </div>
+    <button onClick="{{ goSearchPrio }}" style="background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:9px 16px;font-size:14px;cursor:pointer">Edit priorities</button>
+  </div>
+  <sc-if value="{{ cmpEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px dashed #CFCBC3;border-radius:12px;padding:28px;font-size:15px">Pick at least two products to compare. <button onClick="{{ doSearchDefault }}" style="background:none;border:none;text-decoration:underline;font-size:15px;cursor:pointer;padding:0">Browse headphones</button></div>
+  </sc-if>
+  <sc-if value="{{ cmpReady }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#151515;color:#fff;border-radius:14px;padding:18px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 320px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:oklch(0.82 0.14 70)">OUR VERDICT</span>
+        <span style="font-size:18px;font-weight:600;line-height:1.3">{{ verdictText }}</span>
+      </div>
+      <button onClick="{{ openWinner }}" style="border:none;background:oklch(0.78 0.16 65);color:#151515;border-radius:999px;padding:12px 20px;font-size:15px;font-weight:600;cursor:pointer;min-height:44px">Choose {{ winnerName }} →</button>
+    </div>
+    <div style="overflow-x:auto;background:#fff;border:1px solid #E7E4DE;border-radius:14px">
+      <div style="min-width:{{ cmpMinW }}">
+        <div style="display:grid;grid-template-columns:{{ cmpCols }}">
+          <div style="padding:16px;font-size:12px;font-family:'JetBrains Mono',monospace;color:#5E5C57">{{ cmpCountText }}</div>
+          <sc-for list="{{ cmpHead }}" as="h" hint-placeholder-count="3">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:8px;border-left:1px solid #EFECE6;background:{{ h.bg }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;min-height:22px">
+                <sc-if value="{{ h.isWinner }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;background:oklch(0.78 0.16 65);border-radius:5px;padding:3px 7px">Best match</span></sc-if>
+                <span></span>
+                <button onClick="{{ h.remove }}" aria-label="Remove" style="border:none;background:none;font-size:13px;color:#5E5C57;cursor:pointer;text-decoration:underline">Remove</button>
+              </div>
+              <button onClick="{{ h.open }}" style="aspect-ratio:4/3;width:100%;border:none;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 8px,#F7F6F2 8px 16px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6F6C66;cursor:pointer">product shot</button>
+              <button onClick="{{ h.open }}" style="background:none;border:none;padding:0;text-align:left;font-size:17px;font-weight:600;cursor:pointer;line-height:1.2">{{ h.name }}</button>
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><strong style="font-size:20px">{{ h.priceText }}</strong><span style="font-size:13px"><span style="color:oklch(0.62 0.16 60)">★</span> {{ h.rating }}</span></div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{{ h.matchText }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ cmpCols }};border-top:1px solid #E7E4DE">
+          <div style="padding:16px;font-size:15px;font-weight:600">Quick verdict</div>
+          <sc-for list="{{ cmpVerdict }}" as="v" hint-placeholder-count="3">
+            <div style="padding:16px;border-left:1px solid #EFECE6;display:flex;flex-direction:column;gap:12px;background:{{ v.bg }}">
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#5E5C57;font-family:'JetBrains Mono',monospace">BEST FOR</span><span style="font-size:16px;font-weight:600">{{ v.bestFor }}</span></div>
+              <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#5E5C57;font-family:'JetBrains Mono',monospace">STRENGTHS</span>
+                <sc-for list="{{ v.strengths }}" as="s" hint-placeholder-count="3"><span style="font-size:14px;display:flex;gap:8px"><span style="color:oklch(0.48 0.11 150);font-weight:700">✓</span>{{ s.t }}</span></sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#5E5C57;font-family:'JetBrains Mono',monospace">TRADE-OFFS</span>
+                <sc-for list="{{ v.trades }}" as="s" hint-placeholder-count="2"><span style="font-size:14px;display:flex;gap:8px"><span style="color:oklch(0.52 0.15 35);font-weight:700">⚠</span>{{ s.t }}</span></sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ cmpCols }};border-top:1px solid #E7E4DE;background:#FAF9F6">
+          <div style="padding:14px 16px;font-size:15px;font-weight:600">What's different?</div>
+          <sc-for list="{{ cmpHead }}" as="h" hint-placeholder-count="3"><div style="border-left:1px solid #EFECE6"></div></sc-for>
+        </div>
+        <sc-for list="{{ cmpRows }}" as="row" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:{{ cmpCols }};border-top:1px solid #EFECE6">
+            <div style="padding:12px 16px;font-size:14px;color:#3E3C38">{{ row.label }}</div>
+            <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="3">
+              <div style="padding:12px 16px;border-left:1px solid #EFECE6;font-size:15px;font-weight:{{ cell.fw }};background:{{ cell.bg }};display:flex;justify-content:space-between;align-items:center;gap:8px"><span>{{ cell.t }}</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:oklch(0.42 0.11 150)">{{ cell.mark }}</span></div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div style="border-top:1px solid #E7E4DE;padding:14px 16px;font-size:14px;color:#3E3C38;line-height:1.5"><strong style="color:#151515">Same on all:</strong> {{ sameText }}</div>
+      </div>
+    </div>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ isProduct }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Product detail" style="max-width:1320px;width:100%;margin:0 auto;padding:22px clamp(16px,3vw,24px) 160px;display:flex;flex-direction:column;gap:44px">
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <button onClick="{{ goBack }}" style="align-self:flex-start;background:none;border:none;padding:0;font-size:14px;cursor:pointer;text-decoration:underline">← Back</button>
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+      <div style="flex:1 1 400px;display:flex;flex-direction:column;gap:10px;min-width:0">
+        <div style="aspect-ratio:1/1;width:100%;border-radius:14px;background:repeating-linear-gradient(135deg,#EFEDE8 0 10px,#F7F6F2 10px 20px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:#6F6C66;border:1px solid #E7E4DE">{{ imgLabel }}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <sc-for list="{{ gallery }}" as="g" hint-placeholder-count="4">
+            <button onClick="{{ g.pick }}" style="aspect-ratio:1/1;border-radius:8px;border:2px solid {{ g.border }};background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66;cursor:pointer;padding:4px">{{ g.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex:1 1 340px;display:flex;flex-direction:column;gap:18px;min-width:0">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:14px;color:#3E3C38">{{ p.brand }}</span>
+          <h1 style="margin:0;font-size:clamp(26px,3vw,32px);font-weight:600;line-height:1.12;letter-spacing:-.01em">{{ p.name }}</h1>
+          <button onClick="{{ jumpReviews }}" style="align-self:flex-start;background:none;border:none;padding:0;font-size:15px;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="color:oklch(0.62 0.16 60)">★★★★★</span><strong>{{ p.rating }}</strong><span style="text-decoration:underline;color:#3E3C38">{{ ratingsText }}</span></button>
+          <sc-if value="{{ pHasMatch }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;background:#F2F0EB;border-radius:6px;padding:5px 9px">{{ pMatchText }}</span></sc-if>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border-top:1px solid #E7E4DE;padding-top:16px">
+          <strong style="font-size:32px;letter-spacing:-.02em">{{ pPrice }}</strong>
+          <s style="font-size:15px;color:#5E5C57">{{ pMrp }}</s>
+          <span style="font-size:14px;font-weight:600;color:oklch(0.48 0.11 150)">{{ pOff }}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <h2 style="margin:0;font-size:17px;font-weight:600">Why people buy it</h2>
+          <sc-for list="{{ pPros }}" as="w" hint-placeholder-count="3"><span style="font-size:15px;display:flex;gap:10px"><span style="color:oklch(0.48 0.11 150);font-weight:700">✓</span>{{ w.t }}</span></sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <h2 style="margin:0;font-size:17px;font-weight:600">Things to know</h2>
+          <sc-for list="{{ pKnow }}" as="w" hint-placeholder-count="3"><span style="font-size:15px;display:flex;gap:10px"><span style="color:oklch(0.52 0.15 35);font-weight:700">⚠</span>{{ w.t }}</span></sc-for>
+        </div>
+      </div>
+      <aside style="flex:1 1 280px;display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:13px"><span style="background:#151515;color:#fff;border-radius:3px;padding:1px 5px;font-size:11px;font-weight:700;margin-right:6px">PLUS</span>FREE delivery</span>
+          <strong style="font-size:18px">Tomorrow, 10 AM–2 PM</strong>
+          <span style="font-size:13px;color:#3E3C38">Order within 3 hrs 12 mins · to Bengaluru 560038</span>
+        </div>
+        <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600">Purchase confidence</span><span style="font-size:13px;font-weight:700;color:oklch(0.42 0.11 150);background:oklch(0.95 0.05 150);border-radius:5px;padding:3px 8px">High</span></div>
+          <sc-for list="{{ pConfidence }}" as="c" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;font-size:14px;gap:12px"><span style="color:#3E3C38">{{ c.k }}</span><span style="font-weight:500;text-align:right">{{ c.v }}</span></div></sc-for>
+        </div>
+        <button onClick="{{ addCurrent }}" style="border:none;background:oklch(0.78 0.16 65);border-radius:999px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;min-height:48px" style-hover="background:oklch(0.73 0.16 62)">Add to Cart</button>
+        <button onClick="{{ buyNow }}" style="border:none;background:#151515;color:#fff;border-radius:999px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;min-height:48px">Buy Now</button>
+        <sc-if value="{{ justAdded }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;background:oklch(0.96 0.04 150);border-radius:10px;padding:10px 12px"><span style="font-weight:600;color:oklch(0.38 0.1 150)">✓ Added to cart</span><button onClick="{{ goCart }}" style="background:none;border:none;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer">View cart →</button></div>
+        </sc-if>
+        <div style="display:flex;gap:8px">
+          <button onClick="{{ saveCurrent }}" style="flex:1;background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:10px;font-size:14px;cursor:pointer;min-height:44px">{{ pSaveText }}</button>
+          <button onClick="{{ compareCurrent }}" style="flex:1;background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:10px;font-size:14px;cursor:pointer;min-height:44px">{{ pCmpText }}</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <section id="insight" style="display:flex;flex-direction:column;gap:18px">
+    <h2 style="margin:0;font-size:24px;font-weight:600">What buyers actually think</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
+      <div style="flex:1 1 260px;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;gap:8px"><strong style="font-size:40px;letter-spacing:-.02em">{{ p.rating }}</strong><span style="color:oklch(0.62 0.16 60);font-size:20px">★</span></div>
+        <span style="font-size:14px;color:#3E3C38">{{ ratingsText }}</span>
+        <strong style="font-size:16px">{{ recText }}</strong>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          <sc-for list="{{ dist }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:22px">{{ d.label }}</span><div style="flex:1;height:8px;border-radius:4px;background:#EFECE6;overflow:hidden"><div style="height:100%;width:{{ d.w }};background:#151515"></div></div><span style="width:34px;text-align:right;color:#3E3C38">{{ d.w }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex:1 1 260px;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:15px;font-weight:600">Most praised</span>
+          <sc-for list="{{ praised }}" as="w" hint-placeholder-count="3"><span style="font-size:15px;display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;border-radius:50%;background:oklch(0.6 0.13 150)"></span>{{ w.t }}<span style="margin-left:auto;font-size:12px;color:#5E5C57;font-family:'JetBrains Mono',monospace">{{ w.n }}</span></span></sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:15px;font-weight:600">Most criticized</span>
+          <sc-for list="{{ criticized }}" as="w" hint-placeholder-count="3"><span style="font-size:15px;display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;border-radius:50%;background:oklch(0.58 0.17 30)"></span>{{ w.t }}<span style="margin-left:auto;font-size:12px;color:#5E5C57;font-family:'JetBrains Mono',monospace">{{ w.n }}</span></span></sc-for>
+        </div>
+      </div>
+      <div style="flex:2 1 340px;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5E5C57">AI SUMMARY · FROM {{ ratingsShort }} REVIEWS</span>
+        <p style="margin:0;font-size:18px;line-height:1.5;text-wrap:pretty">{{ p.summary }}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:auto">
+          <button onClick="{{ readSupporting }}" style="background:#151515;color:#fff;border:none;border-radius:999px;padding:10px 16px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px">Read supporting reviews →</button>
+          <button onClick="{{ showCritical }}" style="background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:10px 16px;font-size:14px;cursor:pointer;min-height:44px">Show critical reviews</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="reviews" style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h2 style="margin:0;font-size:22px;font-weight:600">Explore reviews</h2><span style="font-size:14px;color:#3E3C38">{{ reviewCountText }}</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <sc-for list="{{ rChips }}" as="c" hint-placeholder-count="9">
+        <button onClick="{{ c.toggle }}" style="border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};border-radius:999px;padding:8px 14px;font-size:14px;cursor:pointer;min-height:40px;display:flex;gap:6px;align-items:center">{{ c.label }}<span style="font-size:12px;opacity:.75;font-family:'JetBrains Mono',monospace">{{ c.n }}</span></button>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">
+      <sc-for list="{{ reviews }}" as="r" hint-placeholder-count="4">
+        <article style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span style="color:oklch(0.62 0.16 60);letter-spacing:1px">{{ r.stars }}</span><span style="font-size:12px;color:#5E5C57">{{ r.who }}</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ r.tags }}" as="t" hint-placeholder-count="2"><span style="font-size:12px;font-weight:600;background:#F2F0EB;border-radius:5px;padding:3px 7px">{{ t.t }}</span></sc-for>
+          </div>
+          <strong style="font-size:17px;line-height:1.3">{{ r.title }}</strong>
+          <p style="margin:0;font-size:15px;line-height:1.55;color:#2A2926;text-wrap:pretty">{{ r.text }}</p>
+          <sc-if value="{{ r.hasMedia }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ r.media }}" as="m" hint-placeholder-count="2"><div style="width:72px;height:72px;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66">{{ m.t }}</div></sc-for>
+            </div>
+          </sc-if>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:6px;border-top:1px solid #EFECE6"><button onClick="{{ r.helpful }}" style="background:none;border:1px solid #E7E4DE;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer">Helpful · {{ r.helpfulN }}</button><span style="font-size:12px;color:#5E5C57">{{ r.date }}</span></div>
+        </article>
+      </sc-for>
+    </div>
+    <sc-if value="{{ noReviews }}" hint-placeholder-val="{{ false }}"><div style="background:#fff;border:1px dashed #CFCBC3;border-radius:12px;padding:22px;font-size:15px">No reviews match every filter. <button onClick="{{ clearReviewFilters }}" style="background:none;border:none;text-decoration:underline;cursor:pointer;font-size:15px;padding:0">Clear filters</button></div></sc-if>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:22px;font-weight:600">Often compared with</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+      <sc-for list="{{ alts }}" as="a" hint-placeholder-count="2">
+        <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:14px;display:flex;gap:14px;align-items:center">
+          <button onClick="{{ a.open }}" style="flex:0 0 84px;height:84px;border:none;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66;cursor:pointer">product</button>
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">
+            <span style="font-size:16px;font-weight:600">{{ a.name }}</span>
+            <span style="font-size:14px">{{ a.priceText }} · <span style="color:oklch(0.62 0.16 60)">★</span> {{ a.rating }}</span>
+            <span style="font-size:13px;color:#3E3C38">{{ a.diff }}</span>
+          </div>
+          <button onClick="{{ a.compare }}" style="flex:none;background:#fff;border:1px solid #151515;border-radius:999px;padding:9px 14px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px">Compare</button>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px;max-width:860px">
+    <h2 style="margin:0;font-size:22px;font-weight:600">Specifications</h2>
+    <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;overflow:hidden">
+      <sc-for list="{{ specs }}" as="g" hint-placeholder-count="5">
+        <div style="border-top:1px solid #EFECE6">
+          <button onClick="{{ g.toggle }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:15px 18px;font-size:16px;font-weight:600;cursor:pointer;min-height:48px"><span>{{ g.name }}</span><span style="font-size:14px;color:#5E5C57">{{ g.chev }}</span></button>
+          <sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 18px 14px;display:flex;flex-direction:column">
+              <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px;padding:8px 0;border-top:1px dashed #EFECE6;font-size:15px"><span style="color:#3E3C38">{{ r.k }}</span><span>{{ r.v }}</span></div></sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</main>
+</sc-if>
+
+<sc-if value="{{ isCollections }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Collections" style="max-width:1320px;width:100%;margin:0 auto;padding:28px clamp(16px,3vw,24px) 160px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:clamp(26px,3.2vw,32px);font-weight:600">Collections</h1><span style="font-size:15px;color:#3E3C38">Everything you've saved, grouped, with prices tracked.</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start">
+    <aside style="flex:1 1 240px;display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ colList }}" as="c" hint-placeholder-count="3">
+        <button onClick="{{ c.select }}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:{{ c.bg }};color:{{ c.fg }};border:1px solid {{ c.border }};border-radius:12px;padding:14px 16px;cursor:pointer;min-height:56px">
+          <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:600">{{ c.name }}</span><span style="font-size:13px;opacity:.8">{{ c.countText }}</span></span>
+          <span style="font-size:12px;font-family:'JetBrains Mono',monospace;opacity:.9">{{ c.dropText }}</span>
+        </button>
+      </sc-for>
+      <button onClick="{{ newCollection }}" style="background:none;border:1px dashed #CFCBC3;border-radius:12px;padding:12px;font-size:14px;cursor:pointer;min-height:48px">+ New collection</button>
+    </aside>
+    <section style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <h2 style="margin:0;font-size:22px;font-weight:600">{{ colName }}</h2>
+        <button onClick="{{ compareCollection }}" style="background:#151515;color:#fff;border:none;border-radius:999px;padding:10px 16px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px">Compare these</button>
+      </div>
+      <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;overflow:hidden">
+        <sc-for list="{{ colItems }}" as="it" hint-placeholder-count="3">
+          <div style="display:flex;gap:14px;padding:14px 16px;border-top:1px solid #EFECE6;align-items:center;flex-wrap:wrap">
+            <button onClick="{{ it.open }}" style="flex:0 0 72px;height:72px;border:none;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66;cursor:pointer">{{ it.kind }}</button>
+            <div style="flex:1 1 200px;display:flex;flex-direction:column;gap:3px;min-width:0">
+              <button onClick="{{ it.open }}" style="background:none;border:none;padding:0;text-align:left;font-size:16px;font-weight:600;cursor:pointer">{{ it.name }}</button>
+              <strong style="font-size:17px">{{ it.priceText }}</strong>
+              <span style="font-size:14px;font-weight:600;color:{{ it.changeColor }}">{{ it.changeText }}</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onClick="{{ it.toCart }}" style="background:oklch(0.78 0.16 65);border:none;border-radius:999px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px">Add to cart</button>
+              <button onClick="{{ it.remove }}" style="background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:9px 14px;font-size:14px;cursor:pointer;min-height:44px">Remove</button>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ colEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 16px;font-size:15px;color:#3E3C38">Nothing here yet. Tap ♡ Save on any product.</div></sc-if>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600">Notes
+        <textarea value="{{ colNote }}" onChange="{{ onColNote }}" rows="3" placeholder="e.g. Need something that fits under a helmet" style="font-weight:400;font-size:15px;border:1px solid #CFCBC3;border-radius:10px;padding:12px;resize:vertical;background:#fff"></textarea>
+      </label>
+    </section>
+  </div>
+</main>
+</sc-if>
+
+<sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Cart" style="max-width:1320px;width:100%;margin:0 auto;padding:28px clamp(16px,3vw,24px) 120px;display:flex;flex-direction:column;gap:22px">
+  <h1 style="margin:0;font-size:clamp(26px,3.2vw,32px);font-weight:600">Cart</h1>
+  <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px dashed #CFCBC3;border-radius:12px;padding:28px;font-size:15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">Your cart is empty. <button onClick="{{ doSearchDefault }}" style="background:#151515;color:#fff;border:none;border-radius:999px;padding:10px 16px;font-size:14px;cursor:pointer">Find headphones</button></div>
+  </sc-if>
+  <sc-if value="{{ cartHas }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <div style="flex:999 1 540px;min-width:0;display:flex;flex-direction:column;gap:22px">
+      <section style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:20px;font-weight:600">Your items</h2>
+        <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;overflow:hidden">
+          <sc-for list="{{ cartItems }}" as="it" hint-placeholder-count="2">
+            <div style="display:flex;gap:14px;padding:16px;border-top:1px solid #EFECE6;flex-wrap:wrap">
+              <button onClick="{{ it.open }}" style="flex:0 0 88px;height:88px;border:none;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66;cursor:pointer">{{ it.kind }}</button>
+              <div style="flex:1 1 220px;display:flex;flex-direction:column;gap:6px;min-width:0">
+                <div style="display:flex;justify-content:space-between;gap:12px"><button onClick="{{ it.open }}" style="background:none;border:none;padding:0;text-align:left;font-size:17px;font-weight:600;cursor:pointer;line-height:1.25">{{ it.name }}</button><strong style="font-size:18px;flex:none">{{ it.lineText }}</strong></div>
+                <span style="font-size:14px;color:#3E3C38">In stock · FREE delivery tomorrow</span>
+                <sc-if value="{{ it.hasDrop }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;font-size:14px;font-weight:600;color:oklch(0.38 0.1 150);background:oklch(0.96 0.04 150);border-radius:6px;padding:4px 8px">{{ it.dropText }}</span></sc-if>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px">
+                  <div style="display:flex;align-items:center;border:1px solid #CFCBC3;border-radius:999px;overflow:hidden"><button onClick="{{ it.dec }}" aria-label="Decrease" style="width:40px;height:38px;border:none;background:#fff;font-size:18px;cursor:pointer">−</button><span style="min-width:28px;text-align:center;font-weight:600">{{ it.qty }}</span><button onClick="{{ it.inc }}" aria-label="Increase" style="width:40px;height:38px;border:none;background:#fff;font-size:18px;cursor:pointer">+</button></div>
+                  <button onClick="{{ it.later }}" style="background:none;border:none;font-size:14px;text-decoration:underline;cursor:pointer;padding:8px 4px">Save for later</button>
+                  <button onClick="{{ it.remove }}" style="background:none;border:none;font-size:14px;text-decoration:underline;cursor:pointer;padding:8px 4px">Remove</button>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      <sc-if value="{{ hasSavings }}" hint-placeholder-val="{{ false }}">
+        <section style="display:flex;flex-direction:column;gap:10px">
+          <h2 style="margin:0;font-size:20px;font-weight:600">Save money</h2>
+          <sc-for list="{{ savings }}" as="s" hint-placeholder-count="1">
+            <div style="background:#fff;border:1.5px solid #151515;border-radius:12px;padding:16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+              <div style="flex:0 0 72px;height:72px;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:#6F6C66">product</div>
+              <div style="flex:1 1 240px;display:flex;flex-direction:column;gap:4px">
+                <strong style="font-size:17px">{{ s.text }}</strong>
+                <span style="font-size:14px;color:#3E3C38">{{ s.detail }}</span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button onClick="{{ s.see }}" style="background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:10px 14px;font-size:14px;cursor:pointer;min-height:44px">See alternative</button>
+                <button onClick="{{ s.swap }}" style="background:#151515;color:#fff;border:none;border-radius:999px;padding:10px 14px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px">Swap &amp; save {{ s.amount }}</button>
+              </div>
+            </div>
+          </sc-for>
+        </section>
+      </sc-if>
+      <sc-if value="{{ hasSetup }}" hint-placeholder-val="{{ false }}">
+        <section style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h2 style="margin:0;font-size:20px;font-weight:600">Complete your setup</h2><span style="font-size:13px;color:#5E5C57">Only items that pair with your cart</span></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+            <sc-for list="{{ setup }}" as="a" hint-placeholder-count="2">
+              <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center">
+                <div style="flex:0 0 60px;height:60px;border-radius:8px;background:repeating-linear-gradient(135deg,#EFEDE8 0 6px,#F7F6F2 6px 12px);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:#6F6C66">accessory</div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:15px;font-weight:600">{{ a.name }}</span><span style="font-size:13px;color:#3E3C38">{{ a.reason }}</span><strong style="font-size:15px">{{ a.priceText }}</strong></div>
+                <button onClick="{{ a.add }}" style="flex:none;background:#fff;border:1px solid #151515;border-radius:999px;padding:8px 12px;font-size:13px;cursor:pointer;min-height:40px">Add</button>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+    </div>
+    <aside style="flex:1 1 300px;position:sticky;top:{{ asideTop }};background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px">
+      <sc-if value="{{ hasCartDrops }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:600;color:oklch(0.38 0.1 150);background:oklch(0.96 0.04 150);border-radius:8px;padding:8px 10px">{{ cartDropSummary }}</span></sc-if>
+      <div style="display:flex;justify-content:space-between;font-size:15px"><span>Subtotal ({{ cartCount }} items)</span><strong>{{ subtotalText }}</strong></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px"><span>Delivery</span><strong>FREE</strong></div>
+      <button onClick="{{ goCheckout }}" style="border:none;background:oklch(0.78 0.16 65);border-radius:999px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;min-height:48px" style-hover="background:oklch(0.73 0.16 62)">Proceed to checkout</button>
+      <span style="font-size:13px;color:#3E3C38;line-height:1.4">Arrives tomorrow. 10-day replacement on all items.</span>
+    </aside>
+  </div>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Checkout" style="max-width:1100px;width:100%;margin:0 auto;padding:28px clamp(16px,3vw,24px) 120px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h1 style="margin:0;font-size:clamp(26px,3.2vw,32px);font-weight:600">Checkout</h1><button onClick="{{ goCart }}" style="background:none;border:none;font-size:14px;text-decoration:underline;cursor:pointer">← Back to cart</button></div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <div style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="3">
+        <section style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <span style="flex:none;width:28px;height:28px;border-radius:50%;background:#151515;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">{{ st.n }}</span>
+            <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0">
+              <span style="font-size:13px;color:#5E5C57">{{ st.title }}</span>
+              <strong style="font-size:17px">{{ st.value }}</strong>
+              <span style="font-size:14px;color:#3E3C38">{{ st.sub }}</span>
+            </div>
+            <button onClick="{{ st.toggle }}" style="flex:none;background:none;border:1px solid #CFCBC3;border-radius:999px;padding:8px 14px;font-size:14px;cursor:pointer;min-height:40px">{{ st.btn }}</button>
+          </div>
+          <sc-if value="{{ st.editing }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px;padding-left:42px">
+              <sc-for list="{{ st.opts }}" as="o" hint-placeholder-count="2">
+                <button onClick="{{ o.pick }}" style="display:flex;gap:12px;align-items:center;text-align:left;background:#fff;border:1.5px solid {{ o.border }};border-radius:10px;padding:12px;cursor:pointer;min-height:52px">
+                  <span style="flex:none;width:18px;height:18px;border-radius:50%;border:1.5px solid #151515;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{ o.dot }}"></span></span>
+                  <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">{{ o.label }}</span><span style="font-size:13px;color:#3E3C38">{{ o.sub }}</span></span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </section>
+      </sc-for>
+      <section style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:13px;color:#5E5C57">{{ coItemsTitle }}</span>
+        <sc-for list="{{ coItems }}" as="it" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;gap:12px;font-size:15px"><span>{{ it.name }} <span style="color:#5E5C57">× {{ it.qty }}</span></span><span style="font-weight:600">{{ it.lineText }}</span></div></sc-for>
+      </section>
+    </div>
+    <aside style="flex:1 1 300px;position:sticky;top:{{ asideTop }};background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0 0 4px;font-size:18px;font-weight:600">Order summary</h2>
+      <div style="display:flex;justify-content:space-between;font-size:15px"><span>Items</span><span>{{ subtotalText }}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px"><span>Delivery</span><span>{{ feeText }}</span></div>
+      <sc-if value="{{ hasDiscount }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;font-size:15px;color:oklch(0.4 0.1 150)"><span>HDFC card offer</span><span>−₹500</span></div></sc-if>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #E7E4DE;padding-top:12px;margin-top:4px"><strong style="font-size:18px">Total</strong><strong style="font-size:26px;letter-spacing:-.01em">{{ totalText }}</strong></div>
+      <button onClick="{{ placeOrder }}" style="border:none;background:oklch(0.78 0.16 65);border-radius:999px;padding:15px;font-size:16px;font-weight:600;cursor:pointer;min-height:50px;margin-top:6px" style-hover="background:oklch(0.73 0.16 62)">Place your order</button>
+      <span style="font-size:13px;color:#3E3C38;line-height:1.4">{{ offerHint }}</span>
+    </aside>
+  </div>
+</main>
+</sc-if>
+
+<sc-if value="{{ isConfirm }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Order confirmation" style="max-width:720px;width:100%;margin:0 auto;padding:56px clamp(16px,3vw,24px) 120px;display:flex;flex-direction:column;gap:20px">
+  <span style="width:56px;height:56px;border-radius:50%;background:oklch(0.6 0.13 150);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700">✓</span>
+  <h1 style="margin:0;font-size:clamp(28px,4vw,38px);font-weight:600;letter-spacing:-.02em">Order placed, thanks Monish.</h1>
+  <div style="background:#fff;border:1px solid #E7E4DE;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:8px">
+    <span style="font-size:13px;color:#5E5C57">Arriving</span>
+    <strong style="font-size:24px">{{ order.when }}</strong>
+    <span style="font-size:15px;color:#3E3C38">{{ order.addr }}</span>
+    <div style="border-top:1px solid #EFECE6;margin-top:8px;padding-top:12px;display:flex;justify-content:space-between;font-size:14px;flex-wrap:wrap;gap:6px"><span>Order <span style="font-family:'JetBrains Mono',monospace">{{ order.id }}</span></span><strong>{{ order.totalText }} · {{ order.countText }}</strong></div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button onClick="{{ goTrack }}" style="border:none;background:oklch(0.78 0.16 65);border-radius:999px;padding:13px 22px;font-size:16px;font-weight:600;cursor:pointer;min-height:48px">Track order</button>
+    <button onClick="{{ goHome }}" style="background:#fff;border:1px solid #CFCBC3;border-radius:999px;padding:13px 22px;font-size:16px;cursor:pointer;min-height:48px">Continue shopping</button>
+  </div>
+</main>
+</sc-if>
+
+<sc-if value="{{ isTrack }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Order tracking" style="max-width:820px;width:100%;margin:0 auto;padding:32px clamp(16px,3vw,24px) 120px;display:flex;flex-direction:column;gap:20px">
+  <sc-if value="{{ noOrder }}" hint-placeholder-val="{{ false }}"><div style="background:#fff;border:1px dashed #CFCBC3;border-radius:12px;padding:28px;font-size:15px">No active orders. Place one from your cart to see tracking here.</div></sc-if>
+  <sc-if value="{{ hasOrder }}" hint-placeholder-val="{{ true }}">
+    <span style="font-size:14px;color:#3E3C38">Your order · <span style="font-family:'JetBrains Mono',monospace">{{ order.id }}</span></span>
+    <div style="background:#151515;color:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;color:oklch(0.82 0.14 70);font-family:'JetBrains Mono',monospace">{{ trackKicker }}</span>
+      <strong style="font-size:clamp(30px,5vw,42px);letter-spacing:-.02em;line-height:1.05">{{ trackHead }}</strong>
+      <span style="font-size:18px">{{ trackWindow }}</span>
+    </div>
+    <section style="background:#fff;border:1px solid #E7E4DE;border-radius:14px;padding:22px;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:18px;font-weight:600">Delivery progress</h2><button onClick="{{ advance }}" style="background:none;border:1px dashed #CFCBC3;border-radius:999px;padding:6px 12px;font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer">{{ advanceText }}</button></div>
+      <sc-for list="{{ trackSteps }}" as="t" hint-placeholder-count="5">
+        <div style="display:flex;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;flex:none;width:26px">
+            <span style="width:26px;height:26px;border-radius:50%;background:{{ t.bg }};border:2px solid {{ t.ring }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">{{ t.mark }}</span>
+            <span style="flex:1;width:2px;min-height:22px;background:{{ t.line }}"></span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;padding-bottom:18px">
+            <span style="font-size:16px;font-weight:{{ t.fw }};color:{{ t.fg }}">{{ t.label }}</span>
+            <span style="font-size:13px;color:#5E5C57">{{ t.time }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+    <section style="background:#fff;border:1px solid #E7E4DE;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;font-size:15px">
+      <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#3E3C38">Items</span><span style="text-align:right">{{ order.itemsText }}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#3E3C38">Deliver to</span><span style="text-align:right">{{ order.addr }}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#3E3C38">Paid with</span><span style="text-align:right">{{ order.pay }}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#3E3C38">Total</span><strong>{{ order.totalText }}</strong></div>
+    </section>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ showTray }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;width:min(960px,calc(100% - 24px));background:#fff;border:1.5px solid #151515;border-radius:16px;box-shadow:0 10px 30px rgba(20,20,20,.14);padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <strong style="font-size:15px;flex:none">{{ trayText }}</strong>
+    <div style="flex:1 1 200px;display:flex;gap:8px;overflow-x:auto;min-width:0">
+      <sc-for list="{{ trayItems }}" as="t" hint-placeholder-count="2">
+        <span style="flex:none;display:flex;align-items:center;gap:8px;background:#F2F0EB;border-radius:10px;padding:6px 6px 6px 8px;font-size:13px;font-weight:500"><span style="width:26px;height:26px;border-radius:5px;background:repeating-linear-gradient(135deg,#E3E0D9 0 4px,#EFEDE8 4px 8px)"></span>{{ t.name }}<button onClick="{{ t.remove }}" aria-label="Remove" style="width:24px;height:24px;border:none;background:none;cursor:pointer;font-size:14px">×</button></span>
+      </sc-for>
+    </div>
+    <button onClick="{{ clearCompare }}" style="background:none;border:none;font-size:13px;text-decoration:underline;cursor:pointer;flex:none">Clear</button>
+    <button onClick="{{ goCompare }}" style="flex:none;border:none;background:{{ trayBtnBg }};color:#151515;border-radius:999px;padding:11px 18px;font-size:15px;font-weight:600;cursor:pointer;min-height:44px">{{ trayBtn }}</button>
+  </div>
+</sc-if>
+
+<sc-if value="{{ quizOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ quizClose }}" style="position:fixed;inset:0;z-index:80;background:rgba(21,21,21,.45);display:flex;align-items:{{ quizAlign }};justify-content:center;padding:{{ quizPad }}">
+    <div onClick="{{ stop }}" role="dialog" aria-label="Tune my priorities" style="background:#F7F6F3;width:min(640px,100%);max-height:100%;overflow:auto;border-radius:{{ quizRadius }};padding:24px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5E5C57;letter-spacing:.04em">{{ quizKicker }}</span>
+        <button onClick="{{ quizClose }}" aria-label="Close" style="width:40px;height:40px;border-radius:50%;border:1px solid #CFCBC3;background:#fff;font-size:18px;cursor:pointer">×</button>
+      </div>
+      <div style="display:flex;gap:4px">
+        <sc-for list="{{ qBars }}" as="b" hint-placeholder-count="5"><span style="flex:1;height:4px;border-radius:2px;background:{{ b.bg }}"></span></sc-for>
+      </div>
+
+      <sc-if value="{{ isQStep }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h2 style="margin:0;font-size:clamp(22px,3vw,26px);font-weight:600;line-height:1.2;text-wrap:pretty">{{ qTitle }}</h2>
+          <span style="font-size:14px;color:#3E3C38">{{ qSub }}</span>
+        </div>
+        <sc-if value="{{ qHasOpts }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+            <sc-for list="{{ qOpts }}" as="o" hint-placeholder-count="6">
+              <button onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;text-align:left;background:{{ o.bg }};color:{{ o.fg }};border:1.5px solid {{ o.border }};border-radius:12px;padding:14px;font-size:15px;font-weight:500;cursor:pointer;min-height:56px">
+                <span style="flex:none;width:18px;height:18px;border-radius:{{ o.shape }};border:1.5px solid {{ o.fg }};display:flex;align-items:center;justify-content:center;font-size:11px">{{ o.mark }}</span>{{ o.label }}
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ qIsNote }}" hint-placeholder-val="{{ false }}">
+          <textarea value="{{ qNote }}" onChange="{{ onQNote }}" rows="4" placeholder="e.g. I wear glasses, and I fly Bengaluru–Delhi twice a month" style="font-size:16px;border:1px solid #CFCBC3;border-radius:12px;padding:14px;resize:vertical;background:#fff;line-height:1.45"></textarea>
+        </sc-if>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <button onClick="{{ qBack }}" style="background:none;border:none;font-size:15px;text-decoration:underline;cursor:pointer;visibility:{{ qBackVis }};padding:8px 0">← Back</button>
+          <button onClick="{{ qNext }}" style="border:none;background:{{ qNextBg }};color:#151515;border-radius:999px;padding:13px 22px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px">{{ qNextLabel }}</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isQLoading }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px;padding:12px 0 20px">
+          <h2 style="margin:0;font-size:24px;font-weight:600">Working out what matters to you…</h2>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ qEcho }}" as="e" hint-placeholder-count="4"><span style="font-size:14px;color:#3E3C38;display:flex;gap:8px"><span style="color:oklch(0.48 0.11 150);font-weight:700">✓</span>{{ e.t }}</span></sc-for>
+          </div>
+          {{ loadingBar }}
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isQResult }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <h2 style="margin:0;font-size:clamp(22px,3vw,26px);font-weight:600;line-height:1.2">Your priorities</h2>
+          <p style="margin:0;font-size:16px;line-height:1.5;text-wrap:pretty">{{ resSummary }}</p>
+        </div>
+        <div style="background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:6px 16px">
+          <sc-for list="{{ resRows }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-top:1px solid {{ r.divider }}">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:15px;font-weight:600">{{ r.label }}</span><span style="font-size:13px;color:#3E3C38;line-height:1.35">{{ r.reason }}</span></div>
+              <div style="display:flex;gap:5px;flex:none">
+                <sc-for list="{{ r.dots }}" as="d" hint-placeholder-count="5"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid #151515;background:{{ d.bg }}"></span></sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ resHasWatch }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:10px;font-size:14px;line-height:1.4;background:#fff;border:1px solid #E7E4DE;border-radius:12px;padding:12px 14px"><span style="color:oklch(0.52 0.15 35);font-weight:700">⚠</span><span><strong>Watch out for:</strong> {{ resWatch }}</span></div>
+        </sc-if>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#5E5C57">{{ resSource }}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <button onClick="{{ qRedo }}" style="background:none;border:none;font-size:15px;text-decoration:underline;cursor:pointer;padding:8px 0">Change answers</button>
+          <button onClick="{{ qApply }}" style="border:none;background:oklch(0.78 0.16 65);border-radius:999px;padding:13px 22px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px">{{ qApplyLabel }}</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:50%;bottom:{{ toastBottom }};transform:translateX(-50%);z-index:70;background:#151515;color:#fff;border-radius:10px;padding:11px 16px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:calc(100% - 32px)">{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showMatch&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Decision support&quot;},&quot;cardDetail&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Full reasoning&quot;,&quot;Compact&quot;],&quot;default&quot;:&quot;Full reasoning&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Decision support&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;search&quot;,&quot;compare&quot;,&quot;product&quot;,&quot;collections&quot;,&quot;cart&quot;,&quot;checkout&quot;,&quot;track&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  K = ['sound', 'comfort', 'battery', 'anc', 'gaming'];
+  KL = { sound: 'Sound quality', comfort: 'Comfort', battery: 'Battery', anc: 'ANC', gaming: 'Gaming' };
+  KW = { sound: 'sound quality', comfort: 'comfort', battery: 'battery life', anc: 'noise cancellation', gaming: 'gaming' };
+  PRE = {
+    default: { sound: 3, comfort: 3, battery: 3, anc: 3, gaming: 1 },
+    travel: { sound: 3, comfort: 4, battery: 4, anc: 5, gaming: 1 },
+    gaming: { sound: 4, comfort: 4, battery: 2, anc: 1, gaming: 5 },
+    work: { sound: 3, comfort: 5, battery: 3, anc: 4, gaming: 1 },
+    sound: { sound: 5, comfort: 3, battery: 2, anc: 2, gaming: 1 },
+    battery: { sound: 2, comfort: 2, battery: 5, anc: 2, gaming: 1 },
+    comfort: { sound: 2, comfort: 5, battery: 2, anc: 2, gaming: 1 }
+  };
+  PRESET_NAMES = { travel: 'Travel', gaming: 'Gaming', work: 'Work', sound: 'Best sound', battery: 'Best battery', comfort: 'Most comfortable', value: 'Best value', ai: 'Your profile' };
+  P = [
+    { id: 'p1', name: 'Sony WH-CH720N', brand: 'Sony', price: 8990, mrp: 12990, rating: 4.5, reviews: 12482, rec: 89, s: { sound: 4, comfort: 5, battery: 4, anc: 4, gaming: 2 }, battery: 35, weight: 192, anc: 'Good', mic: 'Average', latency: 'Standard', bt: '5.2', warranty: 12, fold: 'No', codec: 'AAC', bestFor: 'Commuting & work', pros: ['Comfort', 'Noise cancellation', 'Battery'], cons: ['Average microphone', 'Plastic build', 'No wear sensor'], seller: 'Sony India', alt: 'p2', summary: 'Owners love how light these are for all-day wear and say the noise cancellation punches above its price. The most common complaint is call quality in windy or noisy places.' },
+    { id: 'p2', name: 'JBL Tune 770NC', brand: 'JBL', price: 6499, mrp: 9999, rating: 4.3, reviews: 8210, rec: 85, s: { sound: 3, comfort: 4, battery: 5, anc: 3, gaming: 3 }, battery: 70, weight: 232, anc: 'Moderate', mic: 'Good', latency: 'Standard', bt: '5.3', warranty: 12, fold: 'Yes', codec: 'AAC', bestFor: 'Long battery on a budget', pros: ['Battery life', 'Value', 'Foldable design'], cons: ['ANC is only moderate', 'Bass-heavy tuning', 'Tight on larger heads'], seller: 'JBL Store', summary: 'Buyers call the battery life ridiculous in the best way, often charging once a week. Critics say noise cancellation is noticeably weaker than pricier rivals.' },
+    { id: 'p3', name: 'Sennheiser Accentum Wireless', brand: 'Sennheiser', price: 9990, mrp: 14990, rating: 4.4, reviews: 3104, rec: 90, s: { sound: 5, comfort: 4, battery: 5, anc: 4, gaming: 2 }, battery: 50, weight: 222, anc: 'Good', mic: 'Good', latency: 'Standard', bt: '5.2', warranty: 24, fold: 'No', codec: 'aptX HD', bestFor: 'Music on the move', pros: ['Sound quality', 'Battery', 'Build quality'], cons: ["Doesn't fold flat", 'No carry case', 'Plain design'], seller: 'Sennheiser India', summary: 'Most owners single out the detailed, natural sound and a battery that lasts over a week of commuting. The main gripes are practical: no case and it does not fold flat for bags.' },
+    { id: 'p4', name: 'boAt Nirvana 751 ANC', brand: 'boAt', price: 3999, mrp: 7990, rating: 4.0, reviews: 21840, rec: 78, s: { sound: 3, comfort: 3, battery: 5, anc: 2, gaming: 3 }, battery: 65, weight: 250, anc: 'Basic', mic: 'Average', latency: 'Low (60ms)', bt: '5.0', warranty: 12, fold: 'Yes', codec: 'SBC', bestFor: 'Tight budgets', pros: ['Price', 'Battery', 'Bass'], cons: ['Weak noise cancellation', 'Heavy clamp', 'Plasticky hinges'], seller: 'boAt Lifestyle', summary: 'Buyers say it is hard to beat for the price, with strong bass and long battery. Many note the ANC is mild and the clamp gets tiring after a couple of hours.' },
+    { id: 'p5', name: 'HyperX Cloud Stinger 2 Wireless', brand: 'HyperX', price: 7490, mrp: 9990, rating: 4.4, reviews: 5620, rec: 88, s: { sound: 4, comfort: 4, battery: 2, anc: 1, gaming: 5 }, battery: 20, weight: 280, anc: 'None', mic: 'Excellent', latency: 'Ultra-low (2.4 GHz)', bt: 'USB dongle', warranty: 24, fold: 'No', codec: '2.4 GHz', bestFor: 'PC & console gaming', pros: ['Microphone', 'Gaming latency', 'Comfort'], cons: ['No noise cancellation', 'Shorter battery', 'Bulky for travel'], seller: 'HP World', summary: 'Gamers praise the clear mic and zero perceptible lag. It is not built for commuting: no noise cancellation and a bulky shape.' },
+    { id: 'p6', name: 'Soundcore Space Q45', brand: 'Soundcore', price: 9499, mrp: 14999, rating: 4.3, reviews: 6480, rec: 87, s: { sound: 4, comfort: 3, battery: 5, anc: 5, gaming: 2 }, battery: 50, weight: 295, anc: 'Excellent', mic: 'Good', latency: 'Standard', bt: '5.3', warranty: 18, fold: 'Yes', codec: 'LDAC', bestFor: 'Flights & loud commutes', pros: ['Noise cancellation', 'Battery', 'LDAC support'], cons: ['Heavier than rivals', 'Clamps tight after hours', 'Bulky case'], seller: 'Anker India', summary: 'Frequent flyers say the noise cancellation rivals headphones twice the price. The trade-off is weight: several owners feel it after long sessions.' },
+    { id: 'p7', name: 'Sony WH-1000XM5', brand: 'Sony', price: 24990, mrp: 34990, rating: 4.6, reviews: 12481, rec: 92, s: { sound: 5, comfort: 5, battery: 4, anc: 5, gaming: 2 }, battery: 30, weight: 250, anc: 'Excellent', mic: 'Average', latency: 'Standard', bt: '5.2', warranty: 12, fold: 'No', codec: 'LDAC', bestFor: 'Travel & work', pros: ['Excellent noise cancellation', 'Very comfortable', 'Excellent battery life'], cons: ['Microphone is average outdoors', 'Plastic construction', 'No USB audio'], seller: 'Sony India', alt: 'p6', summary: 'Most owners praise the sound quality, comfort, and noise cancellation. The most common criticism is microphone quality during outdoor calls.' }
+  ];
+  A = [
+    { id: 'a1', name: 'Hard-shell travel case', price: 799, reason: 'Fits most over-ear headphones' },
+    { id: 'a2', name: 'In-flight audio adapter', price: 249, reason: 'For seat-back entertainment' }
+  ];
+  R = [
+    { stars: 5, title: 'Great headphones for long flights', text: 'Wore them Bengaluru to Frankfurt and back. Engine noise nearly vanished and I forgot they were on after the fourth hour.', verified: true, helpful: 284, months: 3, use: 'travel', photos: 2, video: false, who: 'Aditi R.', date: 'Aug 2026' },
+    { stars: 2, title: 'Calls outdoors are a problem', text: 'Indoors people hear me fine. On a busy road my colleagues said I sounded like I was in a tunnel. Great for music, not for calls on the move.', verified: true, helpful: 196, months: 8, use: 'work', photos: 0, video: false, who: 'Karthik S.', date: 'Jul 2026' },
+    { stars: 5, title: 'Still going strong after a year', text: 'Daily three-hour metro commute. Battery has barely degraded and the ear pads show very little wear.', verified: true, helpful: 152, months: 13, use: 'travel', photos: 1, video: false, who: 'Priya N.', date: 'Sep 2026' },
+    { stars: 3, title: 'Good sound, clunky companion app', text: 'Sound is excellent once set up, but the app logs me out and EQ presets reset after updates.', verified: true, helpful: 88, months: 2, use: 'work', photos: 0, video: false, who: 'Rahul M.', date: 'Sep 2026' },
+    { stars: 4, title: 'Comfortable for full workdays', text: 'Eight-hour WFH days without ear fatigue. Noise cancellation handles the construction next door.', verified: true, helpful: 120, months: 5, use: 'work', photos: 0, video: false, who: 'Sneha P.', date: 'Jun 2026' },
+    { stars: 1, title: 'Hinge cracked after 9 months', text: 'The right hinge developed a hairline crack. Warranty replacement worked but took two weeks.', verified: true, helpful: 142, months: 10, use: 'travel', photos: 2, video: false, who: 'Vikram T.', date: 'May 2026' },
+    { stars: 4, title: 'Decent for casual gaming', text: 'Latency is noticeable in shooters over Bluetooth; fine for single-player games and films.', verified: true, helpful: 61, months: 4, use: 'gaming', photos: 0, video: true, who: 'Arjun K.', date: 'Aug 2026' },
+    { stars: 5, title: 'Worth it for the noise cancellation', text: 'Office AC hum and chatter just disappear. Took a day to get used to the pressure feeling.', verified: true, helpful: 77, months: 1, use: 'travel', photos: 0, video: true, who: 'Meera J.', date: 'Sep 2026' },
+    { stars: 2, title: 'Ear pads get warm', text: 'In Chennai humidity my ears sweat after an hour. Fine in an air-conditioned office.', verified: true, helpful: 54, months: 7, use: 'work', photos: 0, video: false, who: 'Lakshmi V.', date: 'Apr 2026' },
+    { stars: 4, title: 'Great value after the price drop', text: 'Bought during the sale. For this price the sound and battery are hard to argue with.', verified: false, helpful: 39, months: 2, use: 'travel', photos: 0, video: false, who: 'Nikhil D.', date: 'Sep 2026' }
+  ];
+  RF = {
+    'Positive': r => r.stars >= 4, 'Critical': r => r.stars <= 3, 'Long-term owners': r => r.months >= 6,
+    'With photos': r => r.photos > 0, 'With video': r => r.video, 'Verified purchase': r => r.verified,
+    'Used for gaming': r => r.use === 'gaming', 'Used for travel': r => r.use === 'travel'
+  };
+  ADDR = [{ label: 'Home', line: '14, 5th Cross, Indiranagar, Bengaluru 560038' }, { label: 'Office', line: 'Embassy Tech Village, Outer Ring Rd, Bengaluru 560103' }];
+  PAY = [{ label: 'HDFC Credit Card •••• 4821', sub: '₹500 off orders above ₹5,000' }, { label: 'UPI · monish@okhdfc', sub: 'Pay in your UPI app' }];
+  SLOT = [{ day: 'Tomorrow', win: '10 AM – 2 PM', fee: 0 }, { day: 'Tomorrow', win: '6 PM – 10 PM', fee: 0 }, { day: 'Today', win: '8 PM – 11 PM', fee: 99 }];
+  TSTEPS = [['Order placed', 'Today, 9:14 PM'], ['Preparing shipment', 'Today, 11:02 PM'], ['Shipped', 'Tomorrow, 6:30 AM'], ['Out for delivery', 'Tomorrow, 9:05 AM'], ['Delivered', 'Tomorrow, 11:42 AM']];
+
+  state = {
+    w: window.innerWidth, screen: 'home', prev: 'home', q: '', lastQuery: '', budget: 10000, use: 'travel',
+    weights: { sound: 3, comfort: 4, battery: 4, anc: 5, gaming: 1 }, preset: 'travel', sort: 'match', prioOpen: false,
+    compare: [], pid: 'p7', img: 0, added: null, rf: [], openSpecs: { General: true }, helped: {},
+    cart: [{ id: 'p1', qty: 1, drop: 800 }],
+    cols: [
+      { id: 'c1', name: "Things I'm Considering", note: '', items: [{ id: 'p7', savedAt: 26990 }, { id: 'p6', savedAt: 9499 }, { id: 'p3', savedAt: 10990 }] },
+      { id: 'c2', name: 'Travel Setup', note: 'For the Singapore trip in November', items: [{ id: 'a1', savedAt: 899 }, { id: 'a2', savedAt: 249 }] },
+      { id: 'c3', name: 'My Home Office', note: '', items: [{ id: 'p5', savedAt: 7490 }, { id: 'p2', savedAt: 6999 }] }
+    ],
+    quiz: { open: false, step: 0, origin: 'search', ans: { use: [], dur: null, calls: null, pain: [], note: '' } }, profile: null,
+    colSel: 'c1', edit: null, addr: 0, pay: 0, slot: 0, order: null, step: 1, toast: null
+  };
+
+  componentDidMount() {
+    this._r = () => this.setState({ w: window.innerWidth });
+    window.addEventListener('resize', this._r);
+    this._r(); this._raf = requestAnimationFrame(this._r);
+    this.seed(this.props.startScreen);
+  }
+  componentDidUpdate(pp) { if (pp.startScreen !== this.props.startScreen) this.seed(this.props.startScreen); }
+  componentWillUnmount() { window.removeEventListener('resize', this._r); clearTimeout(this._t); }
+
+  seed(s) {
+    if (!s || s === 'home') return;
+    if (s === 'search') return this.run('');
+    if (s === 'compare') { this.run(''); return this.go('compare', { compare: ['p3', 'p6', 'p1'] }); }
+    if (s === 'product') return this.openP('p7');
+    if (s === 'track') { this.setState({ order: this.makeOrder(), step: 3 }); return this.go('track'); }
+    this.go(s);
+  }
+
+  Q = [
+    { id: 'use', multi: true, title: 'Where will you use them most?', sub: 'Pick all that apply.', opts: ['Flights & long trips', 'Daily commute', 'Home office', 'Gaming', 'Gym & outdoors', 'Relaxing at home'] },
+    { id: 'dur', multi: false, title: 'How long do you usually wear them at a stretch?', sub: 'Comfort matters more the longer you wear them.', opts: ['Under an hour', '1–3 hours', '3+ hours'] },
+    { id: 'calls', multi: false, title: 'How often do you take calls on them?', sub: 'None of the priorities covers the microphone, so we flag it separately.', opts: ['Rarely', 'A few a week', "All day, it's my job"] },
+    { id: 'pain', multi: true, title: "What's annoyed you about headphones before?", sub: 'Pick any that apply, or skip.', opts: ['Background noise leaking in', 'Charging too often', 'Sore ears or headaches', 'Flat or muddy sound', 'Audio lag in games', 'Too bulky to carry'] },
+    { id: 'note', multi: false, title: 'Anything else we should know?', sub: 'Optional. Plain words are fine.', opts: [] }
+  ];
+  quizSet(patch) { this.setState(s => ({ quiz: Object.assign({}, s.quiz, patch) })); }
+  openQuiz(origin) { this.quizSet({ open: true, step: this.state.profile ? 6 : 0, origin }); }
+  ruleProfile(a) {
+    const w = { sound: 3, comfort: 3, battery: 3, anc: 3, gaming: 1 }, R = {};
+    const has = (k, v) => a[k].includes(v), up = (k, n, why) => { w[k] = Math.min(5, Math.max(k === 'gaming' ? 0 : 1, w[k] + n)); if (why) R[k] = why; };
+    if (has('use', 'Flights & long trips')) { up('anc', 2, 'Cabin noise is the biggest issue on flights'); up('battery', 1, 'Long trips need a battery that outlasts the journey'); }
+    if (has('use', 'Daily commute')) { up('anc', 1, R.anc || 'Blocks out traffic and train noise'); }
+    if (has('use', 'Home office')) up('comfort', 1, 'You wear them through long workdays');
+    if (has('use', 'Gaming')) up('gaming', 3, 'Low latency keeps audio in sync with the game');
+    if (!has('use', 'Gaming')) R.gaming = "You didn't mention gaming";
+    if (a.dur === '3+ hours') up('comfort', 2, 'Wearing them 3+ hours makes comfort critical');
+    if (a.dur === 'Under an hour') up('comfort', -1, 'Short sessions, so fit matters less');
+    if (has('pain', 'Background noise leaking in')) up('anc', 2, 'Noise leaking in has bothered you before');
+    if (has('pain', 'Charging too often')) up('battery', 2, 'Frequent charging has annoyed you');
+    if (has('pain', 'Sore ears or headaches')) up('comfort', 2, 'Past headphones gave you sore ears');
+    if (has('pain', 'Flat or muddy sound')) up('sound', 2, 'Muddy sound has let you down before');
+    if (has('pain', 'Audio lag in games')) up('gaming', 2, 'Lag has spoiled games for you');
+    if (has('pain', 'Too bulky to carry')) up('comfort', 1, R.comfort || 'Lighter, smaller headphones suit you');
+    this.K.forEach(k => { if (!R[k]) R[k] = w[k] >= 4 ? 'This came up in several of your answers' : 'Nice to have, but not a deciding factor'; });
+    const top = this.K.slice().sort((x, y) => w[y] - w[x]).slice(0, 2).map(k => this.KW[k]);
+    return { weights: w, reasons: R, summary: 'You care most about ' + top.join(' and ') + ', so those carry the most weight in your results.', watch: a.calls === "All day, it's my job" ? 'You take a lot of calls. Several top picks have only average microphones, so we flag them.' : '', source: 'rules' };
+  }
+  async genProfile() {
+    const a = this.state.quiz.ans;
+    this.quizSet({ step: 5 });
+    const fb = this.ruleProfile(a);
+    let res = fb;
+    try {
+      if (!window.claude || !window.claude.complete) throw new Error('no ai');
+      const prompt = 'A shopper is choosing headphones (budget around ' + this.fmt(this.state.budget) + '). Their answers:\n' +
+        '- Main uses: ' + (a.use.join(', ') || 'not given') + '\n- Session length: ' + a.dur + '\n- Calls: ' + a.calls + '\n- Past annoyances: ' + (a.pain.join(', ') || 'none') + '\n- Notes: ' + (a.note || 'none') +
+        '\n\nSet an importance weight for each attribute: sound, comfort, battery, anc (active noise cancellation), gaming (low latency). Use 1-5, where gaming can be 0 if irrelevant. Use the full range; not everything can be 5.' +
+        '\nReturn ONLY JSON: {"weights":{"sound":n,"comfort":n,"battery":n,"anc":n,"gaming":n},"reasons":{"sound":"...","comfort":"...","battery":"...","anc":"...","gaming":"..."},"summary":"...","watch":"..."}' +
+        '\nEach reason: one short second-person sentence (max 12 words) tied to their answers. summary: one warm sentence (max 28 words) that reflects their answers back to them. watch: one sentence about something to be careful of (e.g. microphone quality if they take calls, or fit if they mention glasses), or "" if nothing.';
+      const txt = await window.claude.complete({ messages: [{ role: 'user', content: prompt }], max_tokens: 600 });
+      const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+      const w = {};
+      this.K.forEach(k => { const n = Math.round(Number(j.weights[k])); w[k] = isNaN(n) ? fb.weights[k] : Math.min(5, Math.max(k === 'gaming' ? 0 : 1, n)); });
+      const r = {}; this.K.forEach(k => { r[k] = (j.reasons && j.reasons[k]) || fb.reasons[k]; });
+      res = { weights: w, reasons: r, summary: j.summary || fb.summary, watch: j.watch || '', source: 'ai' };
+    } catch (e) { res = fb; }
+    await new Promise(r => setTimeout(r, 500));
+    this.setState(s => ({ profile: res, quiz: Object.assign({}, s.quiz, { step: 6 }) }));
+  }
+  applyProfile() {
+    const pr = this.state.profile, origin = this.state.quiz.origin;
+    if (origin === 'home' || this.state.screen !== 'search') this.run(this.state.lastQuery || 'headphones under ₹10,000');
+    this.setState(s => ({ weights: Object.assign({}, pr.weights), preset: 'ai', sort: 'match', quiz: Object.assign({}, s.quiz, { open: false }) }));
+    this.toast('Results re-ranked for your priorities');
+  }
+
+  fmt(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+  get(id) { return this.P.find(p => p.id === id) || this.A.find(a => a.id === id); }
+  isP(id) { return !!this.P.find(p => p.id === id); }
+  go(screen, extra) { this.setState(s => Object.assign({ screen, prev: s.screen === screen ? s.prev : s.screen, edit: null }, extra || {})); window.scrollTo(0, 0); }
+  toast(t) { clearTimeout(this._t); this.setState({ toast: t }); this._t = setTimeout(() => this.setState({ toast: null }), 2600); }
+  scrollToId(id) { setTimeout(() => { const el = document.getElementById(id); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 110, behavior: 'smooth' }); }, 40); }
+
+  parse(q) {
+    const t = q.toLowerCase().replace(/,/g, '');
+    const m = t.match(/(?:under|below|less than|within|upto|up to|<)\s*(?:rs\.?|₹|inr)?\s*(\d+)\s*(k)?/);
+    let budget = m ? parseInt(m[1], 10) * (m[2] ? 1000 : 1) : 30000;
+    budget = Math.min(30000, Math.max(2000, budget));
+    let use = null;
+    if (/travel|flight|commut|trip/.test(t)) use = 'travel';
+    else if (/gam/.test(t)) use = 'gaming';
+    else if (/work|office|call|wfh/.test(t)) use = 'work';
+    return { budget, use };
+  }
+  run(q) {
+    q = (q || '').trim() || 'best headphones under ₹10,000 for travel';
+    const r = this.parse(q);
+    this.setState({ q, lastQuery: q, budget: r.budget, use: r.use, weights: Object.assign({}, this.PRE[r.use || 'default']), preset: r.use, sort: 'match' });
+    this.go('search');
+  }
+  match(p, w) {
+    w = w || this.state.weights; let a = 0, b = 0;
+    this.K.forEach(k => { a += w[k] * p.s[k]; b += w[k] * 5; });
+    return b ? Math.round(a / b * 100) : 0;
+  }
+  strength(p, k) {
+    if (k === 'sound') return p.s.sound >= 5 ? 'Excellent sound' : 'Great sound';
+    if (k === 'comfort') return p.weight <= 230 ? 'Lightweight · ' + p.weight + 'g' : 'Comfortable fit';
+    if (k === 'battery') return p.battery + 'h battery';
+    if (k === 'anc') return p.anc + ' noise cancellation';
+    return 'Low-latency gaming';
+  }
+  why(p, w) { return this.K.filter(k => p.s[k] >= 4).sort((x, y) => w[y] * p.s[y] - w[x] * p.s[x]).slice(0, 3).map(k => ({ t: this.strength(p, k) })); }
+  isSaved(id) { return this.state.cols.some(c => c.items.some(i => i.id === id)); }
+  toggleCompare(id) {
+    const c = this.state.compare;
+    if (c.includes(id)) this.setState({ compare: c.filter(x => x !== id) });
+    else if (c.length >= 4) this.toast('You can compare up to 4 products');
+    else this.setState({ compare: [...c, id] });
+  }
+  toggleSave(id) {
+    const p = this.get(id);
+    if (this.isSaved(id)) { this.setState(s => ({ cols: s.cols.map(c => Object.assign({}, c, { items: c.items.filter(i => i.id !== id) })) })); this.toast('Removed from collections'); }
+    else { this.setState(s => ({ cols: s.cols.map(c => c.id === 'c1' ? Object.assign({}, c, { items: [...c.items, { id, savedAt: p.price }] }) : c) })); this.toast("Saved to Things I'm Considering · price tracking on"); }
+  }
+  addToCart(id, silent) {
+    this.setState(s => {
+      const ex = s.cart.find(i => i.id === id);
+      return { cart: ex ? s.cart.map(i => i.id === id ? Object.assign({}, i, { qty: i.qty + 1 }) : i) : [...s.cart, { id, qty: 1, drop: 0 }], added: id };
+    });
+    if (!silent) this.toast('Added to cart');
+  }
+  openP(id) { if (!this.isP(id)) return; this.go('product', { pid: id, img: 0, added: null, rf: [], openSpecs: { General: true } }); }
+  totals() {
+    const s = this.state;
+    const sub = s.cart.reduce((a, i) => a + this.get(i.id).price * i.qty, 0);
+    const fee = this.SLOT[s.slot].fee;
+    const disc = s.pay === 0 && sub >= 5000 ? 500 : 0;
+    return { sub, fee, disc, total: sub + fee - disc };
+  }
+  makeOrder() {
+    const s = this.state, t = this.totals(), sl = this.SLOT[s.slot];
+    const items = s.cart.length ? s.cart : [{ id: 'p3', qty: 1 }];
+    const total = s.cart.length ? t.total : 9490;
+    const n = items.reduce((a, i) => a + i.qty, 0);
+    return { id: '402-7718245-1190', when: sl.day + ', ' + sl.win, addr: this.ADDR[s.addr].label + ' · ' + this.ADDR[s.addr].line, pay: this.PAY[s.pay].label, totalText: this.fmt(total), countText: n + (n === 1 ? ' item' : ' items'), itemsText: items.map(i => this.get(i.id).name + (i.qty > 1 ? ' × ' + i.qty : '')).join(', '), day: sl.day, win: sl.win };
+  }
+
+  renderVals() {
+    const s = this.state, fmt = n => this.fmt(n), mobile = window.innerWidth < 760;
+    const full = (this.props.cardDetail ?? 'Full reasoning') !== 'Compact';
+    const showMatch = this.props.showMatch ?? true;
+    const ACC = 'oklch(0.78 0.16 65)';
+    const off = p => Math.round((1 - p.price / p.mrp) * 100);
+    const v = {
+      isDesktop: !mobile, isMobile: mobile, asideTop: mobile ? 'auto' : '150px',
+      q: s.q, onQ: e => this.setState({ q: e.target.value }),
+      onQKey: e => { if (e.key === 'Enter') this.run(s.q); }, doSearch: () => this.run(s.q), doSearchDefault: () => this.run(''),
+      goHome: () => this.go('home'), goCart: () => this.go('cart'), goCollections: () => this.go('collections'),
+      goOrders: () => this.go('track'), goCheckout: () => this.go('checkout'), goTrack: () => this.go('track'),
+      goCompare: () => { if (s.compare.length >= 2) this.go('compare'); else this.toast('Add one more product to compare'); },
+      goBack: () => this.go(s.prev && s.prev !== s.screen ? s.prev : 'home'),
+      goSearchPrio: () => this.go('search', { prioOpen: true }),
+      cartCount: s.cart.reduce((a, i) => a + i.qty, 0),
+      cats: ['Categories', "Today's Deals", 'New & Trending', 'Plus', 'Electronics', 'Home', 'Fashion', 'Grocery'].map(l => ({ label: l, go: () => (l === 'Electronics' ? this.run('headphones') : this.toast(l + ' is outside this prototype')) })),
+      isHome: s.screen === 'home', isSearch: s.screen === 'search', isCompare: s.screen === 'compare', isProduct: s.screen === 'product',
+      isCollections: s.screen === 'collections', isCart: s.screen === 'cart', isCheckout: s.screen === 'checkout', isConfirm: s.screen === 'confirm', isTrack: s.screen === 'track',
+      toast: s.toast, hasToast: !!s.toast
+    };
+
+    // Home
+    v.examples = ['best headphones under ₹10,000 for travel', 'I need headphones for working from home under ₹10,000', 'gaming headset under 8000'].map(t => ({ t, quoted: '“' + t + '”', run: () => this.run(t) }));
+    const seen = ['Viewed 2 hours ago', 'Viewed yesterday', 'Viewed yesterday', 'Viewed 3 days ago'];
+    v.continueList = ['p7', 'p6', 'p3', 'p1'].map((id, i) => { const p = this.get(id); return { name: p.name, priceText: fmt(p.price), rating: p.rating, seen: seen[i], open: () => this.openP(id) }; });
+    v.picks = [['p1', 'Because you viewed Sony WH-1000XM5'], ['p3', 'Because you viewed Sony WH-1000XM5'], ['p6', 'Often compared with Sony WH-1000XM5'], ['p5', "Similar to products you've purchased"]].map(([id, reason]) => { const p = this.get(id); return { name: p.name, reason, priceText: fmt(p.price), rating: p.rating, reviewsText: p.reviews.toLocaleString('en-IN') + ' reviews', bestFor: p.bestFor, open: () => this.openP(id) }; });
+    v.deals = [['p2', 'Deal ends in 4h'], ['p4', 'Deal ends in 11h'], ['p1', 'Ends tomorrow']].map(([id, ends]) => { const p = this.get(id); return { name: p.name, ends, offText: off(p) + '% OFF', priceText: fmt(p.price), mrpText: fmt(p.mrp), rating: p.rating, open: () => this.openP(id) }; });
+
+    // Search
+    const useL = { travel: 'travel', gaming: 'gaming', work: 'work from home' };
+    v.lastQuery = s.lastQuery;
+    v.title = 'Headphones' + (s.budget < 30000 ? ' under ' + fmt(s.budget) : '') + (s.use ? ' for ' + useL[s.use] : '');
+    v.intents = [{ label: 'Category: Headphones', removable: false, fixed: true }];
+    if (s.budget < 30000) v.intents.push({ label: 'Budget: up to ' + fmt(s.budget), removable: true, fixed: false, remove: () => this.setState({ budget: 30000 }) });
+    if (s.preset === 'ai') v.intents.push({ label: 'Tuned from your answers', removable: true, fixed: false, remove: () => this.setState({ weights: Object.assign({}, this.PRE[s.use || 'default']), preset: s.use }) });
+    if (s.use) v.intents.push({ label: 'Use: ' + useL[s.use], removable: true, fixed: false, remove: () => this.setState({ use: null, weights: Object.assign({}, this.PRE.default), preset: null }) });
+    const REF = [['Best sound', 'sound'], ['Best battery', 'battery'], ['Best for gaming', 'gaming'], ['Best for travel', 'travel'], ['Most comfortable', 'comfort'], ['Best value', 'value']];
+    v.refine = REF.map(([label, key]) => {
+      const on = s.preset === key;
+      return { label, bg: on ? '#151515' : '#fff', fg: on ? '#fff' : '#151515', border: on ? '#151515' : '#CFCBC3',
+        pick: () => key === 'value' ? this.setState({ preset: 'value', sort: 'value' }) : this.setState({ preset: key, weights: Object.assign({}, this.PRE[key]), sort: 'match' }) };
+    });
+    v.budget = s.budget; v.budgetText = fmt(s.budget);
+    v.onBudget = e => this.setState({ budget: parseInt(e.target.value, 10) });
+    v.widenBudget = () => this.setState({ budget: 12000 });
+    const lv = ['Ignore', 'Low', 'Some', 'Important', 'High', 'Critical'];
+    v.prios = this.K.map(k => ({ label: this.KL[k], level: lv[s.weights[k]], dots: [1, 2, 3, 4, 5].map(i => ({ aria: this.KL[k] + ' ' + i, bg: i <= s.weights[k] ? '#151515' : 'transparent', set: () => this.setState(st => ({ weights: Object.assign({}, st.weights, { [k]: st.weights[k] === i && i === 1 ? 0 : i }), preset: st.preset === 'value' ? 'value' : null })) })) }));
+    v.resetPrio = () => this.setState({ weights: Object.assign({}, this.PRE[s.use || 'default']), preset: s.use, sort: 'match' });
+    v.moreFilters = () => this.toast('Full filter list opens as a sheet (not in prototype)');
+    v.showPrio = !mobile || s.prioOpen; v.togglePrio = () => this.setState({ prioOpen: !s.prioOpen });
+    v.prioChevron = s.prioOpen ? '▲' : '▼';
+    v.presetLabel = s.preset ? this.PRESET_NAMES[s.preset] : 'Custom';
+    let list = this.P.filter(p => p.price <= s.budget).map(p => ({ p, m: this.match(p) }));
+    const sorters = { match: (a, b) => b.m - a.m, price: (a, b) => a.p.price - b.p.price, rating: (a, b) => b.p.rating - a.p.rating, value: (a, b) => b.m / b.p.price - a.m / a.p.price };
+    list.sort(sorters[s.sort]);
+    v.sorts = [['match', 'Best match'], ['price', 'Lowest price'], ['rating', 'Top rated']].map(([k, label]) => ({ label, bg: s.sort === k ? '#fff' : 'transparent', pick: () => this.setState({ sort: k, preset: s.preset === 'value' ? null : s.preset }) }));
+    const topW = this.K.slice().sort((a, b) => s.weights[b] - s.weights[a]).slice(0, 2).map(k => this.KW[k]);
+    v.rankNote = s.sort === 'value' ? 'Ranked by match per rupee' : s.sort === 'match' ? 'Ranked for ' + topW.join(' and ') : 'Sorted by ' + (s.sort === 'price' ? 'price' : 'rating');
+    v.resultCount = list.length; v.noResults = list.length === 0;
+    v.results = list.map(({ p, m }, i) => {
+      const inC = s.compare.includes(p.id), sv = this.isSaved(p.id), top = i === 0 && (s.sort === 'match' || s.sort === 'value');
+      return { name: p.name, rating: p.rating, reviewsText: p.reviews.toLocaleString('en-IN') + ' reviews', priceText: fmt(p.price), mrpText: fmt(p.mrp), offText: off(p) + '% off',
+        matchText: m + '% match', showMatch, isTop: top, border: top ? '#151515' : '#E7E4DE', full, why: this.why(p, s.weights), warn: p.cons[0], bestFor: p.bestFor,
+        cmpBg: inC ? '#151515' : '#fff', cmpMark: inC ? '✓' : '', cmpLabel: inC ? 'Comparing' : 'Compare', saveText: sv ? '♥ Saved' : '♡ Save',
+        open: () => this.openP(p.id), toggleCompare: () => this.toggleCompare(p.id), toggleSave: () => this.toggleSave(p.id) };
+    });
+
+    // Compare
+    const cps = s.compare.map(id => this.get(id));
+    v.cmpEmpty = cps.length < 2; v.cmpReady = cps.length >= 2;
+    v.weightsLine = this.K.filter(k => s.weights[k] >= 3).map(k => this.KL[k] + ' ' + '●'.repeat(s.weights[k])).join(' · ');
+    if (cps.length >= 2) {
+      const ms = cps.map(p => this.match(p));
+      const wi = ms.indexOf(Math.max(...ms)), win = cps[wi];
+      const leads = this.K.filter(k => s.weights[k] >= 3 && win.s[k] === Math.max(...cps.map(p => p.s[k]))).map(k => this.KW[k]);
+      v.verdictText = win.name + ' is the best match for your priorities (' + ms[wi] + '%)' + (leads.length ? ', leading on ' + leads.slice(0, 3).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' : '.');
+      v.winnerName = win.name.split(' ').slice(0, 2).join(' ');
+      v.openWinner = () => this.openP(win.id);
+      v.cmpCols = (mobile ? '110px' : '180px') + ' repeat(' + cps.length + ', minmax(' + (mobile ? '200px' : '220px') + ', 1fr))';
+      v.cmpMinW = ((mobile ? 110 : 180) + cps.length * (mobile ? 200 : 220)) + 'px';
+      v.cmpCountText = cps.length + ' OF 4';
+      const wbg = i => i === wi ? '#FFFBF3' : 'transparent';
+      v.cmpHead = cps.map((p, i) => ({ name: p.name, priceText: fmt(p.price), rating: p.rating, matchText: ms[i] + '% match', isWinner: i === wi, bg: wbg(i), open: () => this.openP(p.id), remove: () => this.toggleCompare(p.id) }));
+      v.cmpVerdict = cps.map((p, i) => ({ bg: wbg(i), bestFor: p.bestFor, strengths: this.K.slice().sort((a, b) => p.s[b] - p.s[a]).slice(0, 3).map(k => ({ t: this.strength(p, k) })), trades: p.cons.slice(0, 2).map(t => ({ t })) }));
+      const ANC = { None: 0, Basic: 1, Moderate: 2, Good: 3, Excellent: 4 }, MIC = { Average: 1, Good: 2, Excellent: 3 };
+      const wt = m => m % 12 === 0 ? (m / 12) + (m === 12 ? ' year' : ' years') : m + ' months';
+      const defs = [
+        ['Price', p => fmt(p.price), p => -p.price], ['Match for you', p => this.match(p) + '%', p => this.match(p)], ['Rating', p => p.rating + ' ★', p => p.rating],
+        ['Battery life', p => p.battery + 'h', p => p.battery], ['Weight', p => p.weight + 'g', p => -p.weight], ['Noise cancellation', p => p.anc, p => ANC[p.anc]],
+        ['Microphone', p => p.mic, p => MIC[p.mic]], ['Gaming latency', p => p.latency, p => p.s.gaming], ['Codec', p => p.codec, null], ['Folds flat', p => p.fold, null],
+        ['Warranty', p => wt(p.warranty), p => p.warranty]
+      ];
+      const same = ['USB-C charging', 'Multipoint pairing', '10-day replacement'];
+      v.cmpRows = [];
+      defs.forEach(([label, tf, sf]) => {
+        const ts = cps.map(tf);
+        if (ts.every(t => t === ts[0])) { same.push(label + ': ' + ts[0]); return; }
+        const sc = sf ? cps.map(sf) : null, mx = sc ? Math.max(...sc) : null, uniq = sc ? new Set(sc).size > 1 : false;
+        v.cmpRows.push({ label, cells: ts.map((t, i) => { const b = uniq && sc[i] === mx; return { t, fw: b ? '700' : '400', bg: b ? 'oklch(0.96 0.045 150)' : 'transparent', mark: b ? 'BEST' : '' }; }) });
+      });
+      v.sameText = same.join(' · ');
+    }
+
+    // Product
+    const p = this.get(s.pid);
+    v.p = p;
+    const imgs = ['front', 'side profile', 'folded', 'in use'];
+    v.imgLabel = 'product shot · ' + imgs[s.img];
+    v.gallery = imgs.map((l, i) => ({ label: l, border: i === s.img ? '#151515' : 'transparent', pick: () => this.setState({ img: i }) }));
+    v.ratingsText = p.reviews.toLocaleString('en-IN') + ' ratings';
+    v.ratingsShort = p.reviews.toLocaleString('en-IN');
+    v.pHasMatch = !!s.lastQuery; v.pMatchText = this.match(p) + '% match for your priorities';
+    v.pPrice = fmt(p.price); v.pMrp = fmt(p.mrp); v.pOff = off(p) + '% off';
+    v.pPros = p.pros.map(t => ({ t: /^(Excellent|Very|Great)/.test(t) ? t : t + ' is a standout' })).map((o, i) => p.id === 'p7' ? { t: p.pros[i] } : o);
+    v.pKnow = p.cons.map(t => ({ t }));
+    v.pConfidence = [{ k: 'Seller', v: p.seller }, { k: 'Fulfilled by', v: 'Store warehouse' }, { k: 'Warranty', v: (p.warranty % 12 === 0 ? p.warranty / 12 + ' year' + (p.warranty > 12 ? 's' : '') : p.warranty + ' months') + ', brand' }, { k: 'Returns', v: '10-day replacement' }];
+    v.addCurrent = () => this.addToCart(p.id, true);
+    v.buyNow = () => { if (!s.cart.find(i => i.id === p.id)) this.addToCart(p.id, true); this.go('checkout'); };
+    v.justAdded = s.added === p.id;
+    v.pSaveText = this.isSaved(p.id) ? '♥ Saved' : '♡ Save';
+    v.saveCurrent = () => this.toggleSave(p.id);
+    v.pCmpText = s.compare.includes(p.id) ? '✓ In compare' : 'Compare';
+    v.compareCurrent = () => this.toggleCompare(p.id);
+    v.jumpReviews = () => this.scrollToId('insight');
+    v.recText = p.rec + '% would recommend';
+    const dist = p.rating >= 4.5 ? [72, 17, 6, 2, 3] : p.rating >= 4.3 ? [61, 22, 8, 4, 5] : [50, 24, 11, 6, 9];
+    v.dist = dist.map((d, i) => ({ label: (5 - i) + '★', w: d + '%' }));
+    const mentions = [0.31, 0.24, 0.18], cm = [0.09, 0.06, 0.04];
+    v.praised = p.pros.map((t, i) => ({ t: t.replace(/^(Excellent|Very) /, '').replace(/^./, c => c.toUpperCase()), n: Math.round(p.reviews * mentions[i]).toLocaleString('en-IN') + ' mentions' }));
+    v.criticized = p.cons.map((t, i) => ({ t, n: Math.round(p.reviews * cm[i]).toLocaleString('en-IN') + ' mentions' }));
+    v.readSupporting = () => { this.setState({ rf: ['Positive'] }); this.scrollToId('reviews'); };
+    v.showCritical = () => { this.setState({ rf: ['Critical'] }); this.scrollToId('reviews'); };
+    const rs = this.R.filter(r => s.rf.every(f => this.RF[f](r)));
+    v.rChips = ['All', ...Object.keys(this.RF)].map(label => {
+      const on = label === 'All' ? s.rf.length === 0 : s.rf.includes(label);
+      const n = label === 'All' ? this.R.length : this.R.filter(r => s.rf.filter(f => f !== label).every(f => this.RF[f](r)) && this.RF[label](r)).length;
+      return { label, n, bg: on ? '#151515' : '#fff', fg: on ? '#fff' : '#151515', border: on ? '#151515' : '#CFCBC3',
+        toggle: () => this.setState({ rf: label === 'All' ? [] : on ? s.rf.filter(f => f !== label) : [...s.rf, label] }) };
+    });
+    v.reviewCountText = s.rf.length ? rs.length + ' of ' + this.R.length + ' sample reviews · ' + s.rf.join(' + ') : 'Showing a sample of ' + this.R.length + ' most helpful';
+    v.noReviews = rs.length === 0; v.clearReviewFilters = () => this.setState({ rf: [] });
+    v.reviews = rs.map((r, i) => {
+      const tags = [];
+      if (r.verified) tags.push({ t: 'Verified Purchase' });
+      tags.push({ t: 'Owned ' + r.months + (r.months === 1 ? ' month' : ' months') });
+      tags.push({ t: 'Used for ' + r.use });
+      const media = []; for (let k = 0; k < r.photos; k++) media.push({ t: 'photo' }); if (r.video) media.push({ t: '▶ video' });
+      const hk = r.title, h = s.helped[hk];
+      return { stars: '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars), who: r.who, title: r.title, text: r.text, tags, media, hasMedia: media.length > 0, date: r.date,
+        helpfulN: r.helpful + (h ? 1 : 0), helpful: () => this.setState(st => ({ helped: Object.assign({}, st.helped, { [hk]: !st.helped[hk] }) })) };
+    });
+    v.alts = this.P.filter(o => o.id !== p.id).sort((a, b) => Math.abs(a.price - p.price) - Math.abs(b.price - p.price)).slice(0, 2).map(o => ({
+      name: o.name, priceText: fmt(o.price), rating: o.rating,
+      diff: (o.price < p.price ? fmt(p.price - o.price) + ' cheaper' : fmt(o.price - p.price) + ' more') + ' · ' + o.battery + 'h vs ' + p.battery + 'h battery',
+      open: () => this.openP(o.id), compare: () => this.go('compare', { compare: [p.id, o.id] })
+    }));
+    const wt2 = m => m % 12 === 0 ? (m / 12) + (m === 12 ? ' year' : ' years') : m + ' months';
+    const SG = [
+      ['General', [['Brand', p.brand], ['Model', p.name.replace(p.brand + ' ', '')], ['Weight', p.weight + ' g'], ['Folds flat', p.fold]]],
+      ['Audio', [['Noise cancellation', p.anc], ['Codec support', p.codec], ['Microphone', p.mic]]],
+      ['Battery', [['Battery life', p.battery + ' hours'], ['Charging', 'USB-C, fast charge']]],
+      ['Connectivity', [['Bluetooth', p.bt], ['Latency', p.latency], ['Multipoint', 'Yes']]],
+      ['Warranty & box', [['Warranty', wt2(p.warranty)], ['In the box', 'Headphones, USB-C cable' + (p.id === 'p3' ? '' : ', pouch')]]]
+    ];
+    v.specs = SG.map(([name, rows]) => { const o = !!s.openSpecs[name]; return { name, open: o, chev: o ? 'Hide' : 'Show', rows: rows.map(([k, val]) => ({ k, v: val })), toggle: () => this.setState(st => ({ openSpecs: Object.assign({}, st.openSpecs, { [name]: !o }) })) }; });
+
+    // Collections
+    const col = s.cols.find(c => c.id === s.colSel) || s.cols[0];
+    v.colList = s.cols.map(c => {
+      const on = c.id === col.id, drops = c.items.filter(i => i.savedAt > this.get(i.id).price).length;
+      return { name: c.name, countText: c.items.length + (c.items.length === 1 ? ' item' : ' items'), dropText: drops ? '↓ ' + drops + ' price drop' + (drops > 1 ? 's' : '') : '',
+        bg: on ? '#151515' : '#fff', fg: on ? '#fff' : '#151515', border: on ? '#151515' : '#E7E4DE', select: () => this.setState({ colSel: c.id }) };
+    });
+    v.newCollection = () => { const id = 'c' + Date.now(); this.setState(st => ({ cols: [...st.cols, { id, name: 'New collection', note: '', items: [] }], colSel: id })); };
+    v.colName = col.name; v.colNote = col.note; v.colEmpty = col.items.length === 0;
+    v.onColNote = e => { const val = e.target.value; this.setState(st => ({ cols: st.cols.map(c => c.id === col.id ? Object.assign({}, c, { note: val }) : c) })); };
+    v.colItems = col.items.map(it => {
+      const x = this.get(it.id), d = it.savedAt - x.price;
+      return { name: x.name, kind: this.isP(it.id) ? 'product' : 'accessory', priceText: fmt(x.price),
+        changeText: d > 0 ? '↓ Price dropped ' + fmt(d) + ' since you saved it' : d < 0 ? '↑ Up ' + fmt(-d) + ' since you saved it' : 'No change since you saved it',
+        changeColor: d > 0 ? 'oklch(0.42 0.11 150)' : d < 0 ? 'oklch(0.5 0.15 35)' : '#5E5C57',
+        open: () => this.openP(it.id), toCart: () => this.addToCart(it.id),
+        remove: () => this.setState(st => ({ cols: st.cols.map(c => c.id === col.id ? Object.assign({}, c, { items: c.items.filter(i => i.id !== it.id) }) : c) })) };
+    });
+    v.compareCollection = () => { const ids = col.items.map(i => i.id).filter(id => this.isP(id)).slice(0, 4); if (ids.length < 2) return this.toast('Need at least 2 products in this collection'); this.go('compare', { compare: ids }); };
+
+    // Cart
+    const t = this.totals();
+    v.cartEmpty = s.cart.length === 0; v.cartHas = s.cart.length > 0;
+    v.cartItems = s.cart.map(it => {
+      const x = this.get(it.id);
+      return { name: x.name, kind: this.isP(it.id) ? 'product' : 'accessory', qty: it.qty, lineText: fmt(x.price * it.qty), hasDrop: it.drop > 0, dropText: '↓ Price dropped ' + fmt(it.drop) + ' since you added it',
+        open: () => this.openP(it.id),
+        inc: () => this.setState(st => ({ cart: st.cart.map(i => i.id === it.id ? Object.assign({}, i, { qty: i.qty + 1 }) : i) })),
+        dec: () => this.setState(st => ({ cart: it.qty <= 1 ? st.cart.filter(i => i.id !== it.id) : st.cart.map(i => i.id === it.id ? Object.assign({}, i, { qty: i.qty - 1 }) : i) })),
+        remove: () => this.setState(st => ({ cart: st.cart.filter(i => i.id !== it.id) })),
+        later: () => { this.setState(st => ({ cart: st.cart.filter(i => i.id !== it.id), cols: st.cols.map(c => c.id === 'c1' && !c.items.find(i => i.id === it.id) ? Object.assign({}, c, { items: [...c.items, { id: it.id, savedAt: x.price }] }) : c) })); this.toast("Moved to Things I'm Considering"); } };
+    });
+    v.savings = s.cart.filter(it => { const x = this.get(it.id); return x.alt && !s.cart.find(i => i.id === x.alt); }).map(it => {
+      const x = this.get(it.id), a = this.get(x.alt), d = x.price - a.price;
+      return { amount: fmt(d), text: 'You could save ' + fmt(d) + ' with the ' + a.name,
+        detail: a.battery + 'h vs ' + x.battery + 'h battery · ' + a.weight + 'g vs ' + x.weight + 'g · ' + a.anc + ' vs ' + x.anc.toLowerCase() + ' ANC · ' + a.rating + '★',
+        see: () => this.openP(a.id),
+        swap: () => { this.setState(st => ({ cart: st.cart.map(i => i.id === it.id ? { id: a.id, qty: i.qty, drop: 0 } : i) })); this.toast('Swapped · you saved ' + fmt(d)); } };
+    });
+    v.hasSavings = v.savings.length > 0;
+    const hasHead = s.cart.some(i => this.isP(i.id));
+    v.setup = this.A.filter(a => !s.cart.find(i => i.id === a.id)).map(a => ({ name: a.name, reason: a.reason, priceText: fmt(a.price), add: () => this.addToCart(a.id) }));
+    v.hasSetup = hasHead && v.setup.length > 0;
+    const dropSum = s.cart.reduce((a, i) => a + i.drop * i.qty, 0);
+    v.hasCartDrops = dropSum > 0; v.cartDropSummary = '↓ Prices in your cart dropped ' + fmt(dropSum);
+    v.subtotalText = fmt(t.sub);
+
+    // Checkout
+    const E = s.edit, tog = k => () => this.setState({ edit: E === k ? null : k });
+    const sl = this.SLOT[s.slot];
+    v.steps = [
+      { n: 1, title: 'Deliver to', value: this.ADDR[s.addr].label, sub: this.ADDR[s.addr].line, editing: E === 'addr', btn: E === 'addr' ? 'Done' : 'Change', toggle: tog('addr'),
+        opts: this.ADDR.map((a, i) => ({ label: a.label, sub: a.line, dot: i === s.addr ? '#151515' : 'transparent', border: i === s.addr ? '#151515' : '#E7E4DE', pick: () => this.setState({ addr: i, edit: null }) })) },
+      { n: 2, title: 'Payment', value: this.PAY[s.pay].label, sub: this.PAY[s.pay].sub, editing: E === 'pay', btn: E === 'pay' ? 'Done' : 'Change', toggle: tog('pay'),
+        opts: this.PAY.map((a, i) => ({ label: a.label, sub: a.sub, dot: i === s.pay ? '#151515' : 'transparent', border: i === s.pay ? '#151515' : '#E7E4DE', pick: () => this.setState({ pay: i, edit: null }) })) },
+      { n: 3, title: 'Delivery', value: sl.day + ', ' + sl.win, sub: sl.fee ? fmt(sl.fee) : 'FREE', editing: E === 'slot', btn: E === 'slot' ? 'Done' : 'Change', toggle: tog('slot'),
+        opts: this.SLOT.map((a, i) => ({ label: a.day + ', ' + a.win, sub: a.fee ? fmt(a.fee) : 'FREE', dot: i === s.slot ? '#151515' : 'transparent', border: i === s.slot ? '#151515' : '#E7E4DE', pick: () => this.setState({ slot: i, edit: null }) })) }
+    ];
+    v.coItemsTitle = 'Items (' + v.cartCount + ')';
+    v.coItems = s.cart.map(it => { const x = this.get(it.id); return { name: x.name, qty: it.qty, lineText: fmt(x.price * it.qty) }; });
+    v.feeText = t.fee ? fmt(t.fee) : 'FREE'; v.hasDiscount = t.disc > 0; v.totalText = fmt(t.total);
+    v.offerHint = t.disc ? 'HDFC card offer applied automatically.' : (s.pay !== 0 && t.sub >= 5000 ? 'Tip: paying with your HDFC card saves ₹500.' : 'By placing your order you agree to the store terms.');
+    v.placeOrder = () => { if (!s.cart.length) return this.toast('Your cart is empty'); const o = this.makeOrder(); this.setState({ order: o, cart: [], step: 1, added: null }); this.go('confirm'); };
+
+    // Confirm & track
+    const o = s.order || { id: '', when: '', addr: '', pay: '', totalText: '', countText: '', itemsText: '', day: 'Tomorrow', win: '' };
+    v.order = o; v.noOrder = !s.order; v.hasOrder = !!s.order;
+    const st = s.step;
+    v.trackKicker = st >= 5 ? 'DELIVERED' : st === 4 ? 'OUT FOR DELIVERY' : 'ON TIME';
+    v.trackHead = st >= 5 ? 'Delivered' : st === 4 ? 'Arriving today' : 'Arriving ' + o.day.toLowerCase();
+    v.trackWindow = st >= 5 ? 'Handed to Monish at 11:42 AM' : st === 4 ? o.win.replace(/^.*?(\d)/, '$1') + ' · 6 stops away' : o.win;
+    v.trackSteps = this.TSTEPS.map(([label, time], i) => {
+      const n = i + 1, done = n < st || (n === st && st === 5), cur = n === st && st < 5;
+      return { label, time: n <= st ? time : 'Expected ' + time.toLowerCase().replace('tomorrow', 'tomorrow'), mark: done ? '✓' : '',
+        bg: done ? 'oklch(0.6 0.13 150)' : cur ? ACC : '#fff', ring: done ? 'oklch(0.6 0.13 150)' : cur ? '#151515' : '#CFCBC3',
+        line: n === 5 ? 'transparent' : n < st ? 'oklch(0.6 0.13 150)' : '#E7E4DE', fw: cur ? '700' : '500', fg: n <= st ? '#151515' : '#5E5C57' };
+    });
+    v.advance = () => this.setState({ step: st >= 5 ? 1 : st + 1 });
+    v.advanceText = st >= 5 ? 'Demo: restart ↺' : 'Demo: next update →';
+
+    // Quiz
+    const qz = s.quiz, qa = qz.ans, qs = qz.step;
+    v.quizOpen = qz.open; v.openQuiz = () => this.openQuiz('search'); v.openQuizHome = () => this.openQuiz('home');
+    v.openQuizResult = () => this.quizSet({ open: true, step: 6, origin: 'search' });
+    v.quizClose = () => this.quizSet({ open: false }); v.stop = e => e.stopPropagation();
+    v.quizAlign = mobile ? 'flex-end' : 'center'; v.quizPad = mobile ? '0' : '24px'; v.quizRadius = mobile ? '18px 18px 0 0' : '16px';
+    v.isQStep = qs < 5; v.isQLoading = qs === 5; v.isQResult = qs === 6 && !!s.profile;
+    v.quizKicker = qs < 5 ? 'TUNE MY PRIORITIES · ' + (qs + 1) + ' OF 5' : qs === 5 ? 'TUNE MY PRIORITIES' : 'TUNED FOR YOU';
+    v.qBars = this.Q.map((q, i) => ({ bg: i <= Math.min(qs, 4) || qs >= 5 ? '#151515' : '#DAD6CE' }));
+    if (qs < 5) {
+      const Q = this.Q[qs], cur = qa[Q.id];
+      v.qTitle = Q.title; v.qSub = Q.sub; v.qHasOpts = Q.opts.length > 0; v.qIsNote = Q.id === 'note';
+      v.qOpts = Q.opts.map(label => {
+        const on = Q.multi ? cur.includes(label) : cur === label;
+        return { label, bg: on ? '#151515' : '#fff', fg: on ? '#fff' : '#151515', border: on ? '#151515' : '#DAD6CE', shape: Q.multi ? '4px' : '50%', mark: on ? '✓' : '',
+          pick: () => this.quizSet({ ans: Object.assign({}, qa, { [Q.id]: Q.multi ? (on ? cur.filter(x => x !== label) : [...cur, label]) : label }) }) };
+      });
+      const ok = Q.id === 'use' ? cur.length > 0 : Q.id === 'dur' || Q.id === 'calls' ? !!cur : true;
+      v.qNextBg = ok ? ACC : '#E7E4DE';
+      v.qNextLabel = qs === 4 ? 'Generate my priorities' : Q.id === 'pain' && !cur.length ? 'Skip' : 'Next';
+      v.qNext = () => { if (!ok) return; if (qs === 4) this.genProfile(); else this.quizSet({ step: qs + 1 }); };
+      v.qBack = () => qs > 0 && this.quizSet({ step: qs - 1 }); v.qBackVis = qs > 0 ? 'visible' : 'hidden';
+      v.qNote = qa.note; v.onQNote = e => this.quizSet({ ans: Object.assign({}, qa, { note: e.target.value }) });
+    }
+    v.qEcho = [qa.use.join(', '), qa.dur && 'Wears them ' + qa.dur.toLowerCase(), qa.calls && 'Calls: ' + qa.calls.toLowerCase(), qa.pain.length && 'Avoid: ' + qa.pain.join(', ').toLowerCase()].filter(Boolean).map(t => ({ t }));
+    if (qs === 5) {
+      if (!this._lb) {
+        this._lb = React.createElement('div', { style: { height: 6, borderRadius: 3, background: '#E7E4DE', overflow: 'hidden', position: 'relative' } },
+          React.createElement('style', null, '@keyframes qslide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}'),
+          React.createElement('div', { style: { position: 'absolute', inset: 0, width: '40%', background: ACC, borderRadius: 3, animation: 'qslide 1.1s ease-in-out infinite' } }));
+      }
+      v.loadingBar = this._lb;
+    }
+    const pr = s.profile;
+    v.hasProfile = !!pr && s.preset === 'ai'; v.noProfile = !v.hasProfile;
+    v.profileSummary = pr ? pr.summary : '';
+    if (pr) {
+      const order = this.K.slice().sort((a, b) => pr.weights[b] - pr.weights[a]);
+      v.resRows = order.map((k, i) => ({ label: this.KL[k], reason: pr.reasons[k], divider: i ? '#EFECE6' : 'transparent', dots: [1, 2, 3, 4, 5].map(n => ({ bg: n <= pr.weights[k] ? '#151515' : 'transparent' })) }));
+      v.resSummary = pr.summary; v.resWatch = pr.watch; v.resHasWatch = !!pr.watch;
+      v.resSource = pr.source === 'ai' ? 'GENERATED WITH AI FROM YOUR ANSWERS · YOU CAN FINE-TUNE THESE ANYTIME' : 'ESTIMATED FROM YOUR ANSWERS · YOU CAN FINE-TUNE THESE ANYTIME';
+      v.qApplyLabel = qz.origin === 'home' || s.screen !== 'search' ? 'Show my matches →' : 'Apply to results';
+    }
+    v.qApply = () => this.applyProfile();
+    v.qRedo = () => this.quizSet({ step: 0 });
+
+    // Tray
+    v.showTray = s.compare.length > 0 && ['home', 'search', 'product', 'collections'].includes(s.screen);
+    v.trayText = s.compare.length === 1 ? 'Compare 1 product' : 'Compare ' + s.compare.length + ' products';
+    v.trayItems = s.compare.map(id => ({ name: this.get(id).name.split(' ').slice(0, 3).join(' '), remove: () => this.toggleCompare(id) }));
+    v.clearCompare = () => this.setState({ compare: [] });
+    v.trayBtn = s.compare.length >= 2 ? 'Compare →' : 'Add 1 more';
+    v.trayBtnBg = s.compare.length >= 2 ? ACC : '#EFECE6';
+    v.toastBottom = v.showTray ? (mobile ? '150px' : '96px') : '24px';
+    return v;
+  }
+}
+</script>
+</body>
+</html>

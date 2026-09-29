@@ -1,147 +1,142 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { AddressFields } from '@/components/checkout/AddressFields';
+import { EmptyState } from '@/components/decision';
+import { Alert } from '@/components/primitives/Alert';
+import { buttonClasses } from '@/components/primitives/Button';
+import { AddressStep } from '@/components/checkout/AddressStep';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
-import { Wordmark } from '@/components/chrome/Wordmark';
+import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
+import { StepCard } from '@/components/checkout/StepCard';
+import { arrivingText, cartEta } from '@/components/orders/format';
 import { submitCheckout } from '@/app/actions/order';
 import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
-import { getDefaultAddress } from '@/lib/addresses';
-import { getCartLines, computeTotals } from '@/lib/cart';
-import { deliveryDate } from '@/lib/dates';
+import { db } from '@/lib/supabase/server';
+import { listAddresses } from '@/lib/data/addresses';
+import { messageFor } from '@/lib/data/errors';
+import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 
-export const metadata: Metadata = { title: 'Checkout | Amazon' };
+export const metadata: Metadata = { title: 'Checkout · Store' };
 
-const FORM_ID = 'checkout-form';
-
-export default async function CheckoutPage() {
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; msg?: string; canceled?: string }>;
+}) {
+  const { error, msg, canceled } = await searchParams;
   const store = await getMarketplace();
   const cur = store.currency.code;
   const money = (minor: number) => formatMoney(minor, cur);
   const sp = (path: string) => storePath(store, path);
   const isIN = store.id === 'IN';
-  const tld = store.hostname.split('.').pop() ?? 'com';
-  const lines = await getCartLines(cur);
-  // Prefill from the signed-in user's default saved address; guests get an empty
-  // form (placeholders hint). Fall back to just the account name when no address
-  // is saved yet.
+  // checkout requires a signed-in account (orders are stored per signed-in user); the guest cart is
+  // merged into the account on sign-in.
   const user = await readUser();
-  // checkout requires a signed-in account (orders are stored per signed-in user).
   if (!user) redirect(sp('/signin?next=/checkout'));
-  const defName = user?.name ?? '';
-  const savedAddr = user ? await getDefaultAddress() : undefined;
-  const shipDefaults = savedAddr ?? (defName ? { name: defName } : undefined);
-  const prefillName = savedAddr?.name ?? defName;
+  const [cart, addresses] = await Promise.all([viewerCart(), listAddresses(await db(), store.id)]);
+  const { lines, count, totals } = cart;
+  const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
+
+  const shell = (children: ReactNode) => (
+    <AppShell>
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-[120px] pt-7">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Checkout</h1>
+          <a href={sp('/cart')} className="text-[14px] text-ink underline underline-offset-2">← Back to cart</a>
+        </div>
+        {children}
+      </div>
+    </AppShell>
+  );
 
   if (lines.length === 0) {
-    return (
-      <AppShell>
-        <div className="mx-auto max-w-[900px] px-4 py-12 text-center">
-          <h1 className="text-[24px] font-bold text-ink">Your cart is empty</h1>
-          <p className="mt-2 text-[14px] text-ink-2">Add items before checking out.</p>
-          <a href={sp('/')} className="mt-4 inline-block text-[14px] text-link hover:text-link-hover hover:underline">Continue shopping</a>
-        </div>
-      </AppShell>
+    return shell(
+      <EmptyState title="Your cart is empty" action={<a href={sp('/s')} className={buttonClasses({ variant: 'dark' })}>Find something</a>}>
+        Add items to your cart before checking out.
+      </EmptyState>,
     );
   }
 
-  const count = lines.reduce((a, l) => a + l.qty, 0);
-  const totals = computeTotals(lines.reduce((a, l) => a + l.lineTotalMinor, 0), store);
+  // invalid_input carries the specific field message from validation
+  const problem = error ? (error === 'invalid_input' && msg ? msg : messageFor(error) ?? 'Something went wrong. Please try again.') : null;
+  const blocked = lines.some((l) => !l.inStock);
+  const now = new Date();
+  const eta = cartEta(now, store);
+  const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
 
-  const PlaceOrderButton = (
-    <button type="submit" form={FORM_ID} className="flex h-[33px] w-full items-center justify-center rounded-pill bg-cta-yellow text-[14px] text-ink shadow-input hover:bg-cta-yellow-hover">
-      Place your order
-    </button>
-  );
+  return shell(
+    <>
+      {problem ? (
+        <Alert tone="error">{problem}</Alert>
+      ) : canceled ? (
+        <Alert tone="info">Payment canceled — you have not been charged. Your cart is unchanged.</Alert>
+      ) : null}
+      {blocked ? (
+        <Alert tone="warning">
+          Some items no longer have enough stock. <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
+        </Alert>
+      ) : null}
 
-  return (
-    <AppShell>
-      {/* slim checkout header */}
-      <div className="border-b border-line-3 bg-white">
-        <div className="mx-auto flex max-w-[1100px] items-center justify-between px-4 py-3">
-          <span className="scale-90"><Wordmark tld={tld} tone="dark" /></span>
-          <h1 className="text-[22px] font-normal text-ink">Secure checkout</h1>
-          <span className="w-[80px]" />
+      <form action={submitCheckout} className="flex flex-wrap items-start gap-6">
+        <input type="hidden" name="schema" value={store.address.schema} />
+        <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
+          <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} />
+          <StepCard
+            n={3}
+            title="Delivery"
+            value={arrivingText(eta, store, now)}
+            sub={totals.shipMinor === 0 ? 'FREE delivery' : `Delivery ${money(totals.shipMinor)} · FREE over ${money(cart.freeShipThresholdMinor)}`}
+          />
+          <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">
+            <h2 id="co-items-h" className="m-0 text-[13px] font-normal text-ink-3">Items ({count})</h2>
+            <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+              {lines.map((l) => (
+                <li key={l.product.id} className="flex justify-between gap-3 text-[15px]">
+                  <span className="min-w-0">
+                    {l.product.title}
+                    <span className="text-ink-3"> × {l.qty}</span>
+                    {!l.inStock ? <span className="block text-[13px] font-semibold text-warn">⚠ Not enough stock</span> : null}
+                  </span>
+                  <span className="flex-none font-semibold tabular-nums">{money(l.lineTotalMinor)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-[1100px] px-4 py-6">
-        <div className="flex flex-col gap-6 lg:flex-row">
-          <div className="flex-1">
-            <form id={FORM_ID} action={submitCheckout} className="space-y-5">
-              <input type="hidden" name="schema" value={store.address.schema} />
-              {/* shipping */}
-              <section className="rounded-[8px] border border-line bg-white p-5">
-                <div className="mb-3 flex items-baseline justify-between">
-                  <h2 className="text-[18px] font-bold text-ink">1. Shipping address</h2>
-                  {user ? (
-                    <a href={sp('/account/addresses')} className="text-[13px] text-link hover:text-link-hover hover:underline">
-                      {savedAddr ? 'Manage addresses' : 'Add an address'}
-                    </a>
-                  ) : null}
-                </div>
-                <AddressFields isIN={isIN} address={shipDefaults} />
-              </section>
-
-              {/* payment */}
-              <PaymentSection
-                methods={store.payments.map((pm) => pm.method)}
-                curSymbol={store.currency.symbol}
-                defaultName={prefillName}
-                stripeCard={stripeConfigured}
-              />
-
-              {/* review */}
-              <section className="rounded-[8px] border border-line bg-white p-5">
-                <h2 className="mb-3 text-[18px] font-bold text-ink">3. Review items and delivery</h2>
-                <p className="mb-3 text-[13px] text-success-deep">Estimated delivery: <b>{deliveryDate(3, store)}</b></p>
-                <div className="space-y-3">
-                  {lines.map((l) => (
-                    <div key={l.product.id} className="flex items-center gap-3">
-                      <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center bg-white">
-                        <img src={l.product.image} alt={l.product.title} className="max-h-full max-w-full object-contain" />
-                      </div>
-                      <p className="line-clamp-2 flex-1 text-[13px] text-ink">{l.product.title}</p>
-                      <span className="text-[12px] text-ink-2">Qty {l.qty}</span>
-                      <span className="w-[80px] text-right text-[13px] font-medium text-ink">{money(l.lineTotalMinor)}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 hidden sm:block sm:max-w-[240px]">{PlaceOrderButton}</div>
-              </section>
-            </form>
-          </div>
-
-          {/* order summary */}
-          <aside className="lg:w-[300px] lg:shrink-0">
-            <div className="sticky top-4 rounded-[8px] border border-line bg-white p-5">
-              <div className="mb-3">{PlaceOrderButton}</div>
-              <p className="mb-3 text-[11px] text-ink-2">
-                {stripeConfigured
-                  ? `By placing your order, you agree to this demo’s terms. Card payments are processed securely by Stripe in ${cur}; use test card 4242 4242 4242 4242.`
-                  : 'By placing your order, you agree to this demo’s terms. No real charge is made.'}
-              </p>
-              <h2 className="border-b border-line-3 pb-2 text-[18px] font-bold text-ink">Order Summary</h2>
-              <dl className="mt-2 space-y-1 text-[14px] text-ink">
-                <div className="flex justify-between"><dt>Items ({count}):</dt><dd>{money(totals.subtotalMinor)}</dd></div>
-                <div className="flex justify-between"><dt>Shipping:</dt><dd>{totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor)}</dd></div>
-                {store.pricing.taxInclusive ? (
-                  <div className="flex justify-between text-ink-2"><dt>Tax:</dt><dd>{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
-                ) : (
-                  <div className="flex justify-between"><dt>Estimated tax:</dt><dd>{money(totals.taxMinor)}</dd></div>
-                )}
-              </dl>
-              <div className="mt-2 flex justify-between border-t border-line-3 pt-2 text-[18px] font-bold text-price-deal">
-                <span>Order total:</span><span>{money(totals.totalMinor)}</span>
-              </div>
+        <aside className="flex flex-[1_1_300px] flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px] md:sticky md:top-[128px]" aria-labelledby="summary-h">
+          <h2 id="summary-h" className="m-0 mb-1 text-[18px] font-semibold">Order summary</h2>
+          <dl className="m-0 flex flex-col gap-2.5 text-[15px]">
+            <div className="flex justify-between gap-3"><dt>Items</dt><dd className="m-0 tabular-nums">{money(totals.subtotalMinor)}</dd></div>
+            <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor)}</dd></div>
+            {store.pricing.taxInclusive ? (
+              <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
+            ) : (
+              <div className="flex justify-between gap-3"><dt>Estimated tax</dt><dd className="m-0 tabular-nums">{money(totals.taxMinor)}</dd></div>
+            )}
+            <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-line pt-3">
+              <dt className="text-[18px] font-semibold">Total</dt>
+              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{money(totals.totalMinor)}</dd>
             </div>
-          </aside>
-        </div>
-      </div>
-    </AppShell>
+          </dl>
+          {blocked ? (
+            <a href={sp('/cart')} className={buttonClasses({ variant: 'secondary', size: 'lg', block: true })}>Update your cart</a>
+          ) : (
+            <PlaceOrderButton />
+          )}
+          <span className="text-[13px] leading-[1.4] text-ink-2">
+            {stripeConfigured
+              ? `By placing your order you agree to this demo’s terms. Cards are paid on Stripe in ${cur} (test card 4242 4242 4242 4242); other methods are demo only.`
+              : 'By placing your order you agree to this demo’s terms. No real charge is made.'}
+          </span>
+        </aside>
+      </form>
+    </>,
   );
 }
