@@ -69,6 +69,10 @@ export function GET(): Response {
       'POST   /admin/orders/:id/deliver',
       'POST   /admin/orders/:id/cancel',
       'POST   /admin/orders/:id/refund',
+      'GET    /admin/reviews?view=&page=',
+      'POST   /admin/reviews/:id/keep',
+      'POST   /admin/reviews/:id/hide',
+      'DELETE /admin/reviews/:id',
       'POST   /webhooks/stripe',
     ],
   });

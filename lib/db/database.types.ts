@@ -397,13 +397,13 @@ isOneToOne: false
                   ]
                 },"reviews": {
                   Row: {
-                    "author_name": string,"body": string,"created_at": string,"helpful_count": number,"id": string,"product_id": string,"rating": number,"seeded": boolean,"title": string,"updated_at": string,"user_id": string | null,"verified": boolean
+                    "author_name": string,"body": string,"created_at": string,"helpful_count": number,"hidden_at": string | null,"hidden_reason": string | null,"id": string,"moderated_at": string | null,"product_id": string,"rating": number,"seeded": boolean,"title": string,"updated_at": string,"user_id": string | null,"verified": boolean
                   }
                   Insert: {
-                    "author_name": string,"body": string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"product_id": string,"rating": number,"seeded"?: boolean,"title": string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name": string,"body": string,"created_at"?: string,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"product_id": string,"rating": number,"seeded"?: boolean,"title": string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Update: {
-                    "author_name"?: string,"body"?: string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"product_id"?: string,"rating"?: number,"seeded"?: boolean,"title"?: string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name"?: string,"body"?: string,"created_at"?: string,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"product_id"?: string,"rating"?: number,"seeded"?: boolean,"title"?: string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Relationships: [
                     {
@@ -476,6 +476,12 @@ isOneToOne: false
                            },
 "admin_list_orders":
 { Args: { "p_filter"?: string,"p_market": string,"p_page"?: number,"p_page_size"?: number,"p_q"?: string }; Returns: Json
+                           },
+"admin_moderate_review":
+{ Args: { "p_action": string,"p_review_id": string }; Returns: Json
+                           },
+"admin_review_queue":
+{ Args: { "p_market": string,"p_page"?: number,"p_page_size"?: number,"p_view"?: string }; Returns: Json
                            },
 "admin_ship_order":
 { Args: { "p_order_id": string }; Returns: Json

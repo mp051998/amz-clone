@@ -279,6 +279,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
                 {(r.verified || r.mine || themes.length) ? (
                   <div className="flex flex-wrap gap-1.5">
                     {r.mine ? <span className="rounded-[5px] bg-ink px-[7px] py-[3px] text-[12px] font-semibold text-on-ink">Your review</span> : null}
+                    {r.hidden ? <span className="rounded-[5px] border border-line px-[7px] py-[3px] text-[12px] font-semibold text-bad">Hidden from shoppers</span> : null}
                     {r.verified ? <span className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">Verified purchase</span> : null}
                     {reviewThemes(r, themes).map((t) => (
                       <span key={t} className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">{t}</span>
@@ -287,6 +288,9 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
                 ) : null}
                 <strong className="text-[17px] font-semibold leading-[1.3]">{r.title}</strong>
                 <p className="m-0 whitespace-pre-line text-[15px] leading-[1.55] text-ink-2 text-pretty">{r.body}</p>
+                {r.hidden ? (
+                  <p className="m-0 text-[12px] text-ink-3">Only you can see this review. It was hidden after reports from other shoppers, or by our team, and doesn’t count toward the rating.</p>
+                ) : null}
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line-2 pt-2">
                   <div className="flex items-center gap-2">
                     {r.mine ? (
