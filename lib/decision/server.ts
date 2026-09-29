@@ -162,14 +162,17 @@ export async function alternativesFor(product: Product, n = 3, weights?: Weights
 /** Where accessories for a category come from. */
 const ACCESSORY_CATEGORIES: Record<string, string[]> = {
   electronics: ['electronics', 'mobiles'],
+  wearables: ['wearables', 'electronics'],
   computers: ['electronics', 'computers'],
-  mobiles: ['electronics', 'mobiles'],
-  'home-kitchen': ['home-kitchen'],
+  mobiles: ['electronics', 'mobiles', 'wearables'],
+  'home-kitchen': ['home-kitchen', 'kitchen-appliances'],
+  'kitchen-appliances': ['kitchen-appliances', 'home-kitchen'],
   fashion: ['fashion', 'sports'],
   beauty: ['beauty'],
   books: ['books'],
   toys: ['toys', 'books'],
-  sports: ['sports', 'fashion'],
+  sports: ['sports', 'yoga', 'fashion'],
+  yoga: ['yoga', 'sports'],
 };
 
 /** Round a price up to a friendly ceiling: 1/2/2.5/5 × 10^k major units (minor in, minor out). */

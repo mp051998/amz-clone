@@ -321,13 +321,13 @@ isOneToOne: true
                   ]
                 },"products": {
                   Row: {
-                    "badge": string | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[],"category_slug": string,"created_at": string,"deal": boolean,"deal_pct": number | null,"id": string,"image": string,"list_minor": number | null,"market_id": string,"position": number,"price_minor": number,"search_doc": unknown,"seller": string,"ships_from": string,"stock": number,"title": string,"updated_at": string
+                    "archived_at": string | null,"badge": string | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[],"category_slug": string,"created_at": string,"deal": boolean,"deal_pct": number | null,"id": string,"image": string,"list_minor": number | null,"market_id": string,"position": number,"price_minor": number,"search_doc": unknown,"seller": string,"ships_from": string,"stock": number,"title": string,"updated_at": string
                   }
                   Insert: {
-                    "badge"?: string | null,"bought_past_month"?: string | null,"brand"?: string | null,"bullets"?: (string)[],"category_slug": string,"created_at"?: string,"deal"?: boolean,"deal_pct"?: number | null,"id": string,"image": string,"list_minor"?: number | null,"market_id": string,"position": number,"price_minor": number,"search_doc"?: unknown,"seller": string,"ships_from": string,"stock"?: number,"title": string,"updated_at"?: string
+                    "archived_at"?: string | null,"badge"?: string | null,"bought_past_month"?: string | null,"brand"?: string | null,"bullets"?: (string)[],"category_slug": string,"created_at"?: string,"deal"?: boolean,"deal_pct"?: number | null,"id": string,"image": string,"list_minor"?: number | null,"market_id": string,"position": number,"price_minor": number,"search_doc"?: unknown,"seller": string,"ships_from": string,"stock"?: number,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "badge"?: string | null,"bought_past_month"?: string | null,"brand"?: string | null,"bullets"?: (string)[],"category_slug"?: string,"created_at"?: string,"deal"?: boolean,"deal_pct"?: number | null,"id"?: string,"image"?: string,"list_minor"?: number | null,"market_id"?: string,"position"?: number,"price_minor"?: number,"search_doc"?: unknown,"seller"?: string,"ships_from"?: string,"stock"?: number,"title"?: string,"updated_at"?: string
+                    "archived_at"?: string | null,"badge"?: string | null,"bought_past_month"?: string | null,"brand"?: string | null,"bullets"?: (string)[],"category_slug"?: string,"created_at"?: string,"deal"?: boolean,"deal_pct"?: number | null,"id"?: string,"image"?: string,"list_minor"?: number | null,"market_id"?: string,"position"?: number,"price_minor"?: number,"search_doc"?: unknown,"seller"?: string,"ships_from"?: string,"stock"?: number,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -442,6 +442,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },
+            "catalog_products_all": {
+                  Row: {
+                    "archived_at": string | null,"badge": string | null,"badge_rank": number | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[] | null,"category_name": string | null,"category_slug": string | null,"currency": string | null,"deal": boolean | null,"deal_pct": number | null,"id": string | null,"image": string | null,"list_minor": number | null,"market_id": string | null,"position": number | null,"price_minor": number | null,"rating": number | null,"review_count": number | null,"seller": string | null,"ships_from": string | null,"stock": number | null,"title": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "products_category_slug_fkey"
+      columns: ["category_slug"]
+isOneToOne: false
+      referencedRelation: "categories"
+      referencedColumns: ["slug"]
+    },{
+      foreignKeyName: "products_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -463,11 +483,19 @@ isOneToOne: false
 "cart_set_qty":
 { Args: { "p_guest_token"?: string,"p_market": string,"p_mode"?: string,"p_product_id": string,"p_qty": number }; Returns: Json
                            },
+"category_counts":
+{ Args: never; Returns: {
+              "archived": number,"category_slug": string,"market_id": string,"products": number
+            }[]
+                           },
 "confirm_order_payment":
 { Args: { "p_amount_minor": number,"p_currency": string,"p_order_id": string,"p_payment_label": string,"p_session_id": string }; Returns: Json
                            },
 "is_admin":
 { Args: never; Returns: boolean
+                           },
+"move_category":
+{ Args: { "p_market": string,"p_offset": number,"p_slug": string }; Returns: undefined
                            },
 "order_totals":
 { Args: { "p_market": string,"p_subtotal": number }; Returns: {
@@ -476,6 +504,9 @@ isOneToOne: false
                            },
 "place_order":
 { Args: { "p_market": string,"p_payment_method": string,"p_shipping": Json }; Returns: Json
+                           },
+"product_has_orders":
+{ Args: { "p_product_id": string }; Returns: boolean
                            },
 "purge_stale_guest_carts":
 { Args: { "p_older_than"?: string }; Returns: number

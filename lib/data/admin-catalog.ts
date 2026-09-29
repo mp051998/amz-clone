@@ -1,13 +1,18 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type { Db } from '../db/client';
+import { decisionConfig } from '../decision/attributes';
+import { deriveInsight, pricePercentiles } from '../decision/derive';
 import type { Market } from '../types';
+import { getProduct } from './catalog';
 import { DataError, fromPostgrest, unwrap } from './errors';
+import { upsertInsight } from './insights';
 
 /**
  * Catalog management for store admins (/admin, /api/v1/admin). Every write runs with the caller's
  * client, so the database decides: products and product-images only accept writes from users in
  * public.admins (supabase/migrations/20260929090000_admin.sql). Non-admins get `forbidden`.
+ * Products are archived rather than deleted once ordered (20260930090000_catalog_admin.sql).
  */
 
 export const PRODUCT_IMAGE_BUCKET = 'product-images';
@@ -159,6 +164,8 @@ export interface AdminProductSummary {
   deal: boolean;
   stock: number;
   updatedAt: string;
+  /** when it was taken off sale; null while on sale. */
+  archivedAt: string | null;
 }
 
 export interface AdminProductPage {
@@ -170,17 +177,25 @@ export interface AdminProductPage {
 
 export const ADMIN_PAGE_SIZE = 25;
 
-const SUMMARY = 'id, title, brand, image, category_slug, price_minor, list_minor, deal, stock, updated_at, categories(name)';
+const SUMMARY = 'id, title, brand, image, category_slug, price_minor, list_minor, deal, stock, updated_at, archived_at, categories(name)';
 
-/** A store's products, most recently changed first; `q` matches the title or id. */
+/** On sale, or taken off sale (archived). */
+export type ProductStatus = 'active' | 'archived';
+
+export function productStatus(v: string | null | undefined): ProductStatus {
+  return v === 'archived' ? 'archived' : 'active';
+}
+
+/** A store's products in one status, most recently changed first; `q` matches the title or id. */
 export async function listAdminProducts(
   db: Db,
   market: Market,
-  opts: { q?: string; category?: string; page?: number; pageSize?: number } = {},
+  opts: { q?: string; category?: string; status?: ProductStatus; page?: number; pageSize?: number } = {},
 ): Promise<AdminProductPage> {
   const size = opts.pageSize ?? ADMIN_PAGE_SIZE;
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   let q = db.from('products').select(SUMMARY, { count: 'exact' }).eq('market_id', market);
+  q = opts.status === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null);
   if (opts.category) q = q.eq('category_slug', opts.category);
   const term = opts.q?.trim().slice(0, 100);
   if (term) {
@@ -206,6 +221,7 @@ export async function listAdminProducts(
       deal: r.deal,
       stock: r.stock,
       updatedAt: r.updated_at,
+      archivedAt: r.archived_at,
     })),
     total,
     page,
@@ -213,11 +229,25 @@ export async function listAdminProducts(
   };
 }
 
+/** Products per status in a store (for the Active / Archived tabs). */
+export async function countAdminProducts(db: Db, market: Market): Promise<Record<ProductStatus, number>> {
+  const count = async (status: ProductStatus) => {
+    let q = db.from('products').select('id', { count: 'exact', head: true }).eq('market_id', market);
+    q = status === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null);
+    const { count: n, error } = await q;
+    if (error) throw fromPostgrest(error);
+    return n ?? 0;
+  };
+  const [active, archived] = await Promise.all([count('active'), count('archived')]);
+  return { active, archived };
+}
+
 export interface AdminProduct extends ProductInput {
   id: string;
   market: Market;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
 }
 
 export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct | null> {
@@ -241,7 +271,15 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     stock: r.stock,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    archivedAt: r.archived_at,
   };
+}
+
+/** Whether any order includes the product (then it can be archived, not deleted). Admins only. */
+export async function productHasOrders(db: Db, id: string): Promise<boolean> {
+  const { data, error } = await db.rpc('product_has_orders', { p_product_id: id });
+  if (error) throw fromPostgrest(error);
+  return data === true;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,14 +299,41 @@ export async function createProduct(db: Db, market: Market, input: unknown): Pro
     .select('id')
     .single();
   if (res.error) throw fromPostgrest(res.error);
+  await refreshInsight(db, res.data.id, true);
   return res.data.id;
 }
 
-/** Replace a product's editable fields (its id and store never change). */
+/**
+ * Replace a product's editable fields (its id and store never change). A new category or new
+ * wording re-derives its rules insight (see `refreshInsight`).
+ */
 export async function updateProduct(db: Db, id: string, input: unknown): Promise<void> {
   const p = parse(input);
-  const row = unwrap(await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle());
+  const before = unwrap(await db.from('products').select('category_slug, title, brand, bullets').eq('id', id).maybeSingle());
+  const row = before && unwrap(await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle());
   // RLS hides the row from non-admins, so "no row" is either missing or not allowed
+  if (!row) throw new DataError('product_not_found');
+  const moved = before.category_slug !== p.category;
+  const reworded = before.title !== p.title || before.brand !== p.brand || before.bullets.join('\n') !== p.bullets.join('\n');
+  if (moved || reworded) await refreshInsight(db, id, moved);
+}
+
+/**
+ * Take a product off sale (`archived`) or put it back. Archived products leave every listing and
+ * can't be added to carts or saved lists; their page, reviews and order history stay.
+ */
+export async function setArchived(db: Db, id: string, archived: boolean): Promise<void> {
+  const current = await getAdminProduct(db, id);
+  if (!current) throw new DataError('product_not_found');
+  if ((current.archivedAt != null) === archived) return; // keep the original archive date
+  const row = unwrap(
+    await db
+      .from('products')
+      .update({ archived_at: archived ? new Date().toISOString() : null })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle(),
+  );
   if (!row) throw new DataError('product_not_found');
 }
 
@@ -278,6 +343,42 @@ export async function deleteProduct(db: Db, id: string): Promise<void> {
   if (res.error?.code === '23503') throw new DataError('product_has_orders');
   if (res.error) throw fromPostgrest(res.error);
   if (!res.data.length) throw new DataError('product_not_found');
+}
+
+/**
+ * Re-derive a product's rules insight after an admin save, so its scores use its category's
+ * attributes and its current wording. `replaceAi` (a new product, or one moved to another
+ * category) also replaces an AI insight, whose attributes would belong to the old category;
+ * otherwise only a rules insight (or none) is rewritten. Best effort: the product is already
+ * saved, and pages score a product without an insight live from the same rules.
+ */
+export async function refreshInsight(db: Db, id: string, replaceAi: boolean): Promise<boolean> {
+  try {
+    const product = await getProduct(db, id, { includeArchived: true });
+    if (!product) return false;
+    if (!replaceAi) {
+      const current = unwrap(await db.from('product_insights').select('source').eq('product_id', id).maybeSingle());
+      if (current && current.source !== 'rules') return false;
+    }
+    // price rank among the store's other products in the category
+    const peers = unwrap(
+      await db
+        .from('products')
+        .select('id, price_minor')
+        .eq('market_id', product.market)
+        .eq('category_slug', product.category)
+        .is('archived_at', null),
+    );
+    const pct = pricePercentiles([
+      ...peers.filter((r) => r.id !== id).map((r) => ({ id: r.id, category: product.category, priceMinor: r.price_minor })),
+      { id, category: product.category, priceMinor: product.priceMinor },
+    ]);
+    await upsertInsight(db, deriveInsight(product, decisionConfig(product.category), { pricePercentile: pct.get(id) ?? 0.5 }));
+    return true;
+  } catch (err) {
+    console.warn(`[admin] insight refresh skipped for ${id}:`, (err as Error).message);
+    return false;
+  }
 }
 
 /** Store an uploaded image in the public product-images bucket; returns its public URL. */

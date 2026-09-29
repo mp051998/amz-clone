@@ -1,8 +1,11 @@
 import { adminOnly } from '@/lib/api/admin';
 import { body, intParam, json, preflight, route } from '@/lib/api/http';
-import { ADMIN_PAGE_SIZE, createProduct, getAdminProduct, listAdminProducts } from '@/lib/data/admin-catalog';
+import { ADMIN_PAGE_SIZE, createProduct, getAdminProduct, listAdminProducts, productStatus } from '@/lib/data/admin-catalog';
 
-/** GET /api/v1/admin/products?q=&category=&page= — this store's products, most recently changed first. */
+/**
+ * GET /api/v1/admin/products?status=&q=&category=&page= — this store's products on sale
+ * (`status=archived`: taken off sale), most recently changed first.
+ */
 export const GET = route(async (ctx) => {
   await adminOnly(ctx);
   const p = ctx.req.nextUrl.searchParams;
@@ -10,6 +13,7 @@ export const GET = route(async (ctx) => {
     await listAdminProducts(ctx.db, ctx.market, {
       q: p.get('q') ?? undefined,
       category: p.get('category') ?? undefined,
+      status: productStatus(p.get('status')),
       page: intParam(p.get('page'), 1, 1, 10_000),
       pageSize: intParam(p.get('pageSize'), ADMIN_PAGE_SIZE, 1, 100),
     }),

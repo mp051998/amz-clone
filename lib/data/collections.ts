@@ -45,7 +45,7 @@ function parseNote(v: unknown): string {
 
 async function hydrate(db: Db, rows: RowWithItems[]): Promise<Collection[]> {
   const ids = [...new Set(rows.flatMap((r) => (r.collection_items ?? []).map((i) => i.product_id)))];
-  const products = new Map((await getProducts(db, ids)).map((p) => [p.id, p]));
+  const products = new Map((await getProducts(db, ids, { includeArchived: true })).map((p) => [p.id, p]));
   return rows
     .slice()
     .sort(

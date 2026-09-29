@@ -14,6 +14,7 @@ import { Gallery } from '@/components/product/Gallery';
 import { RecordView } from '@/components/product/RecordView';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
+import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { readUser } from '@/lib/auth';
 import { getProvider } from '@/lib/ai';
 import { summarizeReviews } from '@/lib/ai/features/reviews';
@@ -37,8 +38,12 @@ type SP = Record<string, string | string[] | undefined>;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const p = await getProduct(await db(), id);
-  return { title: p ? `${p.title} · Store` : 'Product · Store' };
+  const p = await getProduct(await db(), id, { includeArchived: true });
+  return {
+    title: p ? `${p.title} · Store` : 'Product · Store',
+    // archived products keep their page (links, order history, reviews) but leave search engines
+    ...(p?.archived ? { robots: { index: false } } : {}),
+  };
 }
 
 /** Decision params that travel with product links (search → PDP → alternatives). */
@@ -89,7 +94,7 @@ function thingsToKnow(p: Product, insight: ProductInsight | null, warn: string |
 export default async function ProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const client = await db();
-  const p = await getProduct(client, id);
+  const p = await getProduct(client, id, { includeArchived: true });
   if (!p) notFound();
 
   const store = await getMarketplace();
@@ -110,7 +115,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   ]);
 
   const ranked = rankOne(p, insight, weights);
-  const aiPending = insight?.source !== 'ai' && reviews.page.total > 0 && getProvider() != null;
+  const aiPending = !p.archived && insight?.source !== 'ai' && reviews.page.total > 0 && getProvider() != null;
   if (aiPending) kickAiSummary(p.id);
 
   const cur = store.currency.code;
@@ -164,7 +169,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
         { k: 'Sold by', v: p.seller },
         { k: 'Ships from', v: p.shipsFrom },
-        { k: 'Availability', v: p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
+        { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
       ],
     },
     { name: 'Details', rows: p.bullets.map((b) => ({ v: b })) },
@@ -181,7 +186,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   return (
     <AppShell>
-      <RecordView productId={p.id} />
+      {p.archived ? null : <RecordView productId={p.id} />}
       <div className="mx-auto flex w-full max-w-page flex-col gap-11 px-[clamp(16px,3vw,24px)] pb-10 pt-[22px]">
         <div className="flex flex-col gap-[18px]">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -205,18 +210,22 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   <strong className="font-semibold tabular-nums">{rating.toFixed(1)}</strong>
                   <span className="text-ink-2 underline underline-offset-2">({num(ratingCount)} ratings)</span>
                 </a>
-                <div className="flex flex-wrap items-center gap-2">
-                  <MatchBadge match={ranked.match} />
-                  <span className="text-[13px] text-ink-3">{tuned ? 'for your priorities' : `for typical ${cfg.noun} priorities`}</span>
-                </div>
+                {p.archived ? null : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MatchBadge match={ranked.match} />
+                    <span className="text-[13px] text-ink-3">{tuned ? 'for your priorities' : `for typical ${cfg.noun} priorities`}</span>
+                  </div>
+                )}
                 {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
               </div>
 
-              <div className="flex flex-col gap-1 border-t border-line pt-4">
-                <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
-                {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
-                {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
-              </div>
+              {p.archived ? null : (
+                <div className="flex flex-col gap-1 border-t border-line pt-4">
+                  <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
+                  {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+                  {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
+                </div>
+              )}
 
               {prosFor(p, insight, ranked.why).length ? (
                 <div className="flex flex-col gap-2">
@@ -236,19 +245,23 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             </div>
 
             <aside aria-label="Buy" className="min-w-0 flex-[1_1_280px] max-sm:basis-full">
-              <BuyPanel
-                productId={p.id}
-                name={p.title}
-                image={p.image}
-                category={p.category}
-                categoryName={p.categoryName}
-                market={store.id}
-                stock={p.stock}
-                saved={saved.has(p.id)}
-                delivery={delivery}
-                confidence={{ level, rows: confidence }}
-                error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
-              />
+              {p.archived ? (
+                <UnavailablePanel categoryName={p.categoryName} categoryHref={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} />
+              ) : (
+                <BuyPanel
+                  productId={p.id}
+                  name={p.title}
+                  image={p.image}
+                  category={p.category}
+                  categoryName={p.categoryName}
+                  market={store.id}
+                  stock={p.stock}
+                  saved={saved.has(p.id)}
+                  delivery={delivery}
+                  confidence={{ level, rows: confidence }}
+                  error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
+                />
+              )}
             </aside>
           </div>
         </div>
@@ -267,7 +280,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
         {altCards.length ? (
           <section aria-labelledby="alts-h" className="flex flex-col gap-3.5">
-            <h2 id="alts-h" className="m-0 text-[22px] font-semibold">Often compared with</h2>
+            <h2 id="alts-h" className="m-0 text-[22px] font-semibold">{p.archived ? 'Similar items on sale' : 'Often compared with'}</h2>
             <Alternatives base={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} items={altCards} />
           </section>
         ) : null}

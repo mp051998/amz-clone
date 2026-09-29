@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import {
   createProduct,
   deleteProduct,
-  isAdmin,
+  setArchived,
   toMinor,
   updateProduct,
   uploadProductImage,
@@ -14,7 +14,7 @@ import {
 import { DataError } from '@/lib/data/errors';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { db } from '@/lib/supabase/server';
+import { adminClient } from './guard';
 
 /** What the product form needs back: field errors, a form-level message, and the values to keep. */
 export interface ProductFormState {
@@ -23,15 +23,6 @@ export interface ProductFormState {
 }
 
 const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'stock'] as const;
-
-/** Signed in + admin, checked on every call (a form on an admin page is not a security boundary). */
-async function adminClient() {
-  const client = await db();
-  const { data } = await client.auth.getUser();
-  if (!data.user) return { client, error: 'Your session ended. Sign in again to continue.' };
-  if (!(await isAdmin(client))) return { client, error: 'Only store admins can change the catalogue.' };
-  return { client, error: null };
-}
 
 /**
  * Create (`id` null) or update a product from the admin form. Prices arrive in major units
@@ -109,4 +100,26 @@ export async function removeProduct(id: string): Promise<void> {
   }
   revalidatePath('/', 'layout');
   redirect(storePath(store, '/admin/products?done=deleted'));
+}
+
+/**
+ * Take a product off sale, or put it back. `from` is where the button was: the edit page, or the
+ * list's Active / Archived tab (the redirect goes back there).
+ */
+export async function archiveProduct(id: string, archived: boolean, from: 'edit' | 'active' | 'archived'): Promise<void> {
+  const store = await getMarketplace();
+  const { client, error } = await adminClient();
+  const edit = storePath(store, `/admin/products/${encodeURIComponent(id)}`);
+  if (error) redirect(`${edit}?error=forbidden`);
+  try {
+    await setArchived(client, id, archived);
+  } catch (err) {
+    if (err instanceof DataError) redirect(`${edit}?error=${err.code}`);
+    throw err;
+  }
+  revalidatePath('/', 'layout');
+  const done = archived ? 'archived' : 'restored';
+  if (from === 'edit') redirect(`${edit}?done=${done}`);
+  const tab = from === 'archived' ? 'status=archived&' : '';
+  redirect(storePath(store, `/admin/products?${tab}done=${done}&id=${encodeURIComponent(id)}`));
 }

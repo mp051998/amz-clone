@@ -48,7 +48,7 @@ async function saving(lines: CartLine[]): Promise<{ line: CartLine; alt: Alterna
 
 async function setup(lines: CartLine[]): Promise<Accessory[]> {
   try {
-    return await accessoriesFor(lines.map((l) => l.product), 4);
+    return await accessoriesFor(lines.filter((l) => l.available).map((l) => l.product), 4);
   } catch {
     return [];
   }
@@ -113,7 +113,7 @@ export default async function CartPage() {
                   const drop = dropFor(l);
                   return (
                     <li key={p.id} className="flex flex-wrap gap-3.5 border-t border-line-2 p-4 first:border-t-0">
-                      <a href={href} className="w-[88px] flex-none" tabIndex={-1} aria-hidden>
+                      <a href={href} className={`w-[88px] flex-none${l.available ? '' : ' opacity-50'}`} tabIndex={-1} aria-hidden>
                         <ProductFrame src={p.image} alt="" aspect="1/1" />
                       </a>
                       <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-1.5">
@@ -121,7 +121,9 @@ export default async function CartPage() {
                           <a href={href} className="line-clamp-2 text-[17px] font-semibold leading-[1.25] text-ink no-underline">{p.title}</a>
                           <strong className="flex-none text-[18px] tabular-nums">{money(l.lineTotalMinor)}</strong>
                         </div>
-                        {p.stock === 0 ? (
+                        {!l.available ? (
+                          <span className="text-[14px] font-semibold text-warn">⚠ No longer available — remove it to check out.</span>
+                        ) : p.stock === 0 ? (
                           <span className="text-[14px] font-semibold text-warn">⚠ Out of stock — remove it to check out.</span>
                         ) : !l.inStock ? (
                           <span className="text-[14px] font-semibold text-warn">⚠ Only {p.stock} left — lower the quantity to check out.</span>
@@ -137,8 +139,12 @@ export default async function CartPage() {
                           </span>
                         ) : null}
                         <div className="mt-1 flex flex-wrap items-center gap-2.5">
-                          <CartQty id={p.id} qty={l.qty} max={Math.min(30, Math.max(p.stock, l.qty))} name={p.title} />
-                          <SaveForLater productId={p.id} name={p.title} market={store.id} signedIn={!!user} />
+                          {l.available ? (
+                            <>
+                              <CartQty id={p.id} qty={l.qty} max={Math.min(30, Math.max(p.stock, l.qty))} name={p.title} />
+                              <SaveForLater productId={p.id} name={p.title} market={store.id} signedIn={!!user} />
+                            </>
+                          ) : null}
                           <form action={removeItem}>
                             <input type="hidden" name="id" value={p.id} />
                             <button type="submit" className="min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink" aria-label={`Remove ${p.title}`}>
@@ -232,7 +238,11 @@ export default async function CartPage() {
               <span className="text-[13px] text-ink-2">Add {money(toFree)} more for FREE delivery.</span>
             ) : null}
             {blocked ? (
-              <Alert tone="warning">Some items no longer have enough stock. Update them to check out.</Alert>
+              <Alert tone="warning">
+                {lines.some((l) => !l.available)
+                  ? 'Some items are no longer available. Remove them to check out.'
+                  : 'Some items no longer have enough stock. Update them to check out.'}
+              </Alert>
             ) : user ? (
               <a href={sp('/checkout')} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</a>
             ) : (

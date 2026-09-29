@@ -16,15 +16,33 @@ export async function listCategories(db: Db, market: Market): Promise<Category[]
   return rows.flatMap((r) => (r.categories ? [{ slug: r.categories.slug, name: r.categories.name }] : []));
 }
 
-export async function getProduct(db: Db, id: string): Promise<Product | null> {
-  const row = unwrap(await db.from('catalog_products').select('*').eq('id', id).maybeSingle());
+/** Pages, carts and saved lists still show an archived product; listings never do. */
+export interface ProductReadOptions {
+  includeArchived?: boolean;
+}
+
+/**
+ * Rows by id from catalog_products_all (archived included) or catalog_products (active only).
+ * Falls back to catalog_products if the _all view isn't there yet: Vercel can deploy this code a
+ * minute before the migration that adds it, and until then nothing is archived anyway.
+ */
+async function productRows(db: Db, ids: readonly string[], opts: ProductReadOptions) {
+  if (opts.includeArchived) {
+    const res = await db.from('catalog_products_all').select('*').in('id', [...ids]);
+    if (!res.error) return res.data;
+  }
+  return unwrap(await db.from('catalog_products').select('*').in('id', [...ids]));
+}
+
+export async function getProduct(db: Db, id: string, opts: ProductReadOptions = {}): Promise<Product | null> {
+  const [row] = await productRows(db, [id], opts);
   return row ? toProduct(row) : null;
 }
 
 /** Products by id, in the order the ids were given (unknown ids are skipped). */
-export async function getProducts(db: Db, ids: readonly string[]): Promise<Product[]> {
+export async function getProducts(db: Db, ids: readonly string[], opts: ProductReadOptions = {}): Promise<Product[]> {
   if (!ids.length) return [];
-  const rows = unwrap(await db.from('catalog_products').select('*').in('id', [...ids]));
+  const rows = await productRows(db, ids, opts);
   const byId = new Map(rows.map((r) => [r.id, toProduct(r)]));
   return ids.flatMap((id) => {
     const p = byId.get(id);

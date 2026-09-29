@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState } from '@/components/decision/Badges';
+import { Pill } from '@/components/decision/Pill';
 import { PageHead, pageX } from '@/components/brand/Page';
 import type { PublicMarketplace } from '@/lib/contracts';
 import { storePath } from '@/lib/marketplace';
@@ -8,7 +9,12 @@ import { cn } from '@/components/lib/cn';
 
 const STORE_LABEL = { US: 'United States store', IN: 'India store' } as const;
 
-/** Admin page chrome: storefront shell, "Admin · <store>" kicker, title, and a store switch. */
+const SECTIONS = [
+  { path: '/admin/products', label: 'Products' },
+  { path: '/admin/categories', label: 'Categories' },
+] as const;
+
+/** Admin page chrome: storefront shell, section tabs, "Admin · <store>" kicker, title, and a store switch. */
 export function AdminFrame({ store, title, actions, lede, children, path }: {
   store: PublicMarketplace;
   title: string;
@@ -21,7 +27,25 @@ export function AdminFrame({ store, title, actions, lede, children, path }: {
   const other = store.id === 'IN' ? 'US' : 'IN';
   return (
     <AppShell>
-      <div className={cn(pageX, 'flex flex-col gap-6 pb-16 pt-7')}>
+      <div className={cn(pageX, 'flex flex-col gap-6 pb-16 pt-5')}>
+        <nav aria-label="Admin" className="flex gap-5 border-b border-line text-[15px]">
+          {SECTIONS.map((sec) => {
+            const current = path.startsWith(sec.path);
+            return (
+              <a
+                key={sec.path}
+                href={storePath(store, sec.path)}
+                aria-current={current ? 'page' : undefined}
+                className={cn(
+                  '-mb-px flex min-h-11 items-center border-b-2 no-underline',
+                  current ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink',
+                )}
+              >
+                {sec.label}
+              </a>
+            );
+          })}
+        </nav>
         <PageHead
           kicker={
             <>
@@ -37,6 +61,15 @@ export function AdminFrame({ store, title, actions, lede, children, path }: {
         {children}
       </div>
     </AppShell>
+  );
+}
+
+/** Pill tabs that filter the page (e.g. On sale / Archived). */
+export function AdminTabs({ label, tabs }: { label: string; tabs: { href: string; label: string; current: boolean }[] }) {
+  return (
+    <nav aria-label={label} className="flex flex-wrap gap-2">
+      {tabs.map((t) => <Pill key={t.href} href={t.href} selected={t.current}>{t.label}</Pill>)}
+    </nav>
   );
 }
 

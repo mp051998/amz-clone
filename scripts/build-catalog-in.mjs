@@ -127,18 +127,18 @@ const RAW = [
   ['617O+RkwdPL', 'Apple iPhone 17 (256 GB), A19 Chip, 6.3" Super Retina XDR Display, 48MP Dual Fusion Camera System', 'mobiles', 4.6, 2274, 99900],
   ['71En5htph8L', 'Samsung Galaxy M17 5G (Moonlight Silver, 8GB RAM, 128GB Storage), 50MP OIS Camera, 5000mAh Battery', 'mobiles', 4.2, 3612, 26499],
   ['61D9CLCf5KL', 'Lava Bold N4 Lite (Ghost Silver, 3GB RAM, 32GB Storage), 5000mAh Battery, Made in India', 'mobiles', 3.9, 918, 8399],
-  // ── Electronics · Smartwatches (Indian wearable brands) ──────────────────
-  ['819ZWX2Nm9L', 'Noise Diva Araya Smartwatch for Women, 1.32" AMOLED Display, BT Calling, 100+ Sports Modes, Metal Build', 'electronics', 4.3, 1204, 5499],
-  ['61Cx3vx0mLL', 'Fire-Boltt Phoenix Pro 1.39" Bluetooth Calling Smartwatch, 120+ Sports Modes, SpO2 & Heart Rate Monitor', 'electronics', 3.9, 41230, 1299],
-  ['61aIxLJVJCL', 'Noise Pulse 4 Max 1.96" AMOLED Display Smartwatch, AI Voice Assistant, BT Calling, Metallic Finish', 'electronics', 4.0, 8760, 2799],
-  ['61ATaTpvEQL', 'Noise Twist Round 1.38" TFT Display Smartwatch, BT Calling, 100 Sports Modes, 7-Day Battery Life', 'electronics', 4.0, 15420, 1599],
-  ['71JLQrCFF+L', 'boAt Wave Sigma 3 Smartwatch, 2.01" HD Display, BT Calling, 700+ Watch Faces, IP68 Water Resistant', 'electronics', 4.1, 9330, 1499],
-  // ── Home & Kitchen · Mixer grinders ──────────────────────────────────────
-  ['71S8pDT9EiL', 'Havells Prisma 750W Mixer Grinder, 4 Jars, 3 Speed with Pulse, Stainless Steel Blades, 5-Year Motor Warranty', 'home-kitchen', 4.1, 3820, 4290],
-  ['71Swqb9mXvL', 'Philips HR7732 Mixer Grinder 1000W, 4 Jars, Double Ball Bearing Motor, Unique Modes for Different Textures', 'home-kitchen', 4.2, 9120, 7699],
-  ['71nBpK+0uJL', 'Bosch TrueMixx Pro Mixer Grinder MGM8642BIN, 750W, 4 Jars, Stone Pounding Technology, Black', 'home-kitchen', 4.3, 4210, 6099],
-  ['61P8ZSaqBHL', 'Sujata MG01 Mixer Grinder 1000W, 3 Jars, Double Ball Bearing Motor, 24000 RPM, 90 Min Non-Stop Running', 'home-kitchen', 4.6, 22400, 6690],
-  ['61Cln50mffL', 'Bajaj Rex 500W Mixer Grinder, 3 Stainless Steel Jars, Multifunctional Blades, Nutri-Pro Feature', 'home-kitchen', 4.2, 18900, 2199],
+  // ── Wearables · Smartwatches (Indian wearable brands) ──────────────────────
+  ['819ZWX2Nm9L', 'Noise Diva Araya Smartwatch for Women, 1.32" AMOLED Display, BT Calling, 100+ Sports Modes, Metal Build', 'wearables', 4.3, 1204, 5499],
+  ['61Cx3vx0mLL', 'Fire-Boltt Phoenix Pro 1.39" Bluetooth Calling Smartwatch, 120+ Sports Modes, SpO2 & Heart Rate Monitor', 'wearables', 3.9, 41230, 1299],
+  ['61aIxLJVJCL', 'Noise Pulse 4 Max 1.96" AMOLED Display Smartwatch, AI Voice Assistant, BT Calling, Metallic Finish', 'wearables', 4.0, 8760, 2799],
+  ['61ATaTpvEQL', 'Noise Twist Round 1.38" TFT Display Smartwatch, BT Calling, 100 Sports Modes, 7-Day Battery Life', 'wearables', 4.0, 15420, 1599],
+  ['71JLQrCFF+L', 'boAt Wave Sigma 3 Smartwatch, 2.01" HD Display, BT Calling, 700+ Watch Faces, IP68 Water Resistant', 'wearables', 4.1, 9330, 1499],
+  // ── Kitchen Appliances · Mixer grinders ──────────────────────────────────
+  ['71S8pDT9EiL', 'Havells Prisma 750W Mixer Grinder, 4 Jars, 3 Speed with Pulse, Stainless Steel Blades, 5-Year Motor Warranty', 'kitchen-appliances', 4.1, 3820, 4290],
+  ['71Swqb9mXvL', 'Philips HR7732 Mixer Grinder 1000W, 4 Jars, Double Ball Bearing Motor, Unique Modes for Different Textures', 'kitchen-appliances', 4.2, 9120, 7699],
+  ['71nBpK+0uJL', 'Bosch TrueMixx Pro Mixer Grinder MGM8642BIN, 750W, 4 Jars, Stone Pounding Technology, Black', 'kitchen-appliances', 4.3, 4210, 6099],
+  ['61P8ZSaqBHL', 'Sujata MG01 Mixer Grinder 1000W, 3 Jars, Double Ball Bearing Motor, 24000 RPM, 90 Min Non-Stop Running', 'kitchen-appliances', 4.6, 22400, 6690],
+  ['61Cln50mffL', 'Bajaj Rex 500W Mixer Grinder, 3 Stainless Steel Jars, Multifunctional Blades, Nutri-Pro Feature', 'kitchen-appliances', 4.2, 18900, 2199],
   // ── Beauty & Personal Care · Face wash (Indian favourites) ───────────────
   ['518N3l4z1-L', 'Himalaya Purifying Neem Face Wash, 150ml, Soap-Free, Paraben & Phthalate Free, for Acne-Prone Skin', 'beauty', 4.3, 88400, 178],
   ['71gqGCYkFuL', 'Himalaya Hydrating Aloe Vera Face Wash, 200ml, Aloe Vera & Vitamin E, Creamy Gentle Cleanser', 'beauty', 4.1, 12600, 225],
@@ -156,11 +156,11 @@ const RAW = [
   ['71q6gvpgW8L', 'Greatest Works of Jane Austen (Set of 5 Books): Pride and Prejudice, Emma, Sense and Sensibility & more', 'books', 4.6, 3120, 749],
   ['41y8H3QmVqL', 'White Nights by Fyodor Dostoyevsky: A Timeless Story of Love, Longing & Solitude, Classic Russian Novella', 'books', 4.6, 8900, 107],
   ['71m8hR9ZUfL', 'Best of George Orwell Boxed Set (Animal Farm & 1984), Set of 2 Books', 'books', 4.7, 6740, 249],
-  // ── Sports & Outdoors · Yoga mats ────────────────────────────────────────
-  ['81q-gtF5lNL', 'Wiselife True Alignment Yoga Mat with Strap, 6mm Anti-Slip TPE, Eco-Friendly for Men & Women', 'sports', 4.2, 5240, 1182],
-  ['61mx7nZOGnL', 'Lifelong Dual Color 6mm Anti-Slip TPE Yoga Mat for Gym Workout & Fitness, for Men & Women', 'sports', 4.2, 8630, 579],
-  ['710zYiyB7XL', 'Permo Fitness Mat 12mm, Foldable High-Density TPE Multi-Purpose Yoga Mat with Carry Strap', 'sports', 4.1, 1120, 3999],
-  ['51izPGxd0SL', 'Lifelong 4mm EVA Anti-Slip Yoga Mat for Gym Workout & Home Exercise, for Men & Women, Black', 'sports', 4.4, 6410, 550],
+  // ── Yoga · Yoga mats ─────────────────────────────────────────────────────
+  ['81q-gtF5lNL', 'Wiselife True Alignment Yoga Mat with Strap, 6mm Anti-Slip TPE, Eco-Friendly for Men & Women', 'yoga', 4.2, 5240, 1182],
+  ['61mx7nZOGnL', 'Lifelong Dual Color 6mm Anti-Slip TPE Yoga Mat for Gym Workout & Fitness, for Men & Women', 'yoga', 4.2, 8630, 579],
+  ['710zYiyB7XL', 'Permo Fitness Mat 12mm, Foldable High-Density TPE Multi-Purpose Yoga Mat with Carry Strap', 'yoga', 4.1, 1120, 3999],
+  ['51izPGxd0SL', 'Lifelong 4mm EVA Anti-Slip Yoga Mat for Gym Workout & Home Exercise, for Men & Women, Black', 'yoga', 4.4, 6410, 550],
   // ── Toys & Games · Building blocks ───────────────────────────────────────
   ['81yuVZ1RhiL', 'Building Blocks Toy for Kids 5+, 200+ Piece STEM Construction Set, Creative Learning Play', 'toys', 4.1, 3420, 609],
   ['918VkKHJgvL', 'Magnetic Building Tiles for Kids, Set of 50 Big 75mm Tiles, Educational Stacking Blocks', 'toys', 4.3, 2180, 1799],
@@ -205,12 +205,11 @@ const BULLETS = {
   books: ['A gripping read you won’t be able to put down', 'Print length crafted for immersive weekend reading', 'A reader-favourite pick with rave reviews', 'Beautifully written and impossible to forget'],
   toys: ['Sparks imaginative, screen-free play', 'Made from kid-safe, durable materials', 'Builds learning, creativity and motor skills', 'A great return-gift or birthday present', 'Recommended for hours of independent fun'],
   sports: ['Adjustable weight adapts as your strength grows', 'Space-saving design for a home gym', 'Secure locking mechanism for safe lifting', 'Durable, non-slip grip handle', 'Ideal for home strength training'],
+  wearables: ['Bright display with hundreds of customisable watch faces', 'Bluetooth calling with built-in mic & speaker', 'Tracks heart rate, SpO2, sleep & 100+ sports modes', 'Multi-day battery life on a single charge', 'Water-resistant, built for workouts and daily wear'],
+  'kitchen-appliances': ['Grinds masalas, chutneys and batters in seconds', 'Stainless steel jars and blades for wet and dry grinding', 'Overload protection keeps the motor safe on long runs', 'Locking lids and anti-skid feet for steady, spill-free use', 'Backed by a manufacturer warranty'],
+  yoga: ['Anti-slip texture keeps you steady in every pose', 'Cushioned, joint-friendly support for floor workouts', 'Light and easy to roll up and carry', 'Sweat-resistant surface that wipes clean', 'Suits yoga, pilates, stretching and home workouts'],
 };
 
-// Smartwatches live under `electronics` but the headphone bullets don't fit —
-// swap in watch-specific bullets when the title reads like a smartwatch.
-const WATCH_BULLETS = ['Bright display with hundreds of customisable watch faces', 'Bluetooth calling with built-in mic & speaker', 'Tracks heart rate, SpO2, sleep & 100+ sports modes', 'Multi-day battery life on a single charge', 'Water-resistant, built for workouts and daily wear'];
-const isSmartwatch = (title) => /smart\s*watch|smartwatch/i.test(title);
 
 // India marketplace sellers (mirrors real amazon.in "Sold by").
 const AMZ_SELLERS = ['Appario Retail Private Ltd', 'Cocoblu Retail', 'Cloudtail India', 'RetailEZ Private Limited'];
@@ -258,7 +257,7 @@ async function main() {
       ? AMZ_SELLERS[Math.floor(rng() * AMZ_SELLERS.length)]
       : brand ? `${brand} Official Store` : 'RetailEZ Private Limited';
 
-    const bset = isSmartwatch(title) ? WATCH_BULLETS : BULLETS[category];
+    const bset = BULLETS[category];
     const bstart = Math.floor(rng() * Math.max(1, bset.length - 3));
     const bullets = bset.slice(bstart, bstart + 4);
 
@@ -283,7 +282,13 @@ async function main() {
   console.log(`images: ok=${ok} skip=${skip} fail=${fail}`);
   if (failed.length) console.log('FAILED:', failed.join(' '));
 
-  const categories = [{ slug: 'mobiles', name: 'Mobiles' }];
+  // India-only departments. `after` places one in the nav after a shared department; without it, it leads.
+  const categories = [
+    { slug: 'mobiles', name: 'Mobiles' },
+    { slug: 'wearables', name: 'Wearables', after: 'electronics' },
+    { slug: 'kitchen-appliances', name: 'Kitchen Appliances', after: 'home-kitchen' },
+    { slug: 'yoga', name: 'Yoga', after: 'sports' },
+  ];
   await writeFile(join(ROOT, 'supabase', 'seed', 'catalog-in.json'), JSON.stringify({ categories, products }, null, 1) + '\n');
   console.log(`wrote supabase/seed/catalog-in.json — ${products.length} products`);
   console.log('next: node scripts/build-seed.mjs && npx supabase db reset');

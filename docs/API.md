@@ -55,7 +55,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | --- | --- | --- |
 | GET | `/categories` | `{market, categories: [{slug, name}]}` in the store's nav order |
 | GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
-| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Returns `404 product_not_found` if the product doesn't exist in this store. |
+| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
 `Product` has these fields:
@@ -64,6 +64,7 @@ Postgres as that user, so RLS decides what each caller can see.
 - Ratings: `rating, reviewCount`
 - Fulfilment: `seller, shipsFrom, stock`
 - Content: `bullets[], badge?, boughtPastMonth?`
+- Status: `archived?`, true when an admin has taken it off sale. Archived products never appear in search and browse (`/products`), deals or compare. Their page and reviews stay, and carts and collections that already hold one keep it.
 
 ## Reviews
 
@@ -84,7 +85,7 @@ Postgres as that user, so RLS decides what each caller can see.
 
 Every cart response is `{cart}`, where `Cart` has these fields:
 - Store: `market, currency, freeShipThresholdMinor`
-- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock}]`
+- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock, available}]`. `available` is false for an archived product. Such a line can only be removed, and `inStock` is false for it too.
 - Totals: `{subtotalMinor, shipMinor, taxMinor, totalMinor}`
 
 Prices and totals are computed by the database on every read.
@@ -93,10 +94,10 @@ Prices and totals are computed by the database on every read.
 | --- | --- | --- | --- |
 | GET | `/cart` | | The signed-in user's cart, or the guest cart for `X-Cart-Token`. Returns an empty cart when neither is present. |
 | DELETE | `/cart` | | Empty it |
-| POST | `/cart/items` | `{productId, qty = 1}` | `201`. Adds to the line. `404 product_not_found` if the product isn't in this store. `409 out_of_stock`. Mints a guest token when needed. |
-| PATCH | `/cart/items/:productId` | `{qty}` | Sets the quantity. `0` removes the line. |
+| POST | `/cart/items` | `{productId, qty = 1}` | `201`. Adds to the line. `404 product_not_found` if the product isn't in this store. `409 out_of_stock`, or `409 product_unavailable` if it's archived. Mints a guest token when needed. |
+| PATCH | `/cart/items/:productId` | `{qty}` | Sets the quantity. `0` removes the line. Archived products only accept `0` (`409 product_unavailable`). |
 | DELETE | `/cart/items/:productId` | | Remove the line |
-| POST 🔒 | `/cart/merge` | `{cartToken}` or `X-Cart-Token` | Folds the guest cart (all stores) into the account and deletes it. Returns `{merged, cart}`. |
+| POST 🔒 | `/cart/merge` | `{cartToken}` or `X-Cart-Token` | Folds the guest cart (all stores) into the account and deletes it. Sold-out and archived products are dropped. Returns `{merged, cart}`. |
 
 ## Orders 🔒
 
@@ -110,7 +111,7 @@ Prices and totals are computed by the database on every read.
 There is no guest checkout. Orders belong to an account, so every route here needs a signed-in user (`401 not_authenticated`), and so does `place_order()` in the database. A guest's cart carries over: sign in, then `POST /cart/merge`.
 
 How `POST /orders` works:
-- In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). It then snapshots each line's title, price and seller and computes the totals.
+- In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price and seller and computes the totals.
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 
@@ -163,7 +164,7 @@ Phone numbers are normalised: digits only, with a leading `+1` / `+91` dropped.
 
 Saved products, per store. Two system lists are created on first use: `considering` ("Things I'm Considering", where the Save button puts things) and `later` ("Saved for later", from the cart). Shoppers can add up to 20 collections, each holding up to 200 items.
 
-`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, items: [{product, savedPriceMinor, addedAt}]`. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops.
+`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, items: [{product, savedPriceMinor, addedAt}]`. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops. Items keep archived products (`product.archived: true`).
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
@@ -172,7 +173,7 @@ Saved products, per store. Two system lists are created on first use: `consideri
 | GET | `/collections/:id` | | `{collection}`. `404 collection_not_found` if it isn't yours. |
 | PATCH | `/collections/:id` | `{name?, note?}` | `{collection}` |
 | DELETE | `/collections/:id` | | `204`. Deletes its items too. |
-| POST | `/collections/:id/items` | `{productId}` | `201 {item}`. Idempotent: re-adding keeps the original saved price. `404 product_not_found` if the product is from another store. `409 collection_item_limit` past 200. |
+| POST | `/collections/:id/items` | `{productId}` | `201 {item}`. Idempotent: re-adding keeps the original saved price. `404 product_not_found` if the product is from another store. `409 product_unavailable` if it's archived. `409 collection_item_limit` past 200. |
 | DELETE | `/collections/:id/items/:productId` | | `204`. A no-op when the product isn't in the collection. |
 
 ## AI layer
@@ -199,15 +200,17 @@ Configuration (`.env.local` / Vercel):
 
 ## Admin 🔒
 
-Catalog management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products` and the `product-images` bucket), so going around these routes doesn't help. Everything is per store (`?market=` / `X-Market`), and a product never moves between stores.
+Catalog management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products`, `categories`, `market_categories`, `product_insights` and the `product-images` bucket), so going around these routes doesn't help. Products are per store (`?market=` / `X-Market`), and a product never moves between stores.
+
+### Products
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/products?q=&category=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt}], total, page, pageCount}`. Most recently changed first. `q` matches the title, or an exact id. |
+| GET | `/admin/products?status=&q=&category=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt, archivedAt}], total, page, pageCount}`. Products on sale, or with `status=archived` the archived ones. Most recently changed first. `q` matches the title, or an exact id. |
 | POST | `/admin/products` | `ProductInput` | `201 {product}`. The id is generated (`n…`, or `in-n…` in India) and the product goes last in catalog order. |
-| GET | `/admin/products/:id` | | `{product}`: every editable field plus `id, market, createdAt, updatedAt`. |
-| PATCH | `/admin/products/:id` | any `ProductInput` fields | `{product}`. Fields you leave out keep their values. |
-| DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: set `stock` to 0 instead. |
+| GET | `/admin/products/:id` | | `{product}`: every editable field plus `id, market, createdAt, updatedAt, archivedAt`. |
+| PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
+| DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 
 `ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], stock}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
@@ -216,6 +219,19 @@ Catalog management for store admins. You must be signed in **and** listed in `pu
 - `bullets`: up to 10, each up to 300 characters.
 - Validation errors are `422 invalid_input` with the field in `detail`.
 
+Saving re-derives the product's rules insight (scores, pros and cons for its category's attributes). This happens on create, and on any change of category, title, brand or bullets. A new category replaces an AI insight too, since its attributes belong to the old category. New wording only replaces a rules insight.
+
+### Categories
+
+A category (`{slug, name}`) is shared by both stores. Each store chooses whether its nav lists it, and where. The slug never changes once created, because products, links (`/s?dept=`) and saved searches key on it.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/categories` | | `{market, nav: [slug], categories: [{slug, name, tailored, stores: {US, IN}}]}`. `nav` is this store's order. Each `stores` entry is `{position, products, archived}`: `position` is null when that store doesn't list it, and `products` includes archived ones. `tailored` means the decision tools have attributes, presets and a quiz written for it. Other categories use a generic set. |
+| POST | `/admin/categories` | `{name: 1..80, slug?, listed = true}` | `201 {category}`. The slug defaults to one made from the name (`Garden & Outdoors` → `garden-and-outdoors`). It must be lowercase words joined by single hyphens, up to 40 characters. `listed` puts it last in this store's nav. `409 category_exists` if the slug is taken. |
+| PATCH | `/admin/categories/:slug` | `{name?, listed?, move?}` | `{category}`. `name` renames it. `listed: true` / `false` adds it to or drops it from this store's nav. A store can't drop a category it still has products in (`409 category_in_use`), archived ones included. `move` shifts it that many places in this store's nav (negative = earlier), clamped at the ends. |
+| DELETE | `/admin/categories/:slug` | | `204`, and it leaves every store's nav. `409 category_in_use` while any product in any store uses it. |
+
 **Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
 
 ```bash
@@ -223,7 +239,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products` (and `/in/admin/products`). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products` and `/admin/categories` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -233,9 +249,9 @@ The web UI is at `/admin/products` (and `/in/admin/products`). Admins also get a
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `mixed_categories`, `product_has_orders`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
+| 409 | `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable` |
 | 503 | `payments_unavailable` |
@@ -268,7 +284,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Seven migrations live in `supabase/migrations/`:
+Nine migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -279,6 +295,8 @@ Seven migrations live in `supabase/migrations/`:
 | reviews | `reviews` (one per user per product), `review_votes`, `review_reports`, and the `product_ratings` rollup kept by triggers |
 | admin | `admins` (no API access), `is_admin()`, admin-only insert/update/delete policies and column grants on `products`, a trigger that keeps a product in a category its store carries, and the public `product-images` Storage bucket (admin-only writes) |
 | decision | `product_insights` (public read, server-written; seeded from `supabase/seed-insights.sql`, built by `npm run db:insights:build`), `collections`/`collection_items` (owner RLS, limit + saved-price triggers), `ai_cache` (service role only) |
+| catalog admin | admin writes on `categories`, `market_categories` and `product_insights`; `move_category()`, `category_counts()`, `product_has_orders()`; a trigger stopping a store from unlisting a category it has products in; `products.archived_at`, with `catalog_products` now filtering archived products out and `catalog_products_all` keeping them; carts, checkout and saved lists refuse archived products |
+| split IN categories | data only: moves India's smartwatches, mixer grinders and yoga mats into `wearables`, `kitchen-appliances` and `yoga`, and re-derives their insights. A no-op on a fresh database, where the seed already has them |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -289,3 +307,4 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
 - the signed Stripe webhook
+- admin catalog: product writes, archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)

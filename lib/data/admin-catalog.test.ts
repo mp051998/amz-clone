@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dealPct, newProductId, toMinor, validateProduct, type ProductInput } from './admin-catalog';
+import { dealPct, newProductId, productStatus, toMinor, validateProduct, type ProductInput } from './admin-catalog';
 
 const good: ProductInput = {
   title: 'Acme Wireless Headphones',
@@ -71,5 +71,14 @@ describe('money and ids', () => {
     expect(newProductId('US')).toMatch(/^n[A-Za-z0-9]{10}$/);
     expect(newProductId('IN')).toMatch(/^in-n[A-Za-z0-9]{10}$/);
     expect(newProductId('US')).not.toBe(newProductId('US'));
+  });
+});
+
+describe('productStatus', () => {
+  it('only "archived" selects the archived tab', () => {
+    expect(productStatus('archived')).toBe('archived');
+    expect(productStatus('active')).toBe('active');
+    expect(productStatus(null)).toBe('active');
+    expect(productStatus('deleted')).toBe('active');
   });
 });

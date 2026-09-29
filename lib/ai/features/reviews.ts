@@ -69,7 +69,7 @@ export async function summarizeReviews(productId: string, opts: SummarizeOptions
     const provider = opts.provider === undefined ? getProvider() : opts.provider;
     if (!provider) return existing;
 
-    const product = await getProduct(admin, productId);
+    const product = await getProduct(admin, productId, { includeArchived: true });
     if (!product) return existing;
     const res = await admin
       .from('reviews')
