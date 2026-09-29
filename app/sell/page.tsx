@@ -101,11 +101,11 @@ export default async function SellPage() {
           </div>
         </Section>
 
-        <section className="flex flex-col items-start gap-4 rounded-panel bg-ink px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-7">
+        <section className="flex flex-col items-start gap-4 rounded-panel bg-ink px-5 py-6 text-on-ink sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div className="flex max-w-[640px] flex-col gap-2">
             <Kicker tone="onDark">Ready when you are</Kicker>
-            <h2 className="m-0 text-[20px] font-semibold leading-tight text-white">Create your seller account and list in minutes</h2>
-            <p className="m-0 text-[14px] text-white/80">{planLine}. {perItemLine}.</p>
+            <h2 className="m-0 text-[20px] font-semibold leading-tight text-on-ink">Create your seller account and list in minutes</h2>
+            <p className="m-0 text-[14px] text-on-ink/80">{planLine}. {perItemLine}.</p>
           </div>
           <a href={signUpHref} className={buttonClasses({ variant: 'primary' })}>Start selling</a>
         </section>

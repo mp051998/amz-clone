@@ -17,7 +17,7 @@ export function StepCard({ n, title, value, sub, toggle, children, className }: 
   return (
     <section className={cn('flex flex-col gap-3 rounded-card border border-line bg-surface p-[18px]', className)} aria-label={`${n}. ${title}`}>
       <div className="flex items-start gap-3.5">
-        <span aria-hidden className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-ink text-[13px] font-semibold text-white">{n}</span>
+        <span aria-hidden className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-ink text-[13px] font-semibold text-on-ink">{n}</span>
         <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="text-[13px] text-ink-3">{title}</span>
           <strong className="text-[17px] font-semibold">{value}</strong>

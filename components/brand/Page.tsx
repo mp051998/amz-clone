@@ -85,7 +85,7 @@ export function DemoNote({ children }: { children: ReactNode }) {
 /** The membership mark from the prototype: "PLUS" — ink fill, white 11px bold, radius 4. */
 export function PlusBadge({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-flex items-center rounded-tag bg-ink px-[5px] py-px text-[11px] font-bold leading-[1.4] tracking-[0.02em] text-white', className)}>
+    <span className={cn('inline-flex items-center rounded-tag bg-ink px-[5px] py-px text-[11px] font-bold leading-[1.4] tracking-[0.02em] text-on-ink', className)}>
       PLUS
     </span>
   );

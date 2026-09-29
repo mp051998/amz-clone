@@ -1,3 +1,5 @@
+import type { Theme } from '@/lib/theme';
+import { ThemeSwitch } from './ThemeSwitch';
 import { Wordmark } from './Wordmark';
 
 export interface FooterLink { label: string; href: string; external?: boolean }
@@ -11,12 +13,14 @@ export interface FooterProps {
   legal: FooterLink[];
   /** home href for the mark (store-prefixed). */
   homeHref?: string;
+  /** the visitor's colour theme, for the switch. */
+  theme?: Theme;
 }
 
 const extAttrs = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
 
 /** Calm footer: mark + link columns, store switch, legal line, demo disclaimer (design.md §5 Footer). */
-export function Footer({ columns, stores, legal, homeHref = '/' }: FooterProps) {
+export function Footer({ columns, stores, legal, homeHref = '/', theme = 'system' }: FooterProps) {
   return (
     <footer className="mt-16 border-t border-line bg-surface text-ink">
       <div className="mx-auto grid max-w-page gap-10 px-[clamp(16px,3vw,24px)] py-12 md:grid-cols-[minmax(200px,1.2fr)_repeat(4,minmax(0,1fr))]">
@@ -48,13 +52,14 @@ export function Footer({ columns, stores, legal, homeHref = '/' }: FooterProps) 
                 href={s.href}
                 aria-current={s.current ? 'true' : undefined}
                 className={`inline-flex min-h-10 items-center gap-2 rounded-pill border px-3.5 text-[14px] no-underline ${
-                  s.current ? 'border-ink bg-ink text-white hover:text-white' : 'border-line-3 bg-surface text-ink hover:border-ink hover:text-ink'
+                  s.current ? 'border-ink bg-ink text-on-ink hover:text-on-ink' : 'border-line-3 bg-surface text-ink hover:border-ink hover:text-ink'
                 }`}
               >
-                {s.label} <span className={`font-mono text-[12px] ${s.current ? 'text-white/70' : 'text-ink-3'}`}>{s.meta}</span>
+                {s.label} <span className={`font-mono text-[12px] ${s.current ? 'text-on-ink/70' : 'text-ink-3'}`}>{s.meta}</span>
               </a>
             ))}
           </div>
+          <ThemeSwitch initial={theme} />
           <ul className="m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-1 p-0 text-[13px]">
             {legal.map((l) => (
               <li key={l.label}><a href={l.href} {...extAttrs(l.external)} className="text-ink-3 no-underline hover:text-accent-ink hover:underline">{l.label}</a></li>

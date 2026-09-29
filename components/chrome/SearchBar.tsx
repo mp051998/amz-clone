@@ -44,7 +44,7 @@ export function SearchBar({ actionPath = '/s', defaultQuery, placeholder = 'Sear
       />
       <button
         type="submit"
-        className={cn('flex-none border-0 bg-accent font-semibold text-ink hover:bg-accent-hover focus-visible:outline-offset-[-3px]', hero ? 'px-[26px] text-[16px]' : 'px-4 text-[14px] md:px-[18px]')}
+        className={cn('flex-none border-0 bg-accent font-semibold text-on-accent hover:bg-accent-hover focus-visible:outline-offset-[-3px]', hero ? 'px-[26px] text-[16px]' : 'px-4 text-[14px] md:px-[18px]')}
       >
         Search
       </button>

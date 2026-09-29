@@ -142,7 +142,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-10 pt-7">
         {header}
 
-        <section aria-label="Our verdict" className="flex flex-wrap items-center justify-between gap-4 rounded-panel bg-ink px-5 py-[18px] text-white">
+        <section aria-label="Our verdict" className="flex flex-wrap items-center justify-between gap-4 rounded-panel bg-ink px-5 py-[18px] text-on-ink">
           <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
             <Kicker tone="onDark">Our verdict</Kicker>
             <p className="m-0 text-[18px] font-semibold leading-snug">{verdict.text}</p>
@@ -150,7 +150,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
           </div>
           <a
             href={storePath(store, `/product/${winner.product.id}`)}
-            className="inline-flex min-h-11 items-center rounded-pill bg-accent px-5 text-[15px] font-semibold text-ink no-underline hover:bg-accent-hover hover:text-ink"
+            className="inline-flex min-h-11 items-center rounded-pill bg-accent px-5 text-[15px] font-semibold text-on-accent no-underline hover:bg-accent-hover hover:text-on-accent"
           >
             Choose {shortTitle(winner.product.title)} →
           </a>

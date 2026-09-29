@@ -7,7 +7,7 @@ import { lcFirst, stepTime, type ChipTone, type StoreDates } from './format';
 /** Ink ETA panel: mono kicker (accent-soft) + big headline + window (design.md §5 Timeline). */
 export function EtaPanel({ kicker, headline, window: line }: { kicker: string; headline: string; window?: string }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-tray bg-ink p-6 text-white">
+    <div className="flex flex-col gap-1.5 rounded-tray bg-ink p-6 text-on-ink">
       <Kicker tone="onDark" className="text-[14px]">{kicker}</Kicker>
       <strong className="text-[clamp(30px,5vw,42px)] font-semibold leading-[1.05] tracking-[-0.02em]">{headline}</strong>
       {line ? <span className="text-[18px]">{line}</span> : null}
@@ -63,7 +63,7 @@ const CHIP: Record<ChipTone, string> = {
   good: 'bg-good-bg text-good-strong',
   neutral: 'bg-surface-2 text-ink-2',
   warn: 'bg-warn-bg text-warn-strong',
-  dark: 'bg-ink text-white',
+  dark: 'bg-ink text-on-ink',
 };
 
 /** Order status chip ("Arriving tomorrow", "Delivered", "Payment pending"). */

@@ -16,7 +16,7 @@ export interface MoreFiltersProps {
 
 function Box({ on }: { on: boolean }) {
   return (
-    <span aria-hidden className={cn('flex h-[18px] w-[18px] flex-none items-center justify-center rounded-tag border-[1.5px] border-ink text-[12px] text-white', on ? 'bg-ink' : 'bg-surface')}>
+    <span aria-hidden className={cn('flex h-[18px] w-[18px] flex-none items-center justify-center rounded-tag border-[1.5px] border-ink text-[12px] text-on-ink', on ? 'bg-ink' : 'bg-surface')}>
       {on ? '✓' : ''}
     </span>
   );

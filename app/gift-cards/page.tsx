@@ -51,7 +51,7 @@ export default async function GiftCardsPage() {
             When you&apos;re not sure what they need, a gift card lets them pick. No fees, and it never expires.
           </PageHead>
           {/* the card itself: calm ink panel with the store mark */}
-          <div aria-hidden className="mx-auto flex aspect-[1.6] w-full max-w-[340px] flex-col justify-between rounded-panel bg-ink p-5 text-white">
+          <div aria-hidden className="mx-auto flex aspect-[1.6] w-full max-w-[340px] flex-col justify-between rounded-panel bg-ink p-5 text-on-ink">
             <span className="self-start border-[1.5px] border-dashed border-white px-[9px] py-[6px] font-mono text-[12px] font-semibold leading-none tracking-[0.08em]">[ STORE ]</span>
             <div>
               <Kicker tone="onDark">Gift card</Kicker>

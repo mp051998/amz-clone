@@ -43,14 +43,14 @@ export default async function Home() {
               placeholder="Search for products, brands, or describe what you need..."
               className="min-w-0 flex-1 border-0 bg-transparent px-[18px] py-[18px] text-[17px] outline-none placeholder:text-ink-4"
             />
-            <button type="submit" className="bg-accent px-[26px] text-[16px] font-semibold text-ink hover:bg-accent-hover">Search</button>
+            <button type="submit" className="bg-accent px-[26px] text-[16px] font-semibold text-on-accent hover:bg-accent-hover">Search</button>
           </form>
           <div className="flex flex-wrap items-center gap-2">
             <QuizButton
               market={store.id}
               category={null}
               categories={categories}
-              className="inline-flex min-h-[34px] items-center rounded-pill bg-ink px-3.5 text-[14px] font-medium text-white hover:bg-ink-raised"
+              className="inline-flex min-h-[34px] items-center rounded-pill bg-ink px-3.5 text-[14px] font-medium text-on-ink hover:bg-ink-raised"
             >
               Not sure what you need? Answer 5 questions
             </QuizButton>

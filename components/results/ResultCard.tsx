@@ -62,7 +62,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
       </div>
       <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} />
       <span className="text-[13px] text-ink-2">
-        <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-white">{store.membership.name}</span>
+        <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
         {deliveryLine(store, price, p.stock)}
       </span>
       {r.why.length || r.warn ? (

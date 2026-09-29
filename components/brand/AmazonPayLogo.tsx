@@ -11,7 +11,7 @@ export function AmazonPayLogo({ className, tone = 'dark' }: { className?: string
     <span
       role="img"
       aria-label="Store Pay"
-      className={cn('inline-flex h-[28px] select-none items-center gap-1.5', light ? 'text-white' : 'text-ink', className)}
+      className={cn('inline-flex h-[28px] select-none items-center gap-1.5', light ? 'text-on-ink' : 'text-ink', className)}
     >
       <span
         aria-hidden

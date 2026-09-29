@@ -29,7 +29,7 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
       className={`flex flex-none items-center gap-2 rounded-pill border border-line text-[14px] font-semibold text-ink no-underline hover:border-ink hover:text-ink ${compact ? 'min-h-11 gap-1.5 px-3' : 'min-h-10 px-3.5'}`}
     >
       Cart
-      <span aria-hidden className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-accent px-1.5 text-[12px] tabular-nums">{count}</span>
+      <span aria-hidden className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-accent text-on-accent px-1.5 text-[12px] tabular-nums">{count}</span>
     </a>
   );
 }

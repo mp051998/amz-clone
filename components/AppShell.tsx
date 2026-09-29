@@ -4,6 +4,7 @@ import { storeCategories, viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { footerDest } from '@/lib/footer-links';
+import { readTheme } from '@/lib/theme-server';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { Header } from './chrome/Header';
 import { Footer, type FooterColumn, type FooterLink } from './chrome/Footer';
@@ -88,7 +89,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
     <ToastProvider>
       <CompareProvider market={store.id}>
         <div id="top" className="flex min-h-screen flex-col bg-bg">
-          <a href="#main" className="sr-only z-[90] rounded-pill bg-ink px-4 py-2 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3">Skip to content</a>
+          <a href="#main" className="sr-only z-[90] rounded-pill bg-ink px-4 py-2 text-on-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-3">Skip to content</a>
           <Header
             store={store}
             cartCount={count}
@@ -98,7 +99,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>
-          <Footer storeName={store.name} columns={columns} stores={stores} legal={legal} homeHref={storePath(store, '/')} />
+          <Footer storeName={store.name} columns={columns} stores={stores} legal={legal} homeHref={storePath(store, '/')} theme={await readTheme()} />
           <CompareTray />
         </div>
       </CompareProvider>

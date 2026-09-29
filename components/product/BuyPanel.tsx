@@ -82,7 +82,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
     <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-col gap-1.5 rounded-card border border-line bg-surface p-4">
         <span className="text-[13px] text-ink">
-          <span className="mr-1.5 rounded-tag bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-white">{delivery.member}</span>
+          <span className="mr-1.5 rounded-tag bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{delivery.member}</span>
           {delivery.headline}
         </span>
         <strong className="text-[18px] font-semibold">{delivery.promise}</strong>

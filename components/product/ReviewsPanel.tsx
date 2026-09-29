@@ -278,7 +278,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
                 </div>
                 {(r.verified || r.mine || themes.length) ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {r.mine ? <span className="rounded-[5px] bg-ink px-[7px] py-[3px] text-[12px] font-semibold text-white">Your review</span> : null}
+                    {r.mine ? <span className="rounded-[5px] bg-ink px-[7px] py-[3px] text-[12px] font-semibold text-on-ink">Your review</span> : null}
                     {r.verified ? <span className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">Verified purchase</span> : null}
                     {reviewThemes(r, themes).map((t) => (
                       <span key={t} className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">{t}</span>
@@ -298,7 +298,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
                           aria-pressed={r.votedHelpful}
                           disabled={pending}
                           onClick={() => onHelpful(r)}
-                          className={cn('min-h-9 rounded-pill border px-3 text-[13px] tabular-nums transition-colors', r.votedHelpful ? 'border-ink bg-ink text-white' : 'border-line hover:border-ink')}
+                          className={cn('min-h-9 rounded-pill border px-3 text-[13px] tabular-nums transition-colors', r.votedHelpful ? 'border-ink bg-ink text-on-ink' : 'border-line hover:border-ink')}
                         >
                           {r.votedHelpful ? '✓ Helpful' : 'Helpful'} · {num(r.helpful)}
                         </button>
