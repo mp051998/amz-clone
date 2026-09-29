@@ -24,6 +24,7 @@ export const amazonIn: PublicMarketplace = {
     { method: 'amazonpay', phase: 1 },
   ],
   delivery: { methods: ['standard', 'one-day', 'same-day'], freeThresholdMinor: 49900 },
+  returns: { days: 10 },
   membership: { name: 'Plus' },
   nav: {
     subnav: ['Mobiles', 'Prime Video', "Today's Deals", 'Amazon Pay', 'Bestsellers', 'Customer Service', 'New Releases', 'Prime', 'Sell'],

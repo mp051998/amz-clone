@@ -6,8 +6,11 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
-import { dayLabel, lcFirst, orderView, paidWithText, paymentText, stepTime } from '@/components/orders/format';
+import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
 import { cancelMyOrder } from '@/app/actions/order';
+import { cancelMyReturn } from '@/app/actions/returns';
+import { refundTo, ReturnCard } from '@/components/orders/Returns';
+import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
 import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
@@ -31,7 +34,7 @@ function addressLine(o: Order): string {
 function refundPromise(o: Order, total: string): string {
   if (o.paymentMethod === 'cod') return 'Nothing has been charged yet.';
   if (o.paymentMethod === 'card') return `We’ll refund ${total} to your card.`;
-  return `${total} goes back to ${paymentText(o.paymentMethod, o.paymentLabel)}.`;
+  return `${total} goes back to ${refundTo(o.paymentMethod, o.paymentLabel)}.`;
 }
 
 export default async function OrderPage({
@@ -39,14 +42,15 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error } = await searchParams;
+  const { placed, cancelled, error, return: returned } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
-  const order = await getOrder(await db(), id);
+  const client = await db();
+  const order = await getOrder(client, id);
   if (!order) notFound();
   if (order.market !== store.id) redirect(storePath({ id: order.market }, `/orders/${encodeURIComponent(order.id)}`));
 
@@ -57,6 +61,8 @@ export default async function OrderPage({
   const countText = `${view.itemCount} ${view.itemCount === 1 ? 'item' : 'items'}`;
   const placedAt = Date.parse(order.placedAt ?? order.createdAt);
   const confirming = order.status === 'placed' && (placed === '1' || now.getTime() - placedAt < JUST_PLACED_MS) && placed !== '0';
+  const returns = confirming ? null : await getOrderReturns(client, order.id);
+  const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
 
   if (confirming) {
     return (
@@ -96,6 +102,10 @@ export default async function OrderPage({
           <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
         ) : cancelled === '1' && order.status === 'cancelled' ? (
           <Alert tone="success">Your order is cancelled.</Alert>
+        ) : returned === 'started' ? (
+          <Alert tone="success">Return started. Drop the items off with the code below.</Alert>
+        ) : returned === 'cancelled' ? (
+          <Alert tone="success">Your return is cancelled.</Alert>
         ) : null}
 
         <EtaPanel kicker={view.kicker} headline={view.headline} window={view.window} />
@@ -127,6 +137,37 @@ export default async function OrderPage({
               pendingLabel="Cancelling…"
               cancelLabel="Keep order"
             />
+          </section>
+        ) : null}
+
+        {returns && returnBy ? (
+          <section className="flex flex-col gap-3" aria-labelledby="returns-h">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4">
+              <div className="flex flex-col gap-0.5">
+                <h2 id="returns-h" className="m-0 text-[16px] font-semibold">Returns</h2>
+                <p className="m-0 text-[14px] text-ink-2">
+                  {canStartReturn(returns, now)
+                    ? `Eligible for return until ${longDate(returnBy, store)}.`
+                    : returnBy.getTime() < now.getTime()
+                      ? `The return window closed on ${longDate(returnBy, store)}.`
+                      : 'Every item in this order is being returned.'}
+                </p>
+              </div>
+              {canStartReturn(returns, now) ? (
+                <a href={sp(`/orders/${encodeURIComponent(order.id)}/return`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Return items</a>
+              ) : null}
+            </div>
+            {returns.returns.map((r) => (
+              <ReturnCard
+                key={r.id}
+                r={r}
+                currency={order.currency}
+                method={order.paymentMethod}
+                label={order.paymentLabel}
+                store={store}
+                cancel={r.status === 'requested' ? cancelMyReturn.bind(null, order.id, r.id) : undefined}
+              />
+            ))}
           </section>
         ) : null}
 

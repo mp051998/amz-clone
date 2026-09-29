@@ -62,6 +62,8 @@ export interface PublicMarketplace {
   address: { schema: 'US' | 'IN'; postcode: { label: string; pattern: string }; types?: Array<'home' | 'office'> };
   payments: { method: string; phase: number }[];
   delivery: { methods: string[]; freeThresholdMinor: number };
+  /** days after delivery a shopper can start a return (markets.return_days in the database). */
+  returns: { days: number };
   membership: { name: string };
   nav: { subnav: string[]; departments: string[] };
   ui: MarketplaceUi;
