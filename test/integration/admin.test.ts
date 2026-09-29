@@ -46,6 +46,10 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   description: null,
   details: [],
   stock: 30,
+  gallery: [],
+  variantGroup: null,
+  variantAxis: null,
+  variantLabel: null,
   ...over,
 });
 
@@ -117,11 +121,11 @@ describe('catalog management', () => {
     const details: [string, string][] = [['Brand', 'Lumen'], ['Bulb', 'LED, 2700 K'], ['Power', 'USB-C, 5 V']];
     const id = await createProduct(boss.db, 'US', input({ description: 'A small warm lamp.', details }));
     created.push(id);
-    expect(await getProductInfo(anon(), id)).toEqual({ description: 'A small warm lamp.', details });
+    expect(await getProductInfo(anon(), id)).toEqual({ description: 'A small warm lamp.', details, gallery: [], variants: null });
     expect(await getAdminProduct(boss.db, id)).toMatchObject({ description: 'A small warm lamp.', details });
 
     await updateProduct(boss.db, id, input({ description: '  ', details: details.slice(0, 1) }));
-    expect(await getProductInfo(anon(), id)).toEqual({ description: null, details: [['Brand', 'Lumen']] });
+    expect(await getProductInfo(anon(), id)).toMatchObject({ description: null, details: [['Brand', 'Lumen']] });
 
     const forged = await shopper.db.from('products').update({ description: 'hacked', details: [] }).eq('id', id).select('id');
     expect(forged.data ?? []).toEqual([]);

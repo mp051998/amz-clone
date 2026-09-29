@@ -11,6 +11,7 @@ import { Alternatives, type AlternativeCard } from '@/components/product/Alterna
 import { BackLink } from '@/components/product/BackLink';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
 import { Gallery } from '@/components/product/Gallery';
+import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
@@ -110,7 +111,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const [insight, reviews, alts, saved, info] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
-    alternativesFor(p, 3, weights, client).catch(() => []),
+    // a few spare: the product's own variants don't count as alternatives
+    alternativesFor(p, 6, weights, client).catch(() => []),
     user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     getProductInfo(client, p.id),
   ]);
@@ -149,7 +151,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     to: store.id === 'IN' ? 'to Bengaluru 560001' : undefined,
   };
 
-  const altCards: AlternativeCard[] = alts.map((a) => ({
+  const variantIds = new Set(info.variants?.options.map((o) => o.id));
+  const altCards: AlternativeCard[] = alts.filter((a) => !variantIds.has(a.product.id)).slice(0, 3).map((a) => ({
     id: a.product.id,
     name: a.product.title,
     image: a.product.image,
@@ -200,7 +203,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
           <div className="flex flex-wrap items-start gap-7">
             <div className="min-w-0 flex-[1_1_400px] max-sm:basis-full">
-              <Gallery images={p.image ? [p.image] : []} alt={p.title} />
+              <Gallery images={[p.image, ...info.gallery].filter(Boolean)} alt={p.title} />
             </div>
 
             <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-[18px] max-sm:basis-full">
@@ -230,6 +233,18 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
                 </div>
               )}
+
+              {info.variants ? (
+                <VariantPicker
+                  axis={info.variants.axis}
+                  label={info.variants.label}
+                  options={info.variants.options.map((o) => ({
+                    ...o,
+                    href: storePath(store, `/product/${encodeURIComponent(o.id)}${qs}`),
+                    priceText: money(o.priceMinor),
+                  }))}
+                />
+              ) : null}
 
               {prosFor(p, insight, ranked.why).length ? (
                 <div className="flex flex-col gap-2">

@@ -3,7 +3,10 @@ import { AppShell } from '@/components/AppShell';
 import { EmptyState } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
 import { PageHead, pageX } from '@/components/brand/Page';
+import type { ProductFormValues } from '@/components/admin/ProductForm';
 import type { PublicMarketplace } from '@/lib/contracts';
+import type { AdminProduct } from '@/lib/data/admin-catalog';
+import { detailLines } from '@/lib/product-details';
 import { storePath } from '@/lib/marketplace';
 import { cn } from '@/components/lib/cn';
 
@@ -96,4 +99,29 @@ export function AdminOnly({ store }: { store: PublicMarketplace }) {
 export function majorText(minor: number | null | undefined): string {
   if (minor == null) return '';
   return minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2);
+}
+
+/** A saved product as product-form strings. */
+export function productFormValues(p: AdminProduct): ProductFormValues {
+  return {
+    title: p.title,
+    brand: p.brand ?? '',
+    category: p.category,
+    image: p.image,
+    price: majorText(p.priceMinor),
+    listPrice: majorText(p.listMinor),
+    deal: p.deal,
+    badge: p.badge ?? '',
+    boughtPastMonth: p.boughtPastMonth ?? '',
+    seller: p.seller,
+    shipsFrom: p.shipsFrom,
+    bullets: p.bullets.join('\n'),
+    description: p.description ?? '',
+    details: detailLines(p.details),
+    stock: String(p.stock),
+    gallery: p.gallery.join('\n'),
+    variantGroup: p.variantGroup ?? '',
+    variantAxis: p.variantAxis ?? '',
+    variantLabel: p.variantLabel ?? '',
+  };
 }

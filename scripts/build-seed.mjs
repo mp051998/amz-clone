@@ -7,6 +7,7 @@
 //   product's category pool (supabase/seed/review-pools.json)
 // - each product's description and "Product information" rows, plus brands/authors the
 //   scraped titles lacked (supabase/seed/enrichment-*.json)
+// - variant groups: sibling products shown as options of each other (supabase/seed/variants.json)
 // Run: node scripts/build-seed.mjs   (then: npx supabase db reset)
 //      node scripts/build-seed.mjs --migration <file>   also writes the same product copy and
 //      review wording as UPDATEs, for a database seeded before they existed
@@ -209,6 +210,9 @@ async function main() {
   const inn = await readJson('catalog-in.json');
   const enrichment = { ...(await readJson('enrichment-us.json')), ...(await readJson('enrichment-in.json')) };
   const pools = await readJson('review-pools.json');
+  const variants = new Map(
+    (await readJson('variants.json')).groups.flatMap((g) => g.options.map(([id, label]) => [id, { group: g.group, axis: g.axis, label }])),
+  );
 
   const categories = [...us.categories, ...inn.categories].map(({ slug, name }) => ({ slug, name }));
   const baseSlugs = us.categories.map((c) => c.slug);
@@ -229,11 +233,14 @@ async function main() {
     if (!e) throw new Error(`no enrichment for ${p.id}`);
     return { ...p, brand: p.brand ?? e.brand, enrichedBrand: p.brand ? null : e.brand ?? null, description: e.description, details: e.details };
   });
+  const known = new Set(catalog.map((p) => p.id));
+  for (const id of variants.keys()) if (!known.has(id)) throw new Error(`variants.json: no product ${id}`);
 
   const productRows = catalog.map((p) => [
     q(p.id), q(p.market), q(p.category), q(p.title), q(p.brand), q(p.image),
     n(p.priceMinor), n(p.listMinor), n(p.dealPct), b(p.deal), q(p.badge), q(p.boughtPastMonth),
     q(p.seller), q(p.shipsFrom), arr(p.bullets ?? []), q(p.description), jsonb(p.details), n(stockFor(p.id)), n(p.position),
+    q(variants.get(p.id)?.group), q(variants.get(p.id)?.axis), q(variants.get(p.id)?.label),
   ]);
 
   const ratingRows = catalog.map((p) => {
@@ -254,7 +261,7 @@ async function main() {
     insert('public.market_categories', ['market_id', 'category_slug', 'position'], marketCategories.map(([m, s, i]) => [q(m), q(s), n(i)])),
     insert(
       'public.products',
-      ['id', 'market_id', 'category_slug', 'title', 'brand', 'image', 'price_minor', 'list_minor', 'deal_pct', 'deal', 'badge', 'bought_past_month', 'seller', 'ships_from', 'bullets', 'description', 'details', 'stock', 'position'],
+      ['id', 'market_id', 'category_slug', 'title', 'brand', 'image', 'price_minor', 'list_minor', 'deal_pct', 'deal', 'badge', 'bought_past_month', 'seller', 'ships_from', 'bullets', 'description', 'details', 'stock', 'position', 'variant_group', 'variant_axis', 'variant_label'],
       productRows,
     ),
     insert('public.product_ratings', ['product_id', 'rating_count', 'rating_sum', 'star_1', 'star_2', 'star_3', 'star_4', 'star_5'], ratingRows),

@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import {
   createProduct,
   deleteProduct,
+  GALLERY_MAX,
+  imageFileError,
   setArchived,
   toMinor,
   updateProduct,
@@ -23,15 +25,20 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+/** Field errors the data layer can raise after validation. */
+const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
 /**
  * Create (`id` null) or update a product from the admin form. Prices arrive in major units
- * ("19.99"); an uploaded image wins over the image URL field.
+ * ("19.99"); an uploaded image wins over the image URL field. Gallery images arrive as kept URLs
+ * (`gallery`, in order) plus new uploads (`galleryFiles`), which go after them.
  */
 export async function saveProduct(id: string | null, _prev: ProductFormState, formData: FormData): Promise<ProductFormState> {
   const values: Record<string, string> = Object.fromEntries(FIELDS.map((k) => [k, String(formData.get(k) ?? '')]));
   values.deal = formData.get('deal') === 'on' ? 'on' : '';
+  const kept = formData.getAll('gallery').map((v) => String(v).trim()).filter(Boolean);
+  values.gallery = kept.join('\n');
   const back = (errors: ProductFormState['errors']): ProductFormState => ({ errors, values });
 
   const store = await getMarketplace();
@@ -40,6 +47,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
 
   const file = formData.get('imageFile');
   const upload = file instanceof File && file.size > 0 ? file : null;
+  const galleryUploads = formData.getAll('galleryFiles').filter((f): f is File => f instanceof File && f.size > 0);
   const priceMinor = toMinor(values.price);
   const listMinor = values.listPrice.trim() ? toMinor(values.listPrice) : null;
   const stock = /^\d+$/.test(values.stock.trim()) ? Number(values.stock.trim()) : NaN;
@@ -61,6 +69,11 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     description: values.description,
     details: details.rows,
     stock,
+    // new uploads hold their place until the form checks out (like the main image)
+    gallery: [...kept, ...galleryUploads.map((_, i) => `https://upload.pending/gallery-${i}`)],
+    variantGroup: values.variantGroup,
+    variantAxis: values.variantAxis,
+    variantLabel: values.variantLabel,
   };
 
   const checked = validateProduct(input);
@@ -69,12 +82,19 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   if (values.listPrice.trim() && listMinor == null) errors.listMinor = 'Enter a price like 24.99, or leave it blank';
   if (Number.isNaN(stock)) errors.stock = 'Enter a whole number';
   if (details.error) errors.details = details.error;
+  if (kept.length + galleryUploads.length > GALLERY_MAX) errors.gallery = `Up to ${GALLERY_MAX} more images; remove ${kept.length + galleryUploads.length - GALLERY_MAX}`;
+  const badFile = galleryUploads.map(imageFileError).find(Boolean);
+  if (badFile) errors.gallery ??= badFile;
   if (Object.keys(errors).length) return back(errors);
 
   let saved: string;
   try {
     if (upload) input.image = await uploadProductImage(client, store.id, upload);
     values.image = input.image;
+    const uploaded = [];
+    for (const f of galleryUploads) uploaded.push(await uploadProductImage(client, store.id, f, 'gallery'));
+    input.gallery = [...kept, ...uploaded];
+    values.gallery = input.gallery.join('\n');
     if (id) {
       await updateProduct(client, id, input);
       saved = id;
@@ -83,7 +103,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     }
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
-    const field = err.detail === 'image' ? 'image' : err.code === 'invalid_category' ? 'category' : null;
+    const field = err.detail && LATE_FIELDS.has(err.detail) ? err.detail : err.code === 'invalid_category' ? 'category' : null;
     return back(field ? { [field]: err.message } : { form: err.message });
   }
 
