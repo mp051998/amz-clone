@@ -63,6 +63,12 @@ export function GET(): Response {
       'POST   /admin/categories',
       'PATCH  /admin/categories/:slug',
       'DELETE /admin/categories/:slug',
+      'GET    /admin/orders?filter=&q=&page=',
+      'GET    /admin/orders/:id',
+      'POST   /admin/orders/:id/ship',
+      'POST   /admin/orders/:id/deliver',
+      'POST   /admin/orders/:id/cancel',
+      'POST   /admin/orders/:id/refund',
       'POST   /webhooks/stripe',
     ],
   });

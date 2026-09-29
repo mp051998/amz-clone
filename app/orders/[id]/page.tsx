@@ -2,9 +2,13 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { ProductFrame } from '@/components/decision';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
-import { dayLabel, orderView, paymentText } from '@/components/orders/format';
+import { dayLabel, lcFirst, orderView, paidWithText, paymentText, stepTime } from '@/components/orders/format';
+import { cancelMyOrder } from '@/app/actions/order';
+import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
@@ -23,11 +27,11 @@ function addressLine(o: Order): string {
   return [s.name, s.line1, s.line2, `${s.city} ${s.postcode}`].filter(Boolean).join(', ');
 }
 
-function paidWith(o: Order): string {
-  const label = paymentText(o.paymentMethod, o.paymentLabel);
-  if (o.status === 'awaiting_payment') return `${label} · not paid yet`;
-  if (o.status === 'cancelled') return `${label} · not charged`;
-  return label;
+/** What cancelling does with the money, for the confirm step. */
+function refundPromise(o: Order, total: string): string {
+  if (o.paymentMethod === 'cod') return 'Nothing has been charged yet.';
+  if (o.paymentMethod === 'card') return `We’ll refund ${total} to your card.`;
+  return `${total} goes back to ${paymentText(o.paymentMethod, o.paymentLabel)}.`;
 }
 
 export default async function OrderPage({
@@ -35,10 +39,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string }>;
 }) {
   const { id } = await params;
-  const { placed } = await searchParams;
+  const { placed, cancelled, error } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -88,6 +92,12 @@ export default async function OrderPage({
           <a href={sp('/orders')} className="text-[14px] text-ink underline underline-offset-2">All orders</a>
         </div>
 
+        {error ? (
+          <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
+        ) : cancelled === '1' && order.status === 'cancelled' ? (
+          <Alert tone="success">Your order is cancelled.</Alert>
+        ) : null}
+
         <EtaPanel kicker={view.kicker} headline={view.headline} window={view.window} />
 
         <section className="flex flex-col rounded-panel border border-line bg-surface p-[22px]" aria-labelledby="progress-h">
@@ -99,10 +109,26 @@ export default async function OrderPage({
           rows={[
             { label: 'Items', value: order.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ') },
             { label: 'Deliver to', value: addressLine(order) },
-            { label: 'Paid with', value: paidWith(order) },
+            { label: 'Paid with', value: paidWithText(order) },
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}
         />
+
+        {view.cancelUntil ? (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Cancel order">
+            <p className="m-0 text-[14px] text-ink-2">
+              Changed your mind? You can cancel until it ships, {lcFirst(stepTime(view.cancelUntil, store, now))}.
+            </p>
+            <ConfirmAction
+              action={cancelMyOrder.bind(null, order.id)}
+              label="Cancel order"
+              prompt={<>Cancel this order? {refundPromise(order, money(order.totals.totalMinor))}</>}
+              confirmLabel="Yes, cancel it"
+              pendingLabel="Cancelling…"
+              cancelLabel="Keep order"
+            />
+          </section>
+        ) : null}
 
         <section className="overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="items-h">
           <h2 id="items-h" className="m-0 px-[18px] pb-1 pt-4 text-[16px] font-semibold">{countText}</h2>

@@ -1,16 +1,18 @@
 /**
- * Order-tracking timeline derived from an order's time and status (there is no
- * carrier feed): Order placed → Preparing shipment → Shipped → Out for delivery
- * → Delivered at plausible offsets. Pure — pass `now` for deterministic output.
+ * Order-tracking timeline: Order placed → Preparing shipment → Shipped → Out for delivery
+ * → Delivered. Placed orders carry a saved schedule (`shippedAt`, `outForDeliveryAt`,
+ * `deliveredAt`, filled by the database and moved by admins); without one (unpaid orders,
+ * rows from before the lifecycle migration) the same plan is computed here. There is no
+ * carrier feed. Pure — pass `now` for deterministic output.
  */
-import type { Order } from '../types';
+import type { Order, OrderStage } from '../types';
 import type { TrackingStep } from './types';
 
 const HOUR = 3_600_000;
 
 /**
  * Step labels and offsets (hours after the order was placed). The last two are
- * nominal: `plan()` snaps them to daytime in the store's time zone (out for
+ * nominal: `deliveryAfter()` snaps them to daytime in the store's time zone (out for
  * delivery 9:00, delivered 11:30 local) on the first day that leaves ≥ 6 h after shipping.
  */
 export const TRACKING_PLAN: readonly { label: string; afterHours: number }[] = [
@@ -24,7 +26,10 @@ export const TRACKING_PLAN: readonly { label: string; afterHours: number }[] = [
 const OUT_FOR_DELIVERY = { h: 9, m: 0 };
 const DELIVERED = { h: 11, m: 30 };
 
-type OrderLike = Pick<Order, 'status' | 'createdAt'> & { placedAt?: string };
+type OrderLike = Pick<Order, 'status' | 'createdAt'> &
+  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt'>>;
+
+type Ymd = [year: number, month: number, day: number];
 
 /** IANA zone offset (ms, local − UTC) at instant `t`. */
 function zoneOffset(t: number, timeZone: string): number {
@@ -35,24 +40,59 @@ function zoneOffset(t: number, timeZone: string): number {
   return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute'), n('second')) - Math.floor(t / 1000) * 1000;
 }
 
-/** UTC instant of local wall time h:m on the local calendar day containing `t`. */
-function atLocal(t: number, h: number, m: number, timeZone: string): number {
-  const off = zoneOffset(t, timeZone);
-  const local = new Date(t + off);
-  const wall = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), h, m);
-  return wall - zoneOffset(wall - off, timeZone);
+/** Local calendar day containing instant `t`. */
+function localDay(t: number, timeZone: string): Ymd {
+  const local = new Date(t + zoneOffset(t, timeZone));
+  return [local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()];
 }
 
-/** Step instants for an order placed at `t0`. */
-function plan(t0: number, timeZone: string): number[] {
-  const [placed, preparing, shipped] = TRACKING_PLAN.slice(0, 3).map((s) => t0 + s.afterHours * HOUR);
-  let day = t0 + 24 * HOUR;
-  while (atLocal(day, OUT_FOR_DELIVERY.h, OUT_FOR_DELIVERY.m, timeZone) < shipped + 6 * HOUR) day += 24 * HOUR;
-  return [
-    placed, preparing, shipped,
-    atLocal(day, OUT_FOR_DELIVERY.h, OUT_FOR_DELIVERY.m, timeZone),
-    atLocal(day, DELIVERED.h, DELIVERED.m, timeZone),
-  ];
+/** UTC instant of local wall time h:m on day `[y, m, d]` (the day may overflow the month). */
+function wallTime([y, mo, d]: Ymd, h: number, m: number, timeZone: string): number {
+  const wall = Date.UTC(y, mo, d, h, m);
+  return wall - zoneOffset(wall - zoneOffset(wall, timeZone), timeZone);
+}
+
+/**
+ * Out for delivery (9:00 local) and delivered (11:30 local) for a parcel shipped at `shipped`:
+ * the first local day, counted from `shipped + 14 h`, whose 9:00 is ≥ 6 h after shipping.
+ * Mirrors the database's `private.delivery_after`.
+ */
+export function deliveryAfter(shipped: number, timeZone: string): { outForDelivery: number; delivered: number } {
+  const [y, m, d] = localDay(shipped + 14 * HOUR, timeZone);
+  let k = 0;
+  while (wallTime([y, m, d + k], OUT_FOR_DELIVERY.h, OUT_FOR_DELIVERY.m, timeZone) < shipped + 6 * HOUR) k++;
+  return {
+    outForDelivery: wallTime([y, m, d + k], OUT_FOR_DELIVERY.h, OUT_FOR_DELIVERY.m, timeZone),
+    delivered: wallTime([y, m, d + k], DELIVERED.h, DELIVERED.m, timeZone),
+  };
+}
+
+/** Schedule the database saves for an order placed at `placedAt` (ISO). */
+export function plannedSchedule(placedAt: string, timeZone: string): { shippedAt: string; outForDeliveryAt: string; deliveredAt: string } {
+  const shipped = Date.parse(placedAt) + TRACKING_PLAN[2].afterHours * HOUR;
+  const { outForDelivery, delivered } = deliveryAfter(shipped, timeZone);
+  return {
+    shippedAt: new Date(shipped).toISOString(),
+    outForDeliveryAt: new Date(outForDelivery).toISOString(),
+    deliveredAt: new Date(delivered).toISOString(),
+  };
+}
+
+/** Step instants: the saved schedule when the order has one, else the plan from `t0`. */
+function stepTimes(order: OrderLike, t0: number, timeZone: string): number[] {
+  const saved = [order.shippedAt, order.outForDeliveryAt, order.deliveredAt].map((s) => (s ? Date.parse(s) : NaN));
+  if (saved.every(Number.isFinite)) {
+    const [shipped, out, delivered] = saved;
+    return [t0, Math.min(t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped), shipped, out, delivered];
+  }
+  const shipped = t0 + TRACKING_PLAN[2].afterHours * HOUR;
+  const { outForDelivery, delivered } = deliveryAfter(shipped, timeZone);
+  return [t0, t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped, outForDelivery, delivered];
+}
+
+function startOf(order: OrderLike, now: Date): number {
+  const base = Date.parse(order.placedAt ?? order.createdAt);
+  return Number.isFinite(base) ? base : now.getTime();
 }
 
 function stateFor(steps: { label: string; at: number }[], now: number): TrackingStep[] {
@@ -76,27 +116,48 @@ function stateFor(steps: { label: string; at: number }[], now: number): Tracking
  * - `cancelled`: "Order placed" done, then "Cancelled" current.
  */
 export function trackingSteps(order: OrderLike, now: Date = new Date(), timeZone = 'UTC'): TrackingStep[] {
-  const base = Date.parse(order.placedAt ?? order.createdAt);
-  const t0 = Number.isFinite(base) ? base : now.getTime();
+  const t0 = startOf(order, now);
   if (order.status === 'cancelled') {
+    const saved = order.cancelledAt ? Date.parse(order.cancelledAt) : NaN;
+    const at = Number.isFinite(saved) ? saved : Math.max(t0, Math.min(now.getTime(), t0 + HOUR));
     return [
       { label: 'Order placed', at: new Date(t0).toISOString(), state: 'done' },
-      { label: 'Cancelled', at: new Date(Math.max(t0, Math.min(now.getTime(), t0 + HOUR))).toISOString(), state: 'current' },
+      { label: 'Cancelled', at: new Date(at).toISOString(), state: 'current' },
     ];
   }
   if (order.status === 'awaiting_payment') {
-    const times = plan(now.getTime(), timeZone);
+    const times = stepTimes({ status: 'placed', createdAt: order.createdAt }, now.getTime(), timeZone);
     return TRACKING_PLAN.map((s, i) => ({
       label: s.label,
       at: new Date(i === 0 ? t0 : times[i]).toISOString(),
       state: i === 0 ? 'current' : 'upcoming',
     }));
   }
-  const times = plan(t0, timeZone);
+  const times = stepTimes(order, t0, timeZone);
   return stateFor(
     TRACKING_PLAN.map((s, i) => ({ label: s.label, at: times[i] })),
     now.getTime(),
   );
+}
+
+/** Where an order is now; matches the database's `private.order_stage`. */
+export function orderStage(order: OrderLike, now: Date = new Date(), timeZone = 'UTC'): OrderStage {
+  if (order.status !== 'placed') return order.status;
+  const [, , shipped, out, delivered] = stepTimes(order, startOf(order, now), timeZone);
+  const t = now.getTime();
+  if (delivered <= t) return 'delivered';
+  if (out <= t) return 'out_for_delivery';
+  if (shipped <= t) return 'shipped';
+  return 'preparing';
+}
+
+/**
+ * Until when the shopper may cancel (ISO; the saved ship time), or null when they can't:
+ * not placed, already shipped, or no saved schedule yet.
+ */
+export function cancellableUntil(order: OrderLike, now: Date = new Date()): string | null {
+  if (order.status !== 'placed' || !order.shippedAt) return null;
+  return Date.parse(order.shippedAt) > now.getTime() ? order.shippedAt : null;
 }
 
 /** Expected (or actual) delivery time, ISO — null for cancelled orders. */
@@ -108,8 +169,5 @@ export function deliveryEta(order: OrderLike, now: Date = new Date(), timeZone =
 
 /** True once the Delivered step has happened. */
 export function isDelivered(order: OrderLike, now: Date = new Date(), timeZone = 'UTC'): boolean {
-  if (order.status !== 'placed') return false;
-  const steps = trackingSteps(order, now, timeZone);
-  const last = steps[steps.length - 1];
-  return !!last && Date.parse(last.at) <= now.getTime();
+  return orderStage(order, now, timeZone) === 'delivered';
 }
