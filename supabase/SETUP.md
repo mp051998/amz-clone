@@ -78,6 +78,34 @@ test-mode Checkout Sessions.
 5. **Get the keys.** Under **Project Settings → API**, copy the Project URL, the
    anon/publishable key and the service_role/secret key.
 
+## Automatic migrations (GitHub Actions)
+
+`.github/workflows/supabase-migrations.yml` keeps the hosted schema in step with
+`supabase/migrations/`, so you don't run `db push` by hand:
+
+- **Pull requests** that touch `supabase/` or `test/integration/` start a fresh
+  local Supabase in CI. That applies every migration and the seed. The job then
+  runs `npm run test:db` against it and adds the list of migrations that merging
+  would apply to the job summary.
+- **Pushes to `main`** that add migrations run the same check, then
+  `supabase db push` to the hosted project. Seeds are never pushed. Only one push
+  runs at a time.
+- **Actions → Supabase migrations → Run workflow** does the same on demand.
+
+One-time setup in **GitHub → Settings → Secrets and variables → Actions**:
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | secret | a personal access token from supabase.com → **Account → Access Tokens** |
+| `SUPABASE_PROJECT_REF` | variable | the project ref (the subdomain of `NEXT_PUBLIC_SUPABASE_URL`) |
+| `SUPABASE_DB_PASSWORD` | secret, optional | the database password; without it the CLI signs in with a temporary login role |
+
+Vercel deploys `main` at the same time as the migration job, so for a minute or
+two new code can run against the old schema. Keep migrations additive, and make
+code tolerate a missing column or function until the push lands (as
+`is_admin()` does: an error reads as "not an admin"). Split destructive changes
+(drop or rename) into a later migration, once no deployed code uses the old shape.
+
 ## Stripe (card payments)
 
 Card checkout uses Stripe-hosted Checkout in test mode. Without `STRIPE_SECRET_KEY`
