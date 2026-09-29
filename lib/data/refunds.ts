@@ -7,14 +7,16 @@ import type { RefundStatus } from '../types';
 import { DataError, unwrap } from './errors';
 
 /**
- * Card refunds for cancelled orders. The database decides that an order is owed a
- * refund (`refund_status = 'pending'`, amount in `refund_minor`); this module asks
- * Stripe for it and records Stripe's answer with the service role. Safe to repeat:
- * a refund already under way on the PaymentIntent is reused, and new ones carry an
- * idempotency key, so two concurrent calls create one refund.
+ * Card refunds for cancelled orders and received returns. The database decides that
+ * an order (or a return) is owed a refund (`refund_status = 'pending'`, with the
+ * amount); this module asks Stripe for it and records Stripe's answer with the
+ * service role. Safe to repeat: a refund already under way for the same order or
+ * return is reused, and new ones carry an idempotency key, so two concurrent calls
+ * create one refund. A return's refunds carry `metadata.returnId`, which keeps them
+ * apart from the order's own (a PaymentIntent can have several returns' refunds).
  */
 
-type StripeRefund = Pick<Stripe.Refund, 'id' | 'status'>;
+type StripeRefund = Pick<Stripe.Refund, 'id' | 'status'> & { metadata?: Stripe.Metadata | null };
 
 /** The slice of the Stripe client used here (tests pass a fake). */
 export interface RefundStripe {
@@ -44,6 +46,8 @@ const UNDER_WAY = new Set(['pending', 'requires_action', 'succeeded']);
 
 export interface RefundTarget {
   orderId: string;
+  /** set when refunding a return rather than a cancelled order */
+  returnId?: string;
   amountMinor: number;
   paymentIntent: string | null;
   sessionId: string | null;
@@ -68,12 +72,17 @@ export async function settleRefund(target: RefundTarget, s: RefundStripe): Promi
       return { paymentIntent: null, refundId: null, status: 'failed' };
     }
     const { data } = await s.refunds.list({ payment_intent: paymentIntent, limit: 100 });
+    const mine = data.filter((r) => (r.metadata?.returnId || undefined) === target.returnId);
     const refund =
-      data.find((r) => UNDER_WAY.has(r.status ?? '')) ??
+      mine.find((r) => UNDER_WAY.has(r.status ?? '')) ??
       (await s.refunds.create(
-        { payment_intent: paymentIntent, amount: target.amountMinor, metadata: { orderId: target.orderId } },
+        {
+          payment_intent: paymentIntent,
+          amount: target.amountMinor,
+          metadata: target.returnId ? { orderId: target.orderId, returnId: target.returnId } : { orderId: target.orderId },
+        },
         // one key per attempt: a retry after a failed refund gets a fresh one
-        { idempotencyKey: `refund-${target.orderId}-${data.length}` },
+        { idempotencyKey: target.returnId ? `return-${target.returnId}-${mine.length}` : `refund-${target.orderId}-${mine.length}` },
       ));
     return { paymentIntent, refundId: refund.id, status: refundState(refund.status) };
   } catch (err) {
@@ -125,11 +134,53 @@ export async function refundOrder(orderId: string, deps: RefundDeps = {}): Promi
 }
 
 /**
- * Webhook: Stripe reports a refund created or changed. The order is found by the
- * refund's `metadata.orderId` (set by settleRefund), else by its PaymentIntent.
- * Returns the order id, or null for refunds that aren't ours.
+ * Refund a received card return whose refund is pending or failed, and record the
+ * outcome. Returns the return's refund status afterwards (unchanged when there's
+ * nothing to do; still `pending` when Stripe isn't configured).
+ */
+export async function refundReturn(returnId: string, deps: RefundDeps = {}): Promise<RefundState | null> {
+  const db = deps.db ?? createAdminClient();
+  const s = deps.stripe === undefined ? stripe : deps.stripe;
+  const row = unwrap(
+    await db
+      .from('returns')
+      .select('id, order_id, refund_status, refund_minor, orders!inner(payment_method, stripe_payment_intent, stripe_session_id)')
+      .eq('id', returnId)
+      .maybeSingle(),
+  );
+  if (!row) throw new DataError('return_not_found');
+  const current = row.refund_status as RefundState | null;
+  const order = row.orders;
+  if (order.payment_method !== 'card' || (current !== 'pending' && current !== 'failed') || !s) return current;
+
+  const result = await settleRefund(
+    {
+      orderId: row.order_id,
+      returnId,
+      amountMinor: row.refund_minor,
+      paymentIntent: order.stripe_payment_intent,
+      sessionId: order.stripe_session_id,
+    },
+    s,
+  );
+  if (result.paymentIntent && !order.stripe_payment_intent) {
+    await db.rpc('record_payment_intent', { p_order_id: row.order_id, p_payment_intent: result.paymentIntent });
+  }
+  unwrap(await db.rpc('record_return_refund', { p_return_id: returnId, p_refund_id: result.refundId, p_status: result.status }));
+  return result.status;
+}
+
+/**
+ * Webhook: Stripe reports a refund created or changed. A return's refund is found by
+ * `metadata.returnId`; an order's by `metadata.orderId` (both set by settleRefund),
+ * else by its PaymentIntent. Returns the order id, or null for refunds that aren't ours.
  */
 export async function recordRefundEvent(refund: Stripe.Refund, db: Db = createAdminClient()): Promise<string | null> {
+  const returnId = refund.metadata?.returnId;
+  if (returnId) {
+    unwrap(await db.rpc('record_return_refund', { p_return_id: returnId, p_refund_id: refund.id, p_status: refundState(refund.status) }));
+    return refund.metadata?.orderId ?? null;
+  }
   let orderId = refund.metadata?.orderId ?? null;
   const pi = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
   if (!orderId && pi) {

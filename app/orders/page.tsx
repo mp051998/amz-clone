@@ -8,6 +8,7 @@ import { longDate, orderView } from '@/components/orders/format';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listOrders } from '@/lib/data/orders';
+import { returnSummaries, type ReturnSummary } from '@/lib/data/returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -16,11 +17,19 @@ export const metadata: Metadata = { title: 'Orders · Store' };
 
 const THUMBS = 4;
 
+const RETURN_CHIP: Record<ReturnSummary, { label: string; tone: 'good' | 'warn' }> = {
+  requested: { label: 'Return started', tone: 'warn' },
+  refund_pending: { label: 'Return received', tone: 'warn' },
+  refunded: { label: 'Return refunded', tone: 'good' },
+};
+
 export default async function OrdersPage() {
   const store = await getMarketplace();
   if (!(await readUser())) redirect(storePath(store, '/signin?next=/orders'));
   const sp = (path: string) => storePath(store, path);
-  const orders = await listOrders(await db(), store.id);
+  const client = await db();
+  const orders = await listOrders(client, store.id);
+  const returns = await returnSummaries(client, orders.filter((o) => o.deliveredAt).map((o) => o.id));
   const now = new Date();
 
   return (
@@ -46,7 +55,10 @@ export default async function OrdersPage() {
               return (
                 <li key={o.id} className="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-[18px]">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <StatusChip label={v.chip.label} tone={v.chip.tone} />
+                    <span className="flex flex-wrap gap-1.5">
+                      <StatusChip label={v.chip.label} tone={v.chip.tone} />
+                      {returns.has(o.id) ? <StatusChip {...RETURN_CHIP[returns.get(o.id)!]} /> : null}
+                    </span>
                     <span className="font-mono text-[12px] text-ink-3">{o.id}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3.5">

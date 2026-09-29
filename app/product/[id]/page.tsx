@@ -136,7 +136,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const confidence: ConfidenceRow[] = [
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
-    { k: 'Returns', v: '30-day refund' },
+    { k: 'Returns', v: `${store.returns.days}-day refund` },
     { k: 'Sold by', v: p.seller },
   ];
 

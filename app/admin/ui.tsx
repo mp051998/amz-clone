@@ -13,6 +13,7 @@ const SECTIONS = [
   { path: '/admin/products', label: 'Products' },
   { path: '/admin/categories', label: 'Categories' },
   { path: '/admin/orders', label: 'Orders' },
+  { path: '/admin/returns', label: 'Returns' },
   { path: '/admin/reviews', label: 'Reviews' },
 ] as const;
 

@@ -32,6 +32,7 @@ Base URL: `https://<host>/api/v1` (local: `http://localhost:3000/api/v1`).
 | Tax | 8% added at checkout | prices include GST |
 | Shipping | $5.99, free from $35 | ₹40, free from ₹499 |
 | Payment methods | `card`, `giftcard` | `upi`, `card`, `netbanking`, `cod`, `emi`, `amazonpay` |
+| Returns | 30 days after delivery | 10 days after delivery |
 | Address | US ZIP, 2-letter state | 6-digit pincode, `line2` (area) required, optional `landmark`, `addressType: home|office` |
 
 Max 30 units per cart line. Quantities are also capped at available stock.
@@ -134,6 +135,34 @@ How `POST /orders` works:
 - Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
 - Cancellation: `cancelReason?: customer | admin | sold_out`, and for orders that were placed or charged `refund?: {status, amountMinor, refundedAt?}`. `status` is `pending` / `succeeded` / `failed` for card refunds on Stripe, `succeeded` straight away for the simulated methods, and `not_charged` for pay on delivery.
 
+### Returns
+
+Delivered items can be returned within the store's window (`markets.return_days`). A return covers some or all of an order's lines and quantities; an order can have several returns, until every unit is in one that is open or received.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/orders/:id/returns` | | `{delivered, returnBy?, returnable: {<productId>: qty}, returns: [Return]}`. `returnBy` is set once the order is delivered. `returnable` is what's left to return. `404` for someone else's order. |
+| POST | `/orders/:id/returns` | `{items: [{productId, qty}], reason, comment?}` | `201 {return}`. `409 return_not_allowed` with `detail` `not_delivered` or `window_closed`; `422 invalid_input` with `detail` `items` (none, unknown, or more than is left), `reason` or `comment` (≤ 1000 chars). |
+| POST | `/returns/:id/cancel` | | `{return}`. Only while `requested` (`409 return_not_open` after). |
+
+`reason` is one of `no_longer_needed`, `bought_by_mistake`, `better_price`, `damaged`, `defective`, `wrong_item`, `missing_parts`, `not_as_described`. The last five are the store's fault.
+
+The refund is priced when the return starts:
+- `itemsMinor`: the returned units at the prices paid.
+- `taxMinor`: the items' share of the order's tax (US). The return that brings the order to fully returned gets whatever tax is left, so the shares add up to the tax charged.
+- `shipMinor`: the items' share of the delivery charge, but only for store-fault reasons.
+- `refundMinor = itemsMinor + taxMinor + shipMinor`.
+
+`Return` has these fields:
+- `id, orderId, status: requested | received | rejected | cancelled, reason, comment?`
+- `items: [{productId, title, image, unitPriceMinor, qty}]`
+- `itemsMinor, taxMinor, shipMinor, refundMinor`
+- `refund?: {status: pending | succeeded | failed, refundedAt?}`, set once received
+- `dropoffCode` (e.g. `7F3A-09BC`, shown at a drop-off point), `dropoffBy` (14 days after the start)
+- `rejectNote?`, `createdAt, receivedAt?, rejectedAt?, cancelledAt?`
+
+When an admin marks a return received, the units go back into stock and the shopper is refunded: card payments on Stripe (a partial refund of the PaymentIntent, `metadata.returnId` set), simulated methods at once, pay on delivery at once to the shopper's bank (simulated).
+
 ### How card payment is confirmed
 
 The customer never tells us they paid. Stripe does:
@@ -153,9 +182,10 @@ The customer never tells us they paid. Stripe does:
 - It returns `503` when the secret is unset and `400` for a bad signature.
 - Final domain outcomes (e.g. `payment_incomplete` for a forged "paid" event) are
   acknowledged with `200 {received, outcome}` so Stripe stops retrying.
-- `refund.created`, `refund.updated` and `refund.failed` settle a cancelled order's
-  refund (matched by the refund's `metadata.orderId`, else its PaymentIntent). Enable
-  these events on the Stripe endpoint alongside the `checkout.session.*` ones.
+- `refund.created`, `refund.updated` and `refund.failed` settle a return's refund
+  (matched by the refund's `metadata.returnId`) or a cancelled order's (by
+  `metadata.orderId`, else its PaymentIntent). Enable these events on the Stripe
+  endpoint alongside the `checkout.session.*` ones.
 
 A payment that arrives after the order's reserved stock was released and sold
 (`409 stock_released`) leaves the order cancelled (`cancelReason: sold_out`) and
@@ -264,6 +294,18 @@ Orders of this store that were placed or charged (abandoned checkouts are left o
 | POST | `/admin/orders/:id/cancel` | | `{order}`. Any order not yet delivered (`409 order_not_cancellable` after). Stock goes back; a card payment is refunded on Stripe. If Stripe refuses, the cancel stands with `refund.status: failed`. |
 | POST | `/admin/orders/:id/refund` | | `{order}`. Retries a card refund that failed (or never reached Stripe). `502 refund_failed` if it fails again. |
 
+### Returns
+
+Returns of this store's orders.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/returns?filter=&page=` | | `{returns: [AdminReturn], total, page, pageSize, counts: {open, refund_issues, closed, all}}`. 25 a page. `filter`: `open` (the default: `requested`, oldest first), `refund_issues` (received, card refund `failed` or `pending`), `closed` (received, rejected or cancelled, newest first) or `all`. |
+| GET | `/admin/returns/:id` | | `{return}`: a `Return` plus `order: {id, market, currency, paymentMethod, paymentLabel, totalMinor, deliveredAt}`, `customer: {id, email, name}` and `stripeRefundId?`. Another store's return is `404`. |
+| POST | `/admin/returns/:id/receive` | | `{return}`. The items are back: stock returned and the refund issued. A card refund is `pending` until Stripe confirms it, or `failed`. Open returns only (`409 return_not_open`). |
+| POST | `/admin/returns/:id/reject` | `{note?}` | `{return}`. Closed without a refund; the shopper sees the note (≤ 500 chars). |
+| POST | `/admin/returns/:id/refund` | | `{return}`. Retries a received return's card refund that failed or never reached Stripe. `502 refund_failed` if it fails again. |
+
 ### Reviews
 
 Reviews of this store's products that shoppers reported, or that are hidden. A report is open when it was filed after the review's last admin decision; three open reports hide a review (`hiddenReason: reports`).
@@ -284,7 +326,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders` and `/admin/reviews` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns` and `/admin/reviews` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -294,9 +336,9 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders` and `/a
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
+| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable` |
 | 502 | `refund_failed` |
@@ -330,7 +372,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Thirteen migrations live in `supabase/migrations/`:
+Fourteen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -347,15 +389,17 @@ Thirteen migrations live in `supabase/migrations/`:
 | catalog enrichment | `products.description` and `products.details` (admin-writable, read by the product page and API, not the catalog views); for databases seeded earlier, the seeded products' descriptions, spec tables and missing brands (book authors) and category-specific wording for the seeded reviews. A no-op on a fresh database, where the seed has them |
 | email in use | `email_in_use()`, service role only: whether an account already has an email address, checked before the server changes an account's email |
 | review moderation | `reviews.hidden_at`, `hidden_reason` (`reports` or `admin`) and `moderated_at`; a trigger on `review_reports` that hides a review at three open reports; hidden reviews leave the public read policy (their author and admins still see them) and the `product_ratings` rollup; the admin functions `admin_review_queue()` and `admin_moderate_review()` (keep, hide, delete) |
+| returns | `markets.return_days` (US 30, IN 10); `returns` and `return_items` (owner read only); `request_return()`, `order_returns()` and `cancel_my_return()` for shoppers; the admin functions `admin_list_returns()`, `admin_get_return()`, `admin_receive_return()` and `admin_reject_return()`; and the service-role `record_return_refund()` |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
-- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund`, `mark_sold_out` and `email_in_use` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
+- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund`, `record_return_refund`, `mark_sold_out` and `email_in_use` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
 - **Guest carts.** They are only reachable through the `cart_*` functions with their token. `purge_stale_guest_carts()` deletes guest carts that have been idle for 30 days. It is service-role only, so schedule it with pg_cron or call it from a cron job.
 
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
+- returns: the delivery and window checks, what's left to return, refund pricing (tax shares that add up, delivery only for store-fault reasons), cancel, admin receive (stock back, refund per payment method) and reject, the admin list per store, and real Stripe test-mode partial refunds
 - review moderation: auto-hide on the third report, who sees a hidden review, the rating rollup, keep resolving reports, admin hide, the queue per store, admin-only access, delete
 - account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook

@@ -68,6 +68,49 @@ export type OrderStage = 'awaiting_payment' | 'preparing' | 'shipped' | 'out_for
 export type CancelReason = 'customer' | 'admin' | 'sold_out';
 /** pending: card refund asked of Stripe; not_charged: cash on delivery, nothing to give back. */
 export type RefundStatus = 'pending' | 'succeeded' | 'failed' | 'not_charged';
+
+export type ReturnStatus = 'requested' | 'received' | 'rejected' | 'cancelled';
+export type ReturnReason =
+  | 'no_longer_needed'
+  | 'bought_by_mistake'
+  | 'better_price'
+  | 'damaged'
+  | 'defective'
+  | 'wrong_item'
+  | 'missing_parts'
+  | 'not_as_described';
+
+export interface ReturnItem {
+  productId: string;
+  title: string;
+  image: string;
+  unitPriceMinor: number;
+  qty: number;
+}
+
+/** A return of some of a delivered order's items. */
+export interface OrderReturn {
+  id: string;
+  orderId: string;
+  status: ReturnStatus;
+  reason: ReturnReason;
+  comment?: string;
+  items: ReturnItem[];
+  /** the refund: items, their share of tax, and of delivery when the store was at fault */
+  itemsMinor: number;
+  taxMinor: number;
+  shipMinor: number;
+  refundMinor: number;
+  /** set once the store has received the items */
+  refund?: { status: 'pending' | 'succeeded' | 'failed'; refundedAt?: string };
+  dropoffCode: string;
+  dropoffBy: string;
+  rejectNote?: string;
+  createdAt: string;
+  receivedAt?: string;
+  rejectedAt?: string;
+  cancelledAt?: string;
+}
 export type PaymentMethod = 'card' | 'giftcard' | 'upi' | 'netbanking' | 'cod' | 'emi' | 'amazonpay';
 
 export interface OrderItem {
