@@ -63,7 +63,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | --- | --- | --- |
 | GET | `/categories` | `{market, categories: [{slug, name}]}` in the store's nav order |
 | GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
-| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null) and `details`, the "Product information" table as `[label, value]` pairs, most important first. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
+| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null), `details`, the "Product information" table as `[label, value]` pairs, most important first, `gallery` (more image URLs after `image`, in order) and `variants`: null, or `{group, axis, label, options: [{id, label, image, priceMinor, stock, current}]}` when other products of this store share its variant group (e.g. `axis: "Color"`, `label: "Black"`). Options are in label order; archived ones are left out, except the product itself. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
 `Product` has these fields:
@@ -259,13 +259,17 @@ Catalog and order management for store admins. You must be signed in **and** lis
 | PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
 | DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 
-`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock}`:
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
 - `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
 - `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.
 - `bullets`: up to 10, each up to 300 characters.
 - `description`: the product page's "Product description", up to 2,000 characters (blank or left out: none).
 - `details`: the "Product information" table, up to 20 `[label, value]` rows (labels up to 40 characters, values up to 200). Left out on create: empty. The admin form edits it as one `Label: value` per line.
+- `gallery`: up to 8 more images after `image`, each a site path or `https://` URL, shown in this order. Repeats and the main image are dropped. Left out on create: none.
+- `variantGroup`: products of a store with the same group show as options of each other (each keeps its own price, stock, reviews and orders). A lowercase slug (`sony-wh-ch520`), up to 60 characters; blank or null for none, which also clears `variantAxis` and `variantLabel`.
+- `variantAxis`: what the options differ by, e.g. `Color` or `Size` (up to 30 characters, `Style` when left out). Every product in a group uses the same one (`422 invalid_input`, `detail: "variantAxis"`).
+- `variantLabel`: this product's option, e.g. `Black` (up to 60 characters). Needed with a group, and unique within it, ignoring case (`422 invalid_input`, `detail: "variantLabel"`).
 - Validation errors are `422 invalid_input` with the field in `detail`.
 
 Saving re-derives the product's rules insight (scores, pros and cons for its category's attributes). This happens on create, and on any change of category, title, brand or bullets. A new category replaces an AI insight too, since its attributes belong to the old category. New wording only replaces a rules insight.
@@ -372,7 +376,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Fourteen migrations live in `supabase/migrations/`:
+Fifteen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -390,6 +394,7 @@ Fourteen migrations live in `supabase/migrations/`:
 | email in use | `email_in_use()`, service role only: whether an account already has an email address, checked before the server changes an account's email |
 | review moderation | `reviews.hidden_at`, `hidden_reason` (`reports` or `admin`) and `moderated_at`; a trigger on `review_reports` that hides a review at three open reports; hidden reviews leave the public read policy (their author and admins still see them) and the `product_ratings` rollup; the admin functions `admin_review_queue()` and `admin_moderate_review()` (keep, hide, delete) |
 | returns | `markets.return_days` (US 30, IN 10); `returns` and `return_items` (owner read only); `request_return()`, `order_returns()` and `cancel_my_return()` for shoppers; the admin functions `admin_list_returns()`, `admin_get_return()`, `admin_receive_return()` and `admin_reject_return()`; and the service-role `record_return_refund()` |
+| galleries and variants | `products.gallery` (up to 8 more images) and `variant_group`, `variant_axis`, `variant_label`, admin-writable and read by the product page and API; labels unique per store and group (`products_variant_label_key`); for databases seeded earlier, the seeded variant groups (Sony, Brooks and FHUMSH colours in the US; Hawkins sizes and Lenovo configurations in India). A no-op on a fresh database, where the seed has them (`supabase/seed/variants.json`) |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -403,5 +408,6 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - review moderation: auto-hide on the third report, who sees a hidden review, the rating rollup, keep resolving reports, admin hide, the queue per store, admin-only access, delete
 - account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook
+- product variants and galleries: sibling options per store in label order, unique labels (and the index behind them), one option name per group, archived options, leaving a group, the gallery cap
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
 - order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds

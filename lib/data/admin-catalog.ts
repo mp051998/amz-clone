@@ -58,12 +58,26 @@ export interface ProductInput {
   /** the "Product information" table, most important row first. */
   details: DetailRow[];
   stock: number;
+  /** more images after the main one, in order (up to 8). */
+  gallery: string[];
+  /** products of a store sharing this key show as options of each other; null when it has none. */
+  variantGroup: string | null;
+  /** what the options differ by, e.g. "Color" (the same across a group). */
+  variantAxis: string | null;
+  /** this product's option, e.g. "Black" (unique within its group). */
+  variantLabel: string | null;
 }
+
+export const GALLERY_MAX = 8;
+/** Option names the form suggests; any short name works. */
+export const VARIANT_AXES = ['Color', 'Size', 'Style', 'Capacity', 'Configuration', 'Pattern', 'Pack size'];
 
 const required = (label: string, max: number) =>
   z.string().trim().min(1, `Enter ${label}`).max(max, `Keep it under ${max} characters`);
 const optional = (max: number) =>
   z.string().trim().max(max, `Keep it under ${max} characters`).nullable().transform((v) => v || null);
+
+const IMAGE_URL = /^(\/products\/[A-Za-z0-9._/-]+|https:\/\/\S+)$/;
 
 const ProductInputSchema = z
   .object({
@@ -74,7 +88,7 @@ const ProductInputSchema = z
       .string()
       .trim()
       .max(500, 'Keep it under 500 characters')
-      .regex(/^(\/products\/[A-Za-z0-9._/-]+|https:\/\/\S+)$/, 'Upload an image or paste an https:// image URL'),
+      .regex(IMAGE_URL, 'Upload an image or paste an https:// image URL'),
     priceMinor: z.number().int('Enter a price').positive('Price must be more than 0').max(100_000_000, 'That price is too high'),
     listMinor: z.number().int().positive().max(100_000_000).nullable(),
     deal: z.boolean(),
@@ -94,8 +108,34 @@ const ProductInputSchema = z
       .max(DETAIL_LIMITS.rows, `Up to ${DETAIL_LIMITS.rows} rows`)
       .default([]),
     stock: z.number().int('Enter a whole number').min(0, 'Stock can’t be negative').max(1_000_000, 'That’s a lot of stock'),
+    gallery: z
+      .array(z.string().trim().max(500, 'Keep image URLs under 500 characters').regex(IMAGE_URL, 'Gallery images need an https:// URL'))
+      .max(GALLERY_MAX, `Up to ${GALLERY_MAX} more images`)
+      .default([]),
+    variantGroup: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(60, 'Keep it under 60 characters')
+      .regex(/^([a-z0-9][a-z0-9-]*)?$/, 'Use lowercase letters, numbers and dashes, e.g. sony-wh-ch520')
+      .nullable()
+      .default(null)
+      .transform((v) => v || null),
+    variantAxis: optional(30).default(null),
+    variantLabel: optional(60).default(null),
   })
+  .transform((v) => ({
+    ...v,
+    // the main image isn't repeated, nor any image twice
+    gallery: [...new Set(v.gallery)].filter((g) => g !== v.image),
+    // without a group the option fields mean nothing; with one, the option name defaults to Style
+    variantAxis: v.variantGroup ? v.variantAxis ?? 'Style' : null,
+    variantLabel: v.variantGroup ? v.variantLabel : null,
+  }))
   .superRefine((v, ctx) => {
+    if (v.variantGroup && !v.variantLabel) {
+      ctx.addIssue({ code: 'custom', path: ['variantLabel'], message: 'Name this product’s option, e.g. Black' });
+    }
     if (v.listMinor != null && v.listMinor <= v.priceMinor) {
       ctx.addIssue({ code: 'custom', path: ['listMinor'], message: 'The list price must be higher than the price' });
     }
@@ -156,6 +196,10 @@ function toRow(p: ProductInput) {
     description: p.description,
     details: p.details,
     stock: p.stock,
+    gallery: p.gallery,
+    variant_group: p.variantGroup,
+    variant_axis: p.variantAxis,
+    variant_label: p.variantLabel,
   };
 }
 
@@ -288,6 +332,10 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     description: r.description,
     details: toDetailRows(r.details),
     stock: r.stock,
+    gallery: r.gallery ?? [],
+    variantGroup: r.variant_group ?? null,
+    variantAxis: r.variant_axis ?? null,
+    variantLabel: r.variant_label ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     archivedAt: r.archived_at,
@@ -307,7 +355,7 @@ export async function productHasOrders(db: Db, id: string): Promise<boolean> {
 
 /** Add a product to a store (placed last in catalog order). Returns its id. */
 export async function createProduct(db: Db, market: Market, input: unknown): Promise<string> {
-  const p = parse(input);
+  const p = await checkVariantGroup(db, market, null, parse(input));
   const last = unwrap(
     await db.from('products').select('position').eq('market_id', market).order('position', { ascending: false }).limit(1).maybeSingle(),
   );
@@ -317,7 +365,7 @@ export async function createProduct(db: Db, market: Market, input: unknown): Pro
     .insert({ id, market_id: market, position: (last?.position ?? -1) + 1, ...toRow(p) })
     .select('id')
     .single();
-  if (res.error) throw fromPostgrest(res.error);
+  if (res.error) throw writeError(res.error);
   await refreshInsight(db, res.data.id, true);
   return res.data.id;
 }
@@ -327,14 +375,73 @@ export async function createProduct(db: Db, market: Market, input: unknown): Pro
  * wording re-derives its rules insight (see `refreshInsight`).
  */
 export async function updateProduct(db: Db, id: string, input: unknown): Promise<void> {
-  const p = parse(input);
-  const before = unwrap(await db.from('products').select('category_slug, title, brand, bullets').eq('id', id).maybeSingle());
-  const row = before && unwrap(await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle());
+  const before = unwrap(await db.from('products').select('market_id, category_slug, title, brand, bullets').eq('id', id).maybeSingle());
   // RLS hides the row from non-admins, so "no row" is either missing or not allowed
-  if (!row) throw new DataError('product_not_found');
+  if (!before) throw new DataError('product_not_found');
+  const p = await checkVariantGroup(db, before.market_id as Market, id, parse(input));
+  const updated = await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle();
+  if (updated.error) throw writeError(updated.error);
+  if (!updated.data) throw new DataError('product_not_found');
   const moved = before.category_slug !== p.category;
   const reworded = before.title !== p.title || before.brand !== p.brand || before.bullets.join('\n') !== p.bullets.join('\n');
   if (moved || reworded) await refreshInsight(db, id, moved);
+}
+
+/**
+ * A group's option name is shared: joining a group means using its name (Color, Size, …), spelled
+ * as the group already does. Labels are unique per group (products_variant_label_key), checked
+ * here for a clear message too. Returns the input with the group's spelling.
+ */
+async function checkVariantGroup(db: Db, market: Market, id: string | null, p: ProductInput): Promise<ProductInput> {
+  if (!p.variantGroup) return p;
+  let q = db.from('products').select('id, variant_axis, variant_label').eq('market_id', market).eq('variant_group', p.variantGroup);
+  if (id) q = q.neq('id', id);
+  const others = unwrap(await q);
+  const axis = others.find((o) => o.variant_axis)?.variant_axis;
+  if (axis && axis.toLowerCase() !== p.variantAxis?.toLowerCase()) {
+    throw new DataError('invalid_input', 'variantAxis', `Products in this group use “${axis}”`);
+  }
+  if (others.some((o) => o.variant_label?.toLowerCase() === p.variantLabel?.toLowerCase())) {
+    throw new DataError('invalid_input', 'variantLabel', 'Another product in this group already uses that option');
+  }
+  return axis ? { ...p, variantAxis: axis } : p;
+}
+
+/** A failed product write: a duplicate option label (a race past the check) reads as a field error. */
+function writeError(err: { code?: string; message: string; details?: string | null }): DataError {
+  if (err.code === '23505' && /products_variant_label_key/.test(err.message)) {
+    return new DataError('invalid_input', 'variantLabel', 'Another product in this group already uses that option');
+  }
+  return fromPostgrest(err as Parameters<typeof fromPostgrest>[0]);
+}
+
+/** A store's variant groups with their option name and size, for the product form's suggestions. */
+export async function listVariantGroups(db: Db, market: Market): Promise<{ group: string; axis: string; count: number }[]> {
+  const res = await db.from('products').select('variant_group, variant_axis').eq('market_id', market).not('variant_group', 'is', null);
+  if (res.error) return []; // suggestions only (or the columns aren't deployed yet)
+  const groups = new Map<string, { group: string; axis: string; count: number }>();
+  for (const r of res.data) {
+    const g = groups.get(r.variant_group!) ?? { group: r.variant_group!, axis: r.variant_axis ?? 'Style', count: 0 };
+    g.count += 1;
+    groups.set(g.group, g);
+  }
+  return [...groups.values()].sort((a, b) => a.group.localeCompare(b.group));
+}
+
+/** The other products in a variant group (archived ones too; the storefront hides those). */
+export async function listVariantSiblings(
+  db: Db,
+  market: Market,
+  group: string,
+  exceptId: string,
+): Promise<{ id: string; title: string; label: string; archived: boolean }[]> {
+  const rows = unwrap(
+    await db.from('products').select('id, title, variant_label, archived_at').eq('market_id', market).eq('variant_group', group).neq('id', exceptId),
+  );
+  const byLabel = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+  return rows
+    .map((r) => ({ id: r.id, title: r.title, label: r.variant_label ?? '', archived: r.archived_at != null }))
+    .sort((a, b) => byLabel.compare(a.label, b.label));
 }
 
 /**
@@ -400,17 +507,24 @@ export async function refreshInsight(db: Db, id: string, replaceAi: boolean): Pr
   }
 }
 
+/** Why an image file can't be used (type or size), or null when it can. */
+export function imageFileError(file: File): string | null {
+  if (!IMAGE_TYPES[file.type]) return 'Use a JPEG, PNG or WebP image';
+  if (file.size > PRODUCT_IMAGE_MAX_BYTES) return 'Images can be up to 3 MB';
+  return null;
+}
+
 /** Store an uploaded image in the public product-images bucket; returns its public URL. */
-export async function uploadProductImage(db: Db, market: Market, file: File): Promise<string> {
+export async function uploadProductImage(db: Db, market: Market, file: File, field: 'image' | 'gallery' = 'image'): Promise<string> {
+  const bad = imageFileError(file);
+  if (bad) throw new DataError('invalid_input', field, bad);
   const ext = IMAGE_TYPES[file.type];
-  if (!ext) throw new DataError('invalid_input', 'image', 'Use a JPEG, PNG or WebP image');
-  if (file.size > PRODUCT_IMAGE_MAX_BYTES) throw new DataError('invalid_input', 'image', 'Images can be up to 3 MB');
   const path = `${market.toLowerCase()}/${randomBytes(12).toString('hex')}.${ext}`;
   const bucket = db.storage.from(PRODUCT_IMAGE_BUCKET);
   const { error } = await bucket.upload(path, file, { contentType: file.type, upsert: false });
   if (error) {
-    if (/row-level security|unauthorized/i.test(error.message)) throw new DataError('forbidden', 'image');
-    throw new DataError('invalid_input', 'image', 'The image could not be uploaded. Try again, or paste an image URL.');
+    if (/row-level security|unauthorized/i.test(error.message)) throw new DataError('forbidden', field);
+    throw new DataError('invalid_input', field, 'The image could not be uploaded. Try again, or paste an image URL.');
   }
   return bucket.getPublicUrl(path).data.publicUrl;
 }

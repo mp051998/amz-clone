@@ -4,15 +4,22 @@ import { DeleteProduct } from '@/components/admin/DeleteProduct';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
-import { PRODUCT_BADGES, getAdminProduct, productHasOrders } from '@/lib/data/admin-catalog';
+import {
+  GALLERY_MAX,
+  PRODUCT_BADGES,
+  VARIANT_AXES,
+  getAdminProduct,
+  listVariantGroups,
+  listVariantSiblings,
+  productHasOrders,
+} from '@/lib/data/admin-catalog';
 import { listCategories } from '@/lib/data/catalog';
 import { messageFor } from '@/lib/data/errors';
 import { storePath } from '@/lib/marketplace';
-import { detailLines } from '@/lib/product-details';
 import { db } from '@/lib/supabase/server';
 import { archiveProduct, removeProduct, saveProduct } from '../../actions';
 import { adminPage } from '../../guard';
-import { AdminFrame, AdminOnly, majorText } from '../../ui';
+import { AdminFrame, AdminOnly, productFormValues } from '../../ui';
 
 export const metadata: Metadata = { title: 'Edit product · Admin · Store' };
 
@@ -28,14 +35,16 @@ export default async function EditProductPage({ params, searchParams }: {
   if (!admin) return <AdminOnly store={store} />;
 
   const client = await db();
-  const [product, categories, ordered] = await Promise.all([
+  const [product, categories, ordered, variantGroups] = await Promise.all([
     getAdminProduct(client, id),
     listCategories(client, store.id),
     productHasOrders(client, id),
+    listVariantGroups(client, store.id),
   ]);
   if (!product) notFound();
   // a product belongs to one store; edit it there
   if (product.market !== store.id) redirect(storePath({ id: product.market }, path));
+  const siblings = product.variantGroup ? await listVariantSiblings(client, store.id, product.variantGroup, product.id) : [];
 
   const problem = messageFor(first(sp.error));
   const done = first(sp.done);
@@ -82,28 +91,17 @@ export default async function EditProductPage({ params, searchParams }: {
       ) : null}
       <ProductForm
         action={saveProduct.bind(null, product.id)}
-        initial={{
-          title: product.title,
-          brand: product.brand ?? '',
-          category: product.category,
-          image: product.image,
-          price: majorText(product.priceMinor),
-          listPrice: majorText(product.listMinor),
-          deal: product.deal,
-          badge: product.badge ?? '',
-          boughtPastMonth: product.boughtPastMonth ?? '',
-          seller: product.seller,
-          shipsFrom: product.shipsFrom,
-          bullets: product.bullets.join('\n'),
-          description: product.description ?? '',
-          details: detailLines(product.details),
-          stock: String(product.stock),
-        }}
+        initial={productFormValues(product)}
         categories={categories.map((c) => ({ value: c.slug, label: c.name }))}
         badges={PRODUCT_BADGES}
         currencySymbol={store.currency.symbol}
         submitLabel="Save changes"
         cancelHref={storePath(store, '/admin/products')}
+        galleryMax={GALLERY_MAX}
+        variantGroups={variantGroups}
+        variantAxes={VARIANT_AXES}
+        siblings={siblings.map((x) => ({ ...x, href: storePath(store, `/admin/products/${encodeURIComponent(x.id)}`) }))}
+        addOptionHref={product.variantGroup ? storePath(store, `/admin/products/new?from=${encodeURIComponent(product.id)}`) : undefined}
       />
     </AdminFrame>
   );

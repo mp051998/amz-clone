@@ -45,6 +45,10 @@ const product = (category: string): ProductInput => ({
   description: null,
   details: [],
   stock: 3,
+  gallery: [],
+  variantGroup: null,
+  variantAxis: null,
+  variantLabel: null,
 });
 
 const navOf = async (market: 'US' | 'IN') => (await listCategories(anon(), market)).map((c) => c.slug);

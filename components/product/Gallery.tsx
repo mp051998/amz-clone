@@ -4,41 +4,46 @@ import { ProductFrame } from '../decision/ProductFrame';
 import { cn } from '../lib/cn';
 
 export interface GalleryProps {
-  /** real images; one image is reused across the four views. */
+  /** the main image first, then the gallery (products.gallery). */
   images: string[];
   alt: string;
 }
 
-const VIEWS = ['front', 'side', 'detail', 'in use'];
-
 /**
- * PDP gallery (prototype Product detail): 1/1 hero frame (radius 14, line border) + four thumbs.
- * The catalog has one shot per product, so the thumbs reuse it and carry view labels.
+ * PDP gallery (prototype Product detail): 1/1 hero frame (radius 14, line border), with a thumb
+ * per image when there's more than one. A single image shows on its own.
  */
 export function Gallery({ images, alt }: GalleryProps) {
   const [pick, setPick] = useState(0);
-  const shots = VIEWS.map((label, i) => ({ label, src: images.length ? images[i % images.length] : null }));
-  const cur = shots[pick];
+  const shots = images.length ? images : [null];
+  const cur = Math.min(pick, shots.length - 1);
+  const many = shots.length > 1;
   return (
     <div className="flex min-w-0 flex-col gap-2.5">
-      <ProductFrame src={cur.src} alt={alt} aspect="1/1" radius="panel" label={`product shot · ${cur.label}`} priority />
-      <div className="grid grid-cols-4 gap-2" role="group" aria-label="Product views">
-        {shots.map((s, i) => (
-          <button
-            key={s.label}
-            type="button"
-            onClick={() => setPick(i)}
-            aria-pressed={i === pick}
-            aria-label={`Show ${s.label} view`}
-            className={cn('relative overflow-hidden rounded-image border-2 p-0', i === pick ? 'border-ink' : 'border-transparent hover:border-line-3')}
-          >
-            <ProductFrame src={s.src} aspect="1/1" inset="12%" label={s.label} />
-            {images.length < 2 ? (
-              <span className="absolute inset-x-0 bottom-0 bg-surface/85 py-0.5 text-center font-mono text-[10px] text-ink-3">{s.label}</span>
-            ) : null}
-          </button>
-        ))}
-      </div>
+      <ProductFrame
+        src={shots[cur]}
+        alt={many ? `${alt}, image ${cur + 1} of ${shots.length}` : alt}
+        aspect="1/1"
+        radius="panel"
+        label="product shot"
+        priority
+      />
+      {many ? (
+        <div className="grid grid-cols-5 gap-2" role="group" aria-label="Product images">
+          {shots.map((src, i) => (
+            <button
+              key={`${i}-${src}`}
+              type="button"
+              onClick={() => setPick(i)}
+              aria-pressed={i === cur}
+              aria-label={`Show image ${i + 1} of ${shots.length}`}
+              className={cn('relative overflow-hidden rounded-image border-2 p-0', i === cur ? 'border-ink' : 'border-transparent hover:border-line-3')}
+            >
+              <ProductFrame src={src} aspect="1/1" inset="12%" label={`image ${i + 1}`} />
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

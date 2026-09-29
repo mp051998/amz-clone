@@ -40,23 +40,65 @@ export async function getProduct(db: Db, id: string, opts: ProductReadOptions = 
   return row ? toProduct(row) : null;
 }
 
-/** The long-form copy a product page shows under the fold. */
+/** One option of a product's variant group: a sibling product (or the product itself). */
+export interface ProductVariant {
+  id: string;
+  label: string;
+  image: string;
+  priceMinor: number;
+  stock: number;
+  /** the product this info is for */
+  current: boolean;
+}
+
+/** The long-form copy and extras a product page shows beyond the catalog row. */
 export interface ProductInfo {
   description: string | null;
   details: DetailRow[];
+  /** more images after the main one */
+  gallery: string[];
+  /** options when the product is one of a variant group (e.g. Color: Black | Blue), else null */
+  variants: { group: string; axis: string; label: string; options: ProductVariant[] } | null;
 }
 
-const NO_INFO: ProductInfo = { description: null, details: [] };
+const NO_INFO: ProductInfo = { description: null, details: [], gallery: [], variants: null };
+const MISSING_COLUMN = '42703';
+
+/** Natural order for option labels: "1.5 Litre" before "3 Litre", "8 GB" before "16 GB". */
+const byLabel = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 /**
- * A product's description and "Product information" rows. Empty when the columns aren't there
- * yet (Vercel can deploy this a minute before the migration that adds them) or the id is unknown.
+ * A product's description, "Product information" rows, gallery and variant options. Empty when
+ * the columns aren't there yet (Vercel can deploy this a minute before the migration that adds
+ * them) or the id is unknown. Options leave out archived siblings, but keep the product itself.
  */
 export async function getProductInfo(db: Db, id: string): Promise<ProductInfo> {
-  const res = await db.from('products').select('description, details').eq('id', id).maybeSingle();
-  if (res.error?.code === '42703') return NO_INFO;
+  const res = await db.from('products').select('market_id, description, details, gallery, variant_group, variant_axis, variant_label').eq('id', id).maybeSingle();
+  if (res.error?.code === MISSING_COLUMN) {
+    const old = await db.from('products').select('description, details').eq('id', id).maybeSingle();
+    if (old.error?.code === MISSING_COLUMN) return NO_INFO;
+    const row = unwrap(old);
+    return row ? { ...NO_INFO, description: row.description, details: toDetailRows(row.details) } : NO_INFO;
+  }
   const row = unwrap(res);
-  return row ? { description: row.description, details: toDetailRows(row.details) } : NO_INFO;
+  if (!row) return NO_INFO;
+  const info: ProductInfo = { description: row.description, details: toDetailRows(row.details), gallery: row.gallery ?? [], variants: null };
+  if (row.variant_group && row.variant_axis && row.variant_label) {
+    const sibs = unwrap(
+      await db
+        .from('products')
+        .select('id, variant_label, image, price_minor, stock, archived_at')
+        .eq('market_id', row.market_id)
+        .eq('variant_group', row.variant_group),
+    );
+    const options = sibs
+      .filter((s) => s.variant_label && (s.id === id || !s.archived_at))
+      .map((s) => ({ id: s.id, label: s.variant_label!, image: s.image, priceMinor: s.price_minor, stock: s.stock, current: s.id === id }))
+      .sort((a, b) => byLabel.compare(a.label, b.label));
+    // a group of one is just a product
+    if (options.length > 1) info.variants = { group: row.variant_group, axis: row.variant_axis, label: row.variant_label, options };
+  }
+  return info;
 }
 
 /** Products by id, in the order the ids were given (unknown ids are skipped). */

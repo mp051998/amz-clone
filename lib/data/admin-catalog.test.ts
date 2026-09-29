@@ -17,6 +17,10 @@ const good: ProductInput = {
   description: null,
   details: [],
   stock: 12,
+  gallery: [],
+  variantGroup: null,
+  variantAxis: null,
+  variantLabel: null,
 };
 
 describe('validateProduct', () => {
@@ -102,5 +106,35 @@ describe('productStatus', () => {
     expect(productStatus('active')).toBe('active');
     expect(productStatus(null)).toBe('active');
     expect(productStatus('deleted')).toBe('active');
+  });
+});
+
+describe('validateProduct: gallery and variants', () => {
+  it('keeps gallery order, dropping repeats and the main image', () => {
+    const res = validateProduct({ ...good, gallery: ['https://img.test/a.jpg', '/products/acme.jpg', 'https://img.test/b.jpg', 'https://img.test/a.jpg'] });
+    expect(res.ok && res.data.gallery).toEqual(['https://img.test/a.jpg', 'https://img.test/b.jpg']);
+  });
+
+  it('caps the gallery and wants image URLs', () => {
+    const nine = Array.from({ length: 9 }, (_, i) => `https://img.test/${i}.jpg`);
+    const many = validateProduct({ ...good, gallery: nine });
+    expect(!many.ok && many.errors.gallery).toBe('Up to 8 more images');
+    const bad = validateProduct({ ...good, gallery: ['ftp://nope'] });
+    expect(!bad.ok && bad.errors.gallery).toBe('Gallery images need an https:// URL');
+    expect(validateProduct({ ...good, gallery: undefined }).ok).toBe(true);
+  });
+
+  it('normalises the group and needs an option in one', () => {
+    const res = validateProduct({ ...good, variantGroup: ' Acme-Buds ', variantAxis: '', variantLabel: 'Black' });
+    expect(res.ok && [res.data.variantGroup, res.data.variantAxis, res.data.variantLabel]).toEqual(['acme-buds', 'Style', 'Black']);
+    const missing = validateProduct({ ...good, variantGroup: 'acme-buds', variantAxis: 'Color', variantLabel: ' ' });
+    expect(!missing.ok && missing.errors.variantLabel).toBe('Name this product’s option, e.g. Black');
+    const slug = validateProduct({ ...good, variantGroup: 'acme buds!', variantLabel: 'Black' });
+    expect(!slug.ok && slug.errors.variantGroup).toMatch(/lowercase letters/);
+  });
+
+  it('ignores option fields without a group', () => {
+    const res = validateProduct({ ...good, variantGroup: '', variantAxis: 'Color', variantLabel: 'Black' });
+    expect(res.ok && [res.data.variantGroup, res.data.variantAxis, res.data.variantLabel]).toEqual([null, null, null]);
   });
 });
