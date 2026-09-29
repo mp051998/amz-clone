@@ -78,6 +78,60 @@ test-mode Checkout Sessions.
 5. **Get the keys.** Under **Project Settings → API**, copy the Project URL, the
    anon/publishable key and the service_role/secret key.
 
+## Automatic migrations (GitHub Actions)
+
+`.github/workflows/supabase-migrations.yml` keeps the hosted schema in step with
+`supabase/migrations/`, so you don't run `db push` by hand:
+
+- **Pull requests** that touch `supabase/` or `test/integration/` start a fresh
+  local Supabase in CI. That applies every migration and the seed. The job then
+  runs `npm run test:db` against it and adds the list of migrations that merging
+  would apply to the job summary.
+- **Pushes to `main`** that add migrations run the same checks, including the
+  drift check below, then `supabase db push` to the hosted project. Seeds are
+  never pushed. Only one push runs at a time, and a push never starts while
+  hosted has drifted.
+- **Every day at 05:23 UTC** the drift check runs on its own. It catches changes
+  made directly on the hosted project, for example in the dashboard. GitHub
+  emails you when a scheduled run fails. It also pauses schedules in repos with
+  no activity for 60 days.
+- **Actions → Supabase migrations → Run workflow** does the same on demand.
+
+### Drift check
+
+The **Hosted matches migrations** job fails when any of these is true:
+
+1. **The history doesn't match.** Hosted has applied a migration that isn't in
+   `supabase/migrations/`, for example one pushed from a branch that was never
+   merged. Merge that branch, or fix the record with `supabase migration repair`.
+2. **A migration is out of order.** A migration that isn't applied yet is older
+   than the newest applied one, so `db push` would skip it. Give it a newer
+   timestamp.
+3. **The schema differs.** The job builds a database from the migrations hosted
+   has applied and runs `supabase db diff` against hosted for the `public` and
+   `private` schemas. Any difference fails the job, and the job summary shows the
+   SQL. If the change was intended, capture it with
+   `npx supabase db diff --linked -f <name>` and commit it. Otherwise, undo it on
+   hosted.
+
+Supabase-managed schemas aren't compared: our trigger on `auth.users` and the
+storage policies for `product-images` live there, and diffing those schemas
+reports Supabase platform upgrades rather than our changes.
+
+One-time setup in **GitHub → Settings → Secrets and variables → Actions**:
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | secret | a personal access token from supabase.com → **Account → Access Tokens** |
+| `SUPABASE_PROJECT_REF` | variable | the project ref (the subdomain of `NEXT_PUBLIC_SUPABASE_URL`) |
+| `SUPABASE_DB_PASSWORD` | secret, optional | the database password. Without it, a full access token lets the CLI sign in with a temporary login role. Every command resets that role, so the workflow runs hosted steps one after another and retries a login another run has reset. |
+
+Vercel deploys `main` at the same time as the migration job, so for a minute or
+two new code can run against the old schema. Keep migrations additive, and make
+code tolerate a missing column or function until the push lands (as
+`is_admin()` does: an error reads as "not an admin"). Split destructive changes
+(drop or rename) into a later migration, once no deployed code uses the old shape.
+
 ## Stripe (card payments)
 
 Card checkout uses Stripe-hosted Checkout in test mode. Without `STRIPE_SECRET_KEY`
