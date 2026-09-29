@@ -18,7 +18,7 @@ import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { readUser } from '@/lib/auth';
 import { getProvider } from '@/lib/ai';
 import { summarizeReviews } from '@/lib/ai/features/reviews';
-import { getProduct } from '@/lib/data/catalog';
+import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { savedProductIds } from '@/lib/data/collections';
 import { messageFor } from '@/lib/data/errors';
 import { deliveryDate } from '@/lib/dates';
@@ -107,11 +107,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved] = await Promise.all([
+  const [insight, reviews, alts, saved, info] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
     user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+    getProductInfo(client, p.id),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -160,19 +161,22 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   }));
 
   const scores = scoresFor(p, insight);
+  // the info table leads with its own Brand / Author row; the General group repeats it only without one
+  const namesMaker = info.details.some(([k]) => /^(brand|author|manufacturer)$/i.test(k));
   const specs: SpecGroup[] = [
+    { name: 'Product information', open: true, rows: info.details.map(([k, v]) => ({ k, v })) },
     {
       name: 'General',
-      open: true,
+      open: !info.details.length,
       rows: [
-        { k: 'Brand', v: p.brand ?? 'Generic' },
+        ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
         { k: 'Sold by', v: p.seller },
         { k: 'Ships from', v: p.shipsFrom },
         { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
       ],
     },
-    { name: 'Details', rows: p.bullets.map((b) => ({ v: b })) },
+    { name: 'About this item', rows: p.bullets.map((b) => ({ v: b })) },
     {
       name: 'Scores',
       rows: scoreRows(cfg.attributes.filter((a) => scores[a.key] != null).map((a) => ({ label: a.label, score: scores[a.key] }))),
@@ -289,6 +293,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <h2 id="specs-h" className="m-0 text-[22px] font-semibold">Specifications</h2>
           <Specs groups={specs} />
         </section>
+
+        {info.description ? (
+          <section aria-labelledby="desc-h" className="flex max-w-[860px] flex-col gap-3">
+            <h2 id="desc-h" className="m-0 text-[22px] font-semibold">Product description</h2>
+            <p className="m-0 whitespace-pre-line text-[15px] leading-relaxed text-ink-2 text-pretty">{info.description}</p>
+          </section>
+        ) : null}
       </div>
     </AppShell>
   );

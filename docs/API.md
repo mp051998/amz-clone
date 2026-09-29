@@ -55,7 +55,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | --- | --- | --- |
 | GET | `/categories` | `{market, categories: [{slug, name}]}` in the store's nav order |
 | GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
-| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
+| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null) and `details`, the "Product information" table as `[label, value]` pairs, most important first. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
 `Product` has these fields:
@@ -221,11 +221,13 @@ Catalog and order management for store admins. You must be signed in **and** lis
 | PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
 | DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 
-`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], stock}`:
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
 - `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
 - `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.
 - `bullets`: up to 10, each up to 300 characters.
+- `description`: the product page's "Product description", up to 2,000 characters (blank or left out: none).
+- `details`: the "Product information" table, up to 20 `[label, value]` rows (labels up to 40 characters, values up to 200). Left out on create: empty. The admin form edits it as one `Label: value` per line.
 - Validation errors are `422 invalid_input` with the field in `detail`.
 
 Saving re-derives the product's rules insight (scores, pros and cons for its category's attributes). This happens on create, and on any change of category, title, brand or bullets. A new category replaces an AI insight too, since its attributes belong to the old category. New wording only replaces a rules insight.
@@ -307,7 +309,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Ten migrations live in `supabase/migrations/`:
+Eleven migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -321,6 +323,7 @@ Ten migrations live in `supabase/migrations/`:
 | catalog admin | admin writes on `categories`, `market_categories` and `product_insights`; `move_category()`, `category_counts()`, `product_has_orders()`; a trigger stopping a store from unlisting a category it has products in; `products.archived_at`, with `catalog_products` now filtering archived products out and `catalog_products_all` keeping them; carts, checkout and saved lists refuse archived products |
 | split IN categories | data only: moves India's smartwatches, mixer grinders and yoga mats into `wearables`, `kitchen-appliances` and `yoga`, and re-derives their insights. A no-op on a fresh database, where the seed already has them |
 | order lifecycle | `markets.time_zone`; the saved delivery schedule on `orders` (filled by trigger when an order is placed, backfilled for existing ones); cancellation and refund columns; `cancel_my_order()`; the admin order functions `admin_list_orders()`, `admin_get_order()`, `admin_ship_order()`, `admin_deliver_order()`, `admin_cancel_order()`; and the service-role `record_payment_intent()`, `record_refund()`, `mark_sold_out()` |
+| catalog enrichment | `products.description` and `products.details` (admin-writable, read by the product page and API, not the catalog views); for databases seeded earlier, the seeded products' descriptions, spec tables and missing brands (book authors) and category-specific wording for the seeded reviews. A no-op on a fresh database, where the seed has them |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -331,5 +334,5 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
 - the signed Stripe webhook
-- admin catalog: product writes, archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
+- admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
 - order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds

@@ -14,6 +14,7 @@ import {
 import { DataError } from '@/lib/data/errors';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { parseDetailLines } from '@/lib/product-details';
 import { adminClient } from './guard';
 
 /** What the product form needs back: field errors, a form-level message, and the values to keep. */
@@ -22,7 +23,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'stock'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock'] as const;
 
 /**
  * Create (`id` null) or update a product from the admin form. Prices arrive in major units
@@ -42,6 +43,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   const priceMinor = toMinor(values.price);
   const listMinor = values.listPrice.trim() ? toMinor(values.listPrice) : null;
   const stock = /^\d+$/.test(values.stock.trim()) ? Number(values.stock.trim()) : NaN;
+  const details = parseDetailLines(values.details);
   const input = {
     title: values.title,
     brand: values.brand,
@@ -56,6 +58,8 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     seller: values.seller,
     shipsFrom: values.shipsFrom,
     bullets: values.bullets.split('\n').map((l) => l.trim()).filter(Boolean),
+    description: values.description,
+    details: details.rows,
     stock,
   };
 
@@ -64,6 +68,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   if (priceMinor == null) errors.priceMinor = 'Enter a price like 19.99';
   if (values.listPrice.trim() && listMinor == null) errors.listMinor = 'Enter a price like 24.99, or leave it blank';
   if (Number.isNaN(stock)) errors.stock = 'Enter a whole number';
+  if (details.error) errors.details = details.error;
   if (Object.keys(errors).length) return back(errors);
 
   let saved: string;

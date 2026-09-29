@@ -8,6 +8,7 @@ import { PRODUCT_BADGES, getAdminProduct, productHasOrders } from '@/lib/data/ad
 import { listCategories } from '@/lib/data/catalog';
 import { messageFor } from '@/lib/data/errors';
 import { storePath } from '@/lib/marketplace';
+import { detailLines } from '@/lib/product-details';
 import { db } from '@/lib/supabase/server';
 import { archiveProduct, removeProduct, saveProduct } from '../../actions';
 import { adminPage } from '../../guard';
@@ -94,6 +95,8 @@ export default async function EditProductPage({ params, searchParams }: {
           seller: product.seller,
           shipsFrom: product.shipsFrom,
           bullets: product.bullets.join('\n'),
+          description: product.description ?? '',
+          details: detailLines(product.details),
           stock: String(product.stock),
         }}
         categories={categories.map((c) => ({ value: c.slug, label: c.name }))}

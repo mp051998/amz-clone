@@ -42,6 +42,8 @@ const product = (category: string): ProductInput => ({
   seller: 'Test Seller',
   shipsFrom: 'Store',
   bullets: [],
+  description: null,
+  details: [],
   stock: 3,
 });
 
