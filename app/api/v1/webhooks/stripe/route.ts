@@ -2,12 +2,14 @@ import type { NextRequest } from 'next/server';
 import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { confirmCheckoutSession, releaseSession } from '@/lib/data/payments';
+import { recordRefundEvent } from '@/lib/data/refunds';
 import { DataError } from '@/lib/data/errors';
 
 /**
  * POST /api/v1/webhooks/stripe — Stripe's server-to-server notifications, so an
  * order is confirmed even if the shopper never makes it back to the success
- * page, and reserved stock is released when a Checkout Session expires unpaid.
+ * page, reserved stock is released when a Checkout Session expires unpaid, and
+ * refunds of cancelled orders are tracked until they settle.
  * Requests are authenticated by Stripe's signature (STRIPE_WEBHOOK_SECRET).
  */
 export async function POST(req: NextRequest): Promise<Response> {
@@ -35,6 +37,11 @@ export async function POST(req: NextRequest): Promise<Response> {
       case 'checkout.session.expired':
       case 'checkout.session.async_payment_failed':
         await releaseSession(event.data.object.id);
+        break;
+      case 'refund.created':
+      case 'refund.updated':
+      case 'refund.failed':
+        await recordRefundEvent(event.data.object);
         break;
     }
   } catch (err) {

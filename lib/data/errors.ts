@@ -40,6 +40,9 @@ const STATUS: Record<string, number> = {
   session_mismatch: 409,
   stock_released: 409,
   not_a_card_order: 409,
+  order_not_cancellable: 409,
+  order_not_open: 409,
+  refund_failed: 502,
   payment_incomplete: 402,
   payments_unavailable: 503,
 };
@@ -80,8 +83,11 @@ const MESSAGES: Record<string, string> = {
   order_not_pending: 'That order is not awaiting payment.',
   amount_mismatch: 'The payment amount did not match the order. You have not been charged twice — contact support.',
   session_mismatch: 'That payment does not belong to this order.',
-  stock_released: 'Your payment went through, but an item sold out meanwhile. A refund will be issued.',
+  stock_released: 'Your payment went through, but an item sold out meanwhile. We’ve cancelled the order and started a refund to your card.',
   not_a_card_order: 'That order is not paid by card.',
+  order_not_cancellable: 'This order can’t be cancelled any more: it has already shipped.',
+  order_not_open: 'That order isn’t open: it is unpaid or was cancelled.',
+  refund_failed: 'The order is cancelled, but the refund didn’t go through. We’ll retry it.',
   payment_incomplete: 'Payment was not completed.',
   payments_unavailable: 'Card payments are unavailable right now.',
 };

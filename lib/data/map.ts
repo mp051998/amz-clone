@@ -1,6 +1,6 @@
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
-import type { Address, Cart, Market, Order, OrderStatus, PaymentMethod, Product } from '../types';
+import type { Address, CancelReason, Cart, Market, Order, OrderStatus, PaymentMethod, Product, RefundStatus } from '../types';
 
 type ProductRow = Database['public']['Views']['catalog_products_all']['Row'];
 type AddressRow = Database['public']['Tables']['addresses']['Row'];
@@ -124,5 +124,14 @@ export function toOrder(row: OrderWithItems): Order {
     })),
     createdAt: row.created_at,
     placedAt: opt(row.placed_at),
+    // the lifecycle columns are absent on rows read before that migration lands
+    shippedAt: opt(row.shipped_at),
+    outForDeliveryAt: opt(row.out_for_delivery_at),
+    deliveredAt: opt(row.delivered_at),
+    cancelledAt: opt(row.cancelled_at),
+    cancelReason: opt(row.cancel_reason) as CancelReason | undefined,
+    refund: row.refund_status
+      ? { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor ?? row.total_minor, refundedAt: opt(row.refunded_at) }
+      : undefined,
   };
 }

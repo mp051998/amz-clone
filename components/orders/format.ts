@@ -1,7 +1,8 @@
 import type { Store } from '../lib/store';
 import type { Order } from '@/lib/types';
 import type { TrackingStep } from '@/lib/decision/types';
-import { deliveryEta, isDelivered, trackingSteps } from '@/lib/decision/tracking';
+import { cancellableUntil, deliveryEta, isDelivered, trackingSteps } from '@/lib/decision/tracking';
+import { formatMoney } from '@/lib/marketplaces';
 
 /**
  * Store-aware date wording for carts, orders and tracking (design.md §13): relative day names
@@ -88,6 +89,37 @@ export function cartEta(now: Date = new Date(), store?: StoreDates): Date {
   return eta ? new Date(eta) : new Date(now.getTime() + 2 * DAY);
 }
 
+/**
+ * What happened to the money on a cancelled order: "Refund of $34.06 to Visa ending 4242 ·
+ * issued September 28. Card refunds take 5–10 business days to show up.", "… is processing",
+ * "Nothing was charged (pay on delivery).", or "No payment was taken for this order."
+ */
+export function refundText(order: Order, store: StoreDates): string {
+  const r = order.refund;
+  if (!r) return 'No payment was taken for this order.';
+  if (r.status === 'not_charged') return 'Nothing was charged (pay on delivery).';
+  const to = `${formatMoney(r.amountMinor, order.currency)} to ${paymentText(order.paymentMethod, order.paymentLabel)}`;
+  if (r.status === 'succeeded') {
+    const when = r.refundedAt ? ` · issued ${shortDate(new Date(r.refundedAt), store)}` : ' · issued';
+    return `Refund of ${to}${when}.${order.paymentMethod === 'card' ? ' Card refunds take 5–10 business days to show up.' : ''}`;
+  }
+  if (r.status === 'pending') return `Refund of ${to} is processing.`;
+  return `Your refund of ${to} is delayed. We’re retrying it — no need to do anything.`;
+}
+
+/** Short payment state for the facts card: "Visa ending 4242 · refunded". */
+export function paidWithText(order: Order): string {
+  const label = paymentText(order.paymentMethod, order.paymentLabel);
+  if (order.status === 'awaiting_payment') return `${label} · not paid yet`;
+  if (order.status !== 'cancelled') return label;
+  switch (order.refund?.status) {
+    case 'succeeded': return `${label} · refunded`;
+    case 'pending':
+    case 'failed': return `${label} · refund processing`;
+    default: return `${label} · not charged`;
+  }
+}
+
 export type ChipTone = 'good' | 'neutral' | 'warn' | 'dark';
 
 export interface OrderView {
@@ -103,6 +135,8 @@ export interface OrderView {
   /** status chip for order lists. */
   chip: { label: string; tone: ChipTone };
   itemCount: number;
+  /** the shopper may cancel until then (it ships); null once they can't. */
+  cancelUntil: Date | null;
 }
 
 /** Everything the order pages say about an order's progress, derived from its time + status. */
@@ -114,13 +148,26 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   const delivered = isDelivered(order, now, tz);
   const itemCount = order.items.reduce((n, i) => n + i.qty, 0);
   const current = steps.find((s) => s.state === 'current');
+  const until = cancellableUntil(order, now);
+  const cancelUntil = until ? new Date(until) : null;
 
   if (order.status === 'cancelled') {
-    return { steps, eta, delivered, itemCount, kicker: 'CANCELLED', headline: 'Order cancelled', window: 'No payment was taken for this order.', chip: { label: 'Cancelled', tone: 'neutral' } };
+    const headline =
+      order.cancelReason === 'sold_out' ? 'Cancelled: an item sold out'
+      : order.cancelReason === 'admin' ? 'Cancelled by the store'
+      : 'Order cancelled';
+    const refunded = order.refund?.status === 'succeeded';
+    return {
+      steps, eta, delivered, itemCount, cancelUntil,
+      kicker: 'CANCELLED',
+      headline,
+      window: refundText(order, store),
+      chip: { label: refunded ? 'Cancelled · refunded' : 'Cancelled', tone: 'neutral' },
+    };
   }
   if (order.status === 'awaiting_payment') {
     return {
-      steps, eta, delivered, itemCount,
+      steps, eta, delivered, itemCount, cancelUntil,
       kicker: 'PAYMENT PENDING',
       headline: 'Waiting for payment',
       window: 'Complete card payment to confirm this order — unpaid orders are released.',
@@ -129,7 +176,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   }
   if (delivered && eta) {
     return {
-      steps, eta, delivered, itemCount,
+      steps, eta, delivered, itemCount, cancelUntil,
       kicker: 'DELIVERED',
       headline: 'Delivered',
       window: `Handed to ${order.shipTo.name.split(' ')[0] || 'you'} · ${stepTime(eta, store, now)}`,
@@ -140,7 +187,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   const when = eta ? (rel ? rel.toLowerCase() : longDate(eta, store)) : 'soon';
   const out = current?.label === 'Out for delivery';
   return {
-    steps, eta, delivered, itemCount,
+    steps, eta, delivered, itemCount, cancelUntil,
     kicker: out ? 'OUT FOR DELIVERY' : 'ON TIME',
     headline: `Arriving ${when}`,
     window: eta ? `${rel ? `${shortDate(eta, store)} · ` : ''}${deliveryWindow(eta, store)}` : '',

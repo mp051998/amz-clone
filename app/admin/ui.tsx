@@ -12,6 +12,7 @@ const STORE_LABEL = { US: 'United States store', IN: 'India store' } as const;
 const SECTIONS = [
   { path: '/admin/products', label: 'Products' },
   { path: '/admin/categories', label: 'Categories' },
+  { path: '/admin/orders', label: 'Orders' },
 ] as const;
 
 /** Admin page chrome: storefront shell, section tabs, "Admin · <store>" kicker, title, and a store switch. */

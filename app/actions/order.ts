@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { cancelPendingOrder, isPaymentMethod, placeOrder } from '@/lib/data/orders';
+import { cancelOrder, cancelPendingOrder, isPaymentMethod, placeOrder } from '@/lib/data/orders';
 import { startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import type { Order } from '@/lib/types';
@@ -72,3 +72,28 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   }
   redirect(url ?? sp('/checkout?error=payments_unavailable'));
 }
+
+/** Order numbers look like 114-1234567-1234567 (US) / 402-… (IN). */
+const ORDER_ID = /^\d{3}-\d{7}-\d{7}$/;
+
+/**
+ * "Cancel order" on an order page (bound to the order id, which the client could change —
+ * so it's checked, and the database only lets owners cancel their own unshipped orders).
+ */
+export async function cancelMyOrder(orderId: string): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let code: string | null = null;
+  try {
+    await cancelOrder(await db(), orderId);
+  } catch (err) {
+    code = err instanceof DataError ? err.code : 'internal';
+    if (!(err instanceof DataError)) console.error('[orders] cancel failed', orderId, err);
+  }
+  revalidatePath('/', 'layout');
+  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'cancelled=1'}`));
+}
+

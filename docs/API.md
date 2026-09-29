@@ -104,9 +104,9 @@ Prices and totals are computed by the database on every read.
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}}` | Checks out your cart in this store. See the details after this table. |
-| GET | `/orders?limit=50` | | Placed orders in this store, newest first |
+| GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
-| POST | `/orders/:id/cancel` | | Abandons an `awaiting_payment` card order. Releases the reserved stock. The cart is kept. |
+| POST | `/orders/:id/cancel` | | `{order}`. An `awaiting_payment` card order is abandoned: the reserved stock is released and the cart is kept. A placed order can be cancelled until it ships (`409 order_not_cancellable` after that): the stock goes back and the payment is refunded (see `refund`). |
 
 There is no guest checkout. Orders belong to an account, so every route here needs a signed-in user (`401 not_authenticated`), and so does `place_order()` in the database. A guest's cart carries over: sign in, then `POST /cart/merge`.
 
@@ -122,7 +122,9 @@ How `POST /orders` works:
 - Money: `totals`
 - Delivery: `shipTo`
 - Lines: `items: [{productId, title, image, seller, unitPriceMinor, qty}]`
-- Timestamps: `createdAt, placedAt?`
+- Timestamps: `createdAt, placedAt?, cancelledAt?`
+- Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
+- Cancellation: `cancelReason?: customer | admin | sold_out`, and for orders that were placed or charged `refund?: {status, amountMinor, refundedAt?}`. `status` is `pending` / `succeeded` / `failed` for card refunds on Stripe, `succeeded` straight away for the simulated methods, and `not_charged` for pay on delivery.
 
 ### How card payment is confirmed
 
@@ -143,6 +145,13 @@ The customer never tells us they paid. Stripe does:
 - It returns `503` when the secret is unset and `400` for a bad signature.
 - Final domain outcomes (e.g. `payment_incomplete` for a forged "paid" event) are
   acknowledged with `200 {received, outcome}` so Stripe stops retrying.
+- `refund.created`, `refund.updated` and `refund.failed` settle a cancelled order's
+  refund (matched by the refund's `metadata.orderId`, else its PaymentIntent). Enable
+  these events on the Stripe endpoint alongside the `checkout.session.*` ones.
+
+A payment that arrives after the order's reserved stock was released and sold
+(`409 stock_released`) leaves the order cancelled (`cancelReason: sold_out`) and
+refunds the card in full.
 
 ## Addresses 🔒
 
@@ -200,7 +209,7 @@ Configuration (`.env.local` / Vercel):
 
 ## Admin 🔒
 
-Catalog management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products`, `categories`, `market_categories`, `product_insights` and the `product-images` bucket), so going around these routes doesn't help. Products are per store (`?market=` / `X-Market`), and a product never moves between stores.
+Catalog and order management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products`, `categories`, `market_categories`, `product_insights` and the `product-images` bucket; `is_admin()` inside the order functions), so going around these routes doesn't help. Products are per store (`?market=` / `X-Market`), and a product never moves between stores.
 
 ### Products
 
@@ -232,6 +241,19 @@ A category (`{slug, name}`) is shared by both stores. Each store chooses whether
 | PATCH | `/admin/categories/:slug` | `{name?, listed?, move?}` | `{category}`. `name` renames it. `listed: true` / `false` adds it to or drops it from this store's nav. A store can't drop a category it still has products in (`409 category_in_use`), archived ones included. `move` shifts it that many places in this store's nav (negative = earlier), clamped at the ends. |
 | DELETE | `/admin/categories/:slug` | | `204`, and it leaves every store's nav. `409 category_in_use` while any product in any store uses it. |
 
+### Orders
+
+Orders of this store that were placed or charged (abandoned checkouts are left out).
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/orders?filter=&q=&page=` | | `{orders: [{id, status, stage, currency, paymentMethod, paymentLabel, totalMinor, createdAt, placedAt, cancelledAt, cancelReason, refundStatus, shipName, customer: {email, name}, itemCount, firstTitle}], total, page, pageSize, counts}`. Newest first, 25 a page. `filter`: `all`, `preparing`, `shipped` (shipped or out for delivery), `delivered`, `cancelled`, `refund_issues` (refund `pending` or `failed`). `q` matches the start of the order number or part of the customer's email. `counts` has each filter's total, ignoring `q`. |
+| GET | `/admin/orders/:id` | | `{order}`: an `Order` plus `stage`, `customer: {id, email, name}`, `stripePaymentIntent`, `stripeRefundId`. Another store's order is `404`. |
+| POST | `/admin/orders/:id/ship` | | `{order}`. Shipped now; out for delivery and delivered move up to the next delivery morning if that's earlier. Placed orders only (`409 order_not_open`); repeating does nothing. |
+| POST | `/admin/orders/:id/deliver` | | `{order}`. Every step still ahead happens now. Placed orders only. |
+| POST | `/admin/orders/:id/cancel` | | `{order}`. Any order not yet delivered (`409 order_not_cancellable` after). Stock goes back; a card payment is refunded on Stripe. If Stripe refuses, the cancel stands with `refund.status: failed`. |
+| POST | `/admin/orders/:id/refund` | | `{order}`. Retries a card refund that failed (or never reached Stripe). `502 refund_failed` if it fails again. |
+
 **Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
 
 ```bash
@@ -239,7 +261,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products` and `/admin/categories` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products`, `/admin/categories` and `/admin/orders` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -251,9 +273,10 @@ The web UI is at `/admin/products` and `/admin/categories` (plus `/in/admin/…`
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
 | 404 | `product_not_found`, `order_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
+| 409 | `order_not_cancellable`, `order_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable` |
+| 502 | `refund_failed` |
 | 503 | `payments_unavailable` |
 
 ## Walkthrough
@@ -284,7 +307,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Nine migrations live in `supabase/migrations/`:
+Ten migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -297,10 +320,11 @@ Nine migrations live in `supabase/migrations/`:
 | decision | `product_insights` (public read, server-written; seeded from `supabase/seed-insights.sql`, built by `npm run db:insights:build`), `collections`/`collection_items` (owner RLS, limit + saved-price triggers), `ai_cache` (service role only) |
 | catalog admin | admin writes on `categories`, `market_categories` and `product_insights`; `move_category()`, `category_counts()`, `product_has_orders()`; a trigger stopping a store from unlisting a category it has products in; `products.archived_at`, with `catalog_products` now filtering archived products out and `catalog_products_all` keeping them; carts, checkout and saved lists refuse archived products |
 | split IN categories | data only: moves India's smartwatches, mixer grinders and yoga mats into `wearables`, `kitchen-appliances` and `yoga`, and re-derives their insights. A no-op on a fresh database, where the seed already has them |
+| order lifecycle | `markets.time_zone`; the saved delivery schedule on `orders` (filled by trigger when an order is placed, backfilled for existing ones); cancellation and refund columns; `cancel_my_order()`; the admin order functions `admin_list_orders()`, `admin_get_order()`, `admin_ship_order()`, `admin_deliver_order()`, `admin_cancel_order()`; and the service-role `record_payment_intent()`, `record_refund()`, `mark_sold_out()` |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
-- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session` and `release_checkout_session` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
+- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund` and `mark_sold_out` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
 - **Guest carts.** They are only reachable through the `cart_*` functions with their token. `purge_stale_guest_carts()` deletes guest carts that have been idle for 30 days. It is service-role only, so schedule it with pg_cron or call it from a cron job.
 
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
@@ -308,3 +332,4 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - RLS isolation, reviews, addresses, search and home content
 - the signed Stripe webhook
 - admin catalog: product writes, archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
+- order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds

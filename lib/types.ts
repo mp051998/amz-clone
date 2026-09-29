@@ -63,6 +63,11 @@ export interface Cart {
 }
 
 export type OrderStatus = 'awaiting_payment' | 'placed' | 'cancelled';
+/** Where an order is now: its status, or for a placed order the latest stage time that has passed. */
+export type OrderStage = 'awaiting_payment' | 'preparing' | 'shipped' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type CancelReason = 'customer' | 'admin' | 'sold_out';
+/** pending: card refund asked of Stripe; not_charged: cash on delivery, nothing to give back. */
+export type RefundStatus = 'pending' | 'succeeded' | 'failed' | 'not_charged';
 export type PaymentMethod = 'card' | 'giftcard' | 'upi' | 'netbanking' | 'cod' | 'emi' | 'amazonpay';
 
 export interface OrderItem {
@@ -97,6 +102,14 @@ export interface Order {
   items: OrderItem[];
   createdAt: string;
   placedAt?: string;
+  /** saved delivery schedule, set when the order is placed (absent before the lifecycle migration). */
+  shippedAt?: string;
+  outForDeliveryAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
+  cancelReason?: CancelReason;
+  /** set once a paid (or cash on delivery) order is cancelled. */
+  refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string };
 }
 
 /**

@@ -208,13 +208,13 @@ isOneToOne: false
                   ]
                 },"markets": {
                   Row: {
-                    "currency": string,"free_ship_threshold_minor": number,"id": string,"max_line_qty": number,"payment_methods": (string)[],"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number
+                    "currency": string,"free_ship_threshold_minor": number,"id": string,"max_line_qty": number,"payment_methods": (string)[],"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string
                   }
                   Insert: {
-                    "currency": string,"free_ship_threshold_minor": number,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number
+                    "currency": string,"free_ship_threshold_minor": number,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string
                   }
                   Update: {
-                    "currency"?: string,"free_ship_threshold_minor"?: number,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number
+                    "currency"?: string,"free_ship_threshold_minor"?: number,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string
                   }
                   Relationships: [
                     
@@ -252,13 +252,13 @@ isOneToOne: false
                   ]
                 },"orders": {
                   Row: {
-                    "cancelled_at": string | null,"created_at": string,"currency": string,"id": string,"market_id": string,"payment_label": string,"payment_method": string,"placed_at": string | null,"ship_city": string,"ship_landmark": string | null,"ship_line1": string,"ship_line2": string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_state": string,"status": string,"stripe_session_id": string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id": string
+                    "cancel_reason": string | null,"cancelled_at": string | null,"created_at": string,"currency": string,"delivered_at": string | null,"id": string,"market_id": string,"out_for_delivery_at": string | null,"payment_label": string,"payment_method": string,"placed_at": string | null,"refund_minor": number | null,"refund_status": string | null,"refunded_at": string | null,"ship_city": string,"ship_landmark": string | null,"ship_line1": string,"ship_line2": string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_state": string,"shipped_at": string | null,"status": string,"stripe_payment_intent": string | null,"stripe_refund_id": string | null,"stripe_session_id": string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id": string
                   }
                   Insert: {
-                    "cancelled_at"?: string | null,"created_at"?: string,"currency": string,"id": string,"market_id": string,"payment_label": string,"payment_method": string,"placed_at"?: string | null,"ship_city": string,"ship_landmark"?: string | null,"ship_line1": string,"ship_line2"?: string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_state": string,"status": string,"stripe_session_id"?: string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id": string
+                    "cancelled_at"?: string | null,"created_at"?: string,"currency": string,"id": string,"market_id": string,"payment_label": string,"payment_method": string,"placed_at"?: string | null,"ship_city": string,"ship_landmark"?: string | null,"ship_line1": string,"ship_line2"?: string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_state": string,"status": string,"stripe_session_id"?: string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id": string,"cancel_reason"?: string | null,"delivered_at"?: string | null,"out_for_delivery_at"?: string | null,"refund_minor"?: number | null,"refund_status"?: string | null,"refunded_at"?: string | null,"shipped_at"?: string | null,"stripe_payment_intent"?: string | null,"stripe_refund_id"?: string | null
                   }
                   Update: {
-                    "cancelled_at"?: string | null,"created_at"?: string,"currency"?: string,"id"?: string,"market_id"?: string,"payment_label"?: string,"payment_method"?: string,"placed_at"?: string | null,"ship_city"?: string,"ship_landmark"?: string | null,"ship_line1"?: string,"ship_line2"?: string | null,"ship_minor"?: number,"ship_name"?: string,"ship_phone"?: string,"ship_postcode"?: string,"ship_state"?: string,"status"?: string,"stripe_session_id"?: string | null,"subtotal_minor"?: number,"tax_minor"?: number,"total_minor"?: number,"user_id"?: string
+                    "cancelled_at"?: string | null,"created_at"?: string,"currency"?: string,"id"?: string,"market_id"?: string,"payment_label"?: string,"payment_method"?: string,"placed_at"?: string | null,"ship_city"?: string,"ship_landmark"?: string | null,"ship_line1"?: string,"ship_line2"?: string | null,"ship_minor"?: number,"ship_name"?: string,"ship_phone"?: string,"ship_postcode"?: string,"ship_state"?: string,"status"?: string,"stripe_session_id"?: string | null,"subtotal_minor"?: number,"tax_minor"?: number,"total_minor"?: number,"user_id"?: string,"cancel_reason"?: string | null,"delivered_at"?: string | null,"out_for_delivery_at"?: string | null,"refund_minor"?: number | null,"refund_status"?: string | null,"refunded_at"?: string | null,"shipped_at"?: string | null,"stripe_payment_intent"?: string | null,"stripe_refund_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -465,8 +465,26 @@ isOneToOne: false
                 }
           }
           Functions: {
+"admin_cancel_order":
+{ Args: { "p_order_id": string }; Returns: Json
+                           },
+"admin_deliver_order":
+{ Args: { "p_order_id": string }; Returns: Json
+                           },
+"admin_get_order":
+{ Args: { "p_order_id": string }; Returns: Json
+                           },
+"admin_list_orders":
+{ Args: { "p_filter"?: string,"p_market": string,"p_page"?: number,"p_page_size"?: number,"p_q"?: string }; Returns: Json
+                           },
+"admin_ship_order":
+{ Args: { "p_order_id": string }; Returns: Json
+                           },
             "attach_checkout_session":
 { Args: { "p_order_id": string,"p_session_id": string }; Returns: undefined
+                           },
+"cancel_my_order":
+{ Args: { "p_order_id": string }; Returns: Json
                            },
 "cancel_pending_order":
 { Args: { "p_order_id": string }; Returns: Json
@@ -494,6 +512,9 @@ isOneToOne: false
 "is_admin":
 { Args: never; Returns: boolean
                            },
+"mark_sold_out":
+{ Args: { "p_order_id": string }; Returns: undefined
+                           },
 "move_category":
 { Args: { "p_market": string,"p_offset": number,"p_slug": string }; Returns: undefined
                            },
@@ -510,6 +531,12 @@ isOneToOne: false
                            },
 "purge_stale_guest_carts":
 { Args: { "p_older_than"?: string }; Returns: number
+                           },
+"record_payment_intent":
+{ Args: { "p_order_id": string,"p_payment_intent": string }; Returns: undefined
+                           },
+"record_refund":
+{ Args: { "p_order_id": string,"p_refund_id": string | null,"p_status": string }; Returns: undefined
                            },
 "release_checkout_session":
 { Args: { "p_session_id": string }; Returns: string

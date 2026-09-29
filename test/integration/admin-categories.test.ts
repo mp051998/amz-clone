@@ -73,7 +73,9 @@ describe('categories', () => {
 
     const [row] = (await listAdminCategories(boss.db)).filter((c) => c.slug === slug);
     expect(row).toMatchObject({ name: `Garden & Patio ${tag}`, tailored: false });
-    expect(row.stores.US).toEqual({ position: before.length, products: 0, archived: 0 });
+    // last in the nav (positions can have gaps where rows were deleted directly, e.g. by test cleanup)
+    const { data: nav } = await anon().from('market_categories').select('position').eq('market_id', 'US');
+    expect(row.stores.US).toEqual({ position: Math.max(...nav!.map((r) => r.position)), products: 0, archived: 0 });
     expect(row.stores.IN.position).toBeNull();
   });
 
