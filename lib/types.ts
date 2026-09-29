@@ -147,6 +147,8 @@ export interface Review {
   votedHelpful: boolean;
   /** the signed-in viewer reported it. */
   reported: boolean;
+  /** hidden from shoppers (reports or an admin); only its author sees it, on their own review. */
+  hidden?: boolean;
 }
 
 export interface RatingBar {

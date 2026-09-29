@@ -15,6 +15,7 @@ interface ReviewRow {
   verified: boolean;
   helpful_count: number;
   created_at: string;
+  hidden_at?: string | null;
 }
 
 function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, reported: Set<string>): Review {
@@ -31,8 +32,14 @@ function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, r
     mine: viewerId != null && row.user_id === viewerId,
     votedHelpful: voted.has(row.id),
     reported: reported.has(row.id),
+    ...(row.hidden_at ? { hidden: true } : {}),
   };
 }
+
+const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at, hidden_at';
+// until the moderation migration lands (a deploy can go out first): no hidden_at yet
+const LEGACY_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
+const MISSING_COLUMN = '42703';
 
 export interface ReviewPage {
   items: Review[];
@@ -54,16 +61,23 @@ export async function listReviews(
 ): Promise<ReviewPage> {
   const limit = Math.min(Math.max(opts.limit ?? 10, 1), 50);
   const offset = Math.max(opts.offset ?? 0, 0);
-  const cols = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
-
-  const pageRes = await db
-    .from('reviews')
-    .select(cols, { count: 'exact' })
-    .eq('product_id', productId)
-    .order('helpful_count', { ascending: false })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-  const rows = unwrap(pageRes) as ReviewRow[];
+  // hidden reviews stay out of the listing for everyone (admins included: they use the queue);
+  // the author still gets their own below, marked hidden
+  const page = (moderated: boolean) => {
+    const q = db
+      .from('reviews')
+      .select(moderated ? REVIEW_COLS : LEGACY_COLS, { count: 'exact' })
+      .eq('product_id', productId);
+    return (moderated ? q.is('hidden_at', null) : q)
+      .order('helpful_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+  };
+  let pageRes = await page(true);
+  const moderated = pageRes.error?.code !== MISSING_COLUMN;
+  if (!moderated) pageRes = await page(false);
+  const cols = moderated ? REVIEW_COLS : LEGACY_COLS;
+  const rows = unwrap(pageRes) as unknown as ReviewRow[];
   const total = pageRes.count ?? rows.length;
 
   let own: ReviewRow | null = null;
@@ -120,7 +134,7 @@ export async function upsertReview(db: Db, productId: string, userId: string, in
   const existing = unwrap(
     await db.from('reviews').select('id').eq('product_id', productId).eq('user_id', userId).maybeSingle(),
   );
-  const cols = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
+  const cols = LEGACY_COLS;
   const row = existing
     ? unwrap(
         await db

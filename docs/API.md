@@ -81,12 +81,13 @@ Postgres as that user, so RLS decides what each caller can see.
 | POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body}` | `201 {review}`. Creates or replaces your one review of the product. The DB sets `author`, `verified` (true when you have a placed order containing it) and keeps the product's rating rollup current. |
 | DELETE 🔒 | `/reviews/:id` | | `204`. Only works on your own review (`404` otherwise). |
 | POST 🔒 | `/reviews/:id/helpful` | | Toggle. Returns `{reviewId, helpful, helpfulCount}`. Returns `409 own_review` on your own review. |
-| POST 🔒 | `/reviews/:id/report` | `{reason: spam\|offensive\|off_topic\|other}` | `204`. Idempotent. |
+| POST 🔒 | `/reviews/:id/report` | `{reason: spam\|offensive\|off_topic\|other}` | `204`. Idempotent. Three open reports (from different shoppers, since an admin last looked) hide the review until an admin keeps it. |
 
 `Review` has these fields:
 - Content: `id, author, initial, rating, title, body, createdAt`
 - Status: `verified, helpful`
 - Viewer state: `mine, votedHelpful, reported`
+- `hidden: true` only on your own review while it's hidden (by reports or an admin). Hidden reviews are left out of `items` and `total` for everyone else, and out of the star rating.
 
 ## Cart
 
@@ -263,6 +264,19 @@ Orders of this store that were placed or charged (abandoned checkouts are left o
 | POST | `/admin/orders/:id/cancel` | | `{order}`. Any order not yet delivered (`409 order_not_cancellable` after). Stock goes back; a card payment is refunded on Stripe. If Stripe refuses, the cancel stands with `refund.status: failed`. |
 | POST | `/admin/orders/:id/refund` | | `{order}`. Retries a card refund that failed (or never reached Stripe). `502 refund_failed` if it fails again. |
 
+### Reviews
+
+Reviews of this store's products that shoppers reported, or that are hidden. A report is open when it was filed after the review's last admin decision; three open reports hide a review (`hiddenReason: reports`).
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/reviews?view=&page=` | | `{reviews: [{id, productId, productTitle, author, rating, title, body, verified, seeded, helpful, createdAt, hiddenAt, hiddenReason, moderatedAt, openReports, lastReportedAt, reasons}], total, page, pageSize, counts: {reported, hidden}}`. 25 a page. `view`: `reported` (the default: open reports, most reported first) or `hidden` (hidden by `reports` or `admin`, newest first). `reasons` counts open reports by reason, e.g. `{spam: 2, offensive: 1}`. |
+| POST | `/admin/reviews/:id/keep` | | `{review: {id, deleted, hiddenAt, hiddenReason, moderatedAt}}`. Visible again; the reports so far are resolved, so it takes three new ones to hide it again. |
+| POST | `/admin/reviews/:id/hide` | | `{review}`. Hidden by an admin until kept; also resolves the open reports. |
+| DELETE | `/admin/reviews/:id` | | `{review: {id, deleted: true}}`. Removes the review with its votes and reports. |
+
+Another store's review is `404 review_not_found`. Shoppers can't change the moderation fields, not even on their own review: editing a hidden review keeps it hidden.
+
 **Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
 
 ```bash
@@ -270,7 +284,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products`, `/admin/categories` and `/admin/orders` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders` and `/admin/reviews` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -316,7 +330,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twelve migrations live in `supabase/migrations/`:
+Thirteen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -332,6 +346,7 @@ Twelve migrations live in `supabase/migrations/`:
 | order lifecycle | `markets.time_zone`; the saved delivery schedule on `orders` (filled by trigger when an order is placed, backfilled for existing ones); cancellation and refund columns; `cancel_my_order()`; the admin order functions `admin_list_orders()`, `admin_get_order()`, `admin_ship_order()`, `admin_deliver_order()`, `admin_cancel_order()`; and the service-role `record_payment_intent()`, `record_refund()`, `mark_sold_out()` |
 | catalog enrichment | `products.description` and `products.details` (admin-writable, read by the product page and API, not the catalog views); for databases seeded earlier, the seeded products' descriptions, spec tables and missing brands (book authors) and category-specific wording for the seeded reviews. A no-op on a fresh database, where the seed has them |
 | email in use | `email_in_use()`, service role only: whether an account already has an email address, checked before the server changes an account's email |
+| review moderation | `reviews.hidden_at`, `hidden_reason` (`reports` or `admin`) and `moderated_at`; a trigger on `review_reports` that hides a review at three open reports; hidden reviews leave the public read policy (their author and admins still see them) and the `product_ratings` rollup; the admin functions `admin_review_queue()` and `admin_moderate_review()` (keep, hide, delete) |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -341,6 +356,7 @@ About the tables and functions:
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
+- review moderation: auto-hide on the third report, who sees a hidden review, the rating rollup, keep resolving reports, admin hide, the queue per store, admin-only access, delete
 - account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)

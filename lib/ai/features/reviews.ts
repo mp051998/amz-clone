@@ -75,6 +75,7 @@ export async function summarizeReviews(productId: string, opts: SummarizeOptions
       .from('reviews')
       .select('rating, title, body')
       .eq('product_id', productId)
+      .is('hidden_at', null)
       .order('helpful_count', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(Math.min(Math.max(opts.maxReviews ?? 30, 1), 60));
