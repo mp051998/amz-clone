@@ -30,7 +30,7 @@
 //   - A prompt is written once the agent has started answering it, which is
 //     when its model is known. Its RESPONSE is written once the turn is over.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const AUTHOR = 'mp051998';
@@ -352,7 +352,17 @@ function main() {
     '',
   ].join('\n');
 
-  writeFileSync(join(logDir, fname), `${header}\n${body}`);
+  // Write to a temp file, then rename over the log. A plain write truncates the
+  // log first, so a failed write (e.g. disk full) would leave it empty.
+  const target = join(logDir, fname);
+  const tmp = join(logDir, `.${fname}.${process.pid}.tmp`);
+  try {
+    writeFileSync(tmp, `${header}\n${body}`);
+    renameSync(tmp, target);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
 }
 
 try {
