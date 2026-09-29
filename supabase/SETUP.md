@@ -124,7 +124,7 @@ One-time setup in **GitHub → Settings → Secrets and variables → Actions**:
 | --- | --- | --- |
 | `SUPABASE_ACCESS_TOKEN` | secret | a personal access token from supabase.com → **Account → Access Tokens** |
 | `SUPABASE_PROJECT_REF` | variable | the project ref (the subdomain of `NEXT_PUBLIC_SUPABASE_URL`) |
-| `SUPABASE_DB_PASSWORD` | secret, optional | the database password; without it the CLI signs in with a temporary login role |
+| `SUPABASE_DB_PASSWORD` | secret, optional | the database password. Without it, a full access token lets the CLI sign in with a temporary login role. Every command resets that role, so the workflow runs hosted steps one after another and retries a login another run has reset. |
 
 Vercel deploys `main` at the same time as the migration job, so for a minute or
 two new code can run against the old schema. Keep migrations additive, and make
