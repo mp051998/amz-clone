@@ -163,7 +163,7 @@ export function CompareToggle({ item, className }: { item: CompareItem; classNam
         className,
       )}
     >
-      <span aria-hidden className={cn('inline-flex h-[18px] w-[18px] items-center justify-center rounded-tag border-[1.5px] border-ink text-[12px] text-white', on ? 'bg-ink' : 'bg-surface')}>
+      <span aria-hidden className={cn('inline-flex h-[18px] w-[18px] items-center justify-center rounded-tag border-[1.5px] border-ink text-[12px] text-on-ink', on ? 'bg-ink' : 'bg-surface')}>
         {on ? '✓' : ''}
       </span>
       {on ? 'Comparing' : 'Compare'}
@@ -235,7 +235,7 @@ export function CompareTray() {
         </ul>
         <button type="button" onClick={clear} className="flex-none text-[13px] underline underline-offset-2">Clear</button>
         {ready ? (
-          <a href={href} className="inline-flex min-h-11 flex-none items-center justify-center rounded-pill bg-accent px-[18px] max-md:flex-1 text-[15px] font-semibold text-ink no-underline hover:bg-accent-hover hover:text-ink">
+          <a href={href} className="inline-flex min-h-11 flex-none items-center justify-center rounded-pill bg-accent px-[18px] max-md:flex-1 text-[15px] font-semibold text-on-accent no-underline hover:bg-accent-hover hover:text-on-accent">
             Compare {items.length} →
           </a>
         ) : (

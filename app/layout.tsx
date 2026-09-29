@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Instrument_Sans, JetBrains_Mono } from 'next/font/google';
+import { themeAttr } from '@/lib/theme';
+import { readTheme } from '@/lib/theme-server';
 import './globals.css';
 
 // Self-hosted by next/font; exposed as CSS variables consumed by --font-sans / --font-mono (app/globals.css).
@@ -22,9 +24,9 @@ export const metadata: Metadata = {
     'A decision-support demo store: tell it what matters, see every pick explained, compare with a verdict, and track prices. Unofficial demo — no real orders, not affiliated with any retailer.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" data-theme={themeAttr(await readTheme())} className={`${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

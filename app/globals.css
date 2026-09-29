@@ -17,12 +17,14 @@
   --color-hatch-b: #F7F6F2;
   --color-scrim: rgb(21 21 21 / 0.45);
 
-  /* Ink (text, dark fills, strong borders) */
+  /* Ink (text, dark fills, strong borders); on-ink = text on an ink fill, on-accent = text on the accent */
   --color-ink: #151515;
   --color-ink-2: #3E3C38;
   --color-ink-3: #5E5C57;
   --color-ink-4: #6F6C66;
   --color-ink-raised: #3A3936;
+  --color-on-ink: #FFFFFF;
+  --color-on-accent: #151515;
 
   /* Lines */
   --color-line: #E7E4DE;
@@ -69,6 +71,87 @@
   --container-page: 1320px;
 }
 
+/*
+ * Dark theme: the same tokens re-valued. It follows the OS unless the visitor picked one in the
+ * footer (the `theme` cookie → data-theme on <html>, app/layout.tsx). The hatch behind product
+ * photos stays light: the photos are shot on white, so they sit on a light tile in both themes.
+ * The two blocks are the same list; keep them in step.
+ */
+@layer theme {
+  :root[data-theme='dark'] {
+    --color-bg: #121211;
+    --color-surface: #1B1A18;
+    --color-surface-2: #242320;
+    --color-surface-3: #181715;
+    --color-surface-4: #2B2A26;
+    --color-scrim: rgb(0 0 0 / 0.6);
+    --color-ink: #EEECE7;
+    --color-ink-2: #CBC8C1;
+    --color-ink-3: #A6A39C;
+    --color-ink-4: #8E8B84;
+    --color-ink-raised: #D5D2CB;
+    --color-on-ink: #151515;
+    --color-line: #302F2B;
+    --color-line-2: #272623;
+    --color-line-3: #4A4843;
+    --color-line-4: #3C3B36;
+    --color-accent-ink: oklch(0.8 0.14 68);
+    --color-accent-soft: oklch(0.5 0.14 55);
+    --color-star: oklch(0.78 0.15 72);
+    --color-good: oklch(0.76 0.13 150);
+    --color-good-strong: oklch(0.82 0.12 150);
+    --color-good-bg: oklch(0.29 0.05 150);
+    --color-good-dot: oklch(0.66 0.14 150);
+    --color-warn: oklch(0.78 0.13 55);
+    --color-warn-strong: oklch(0.8 0.13 55);
+    --color-warn-bg: oklch(0.3 0.05 50);
+    --color-bad: oklch(0.74 0.15 28);
+    --color-bad-dot: oklch(0.66 0.17 30);
+    --color-bad-bg: oklch(0.3 0.06 28);
+    --shadow-tray: 0 10px 30px rgb(0 0 0 / 0.5);
+    --shadow-toast: 0 8px 24px rgb(0 0 0 / 0.55);
+    --shadow-hero: 0 1px 0 #000000;
+    --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.45);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --color-bg: #121211;
+      --color-surface: #1B1A18;
+      --color-surface-2: #242320;
+      --color-surface-3: #181715;
+      --color-surface-4: #2B2A26;
+      --color-scrim: rgb(0 0 0 / 0.6);
+      --color-ink: #EEECE7;
+      --color-ink-2: #CBC8C1;
+      --color-ink-3: #A6A39C;
+      --color-ink-4: #8E8B84;
+      --color-ink-raised: #D5D2CB;
+      --color-on-ink: #151515;
+      --color-line: #302F2B;
+      --color-line-2: #272623;
+      --color-line-3: #4A4843;
+      --color-line-4: #3C3B36;
+      --color-accent-ink: oklch(0.8 0.14 68);
+      --color-accent-soft: oklch(0.5 0.14 55);
+      --color-star: oklch(0.78 0.15 72);
+      --color-good: oklch(0.76 0.13 150);
+      --color-good-strong: oklch(0.82 0.12 150);
+      --color-good-bg: oklch(0.29 0.05 150);
+      --color-good-dot: oklch(0.66 0.14 150);
+      --color-warn: oklch(0.78 0.13 55);
+      --color-warn-strong: oklch(0.8 0.13 55);
+      --color-warn-bg: oklch(0.3 0.05 50);
+      --color-bad: oklch(0.74 0.15 28);
+      --color-bad-dot: oklch(0.66 0.17 30);
+      --color-bad-bg: oklch(0.3 0.06 28);
+      --shadow-tray: 0 10px 30px rgb(0 0 0 / 0.5);
+      --shadow-toast: 0 8px 24px rgb(0 0 0 / 0.55);
+      --shadow-hero: 0 1px 0 #000000;
+      --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.45);
+    }
+  }
+}
+
 /* Fonts come from next/font (app/layout.tsx) as CSS variables on <html>; `inline` makes the
    utilities reference them directly (node_modules/next/dist/docs … components/font.md §Tailwind). */
 @theme inline {
@@ -80,7 +163,9 @@
    utility (e.g. `color: inherit` on buttons overriding `text-white`). */
 @layer base {
 * { box-sizing: border-box; }
-html { color: var(--color-ink); background: var(--color-bg); }
+html { color: var(--color-ink); background: var(--color-bg); color-scheme: light dark; }
+html[data-theme='light'] { color-scheme: light; }
+html[data-theme='dark'] { color-scheme: dark; }
 body {
   margin: 0;
   font-family: var(--font-sans);

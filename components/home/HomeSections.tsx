@@ -102,7 +102,7 @@ export function DealGrid({ deals, store }: { deals: HomeDeal[]; store: Store }) 
                 <ProductFrame src={p.image} alt="" aspect="auto" className="h-full min-h-[110px]" label="product" />
               </div>
               <div className="flex min-w-0 flex-col gap-1.5">
-                {off > 0 ? <span className="self-start rounded-tag bg-accent px-[7px] py-[3px] text-[13px] font-bold">{off}% OFF</span> : null}
+                {off > 0 ? <span className="self-start rounded-tag bg-accent text-on-accent px-[7px] py-[3px] text-[13px] font-bold">{off}% OFF</span> : null}
                 <span className="line-clamp-2 text-[15px] font-semibold leading-tight">{p.title}</span>
                 <span className="flex flex-wrap items-baseline gap-2">
                   <strong className="text-[18px] tabular-nums">{money(p, store)}</strong>

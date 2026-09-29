@@ -60,15 +60,15 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                     aria-current={on ? 'page' : undefined}
                     className={cn(
                       'flex min-h-14 items-center justify-between gap-2.5 rounded-card border px-4 py-3.5 no-underline transition-colors',
-                      on ? 'border-ink bg-ink text-white hover:text-white' : 'border-line bg-surface text-ink hover:border-ink hover:text-ink',
+                      on ? 'border-ink bg-ink text-on-ink hover:text-on-ink' : 'border-line bg-surface text-ink hover:border-ink hover:text-ink',
                     )}
                   >
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[16px] font-semibold">{col.name}</span>
-                      <span className={cn('text-[13px]', on ? 'text-white/80' : 'text-ink-3')}>{n} {n === 1 ? 'item' : 'items'}</span>
+                      <span className={cn('text-[13px]', on ? 'text-on-ink/80' : 'text-ink-3')}>{n} {n === 1 ? 'item' : 'items'}</span>
                     </span>
                     {drop > 0 ? (
-                      <span className={cn('flex-none font-mono text-[12px]', on ? 'text-white' : 'text-good-strong')} aria-label={`Prices down ${money(drop)} since saved`}>
+                      <span className={cn('flex-none font-mono text-[12px]', on ? 'text-on-ink' : 'text-good-strong')} aria-label={`Prices down ${money(drop)} since saved`}>
                         ↓ {money(drop)}
                       </span>
                     ) : null}

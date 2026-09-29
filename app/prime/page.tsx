@@ -165,19 +165,19 @@ export default async function PlusPage() {
           </p>
         </Section>
 
-        <section className="flex flex-col items-start gap-4 rounded-panel bg-ink px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-7">
+        <section className="flex flex-col items-start gap-4 rounded-panel bg-ink px-5 py-6 text-on-ink sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div className="flex max-w-[680px] flex-col gap-2">
             <Kicker tone="onDark">Members only</Kicker>
-            <h2 className="m-0 text-[20px] font-semibold leading-tight text-white">
+            <h2 className="m-0 text-[20px] font-semibold leading-tight text-on-ink">
               {isIN ? 'Shop the festival sales before everyone else' : 'Get first access to our biggest sale days'}
             </h2>
-            <p className="m-0 text-[14px] leading-relaxed text-white/80">
+            <p className="m-0 text-[14px] leading-relaxed text-on-ink/80">
               Early access plus member-only prices all year. Deals still show their real list price, so you can judge the saving yourself.
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <a href={joinHref} className={buttonClasses({ variant: 'primary' })}>Join Plus</a>
-            <a href={dealsHref} className="inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-white underline underline-offset-2 hover:text-accent-soft">
+            <a href={dealsHref} className="inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-on-ink underline underline-offset-2 hover:text-accent-soft">
               Today&apos;s deals →
             </a>
           </div>

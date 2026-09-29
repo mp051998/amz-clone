@@ -26,7 +26,7 @@ function AddressCard({ a, sp }: { a: Address; sp: (p: string) => string }) {
     <li className="flex flex-col gap-2 rounded-card border border-line bg-surface p-[18px]">
       <div className="flex items-start justify-between gap-2">
         <strong className="text-[16px] font-semibold">{a.name}</strong>
-        {a.isDefault ? <span className="flex-none rounded-chip bg-ink px-2 py-1 text-[12px] font-semibold text-white">Default</span> : null}
+        {a.isDefault ? <span className="flex-none rounded-chip bg-ink px-2 py-1 text-[12px] font-semibold text-on-ink">Default</span> : null}
       </div>
       <div className="flex-1 text-[14px] leading-[1.5] text-ink-2">
         {parts.map((p) => <p key={p} className="m-0">{p}</p>)}

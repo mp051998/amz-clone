@@ -26,15 +26,15 @@ export function Pill({ children, selected = false, href, onClick, size = 'md', t
     size === 'md' ? 'min-h-10 px-[15px]' : 'min-h-[34px] px-3.5',
     removable && (size === 'md' ? 'pr-1.5' : 'pr-1'),
     selected
-      ? 'border-ink bg-ink text-white hover:text-white'
+      ? 'border-ink bg-ink text-on-ink hover:text-on-ink'
       : cn('bg-surface text-ink hover:border-ink hover:text-ink', tone === 'soft' ? 'border-line-4' : 'border-line-3'),
     className,
   );
   const x = removable ? (
     removeHref != null ? (
-      <a href={removeHref} aria-label={removeLabel} className={cn('ml-0.5 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none no-underline', selected ? 'bg-ink-raised text-white hover:text-white' : 'bg-surface-2 text-ink')}>×</a>
+      <a href={removeHref} aria-label={removeLabel} className={cn('ml-0.5 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none no-underline', selected ? 'bg-ink-raised text-on-ink hover:text-on-ink' : 'bg-surface-2 text-ink')}>×</a>
     ) : (
-      <button type="button" onClick={onRemove} aria-label={removeLabel} className={cn('ml-0.5 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none', selected ? 'bg-ink-raised text-white' : 'bg-surface-2 text-ink')}>×</button>
+      <button type="button" onClick={onRemove} aria-label={removeLabel} className={cn('ml-0.5 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none', selected ? 'bg-ink-raised text-on-ink' : 'bg-surface-2 text-ink')}>×</button>
     )
   ) : null;
 
