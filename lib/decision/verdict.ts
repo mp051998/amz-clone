@@ -6,6 +6,7 @@
 import { formatMoney } from '../marketplaces';
 import { decisionConfig, type CategorySpec } from './attributes';
 import { scoresFor, strength } from './rank';
+import type { Product } from '../types';
 import type { CompareVerdict, RankedProduct, Weights } from './types';
 
 /** "Sony WH-CH720N Wireless Noise…" → "Sony WH-CH720N Wireless" (first clause, ≤ 4 words). */
@@ -86,6 +87,29 @@ export interface CompareTable {
 
 const SCORE_WORD: Record<number, string> = { 5: 'Excellent', 4: 'Great', 3: 'Good', 2: 'Fair', 1: 'Weak' };
 
+/** One table row: label, cell text, and an optional score (highest = BEST; null = no BEST marker). */
+type RowDef<T> = [label: string, text: (item: T, i: number) => string, score: ((item: T, i: number) => number) | null];
+
+/** Identical rows collapse into "Same on all"; the rest keep column order, with BEST on the top score. */
+function buildTable<T>(items: T[], defs: RowDef<T>[]): CompareTable {
+  const rows: CompareRow[] = [];
+  const same: string[] = [];
+  for (const [label, textOf, scoreOf] of defs) {
+    const texts = items.map(textOf);
+    if (texts.every((t) => t === texts[0])) {
+      if (texts[0] !== '—') same.push(`${label}: ${texts[0]}`);
+      continue;
+    }
+    const sc = scoreOf ? items.map(scoreOf) : null;
+    const max = sc ? Math.max(...sc) : null;
+    const distinct = sc ? new Set(sc).size > 1 : false;
+    rows.push({ label, cells: texts.map((text, i) => ({ text, best: !!sc && distinct && sc[i] === max })) });
+  }
+  return { rows, same };
+}
+
+const availability = (p: Product) => (p.stock > 5 ? 'In stock' : p.stock > 0 ? `Only ${p.stock} left` : 'Out of stock');
+
 /** "What's different" + "Same on all" for ranked products (column order preserved). */
 export function compareTable(ranked: RankedProduct[], config?: CategorySpec): CompareTable {
   if (!ranked.length) return { rows: [], same: [] };
@@ -93,34 +117,55 @@ export function compareTable(ranked: RankedProduct[], config?: CategorySpec): Co
   const cur = ranked[0].product.curBase;
   const scores = ranked.map((r) => scoresFor(r.product, r.insight, 0.5, cfg));
 
-  type Def = [label: string, text: (r: RankedProduct, i: number) => string, score: ((r: RankedProduct, i: number) => number) | null];
-  const defs: Def[] = [
+  return buildTable<RankedProduct>(ranked, [
     ['Price', (r) => formatMoney(r.product.priceMinor, cur), (r) => -r.product.priceMinor],
     ['Match for you', (r) => `${r.match}%`, (r) => r.match],
     ['Rating', (r) => `${r.product.rating.toFixed(1)} ★`, (r) => r.product.rating],
     ['Ratings', (r) => r.product.reviewCount.toLocaleString('en-US'), (r) => r.product.reviewCount],
     ...cfg.attributes.map(
-      (a): Def => [a.label, (_r, i) => SCORE_WORD[scores[i][a.key] ?? 3] ?? 'Good', (_r, i) => scores[i][a.key] ?? 3],
+      (a): RowDef<RankedProduct> => [a.label, (_r, i) => SCORE_WORD[scores[i][a.key] ?? 3] ?? 'Good', (_r, i) => scores[i][a.key] ?? 3],
     ),
     ['Discount', (r) => (r.product.dealPct ? `${r.product.dealPct}% off` : '—'), (r) => r.product.dealPct ?? 0],
     ['Brand', (r) => r.product.brand ?? '—', null],
     ['Sold by', (r) => r.product.seller || '—', null],
     ['Ships from', (r) => r.product.shipsFrom || '—', null],
-    ['Availability', (r) => (r.product.stock > 5 ? 'In stock' : r.product.stock > 0 ? `Only ${r.product.stock} left` : 'Out of stock'), (r) => r.product.stock],
-  ];
+    ['Availability', (r) => availability(r.product), (r) => r.product.stock],
+  ]);
+}
 
-  const rows: CompareRow[] = [];
-  const same: string[] = [];
-  for (const [label, textOf, scoreOf] of defs) {
-    const texts = ranked.map(textOf);
-    if (texts.every((t) => t === texts[0])) {
-      if (texts[0] !== '—') same.push(`${label}: ${texts[0]}`);
-      continue;
-    }
-    const sc = scoreOf ? ranked.map(scoreOf) : null;
-    const max = sc ? Math.max(...sc) : null;
-    const distinct = sc ? new Set(sc).size > 1 : false;
-    rows.push({ label, cells: texts.map((text, i) => ({ text, best: !!sc && distinct && sc[i] === max })) });
+/**
+ * Table for products from different categories: only the facts every product has (no match, no
+ * category scores) and no BEST markers, since there's no shared basis to rank them on.
+ */
+export function mixedCompareTable(products: Product[]): CompareTable {
+  if (!products.length) return { rows: [], same: [] };
+  const cur = products[0].curBase;
+  return buildTable<Product>(products, [
+    ['Category', (p) => p.categoryName || p.category, null],
+    ['Price', (p) => formatMoney(p.priceMinor, cur), null],
+    ['Rating', (p) => `${p.rating.toFixed(1)} ★`, null],
+    ['Ratings', (p) => p.reviewCount.toLocaleString('en-US'), null],
+    ['Discount', (p) => (p.dealPct ? `${p.dealPct}% off` : '—'), null],
+    ['Brand', (p) => p.brand ?? '—', null],
+    ['Sold by', (p) => p.seller || '—', null],
+    ['Ships from', (p) => p.shipsFrom || '—', null],
+    ['Availability', availability, null],
+  ]);
+}
+
+export interface CategoryGroup {
+  slug: string;
+  name: string;
+  ids: string[];
+}
+
+/** Products grouped by category, in first-seen order. More than one group = a mixed comparison. */
+export function categoryGroups(products: Product[]): CategoryGroup[] {
+  const groups = new Map<string, CategoryGroup>();
+  for (const p of products) {
+    const g = groups.get(p.category) ?? { slug: p.category, name: p.categoryName || p.category, ids: [] };
+    g.ids.push(p.id);
+    groups.set(p.category, g);
   }
-  return { rows, same };
+  return [...groups.values()];
 }

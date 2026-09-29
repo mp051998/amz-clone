@@ -54,6 +54,11 @@ export function GET(): Response {
       'POST   /ai/parse-query',
       'POST   /ai/profile',
       'POST   /ai/compare',
+      'GET    /admin/products',
+      'POST   /admin/products',
+      'GET    /admin/products/:id',
+      'PATCH  /admin/products/:id',
+      'DELETE /admin/products/:id',
       'POST   /webhooks/stripe',
     ],
   });

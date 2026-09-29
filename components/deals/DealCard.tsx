@@ -43,7 +43,7 @@ export function DealCard({ product: p, store, saved = false }: { product: Produc
         </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line-2 pt-3">
-        <CompareToggle item={{ id: p.id, name: p.title, image: p.image }} />
+        <CompareToggle item={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} />
         <SaveButton productId={p.id} saved={saved} name={p.title} />
         <QuickAdd productId={p.id} name={p.title} />
       </div>

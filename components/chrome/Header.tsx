@@ -12,6 +12,8 @@ export interface HeaderProps {
   cartCount?: number;
   /** first name of the signed-in user; undefined when signed out. */
   userName?: string;
+  /** adds the Admin link to the account menu. */
+  isAdmin?: boolean;
   /** category strip links (already store-prefixed). */
   categories?: CategoryLink[];
   /** store switch trigger (desktop, lg+). */
@@ -33,7 +35,7 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
 }
 
 /** Sticky white header: desktop row, mobile stack, category strip (design.md §5 Header). Store-aware. */
-export function Header({ store, cartCount = 0, userName, categories = [], regionSlot, defaultQuery }: HeaderProps) {
+export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery }: HeaderProps) {
   const home = storePath(store, '/');
   const action = storePath(store, '/s');
   const locationText = store.id === 'IN' ? 'Bengaluru 560001' : 'Update location';
@@ -51,7 +53,7 @@ export function Header({ store, cartCount = 0, userName, categories = [], region
         <DeliverToPopover {...deliver} />
         <SearchBar actionPath={action} defaultQuery={defaultQuery} />
         {regionSlot ? <div className="hidden lg:block">{regionSlot}</div> : null}
-        <AccountMenu store={store} userName={userName} />
+        <AccountMenu store={store} userName={userName} isAdmin={isAdmin} />
         <a href={ordersHref} className={navLink}>Orders</a>
         <CartPill href={cartHref} count={cartCount} />
       </div>

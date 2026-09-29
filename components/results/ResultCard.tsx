@@ -75,7 +75,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
         <span className="text-[14px]"><strong>Best for:</strong> {bestFor}</span>
       ) : null}
       <div className="mt-auto flex gap-2">
-        <CompareToggle item={{ id: p.id, name: shortTitle(p.title, 6), image: p.image }} />
+        <CompareToggle item={{ id: p.id, name: shortTitle(p.title, 6), image: p.image, category: p.category, categoryName: p.categoryName }} />
         <SaveButton productId={p.id} saved={saved} name={p.title} market={store.id} />
       </div>
     </article>

@@ -13,7 +13,8 @@
     "db:types": "supabase gen types typescript --local > lib/db/database.types.ts",
     "db:reset": "supabase db reset",
     "db:seed:build": "node scripts/build-seed.mjs",
-    "db:insights:build": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-insights.mjs"
+    "db:insights:build": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-insights.mjs",
+    "admin:grant": "node --env-file=.env.local scripts/grant-admin.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

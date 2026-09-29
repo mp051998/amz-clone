@@ -1,5 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
+import { isAdmin } from './data/admin-catalog';
 import { db } from './supabase/server';
 
 export interface SessionUser {
@@ -24,6 +25,9 @@ export const readUser = cache(async (): Promise<SessionUser | null> => {
   const metaName = typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
   return { id: user.id, name: metaName || nameFromEmail(user.email), email: user.email };
 });
+
+/** Whether the signed-in user is a store admin (public.admins). Once per request; false for guests. */
+export const readIsAdmin = cache(async (): Promise<boolean> => ((await readUser()) ? isAdmin(await db()) : false));
 
 export function firstName(user: SessionUser): string {
   return user.name.split(' ')[0] || user.name;

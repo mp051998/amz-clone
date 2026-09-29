@@ -23,6 +23,12 @@ export interface CheckoutUrls {
   cancelUrl: string;
 }
 
+/** Stripe needs an absolute https image: uploaded images already are; site paths get the origin. */
+export function productImageUrl(image: string, origin?: string): string[] | undefined {
+  if (image.startsWith('https://')) return [image];
+  return origin?.startsWith('https://') ? [`${origin}${image}`] : undefined;
+}
+
 function requireStripe(): Stripe {
   if (!stripe) throw new DataError('payments_unavailable');
   return stripe;
@@ -42,7 +48,7 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
       product_data: {
         name: it.title.slice(0, 120),
         // Stripe fetches images itself, so only offer publicly reachable ones.
-        images: imageOrigin?.startsWith('https://') ? [`${imageOrigin}${it.image}`] : undefined,
+        images: productImageUrl(it.image, imageOrigin),
       },
     },
   }));

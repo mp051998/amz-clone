@@ -240,6 +240,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 productId={p.id}
                 name={p.title}
                 image={p.image}
+                category={p.category}
+                categoryName={p.categoryName}
                 market={store.id}
                 stock={p.stock}
                 saved={saved.has(p.id)}
@@ -266,7 +268,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         {altCards.length ? (
           <section aria-labelledby="alts-h" className="flex flex-col gap-3.5">
             <h2 id="alts-h" className="m-0 text-[22px] font-semibold">Often compared with</h2>
-            <Alternatives base={{ id: p.id, name: p.title, image: p.image }} items={altCards} />
+            <Alternatives base={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} items={altCards} />
           </section>
         ) : null}
 

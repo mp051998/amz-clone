@@ -17,6 +17,9 @@ export interface BuyPanelProps {
   productId: string;
   name: string;
   image?: string;
+  /** category slug + name, for the compare tray's cross-category check. */
+  category?: string;
+  categoryName?: string;
   market: MarketId;
   stock: number;
   saved: boolean;
@@ -50,7 +53,7 @@ const LEVEL_TONE = {
  * PDP aside (prototype Product detail): delivery card, Purchase confidence, qty, Add to Cart (accent,
  * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare.
  */
-export function BuyPanel({ productId, name, image, market, stock, saved, delivery, confidence, error }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, delivery, confidence, error }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
@@ -139,7 +142,7 @@ export function BuyPanel({ productId, name, image, market, stock, saved, deliver
 
       <div className="flex gap-2">
         <SaveButton productId={productId} saved={saved} name={name} market={market} />
-        <CompareToggle item={{ id: productId, name, image }} />
+        <CompareToggle item={{ id: productId, name, image, category, categoryName }} />
       </div>
     </div>
   );
