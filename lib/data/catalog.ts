@@ -4,6 +4,7 @@ import type { Category, Market, Product, RatingSummary } from '../types';
 import { PAGE_SIZE, type SearchQuery, type SearchResult } from '../search';
 import { unwrap } from './errors';
 import { toProduct } from './map';
+import { foldVariants, type VariantSummary } from '../variants';
 
 /** Departments a market shows, in its nav order. */
 export async function listCategories(db: Db, market: Market): Promise<Category[]> {
@@ -126,6 +127,8 @@ export interface ListOptions {
   order?: ListOrder;
   limit?: number;
   excludeId?: string;
+  /** every option of a variant group (default: its first, see `foldVariants`). */
+  allVariants?: boolean;
 }
 
 export async function listProducts(db: Db, market: Market, opts: ListOptions = {}): Promise<Product[]> {
@@ -142,12 +145,39 @@ export async function listProducts(db: Db, market: Market, opts: ListOptions = {
       break;
   }
   q = q.order('position');
-  if (opts.limit) q = q.limit(opts.limit);
-  return unwrap(await q).map(toProduct);
+  // folding drops a group's other options, so read spare rows to still fill the limit
+  const fold = !opts.allVariants;
+  if (opts.limit) q = q.limit(fold ? opts.limit * 2 : opts.limit);
+  const products = unwrap(await q).map(toProduct);
+  if (!fold) return products;
+  const folded = foldVariants(products);
+  return opts.limit ? folded.slice(0, opts.limit) : folded;
+}
+
+/** Variant groups of a store as listing cards show them, options in label order. */
+export async function variantSummaries(db: Db, market: Market, groups: readonly string[]): Promise<Map<string, VariantSummary>> {
+  const out = new Map<string, VariantSummary>();
+  if (!groups.length) return out;
+  const res = await db
+    .from('catalog_products')
+    .select('id, image, stock, variant_group, variant_axis, variant_label')
+    .eq('market_id', market)
+    .in('variant_group', [...new Set(groups)]);
+  if (res.error) return out; // swatches only (or the columns aren't deployed yet)
+  for (const r of res.data) {
+    if (!r.variant_group || !r.variant_label) continue;
+    const g = out.get(r.variant_group) ?? { axis: r.variant_axis ?? 'Style', options: [] };
+    g.options.push({ id: r.id!, label: r.variant_label, image: r.image ?? '', stock: r.stock ?? 0 });
+    out.set(r.variant_group, g);
+  }
+  for (const g of out.values()) g.options.sort((a, b) => byLabel.compare(a.label, b.label));
+  return out;
 }
 
 interface SearchJson {
   total: number;
+  /** matches counted once per variant group (absent before the fold-variants migration) */
+  groups?: number;
   page: number;
   page_count: number;
   brands: { name: string; count: number }[];
@@ -181,6 +211,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     query: { ...query, page: json.page },
     items: json.items.map(toProduct),
     total: json.total,
+    groups: json.groups ?? json.total,
     pageCount: json.page_count,
     brandFacets: json.brands,
     headingLabel,

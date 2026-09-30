@@ -33,6 +33,7 @@ export function toProduct(row: Partial<ProductRow>): Product {
     stock: row.stock ?? 0,
     curBase: (row.currency ?? 'USD') as CurrencyCode,
     archived: row.archived_at ? true : undefined,
+    variant: row.variant_group && row.variant_axis && row.variant_label ? { group: row.variant_group, axis: row.variant_axis, label: row.variant_label } : undefined,
   };
 }
 

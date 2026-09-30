@@ -17,7 +17,7 @@ import { readDecisionParams } from '@/lib/decision/params';
 import { buildParsedQuery } from '@/lib/decision/query';
 import type { RankSort } from '@/lib/decision/rank';
 import { niceCeiling, rankedSearch } from '@/lib/decision/server';
-import { searchCatalog } from '@/lib/data/catalog';
+import { searchCatalog, variantSummaries } from '@/lib/data/catalog';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -164,7 +164,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const page = Math.min(pageCount, Math.max(1, Number(one(sp, 'page')) || 1));
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0);
-  const scopeTotal = scope && !facetFilters ? Math.max(scope.total, result.candidates) : result.candidates;
+  // products, not options: a group's variants count once
+  const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
+  const variants = await variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : [])));
   const range = budgetRange(store.id, category);
   const cur = store.currency.code;
   const title = pq.title === 'Results' ? 'All products' : pq.title;
@@ -288,6 +290,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                         saved={saved.has(r.product.id)}
                         bestForFallback={presetSpec?.bestFor}
                         priority={page === 1 && i < 3}
+                        variants={r.product.variant ? variants.get(r.product.variant.group) : undefined}
                       />
                     </div>
                   </li>
