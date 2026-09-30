@@ -1,7 +1,7 @@
 import type { Db } from '../db/client';
 import { toDetailRows, type DetailRow } from '../product-details';
 import type { Category, Market, Product, RatingSummary } from '../types';
-import { PAGE_SIZE, type SearchQuery, type SearchResult } from '../search';
+import { NO_SUGGESTIONS, PAGE_SIZE, SUGGEST_MIN, type SearchQuery, type SearchResult, type Suggestions } from '../search';
 import { unwrap } from './errors';
 import { toProduct } from './map';
 import { foldVariants, type VariantSummary } from '../variants';
@@ -172,6 +172,14 @@ export async function variantSummaries(db: Db, market: Market, groups: readonly 
   }
   for (const g of out.values()) g.options.sort((a, b) => byLabel.compare(a.label, b.label));
   return out;
+}
+
+/** Search-as-you-type: completions of the last word, top departments and a few products. */
+export async function suggestSearch(db: Db, market: Market, q: string): Promise<Suggestions> {
+  if (q.replace(/[^\p{L}\p{N}]/gu, '').length < SUGGEST_MIN) return NO_SUGGESTIONS;
+  const res = await db.rpc('search_suggest', { p_market: market, p_q: q.slice(0, 200) });
+  if (res.error?.code === 'PGRST202') return NO_SUGGESTIONS; // not migrated yet
+  return unwrap(res) as unknown as Suggestions;
 }
 
 interface SearchJson {
