@@ -20,6 +20,7 @@ export function GET(): Response {
       'GET    /me',
       'GET    /categories',
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
+      'GET    /suggest?q=',
       'GET    /products/:id',
       'GET    /products/:id/insights?summarize=',
       'GET    /products/:id/reviews?limit=&offset=',

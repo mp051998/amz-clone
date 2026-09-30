@@ -36,6 +36,22 @@ export interface SearchResult {
   headingLabel: string;
 }
 
+/** Search-as-you-type for what's been typed so far (`/api/v1/suggest`, `search_suggest()`). */
+export interface Suggestions {
+  /** matching products, each variant group once */
+  total: number;
+  /** completions of the last word typed, as whole queries, most common first */
+  terms: { text: string; count: number }[];
+  departments: { slug: string; name: string; count: number }[];
+  /** the best-reviewed matches, one per variant group */
+  products: { id: string; title: string; image: string | null }[];
+}
+
+export const NO_SUGGESTIONS: Suggestions = { total: 0, terms: [], departments: [], products: [] };
+
+/** Suggestions start at two letters or digits. */
+export const SUGGEST_MIN = 2;
+
 export function parseQuery(sp: Record<string, string | string[] | undefined>): SearchQuery {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const brandRaw = one(sp.brand);
