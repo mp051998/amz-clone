@@ -9,6 +9,7 @@ import { Price } from '@/components/primitives/Price';
 import { Stars } from '@/components/primitives/Stars';
 import { Alternatives, type AlternativeCard } from '@/components/product/Alternatives';
 import { BackLink } from '@/components/product/BackLink';
+import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
 import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
@@ -25,8 +26,9 @@ import { messageFor } from '@/lib/data/errors';
 import { deliveryDate } from '@/lib/dates';
 import { decisionConfig } from '@/lib/decision/attributes';
 import { effectiveWeights, readDecisionParams } from '@/lib/decision/params';
+import { shortTitle } from '@/lib/decision/verdict';
 import { rankOne, scoresFor } from '@/lib/decision/rank';
-import { alternativesFor, getInsight } from '@/lib/decision/server';
+import { alternativesFor, boughtTogether, getInsight } from '@/lib/decision/server';
 import type { ProductInsight } from '@/lib/decision/types';
 import { toStoreMinor } from '@/lib/fx';
 import { storePath } from '@/lib/marketplace';
@@ -108,12 +110,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
     user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     getProductInfo(client, p.id),
+    boughtTogether(p, 2, client).catch(() => []),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -150,6 +153,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     to: store.id === 'IN' ? 'to Bengaluru 560001' : undefined,
   };
 
+  const bundleEntries: BundleEntry[] = bundle.length
+    ? [p, ...bundle.map((b) => b.product)].map((x) => ({
+        id: x.id,
+        title: shortTitle(x.title, 12),
+        image: x.image,
+        href: storePath(store, `/product/${encodeURIComponent(x.id)}`),
+        priceMinor: toStoreMinor(x.priceMinor, cur, x.curBase),
+        current: x.id === p.id,
+      }))
+    : [];
   const altCards: AlternativeCard[] = alts.map((a) => ({
     id: a.product.id,
     name: a.product.title,
@@ -282,6 +295,14 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             </aside>
           </div>
         </div>
+
+        {bundleEntries.length > 1 ? (
+          <section aria-labelledby="fbt-h" className="flex max-w-[980px] flex-col gap-3">
+            {/* only order data earns "Frequently bought together"; rules picks are just suggestions */}
+            <h2 id="fbt-h" className="m-0 text-[22px] font-semibold">{bundle.every((b) => b.source === 'orders') ? 'Frequently bought together' : 'Goes well with this'}</h2>
+            <BoughtTogether productId={p.id} items={bundleEntries} currency={cur} />
+          </section>
+        ) : null}
 
         <Reviews
           data={reviews}

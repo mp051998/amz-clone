@@ -65,6 +65,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, groups, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Items and `total` are per product, so each option of a variant group is its own item (see `variant`); `groups` counts the matches with a group's options once, as the storefront shows them, and brand counts do the same. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
 | GET | `/suggest?q=` | Search-as-you-type for the search box. The last word counts as a prefix. Returns `{market, q, total, terms: [{text, count}], departments: [{slug, name, count}], products: [{id, title, image}]}`. `terms` holds up to 4 completions of the last word, taken from matching titles and brands, most common first, each as a whole query (`sony he` → `sony headphones`). `departments` holds the 2 departments with the most matches for the top completion. `products` holds the 4 best-reviewed matches. Counts and products count a variant group once. Input with fewer than two letters or digits returns everything empty. |
 | GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null), `details`, the "Product information" table as `[label, value]` pairs, most important first, `gallery` (more image URLs after `image`, in order) and `variants`: null, or `{group, axis, label, options: [{id, label, image, priceMinor, stock, current}]}` when other products of this store share its variant group (e.g. `axis: "Color"`, `label: "Black"`). Options are in label order; archived ones are left out, except the product itself. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
+| GET | `/products/:id/bought-together` | `{items: [{product, reason, source}]}`: up to 2 products to buy with this one for the product page's "Frequently bought together". `source: orders` items are bought together in placed orders by at least two shoppers; when there are fewer, `source: rules` accessories fill in. Empty for a sold-out or archived product. Returns `404 product_not_found` if the product doesn't exist in this store. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
 `Product` has these fields:
@@ -378,7 +379,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Eighteen migrations live in `supabase/migrations/`:
+Nineteen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -400,6 +401,7 @@ Eighteen migrations live in `supabase/migrations/`:
 | admin order returns | admin read policies on `returns` and `return_items` (the admin orders list marks orders with a return) and `admin_order_returns()`, one order's returns for the admin order page |
 | folded variants | `variant_group`, `variant_axis` and `variant_label` on the `catalog_products` and `catalog_products_all` views; `search_catalog()` adds `groups` (matches with each variant group counted once) and counts brand facets the same way |
 | search suggestions | `search_suggest()`: completions, departments and products for the header search box (`/suggest`) |
+| bought together | `bought_together()`: the products most often in the same placed orders as a product, in the same store and in stock, other options of its variant group left out. A pair only counts once two different shoppers have bought it, so no one's order shows through (`/products/:id/bought-together`) |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -415,5 +417,6 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - the signed Stripe webhook
 - product variants and galleries: sibling options per store in label order, unique labels (and the index behind them), one option name per group, archived options, leaving a group, the gallery cap; listings and ranked search showing one card per group, group counts and brand facets, and the swatch summaries
 - search suggestions: completions, departments that follow the top completion, one card per group, store isolation, short and punctuation-only input
+- bought together: pairs from placed orders only, the two-shopper threshold, sold-out products left out, and the product page's pick (order pairs first, then accessories)
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
 - order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds

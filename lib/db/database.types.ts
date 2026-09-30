@@ -548,6 +548,9 @@ isOneToOne: false
             "attach_checkout_session":
 { Args: { "p_order_id": string,"p_session_id": string }; Returns: undefined
                            },
+"bought_together":
+{ Args: { "p_limit"?: number,"p_product_id": string }; Returns: Json
+                           },
 "cancel_my_order":
 { Args: { "p_order_id": string }; Returns: Json
                            },
