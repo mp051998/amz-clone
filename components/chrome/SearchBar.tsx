@@ -12,6 +12,8 @@ export interface SearchBarProps {
   market?: Market;
   defaultQuery?: string;
   placeholder?: string;
+  /** the box's accessible name (default "Search"). */
+  label?: string;
   /** header = 44px row; hero = the big home search (radius 14, shadow-hero, 17px). */
   size?: 'header' | 'hero';
   /** kept for older callers; the new design has no department select. */
@@ -45,7 +47,7 @@ function Glass() {
  * As you type it suggests (combobox): completions of the last word, the query in its top
  * departments, and a few products. Arrow keys move through them, Enter opens one, Escape closes.
  */
-export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder = 'Search products, brands, and more', size = 'header', defaultDept, className }: SearchBarProps) {
+export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder = 'Search products, brands, and more', label = 'Search', size = 'header', defaultDept, className }: SearchBarProps) {
   const hero = size === 'hero';
   const store: Market = market ?? (actionPath.startsWith('/in/') ? 'IN' : 'US');
   const base = actionPath.replace(/\/s$/, '');
@@ -112,7 +114,7 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
       data-href={o.href}
       onClick={() => go(o)}
       onMouseEnter={() => setActive(i)}
-      className={cn('flex cursor-pointer items-center gap-3 rounded-[6px] px-2.5 py-2 text-[15px] leading-snug text-ink', i === current && 'bg-surface-2')}
+      className={cn('flex cursor-pointer items-center gap-3 rounded-[6px] px-2.5 py-2 leading-snug text-ink', hero ? 'text-[16px]' : 'text-[15px]', i === current && 'bg-surface-2')}
     >
       {o.image !== undefined ? (
         <span className="hatch relative h-9 w-9 flex-none overflow-hidden rounded-[6px] bg-surface">
@@ -126,7 +128,8 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
   );
 
   return (
-    <div className={cn('relative flex min-w-0 flex-1', className)}>
+    // the header box fills its row; the hero sits in a column
+    <div className={cn('relative flex min-w-0', !hero && 'flex-1', className)}>
       <form
         action={actionPath}
         method="get"
@@ -166,7 +169,7 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
             }
           }}
           placeholder={placeholder}
-          aria-label="Search"
+          aria-label={label}
           role="combobox"
           aria-expanded={visible}
           aria-controls={listId}

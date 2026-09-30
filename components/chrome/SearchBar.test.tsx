@@ -78,3 +78,12 @@ it('keeps the plain search working when suggestions fail', async () => {
   expect(box()).toHaveValue('kettles');
   expect(box().closest('form')).toHaveAttribute('action', '/s');
 });
+
+it('works as the home hero box under its own name', async () => {
+  render(<SearchBar size="hero" actionPath="/in/s" market="IN" label="Search for products, brands, or describe what you need" />);
+  const hero = screen.getByRole('combobox', { name: 'Search for products, brands, or describe what you need' });
+  fireEvent.focus(hero);
+  fireEvent.change(hero, { target: { value: 'sony he' } });
+  expect(await screen.findByRole('option', { name: 'Sony WH-CH520' })).toHaveAttribute('data-href', '/in/product/41lArSiD5hL');
+  expect(hero.closest('form')).toHaveClass('rounded-panel', 'shadow-hero');
+});

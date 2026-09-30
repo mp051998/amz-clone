@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
+import { SearchBar } from '@/components/chrome/SearchBar';
 import { ContinueRow, DealGrid, HomeSection, PickGrid } from '@/components/home/HomeSections';
 import { Kicker } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
@@ -33,18 +34,13 @@ export default async function Home() {
           <h1 id="home-title" className="m-0 text-[clamp(30px,4.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
             What are you looking for?
           </h1>
-          <form action={searchHref} method="get" role="search" className="flex items-stretch overflow-hidden rounded-panel border-[1.5px] border-ink bg-surface shadow-hero focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
-            <label htmlFor="home-q" className="sr-only">Search for products, brands, or describe what you need</label>
-            <input
-              id="home-q"
-              name="k"
-              type="search"
-              autoComplete="off"
-              placeholder="Search for products, brands, or describe what you need..."
-              className="min-w-0 flex-1 border-0 bg-transparent px-[18px] py-[18px] text-[17px] outline-none placeholder:text-ink-4"
-            />
-            <button type="submit" className="bg-accent px-[26px] text-[16px] font-semibold text-on-accent hover:bg-accent-hover">Search</button>
-          </form>
+          <SearchBar
+            size="hero"
+            actionPath={searchHref}
+            market={store.id}
+            label="Search for products, brands, or describe what you need"
+            placeholder="Search for products, brands, or describe what you need..."
+          />
           <div className="flex flex-wrap items-center gap-2">
             <QuizButton
               market={store.id}
