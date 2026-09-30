@@ -11,6 +11,7 @@ import { pricePercentiles } from './derive';
 import { kindMatch, productKind, sameKind } from './kind';
 import { rankProducts, scoresFor, type RankSort } from './rank';
 import type { ParsedQuery, ProductInsight, RankedProduct, Weights } from './types';
+import { foldVariants } from '../variants';
 import { shortTitle } from './verdict';
 
 /**
@@ -91,8 +92,9 @@ export async function rankedSearch(
   }
   const insights = await getInsights(db, products.map((p) => p.id));
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);
-  const items = rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' });
-  return { items, total: items.length, candidates: products.length };
+  // one card per variant group: its best-ranked option (within budget, if any)
+  const items = foldVariants(rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' }), (r) => r.product);
+  return { items, total: items.length, candidates: foldVariants(products).length };
 }
 
 /** A product's stored insight (public), or null. */
@@ -136,6 +138,8 @@ export async function alternativesFor(product: Product, n = 3, weights?: Weights
   const pool = await listProducts(db, product.market, { category: product.category, excludeId: product.id, order: 'popular', limit: CANDIDATE_LIMIT });
   // category is broad (headphones vs smartwatches) — keep to the same sort of product
   const near = sameKind(product.title, pool)
+    // another option of the same product isn't an alternative (the page offers those as variants)
+    .filter((p) => !product.variant || p.variant?.group !== product.variant.group)
     .filter((p) => p.priceMinor >= product.priceMinor * 0.5 && p.priceMinor <= product.priceMinor * 1.5 && p.stock > 0)
     .sort(
       (a, b) =>

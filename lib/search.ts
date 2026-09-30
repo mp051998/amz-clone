@@ -28,6 +28,8 @@ export interface SearchResult {
   query: SearchQuery;
   items: Product[];
   total: number;
+  /** `total` counting each variant group once (one card per group) */
+  groups: number;
   pageCount: number;
   /** brands available in the query+dept scope, with counts */
   brandFacets: { name: string; count: number }[];

@@ -1,9 +1,7 @@
 import type { ProductVariant } from '@/lib/data/catalog';
+import { VISUAL_AXES } from '@/lib/variants';
 import { ProductFrame } from '../decision/ProductFrame';
 import { cn } from '../lib/cn';
-
-/** Options people pick by look get image swatches; the rest (sizes, configurations) text tiles. */
-const VISUAL_AXES = /^(colou?r|pattern|style|design|finish)$/i;
 
 export interface VariantPickerProps {
   axis: string;

@@ -111,8 +111,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const [insight, reviews, alts, saved, info] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
-    // a few spare: the product's own variants don't count as alternatives
-    alternativesFor(p, 6, weights, client).catch(() => []),
+    alternativesFor(p, 3, weights, client).catch(() => []),
     user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     getProductInfo(client, p.id),
   ]);
@@ -151,8 +150,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     to: store.id === 'IN' ? 'to Bengaluru 560001' : undefined,
   };
 
-  const variantIds = new Set(info.variants?.options.map((o) => o.id));
-  const altCards: AlternativeCard[] = alts.filter((a) => !variantIds.has(a.product.id)).slice(0, 3).map((a) => ({
+  const altCards: AlternativeCard[] = alts.map((a) => ({
     id: a.product.id,
     name: a.product.title,
     image: a.product.image,

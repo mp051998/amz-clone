@@ -29,6 +29,8 @@ export interface Product {
   curBase: CurrencyCode;
   /** taken off sale by an admin: out of every listing, its page says "no longer available". */
   archived?: boolean;
+  /** one of several options of a product (Color: Black); listings show one card per group. */
+  variant?: { group: string; axis: string; label: string };
 }
 
 export interface Category {

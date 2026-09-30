@@ -62,7 +62,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/categories` | `{market, categories: [{slug, name}]}` in the store's nav order |
-| GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
+| GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, groups, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Items and `total` are per product, so each option of a variant group is its own item (see `variant`); `groups` counts the matches with a group's options once, as the storefront shows them, and brand counts do the same. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
 | GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null), `details`, the "Product information" table as `[label, value]` pairs, most important first, `gallery` (more image URLs after `image`, in order) and `variants`: null, or `{group, axis, label, options: [{id, label, image, priceMinor, stock, current}]}` when other products of this store share its variant group (e.g. `axis: "Color"`, `label: "Black"`). Options are in label order; archived ones are left out, except the product itself. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
@@ -72,6 +72,7 @@ Postgres as that user, so RLS decides what each caller can see.
 - Ratings: `rating, reviewCount`
 - Fulfilment: `seller, shipsFrom, stock`
 - Content: `bullets[], badge?, boughtPastMonth?`
+- Variant: `variant?: {group, axis, label}` when the product is one option of a variant group (`/products/:id` lists the others)
 - Status: `archived?`, true when an admin has taken it off sale. Archived products never appear in search and browse (`/products`), deals or compare. Their page and reviews stay, and carts and collections that already hold one keep it.
 
 ## Reviews
@@ -376,7 +377,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Sixteen migrations live in `supabase/migrations/`:
+Seventeen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -396,6 +397,7 @@ Sixteen migrations live in `supabase/migrations/`:
 | returns | `markets.return_days` (US 30, IN 10); `returns` and `return_items` (owner read only); `request_return()`, `order_returns()` and `cancel_my_return()` for shoppers; the admin functions `admin_list_returns()`, `admin_get_return()`, `admin_receive_return()` and `admin_reject_return()`; and the service-role `record_return_refund()` |
 | galleries and variants | `products.gallery` (up to 8 more images) and `variant_group`, `variant_axis`, `variant_label`, admin-writable and read by the product page and API; labels unique per store and group (`products_variant_label_key`); for databases seeded earlier, the seeded variant groups (Sony, Brooks and FHUMSH colours in the US; Hawkins sizes and Lenovo configurations in India). A no-op on a fresh database, where the seed has them (`supabase/seed/variants.json`) |
 | admin order returns | admin read policies on `returns` and `return_items` (the admin orders list marks orders with a return) and `admin_order_returns()`, one order's returns for the admin order page |
+| folded variants | `variant_group`, `variant_axis` and `variant_label` on the `catalog_products` and `catalog_products_all` views; `search_catalog()` adds `groups` (matches with each variant group counted once) and counts brand facets the same way |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -409,6 +411,6 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - review moderation: auto-hide on the third report, who sees a hidden review, the rating rollup, keep resolving reports, admin hide, the queue per store, admin-only access, delete
 - account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook
-- product variants and galleries: sibling options per store in label order, unique labels (and the index behind them), one option name per group, archived options, leaving a group, the gallery cap
+- product variants and galleries: sibling options per store in label order, unique labels (and the index behind them), one option name per group, archived options, leaving a group, the gallery cap; listings and ranked search showing one card per group, group counts and brand facets, and the swatch summaries
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
 - order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds
