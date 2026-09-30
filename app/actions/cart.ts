@@ -42,6 +42,37 @@ export async function buyNow(formData: FormData): Promise<void> {
   await add(formData, '/checkout');
 }
 
+/** Most a "Frequently bought together" bundle holds: the product and two more (a "use server" file exports only actions). */
+const BUNDLE_MAX = 3;
+
+/**
+ * "Add all to cart" for a bought-together bundle: one of each ticked product (`id`, repeated).
+ * On to the cart when at least one went in; back to the product page (`from`) with the error
+ * when none did. Ids and the page are checked here since a client can send anything.
+ */
+export async function addBundle(formData: FormData): Promise<void> {
+  const { client, market, token } = await scope();
+  const ids = [...new Set(formData.getAll('id').filter((v): v is string => typeof v === 'string' && v.length > 0))].slice(0, BUNDLE_MAX);
+  const from = String(formData.get('from') ?? '');
+  const back = (code: string) =>
+    storePath({ id: market }, /^[A-Za-z0-9_-]+$/.test(from) ? `/product/${encodeURIComponent(from)}?error=${code}` : `/cart?error=${code}`);
+  if (!ids.length) redirect(back('invalid_input'));
+  let added = 0;
+  let code: string | null = null;
+  for (const id of ids) {
+    try {
+      await cart.addToCart(client, market, id, 1, token);
+      added++;
+    } catch (err) {
+      if (!(err instanceof DataError)) throw err;
+      code ??= err.code;
+    }
+  }
+  revalidatePath('/', 'layout');
+  if (!added) redirect(back(code ?? 'internal'));
+  redirect(storePath({ id: market }, '/cart'));
+}
+
 /** set a line's quantity; qty=0 removes it. */
 export async function updateQty(formData: FormData): Promise<void> {
   const { client, market, token } = await scope();
