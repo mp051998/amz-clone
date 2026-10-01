@@ -8,6 +8,7 @@ import { buttonClasses } from '../primitives/Button';
 const SIGNED_IN_LINKS = [
   { label: 'Collections', href: '/collections' },
   { label: 'Orders', href: '/orders' },
+  { label: 'Buy again', href: '/orders/buy-again' },
   { label: 'Account', href: '/account' },
   { label: 'Addresses', href: '/account/addresses' },
 ];
