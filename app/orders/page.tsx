@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
+import { OrdersTabs } from '@/components/orders/OrdersTabs';
 import { StatusChip } from '@/components/orders/Tracking';
 import { longDate, orderView } from '@/components/orders/format';
 import { readUser } from '@/lib/auth';
@@ -34,6 +35,7 @@ export default async function OrdersPage() {
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Orders</h1>
           <span className="text-[15px] text-ink-2">Every order in this store, with live delivery progress.</span>
         </div>
+        <OrdersTabs current="orders" ordersHref={sp('/orders')} buyAgainHref={sp('/orders/buy-again')} />
 
         {orders.length === 0 ? (
           <EmptyState

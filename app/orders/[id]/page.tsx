@@ -9,12 +9,15 @@ import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
 import { cancelMyOrder } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
+import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
 import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
+import { getProducts } from '@/lib/data/catalog';
+import { availabilityOf } from '@/lib/buy-again';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -61,7 +64,10 @@ export default async function OrderPage({
   const countText = `${view.itemCount} ${view.itemCount === 1 ? 'item' : 'items'}`;
   const placedAt = Date.parse(order.placedAt ?? order.createdAt);
   const confirming = order.status === 'placed' && (placed === '1' || now.getTime() - placedAt < JUST_PLACED_MS) && placed !== '0';
-  const returns = confirming ? null : await getOrderReturns(client, order.id);
+  const [returns, current] = confirming
+    ? [null, []]
+    : await Promise.all([getOrderReturns(client, order.id), getProducts(client, order.items.map((i) => i.productId), { includeArchived: true }).catch(() => [])]);
+  const nowById = new Map(current.map((p) => [p.id, p]));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
 
   if (confirming) {
@@ -182,7 +188,14 @@ export default async function OrderPage({
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
                 <span className="text-[13px] text-ink-3">Qty {it.qty} · Sold by {it.seller}</span>
               </div>
-              <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
+              <div className="flex flex-none flex-col items-end gap-1.5">
+                <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
+                {order.status === 'awaiting_payment' ? null : availabilityOf(nowById.get(it.productId)) === 'available' ? (
+                  <BuyAgainButton productId={it.productId} title={it.title} />
+                ) : (
+                  <span className="text-[12px] text-ink-3">Currently unavailable</span>
+                )}
+              </div>
             </div>
           ))}
           <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">

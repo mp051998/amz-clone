@@ -37,6 +37,7 @@ export function GET(): Response {
       'POST   /cart/merge',
       'GET    /orders',
       'POST   /orders',
+      'GET    /orders/buy-again?limit=',
       'GET    /orders/:id',
       'POST   /orders/:id/cancel',
       'GET    /orders/:id/returns',

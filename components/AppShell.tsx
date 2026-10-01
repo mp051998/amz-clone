@@ -34,6 +34,7 @@ const FOOTER_COLUMNS: { heading: string; links: { label: string; path?: string; 
   { heading: 'Your things', links: [
     { label: 'Collections', path: '/collections' },
     { label: 'Orders', path: '/orders' },
+    { label: 'Buy again', path: '/orders/buy-again' },
     { label: 'Cart', path: '/cart' },
     { label: 'Account', path: '/account' },
   ] },

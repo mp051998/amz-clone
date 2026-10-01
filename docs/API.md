@@ -117,6 +117,7 @@ Prices and totals are computed by the database on every read.
 | --- | --- | --- | --- |
 | POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}}` | Checks out your cart in this store. See the details after this table. |
 | GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
+| GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
 | POST | `/orders/:id/cancel` | | `{order}`. An `awaiting_payment` card order is abandoned: the reserved stock is released and the cart is kept. A placed order can be cancelled until it ships (`409 order_not_cancellable` after that): the stock goes back and the payment is refunded (see `refund`). |
 
@@ -419,4 +420,5 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - search suggestions: completions, departments that follow the top completion, one card per group, store isolation, short and punctuation-only input
 - bought together: pairs from placed orders only, the two-shopper threshold, sold-out products left out, and the product page's pick (order pairs first, then accessories)
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
+- buy again: one entry per product across orders, newest first, cancelled orders left out, per store and per shopper, sold-out and archived products last, and the API route
 - order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds
