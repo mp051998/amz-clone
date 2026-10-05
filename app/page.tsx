@@ -11,6 +11,8 @@ import { firstName, readUser } from '@/lib/auth';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
 import { getMarketplace } from '@/lib/marketplace-server';
+import { siteOrigin } from '@/lib/origin';
+import { jsonLdHtml, websiteJsonLd } from '@/lib/seo';
 import { storePath } from '@/lib/marketplace';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,9 +27,11 @@ export default async function Home() {
   const home = await getDecisionHome(client, store, recentIds, now);
   const greeting = user ? `${greetingFor(now, store.dates.timeZone)}, ${firstName(user)}` : 'Welcome';
   const searchHref = storePath(store, '/s');
+  const site = websiteJsonLd(await siteOrigin(), store.id, store.name);
 
   return (
     <AppShell>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(site) }} />
       <div className="mx-auto flex w-full max-w-page flex-col gap-14 px-[clamp(16px,3vw,24px)] pb-10 pt-10">
         <section aria-labelledby="home-title" className="flex max-w-[860px] flex-col gap-[18px]">
           <Kicker>{greeting}</Kicker>

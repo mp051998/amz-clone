@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Instrument_Sans, JetBrains_Mono } from 'next/font/google';
+import { getMarketplace } from '@/lib/marketplace-server';
 import { siteOrigin } from '@/lib/origin';
 import { themeAttr } from '@/lib/theme';
 import { readTheme } from '@/lib/theme-server';
@@ -31,8 +32,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // en-US / en-IN: spelling, hyphenation and screen-reader voice follow the store
+  const store = await getMarketplace();
   return (
-    <html lang="en" data-theme={themeAttr(await readTheme())} className={`${sans.variable} ${mono.variable}`}>
+    <html lang={store.locale.default} data-theme={themeAttr(await readTheme())} className={`${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

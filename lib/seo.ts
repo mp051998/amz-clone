@@ -102,6 +102,21 @@ export function jsonLdHtml(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');
 }
 
+/** schema.org WebSite for a store's home: its name and how to search it (the sitelinks search box). */
+export function websiteJsonLd(origin: string, market: Market, name: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name,
+    url: abs(origin, storePath({ id: market }, '/')),
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: { '@type': 'EntryPoint', urlTemplate: `${abs(origin, storePath({ id: market }, '/s'))}?k={search_term_string}` },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+}
+
 export function robotsRules(origin: string): MetadataRoute.Robots {
   return {
     rules: { userAgent: '*', allow: '/', disallow: PRIVATE.flatMap((p) => [p, `/in${p}`]) },

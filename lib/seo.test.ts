@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jsonLdHtml, productDescription, productJsonLd, productUrl, robotsRules, sitemapEntries, STORE_PAGES } from './seo';
+import { jsonLdHtml, productDescription, productJsonLd, productUrl, robotsRules, sitemapEntries, STORE_PAGES, websiteJsonLd } from './seo';
 import type { Product } from './types';
 
 const ORIGIN = 'https://store.example';
@@ -132,5 +132,24 @@ describe('sitemapEntries', () => {
     expect(byUrl.get(`${ORIGIN}/product/B0KETTLE`)!.images).toEqual([`${ORIGIN}/products/zoom/abc123.jpg`]);
     expect(byUrl.get(`${ORIGIN}/in/product/IN1`)!.images).toEqual([`${ORIGIN}/products/in/zoom/def.jpg`]);
     expect(entries.filter((e) => e.url.includes('/product/'))).toHaveLength(2);
+  });
+});
+
+describe('websiteJsonLd', () => {
+  it('names the store and how to search it', () => {
+    expect(websiteJsonLd(ORIGIN, 'US', 'Store')).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Store',
+      url: 'https://store.example/',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: { '@type': 'EntryPoint', urlTemplate: 'https://store.example/s?k={search_term_string}' },
+        'query-input': 'required name=search_term_string',
+      },
+    });
+    const ind = websiteJsonLd(ORIGIN, 'IN', 'Store');
+    expect(ind.url).toBe('https://store.example/in');
+    expect(ind.potentialAction.target.urlTemplate).toBe('https://store.example/in/s?k={search_term_string}');
   });
 });
