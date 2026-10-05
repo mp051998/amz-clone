@@ -3,7 +3,8 @@ import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { Wordmark } from './Wordmark';
 import { SearchBar } from './SearchBar';
-import { DeliverToPopover } from './DeliverToPopover';
+import { DeliverToPopover, type SavedPlace } from './DeliverToPopover';
+import { deliverLabel, type DeliverTo } from '@/lib/deliver-to';
 import { AccountMenu } from './AccountMenu';
 import { CategoryStrip, type CategoryLink } from './CategoryStrip';
 
@@ -19,6 +20,8 @@ export interface HeaderProps {
   /** store switch trigger (desktop, lg+). */
   regionSlot?: ReactNode;
   defaultQuery?: string;
+  /** where things go (picked, default address or store default) and the saved addresses */
+  deliverTo?: { current: DeliverTo | null; addresses: SavedPlace[] };
 }
 
 function CartPill({ href, count, compact = false }: { href: string; count: number; compact?: boolean }) {
@@ -35,11 +38,19 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
 }
 
 /** Sticky white header: desktop row, mobile stack, category strip (design.md §5 Header). Store-aware. */
-export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery }: HeaderProps) {
+export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery, deliverTo }: HeaderProps) {
   const home = storePath(store, '/');
   const action = storePath(store, '/s');
-  const locationText = store.id === 'IN' ? 'Bengaluru 560001' : 'Update location';
-  const deliver = { schema: store.address.schema, postcodeLabel: store.address.postcode.label, locationText };
+  const current = deliverTo?.current ?? null;
+  const deliver = {
+    schema: store.address.schema,
+    postcodeLabel: store.address.postcode.label,
+    locationText: current ? deliverLabel(current) : 'Update location',
+    current,
+    addresses: deliverTo?.addresses ?? [],
+    signInHref: storePath(store, '/signin'),
+    addressesHref: storePath(store, '/account/addresses'),
+  };
   const savedHref = storePath(store, userName ? '/collections' : '/signin');
   const ordersHref = storePath(store, '/orders');
   const cartHref = storePath(store, '/cart');

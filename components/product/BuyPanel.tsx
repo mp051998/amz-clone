@@ -30,7 +30,7 @@ export interface BuyPanelProps {
     promise: string;
     /** fastest date */
     fastest: string;
-    /** "to Bengaluru 560001" (IN default) */
+    /** "to Bengaluru 560001": the shopper's delivery location, when there is one */
     to?: string;
     /** member programme name for the tag ("Plus") */
     member: string;

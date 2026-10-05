@@ -30,6 +30,8 @@ import { shortTitle } from '@/lib/decision/verdict';
 import { rankOne, scoresFor } from '@/lib/decision/rank';
 import { alternativesFor, boughtTogether, getInsight } from '@/lib/decision/server';
 import type { ProductInsight } from '@/lib/decision/types';
+import { deliverLabel } from '@/lib/deliver-to';
+import { readDeliverTo } from '@/lib/deliver-to-server';
 import { toStoreMinor } from '@/lib/fx';
 import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -110,13 +112,14 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
     user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     getProductInfo(client, p.id),
     boughtTogether(p, 2, client).catch(() => []),
+    readDeliverTo(store.id),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -150,7 +153,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     headline: priceMinor >= threshold ? 'FREE delivery' : `FREE delivery on orders over ${formatMoney(threshold, cur)}`,
     promise: deliveryDate(3, store),
     fastest: deliveryDate(1, store),
-    to: store.id === 'IN' ? 'to Bengaluru 560001' : undefined,
+    to: deliverTo.current ? `to ${deliverLabel(deliverTo.current)}` : undefined,
   };
 
   const bundleEntries: BundleEntry[] = bundle.length

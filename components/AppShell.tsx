@@ -5,6 +5,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { footerDest } from '@/lib/footer-links';
 import { readTheme } from '@/lib/theme-server';
+import { readDeliverTo } from '@/lib/deliver-to-server';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { Header } from './chrome/Header';
 import { Footer, type FooterColumn, type FooterLink } from './chrome/Footer';
@@ -64,7 +65,7 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  */
 export async function AppShell({ children, cartCount }: AppShellProps) {
   const store = await getMarketplace();
-  const [cart, user, categories, admin] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin()]);
+  const [cart, user, categories, admin, deliverTo] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id)]);
   const count = cartCount ?? cart.count;
   const key = store.id === 'IN' ? 'IN' : 'US';
 
@@ -98,6 +99,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
             userName={user ? firstName(user) : undefined}
             isAdmin={admin}
             categories={strip}
+            deliverTo={deliverTo}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>
