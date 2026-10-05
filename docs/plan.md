@@ -6,7 +6,7 @@ Unofficial demo — not affiliated with Amazon.
 ## Architecture
 - **Single Next.js app** (App Router, React 19, Tailwind v4). Components vendored under `components/`, local types/formatters under `lib/`.
 - **Data:** seed + session. Seeded TS catalog; cart, orders, and auth in signed cookies. No DB → the live demo can't break on a connection.
-- **Images:** real product photos downloaded from Amazon's CDN, **self-hosted** in `public/products/` (Amazon blocks hotlinking).
+- **Images:** real product photos downloaded from Amazon's CDN, **self-hosted** in `public/products/` (Amazon blocks hotlinking). Cards use the 400px copy; the product page zoom and full view use a 1000px copy in `zoom/` next to it (`scripts/fetch-zoom-images.mjs`, mapped by `lib/product-images.ts`).
 - **Deploy:** Vercel (production URL already live).
 
 ## Done so far
