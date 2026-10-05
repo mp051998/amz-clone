@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { EmptyState, ProductFrame } from '@/components/decision';
+import { EmptyState, ProductFrame, SegmentedControl } from '@/components/decision';
+import { Pagination } from '@/components/commerce/Pagination';
 import { buttonClasses } from '@/components/primitives/Button';
 import { OrdersTabs } from '@/components/orders/OrdersTabs';
 import { StatusChip } from '@/components/orders/Tracking';
@@ -9,6 +10,7 @@ import { longDate, orderView } from '@/components/orders/format';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listOrders } from '@/lib/data/orders';
+import { filterOrders, orderSummary, periodOptions, periodPhrase, readOrderFilter, type OrderFilter } from '@/lib/order-filters';
 import { returnSummaries } from '@/lib/data/returns';
 import { RETURN_SUMMARY_CHIP } from '@/components/orders/Returns';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -19,14 +21,28 @@ export const metadata: Metadata = { title: 'Orders · Store' };
 
 const THUMBS = 4;
 
-export default async function OrdersPage() {
+type SP = Record<string, string | string[] | undefined>;
+
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const store = await getMarketplace();
   if (!(await readUser())) redirect(storePath(store, '/signin?next=/orders'));
   const sp = (path: string) => storePath(store, path);
+  const filter = readOrderFilter(await searchParams);
   const client = await db();
   const orders = await listOrders(client, store.id);
-  const returns = await returnSummaries(client, orders.filter((o) => o.deliveredAt).map((o) => o.id));
   const now = new Date();
+  const view = filterOrders(orders, filter, now);
+  const returns = await returnSummaries(client, view.items.filter((o) => o.deliveredAt).map((o) => o.id));
+  /** this view with some of its params changed (the defaults left out of the link) */
+  const hrefWith = (next: Partial<OrderFilter>) => {
+    const f = { ...filter, page: 1, ...next };
+    const qs = new URLSearchParams();
+    if (f.q) qs.set('q', f.q);
+    else if (f.period !== 'months3') qs.set('period', f.period);
+    if (f.page > 1) qs.set('page', String(f.page));
+    const s = qs.toString();
+    return sp(s ? `/orders?${s}` : '/orders');
+  };
 
   return (
     <AppShell>
@@ -37,6 +53,44 @@ export default async function OrdersPage() {
         </div>
         <OrdersTabs current="orders" ordersHref={sp('/orders')} buyAgainHref={sp('/orders/buy-again')} />
 
+        {orders.length ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <form action={sp('/orders')} method="get" role="search" className="flex min-w-0 flex-[1_1_280px] max-w-[440px] items-stretch overflow-hidden rounded-input border-[1.5px] border-line-3 bg-surface focus-within:border-ink">
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={filter.q}
+                  placeholder="Search all orders"
+                  aria-label="Search all orders"
+                  enterKeyHint="search"
+                  className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-[16px] text-ink outline-none placeholder:text-ink-4 md:text-[14px]"
+                />
+                <button type="submit" className="flex-none border-0 border-l border-line-3 bg-surface-2 px-3.5 text-[14px] font-semibold text-ink hover:bg-surface-4">
+                  Search orders
+                </button>
+              </form>
+              {filter.q ? null : (
+                <SegmentedControl
+                  ariaLabel="Orders placed in"
+                  value={filter.period}
+                  options={periodOptions(orders, now).map((o) => ({ ...o, href: hrefWith({ period: o.value }) }))}
+                  className="max-w-full overflow-x-auto"
+                />
+              )}
+            </div>
+            <p className="m-0 text-[14px] text-ink-2" role="status">
+              <strong className="font-semibold text-ink">{orderSummary(view.total, filter)}</strong>
+              {filter.q ? (
+                <>
+                  {' · '}
+                  <a href={hrefWith({ q: '' })} className="text-ink underline underline-offset-2">Clear search</a>
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : null}
+
         {orders.length === 0 ? (
           <EmptyState
             title="No orders yet"
@@ -44,9 +98,16 @@ export default async function OrdersPage() {
           >
             Orders you place show up here with a delivery timeline.
           </EmptyState>
+        ) : view.total === 0 ? (
+          <EmptyState
+            title={filter.q ? `No orders match “${filter.q}”` : `No orders ${periodPhrase(filter.period)}`}
+            action={<a href={hrefWith({ q: '', period: 'all' })} className={buttonClasses({ variant: 'secondary' })}>See all orders</a>}
+          >
+            {filter.q ? 'Search for an item, a seller, who it went to, or an order number.' : 'Older orders are under the other periods.'}
+          </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {orders.map((o) => {
+            {view.items.map((o) => {
               const v = orderView(o, store, now);
               const extra = o.items.length - THUMBS;
               return (
@@ -95,6 +156,7 @@ export default async function OrdersPage() {
             })}
           </ul>
         )}
+        {view.pageCount > 1 ? <Pagination page={view.page} pageCount={view.pageCount} hrefFor={(n) => hrefWith({ page: n })} /> : null}
       </div>
     </AppShell>
   );
