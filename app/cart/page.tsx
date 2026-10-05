@@ -5,6 +5,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { Alert } from '@/components/primitives/Alert';
 import { CartQty } from '@/components/cart/CartQty';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
+import { SavedForLater } from '@/components/cart/SavedForLater';
 import { cartEta, longDate, relativeDayName } from '@/components/orders/format';
 import { addToCart, removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
@@ -16,19 +17,25 @@ import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import type { Collection } from '@/lib/decision/types';
 import type { CartLine, Market } from '@/lib/types';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
-/** Highest price each product was saved at in any collection (signed-in only) — for price-drop chips. */
-async function savedPrices(market: Market): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
+/** The shopper's collections (signed-in only): price-drop chips and the "Saved for later" list. */
+async function savedLists(market: Market): Promise<Collection[]> {
   try {
-    for (const c of await listCollections(await db(), market)) {
-      for (const i of c.items) out.set(i.product.id, Math.max(out.get(i.product.id) ?? 0, i.savedPriceMinor));
-    }
+    return await listCollections(await db(), market);
   } catch {
-    // collections are optional garnish on the cart
+    return []; // collections are optional garnish on the cart
+  }
+}
+
+/** Highest price each product was saved at in any collection — for price-drop chips. */
+function savedPrices(lists: Collection[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const c of lists) {
+    for (const i of c.items) out.set(i.product.id, Math.max(out.get(i.product.id) ?? 0, i.savedPriceMinor));
   }
   return out;
 }
@@ -61,6 +68,9 @@ export default async function CartPage() {
   const sp = (path: string) => storePath(store, path);
   const [cart, user] = await Promise.all([viewerCart(), readUser()]);
   const { lines, count, totals } = cart;
+  const lists = user ? await savedLists(store.id) : [];
+  const later = lists.find((c) => c.kind === 'later');
+  const savedSection = later ? <SavedForLater collectionId={later.id} items={later.items} sp={sp} /> : null;
 
   if (lines.length === 0) {
     return (
@@ -78,6 +88,7 @@ export default async function CartPage() {
           >
             Tell us what you need and we&apos;ll rank the options for you.
           </EmptyState>
+          {savedSection}
         </div>
       </AppShell>
     );
@@ -88,11 +99,8 @@ export default async function CartPage() {
   const etaText = relativeDayName(eta, store, now)?.toLowerCase() ?? `on ${longDate(eta, store)}`;
   const freeShip = totals.shipMinor === 0;
   const blocked = lines.some((l) => !l.inStock);
-  const [saved, swap, accessories] = await Promise.all([
-    user ? savedPrices(store.id) : Promise.resolve(new Map<string, number>()),
-    saving(lines),
-    setup(lines),
-  ]);
+  const saved = savedPrices(lists);
+  const [swap, accessories] = await Promise.all([saving(lines), setup(lines)]);
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
   const toFree = cart.freeShipThresholdMinor - totals.subtotalMinor;
@@ -158,6 +166,8 @@ export default async function CartPage() {
                 })}
               </ul>
             </section>
+
+            {savedSection}
 
             {swap ? (
               <section className="flex flex-col gap-2.5" aria-labelledby="save-h">

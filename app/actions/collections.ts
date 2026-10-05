@@ -103,3 +103,17 @@ export async function moveCartItemToSaved(productId: string): Promise<{ collecti
     return { collectionName: target.name };
   });
 }
+
+/**
+ * Cart "Saved for later" → "Move to cart": one into the cart, then off the list. A product that
+ * can't go in (sold out, gone) stays saved and the error comes back.
+ */
+export async function moveSavedToCart(collectionId: string, productId: string): Promise<{ ok: true } | ActionError> {
+  return run(async (client) => {
+    const market = await getMarket();
+    await cart.addToCart(client, market, String(productId), 1, null);
+    await collections.removeItem(client, String(collectionId), String(productId));
+    revalidate();
+    return { ok: true as const };
+  });
+}
