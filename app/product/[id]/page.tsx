@@ -35,6 +35,9 @@ import { readDeliverTo } from '@/lib/deliver-to-server';
 import { toStoreMinor } from '@/lib/fx';
 import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
+import { siteOrigin } from '@/lib/origin';
+import { zoomImage } from '@/lib/product-images';
+import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
 import type { Product } from '@/lib/types';
@@ -44,10 +47,19 @@ type SP = Record<string, string | string[] | undefined>;
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const p = await getProduct(await db(), id, { includeArchived: true });
+  if (!p) return { title: 'Product · Store' };
+  const title = `${p.title} · Store`;
+  const description = productDescription(p);
+  const images = p.image ? [{ url: zoomImage(p.image), alt: p.title }] : undefined;
   return {
-    title: p ? `${p.title} · Store` : 'Product · Store',
+    title,
+    description,
+    // one address per product (its own store, no decision params)
+    alternates: { canonical: productUrl(p) },
+    openGraph: { type: 'website', siteName: 'Store', title: p.title, description, url: productUrl(p), locale: p.market === 'IN' ? 'en_IN' : 'en_US', images },
+    twitter: { card: images ? 'summary_large_image' : 'summary', title: p.title, description, images: images?.map((i) => i.url) },
     // archived products keep their page (links, order history, reviews) but leave search engines
-    ...(p?.archived ? { robots: { index: false } } : {}),
+    ...(p.archived ? { robots: { index: false } } : {}),
   };
 }
 
@@ -205,8 +217,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     { label: p.categoryName, href: storePath(store, `/s?dept=${encodeURIComponent(p.category)}`) },
   ];
 
+  const structured = p.archived ? null : productJsonLd(p, await siteOrigin(), { rating, count: ratingCount });
+
   return (
     <AppShell>
+      {structured ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(structured) }} /> : null}
       {p.archived ? null : <RecordView productId={p.id} />}
       <div className="mx-auto flex w-full max-w-page flex-col gap-11 px-[clamp(16px,3vw,24px)] pb-10 pt-[22px]">
         <div className="flex flex-col gap-[18px]">

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Instrument_Sans, JetBrains_Mono } from 'next/font/google';
+import { siteOrigin } from '@/lib/origin';
 import { themeAttr } from '@/lib/theme';
 import { readTheme } from '@/lib/theme-server';
 import './globals.css';
@@ -18,11 +19,16 @@ const mono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: 'Store — shop by what matters to you',
   description:
     'A decision-support demo store: tell it what matters, see every pick explained, compare with a verdict, and track prices. Unofficial demo — no real orders, not affiliated with any retailer.',
 };
+
+/** metadataBase resolves every page's relative canonical and link-preview image URLs. */
+export async function generateMetadata(): Promise<Metadata> {
+  return { ...metadata, metadataBase: new URL(await siteOrigin()) };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
