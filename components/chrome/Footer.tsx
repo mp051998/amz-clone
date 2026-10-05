@@ -23,6 +23,10 @@ const extAttrs = (external?: boolean) => (external ? { target: '_blank', rel: 'n
 export function Footer({ columns, stores, legal, homeHref = '/', theme = 'system' }: FooterProps) {
   return (
     <footer className="mt-16 border-t border-line bg-surface text-ink">
+      {/* the page shell carries id="top"; a plain fragment link needs no script */}
+      <a href="#top" className="flex min-h-11 items-center justify-center border-b border-line-2 bg-surface-2 text-[13px] font-semibold text-ink no-underline hover:bg-surface-4 hover:text-ink">
+        Back to top
+      </a>
       <div className="mx-auto grid max-w-page gap-10 px-[clamp(16px,3vw,24px)] py-12 md:grid-cols-[minmax(200px,1.2fr)_repeat(4,minmax(0,1fr))]">
         <div className="flex flex-col items-start gap-3">
           <a href={homeHref} aria-label="Store home" className="no-underline"><Wordmark /></a>
