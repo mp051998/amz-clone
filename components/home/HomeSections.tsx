@@ -8,12 +8,17 @@ import type { Store } from '../lib/store';
 import { ProductFrame } from '../decision/ProductFrame';
 
 /** Section wrapper: 22px title + optional meta on the right (design.md §3 Section title). */
-export function HomeSection({ title, meta, children, id }: { title: string; meta?: string; children: ReactNode; id: string }) {
+export function HomeSection({ title, meta, link, children, id }: { title: string; meta?: string; link?: { href: string; label: string }; children: ReactNode; id: string }) {
   return (
     <section aria-labelledby={id} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id={id} className="m-0 text-[22px] font-semibold">{title}</h2>
-        {meta ? <span className="text-[14px] text-ink-3">{meta}</span> : null}
+        {meta || link ? (
+          <span className="flex items-baseline gap-3 text-[14px]">
+            {meta ? <span className="text-ink-3">{meta}</span> : null}
+            {link ? <a href={link.href} className="text-ink underline underline-offset-2">{link.label}</a> : null}
+          </span>
+        ) : null}
       </div>
       {children}
     </section>

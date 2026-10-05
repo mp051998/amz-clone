@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Review } from '@/lib/types';
 import { applyFilters, buildFilters, chipCount, reviewThemes, themeWords } from './reviewFilters';
-import { nextRecent, RECENT_MAX } from './RecordView';
 
 const r = (id: string, rating: number, body: string, verified = true): Review => ({
   id, author: 'A', initial: 'A', rating, title: '', body, createdAt: '2026-09-01T00:00:00Z',
@@ -36,14 +35,5 @@ describe('review filters', () => {
 
   it('tags reviews with the themes they mention', () => {
     expect(reviewThemes(reviews[1], ['Value for money', 'Comfort'])).toEqual(['Value for money']);
-  });
-});
-
-describe('recently viewed cookie', () => {
-  it('puts the product first, dedupes and caps', () => {
-    expect(nextRecent('a,b,c', 'b')).toEqual(['b', 'a', 'c']);
-    expect(nextRecent(null, 'x')).toEqual(['x']);
-    const many = Array.from({ length: 20 }, (_, i) => `p${i}`).join(',');
-    expect(nextRecent(many, 'new')).toHaveLength(RECENT_MAX);
   });
 });

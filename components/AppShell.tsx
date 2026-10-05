@@ -35,6 +35,7 @@ const FOOTER_COLUMNS: { heading: string; links: { label: string; path?: string; 
     { label: 'Collections', path: '/collections' },
     { label: 'Orders', path: '/orders' },
     { label: 'Buy again', path: '/orders/buy-again' },
+    { label: 'Browsing history', path: '/history' },
     { label: 'Cart', path: '/cart' },
     { label: 'Account', path: '/account' },
   ] },

@@ -60,7 +60,7 @@ export default async function Home() {
         </section>
 
         {home.recent.length ? (
-          <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits">
+          <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits" link={{ href: storePath(store, '/history'), label: 'See history' }}>
             <ContinueRow products={home.recent} store={store} />
           </HomeSection>
         ) : null}
