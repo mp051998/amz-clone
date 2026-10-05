@@ -75,9 +75,11 @@
  * Dark theme: the same tokens re-valued. It follows the OS unless the visitor picked one in the
  * footer (the `theme` cookie → data-theme on <html>, app/layout.tsx). The hatch behind product
  * photos stays light: the photos are shot on white, so they sit on a light tile in both themes.
- * The two blocks are the same list; keep them in step.
+ * The two blocks are the same list; keep them in step. Both are screen-only: anything printed
+ * (an invoice, an order) comes out dark-on-white whatever the theme.
  */
 @layer theme {
+  @media screen {
   :root[data-theme='dark'] {
     --color-bg: #121211;
     --color-surface: #1B1A18;
@@ -113,7 +115,8 @@
     --shadow-hero: 0 1px 0 #000000;
     --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.45);
   }
-  @media (prefers-color-scheme: dark) {
+  }
+  @media screen and (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
       --color-bg: #121211;
       --color-surface: #1B1A18;
@@ -166,6 +169,7 @@
 html { color: var(--color-ink); background: var(--color-bg); color-scheme: light dark; }
 html[data-theme='light'] { color-scheme: light; }
 html[data-theme='dark'] { color-scheme: dark; }
+@media print { html, html[data-theme='dark'] { color-scheme: light; } }
 body {
   margin: 0;
   font-family: var(--font-sans);

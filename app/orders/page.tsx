@@ -80,6 +80,11 @@ export default async function OrdersPage() {
                     </div>
                     <div className="flex flex-none items-center gap-3">
                       <strong className="text-[17px] tabular-nums">{formatMoney(o.totals.totalMinor, o.currency)}</strong>
+                      {o.status === 'awaiting_payment' ? null : (
+                        <a href={sp(`/orders/${encodeURIComponent(o.id)}/invoice`)} className="text-[14px] text-ink underline underline-offset-2" aria-label={`Invoice for order ${o.id}`}>
+                          Invoice
+                        </a>
+                      )}
                       <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'secondary' })} aria-label={`Track order ${o.id}`}>
                         Track →
                       </a>

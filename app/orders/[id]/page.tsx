@@ -101,7 +101,14 @@ export default async function OrderPage({
           <h1 className="m-0 text-[14px] font-normal text-ink-2">
             Your order · <span className="font-mono text-ink">{order.id}</span>
           </h1>
-          <a href={sp('/orders')} className="text-[14px] text-ink underline underline-offset-2">All orders</a>
+          <div className="flex flex-wrap items-baseline gap-4">
+            {order.status === 'awaiting_payment' ? null : (
+              <a href={sp(`/orders/${encodeURIComponent(order.id)}/invoice`)} className="text-[14px] text-ink underline underline-offset-2">
+                {order.status === 'cancelled' ? 'Order summary' : 'Invoice'}
+              </a>
+            )}
+            <a href={sp('/orders')} className="text-[14px] text-ink underline underline-offset-2">All orders</a>
+          </div>
         </div>
 
         {error ? (
