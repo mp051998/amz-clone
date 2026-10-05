@@ -89,6 +89,20 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
   // fresh server data after router.refresh() replaces the local list
   useEffect(() => setItems(initial), [initial]);
 
+  // "Write a product review" on a delivered order links to #write-review: open the form there
+  useEffect(() => {
+    if (!signedIn) return;
+    const fromHash = () => {
+      if (window.location.hash === '#write-review') setShowForm(true);
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+  }, [signedIn]);
+  useEffect(() => {
+    if (showForm && window.location.hash === '#write-review') scrollToId('write-review');
+  }, [showForm]);
+
   const num = (n: number) => n.toLocaleString(locale);
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric', timeZone }), [locale, timeZone]);
   const ratingText = summary.rating ? summary.rating.toFixed(1) : '—';
@@ -238,7 +252,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
         </div>
 
         {showForm ? (
-          <div id="write-review" className="flex max-w-[640px] flex-col gap-3 rounded-card border border-line bg-surface p-[18px]">
+          <div id="write-review" className="flex max-w-[640px] scroll-mt-[140px] flex-col gap-3 rounded-card border border-line bg-surface p-[18px]">
             <Kicker>{mine ? 'Update your review' : 'Review this product'}</Kicker>
             <div>
               <span className="block text-[14px] font-semibold">Overall rating</span>
