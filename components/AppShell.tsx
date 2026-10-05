@@ -15,6 +15,8 @@ import { CompareProvider, CompareTray } from './decision/Compare';
 export interface AppShellProps {
   children: ReactNode;
   cartCount?: number;
+  /** the search being looked at; the header search box shows it (results page) */
+  query?: string;
 }
 
 /** Program links shown before the catalog departments in the category strip. */
@@ -63,7 +65,7 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  * Page chrome for every storefront route (design.md §6 Layout): sticky header + category strip,
  * content, calm footer, and the global toast + compare tray. Store-aware (US at /, IN at /in).
  */
-export async function AppShell({ children, cartCount }: AppShellProps) {
+export async function AppShell({ children, cartCount, query }: AppShellProps) {
   const store = await getMarketplace();
   const [cart, user, categories, admin, deliverTo] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id)]);
   const count = cartCount ?? cart.count;
@@ -100,6 +102,7 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
             isAdmin={admin}
             categories={strip}
             deliverTo={deliverTo}
+            defaultQuery={query}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>

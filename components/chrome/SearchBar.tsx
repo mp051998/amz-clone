@@ -62,8 +62,9 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
 
   const q = value.trim();
   const wanted = typedLength(q) >= SUGGEST_MIN;
+  // a box that arrives filled (the results page) waits until it's used
   useEffect(() => {
-    if (!wanted || cache[q]) return;
+    if (!open || !wanted || cache[q]) return;
     const ctl = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/v1/suggest?market=${store}&q=${encodeURIComponent(q)}`, { signal: ctl.signal })
@@ -79,7 +80,7 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
       clearTimeout(timer);
       ctl.abort();
     };
-  }, [q, wanted, store, cache]);
+  }, [open, q, wanted, store, cache]);
 
   const shown = wanted ? (cache[q] ?? cache[answered]) : undefined;
   const shownQ = cache[q] ? q : answered;

@@ -210,7 +210,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   );
 
   return (
-    <AppShell>
+    <AppShell query={k || undefined}>
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-10 pt-7">
         <header className="flex flex-col gap-2">
           {orig && k ? (

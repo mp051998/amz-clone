@@ -87,3 +87,14 @@ it('works as the home hero box under its own name', async () => {
   expect(await screen.findByRole('option', { name: 'Sony WH-CH520' })).toHaveAttribute('data-href', '/in/product/41lArSiD5hL');
   expect(hero.closest('form')).toHaveClass('rounded-panel', 'shadow-hero');
 });
+
+it('shows the search being looked at, and only suggests once the box is used', async () => {
+  render(<SearchBar actionPath="/s" defaultQuery="wireless headphones" />);
+  expect(box()).toHaveValue('wireless headphones');
+  await new Promise((r) => setTimeout(r, 200));
+  expect(fetchMock).not.toHaveBeenCalled();
+
+  fireEvent.focus(box());
+  expect(await screen.findByRole('option', { name: 'sony headphones' })).toBeInTheDocument();
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/suggest?market=US&q=wireless%20headphones');
+});
