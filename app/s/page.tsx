@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Pagination } from '@/components/commerce/Pagination';
 import { EmptyState, Kicker } from '@/components/decision/Badges';
@@ -18,6 +19,7 @@ import { buildParsedQuery } from '@/lib/decision/query';
 import type { RankSort } from '@/lib/decision/rank';
 import { niceCeiling, rankedSearch } from '@/lib/decision/server';
 import { searchCatalog, variantSummaries } from '@/lib/data/catalog';
+import { spellFix } from '@/lib/data/spell';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -56,6 +58,8 @@ function one(sp: SP, key: string): string | undefined {
  *   budget ceiling in minor units; `0` = budget chip removed
  *   use    use-case preset from the query; `none` = use chip removed
  *   preset refine preset id, or `ai` = weights tuned by the quiz (summary in the `tuned_profile` cookie)
+ *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
+ *   spell  `0` = search exactly as typed, no spelling correction
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|rating  ·  page
  *   brand, rating, deal — "More filters" facets
  */
@@ -115,6 +119,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     const qs = out.toString().replace(/%2C/gi, ',');
     return storePath(store, qs ? `/s?${qs}` : '/s');
   };
+  // nothing matched the words as typed: retry with typos corrected (only when that finds something)
+  const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
+  if (k && pq.keywords && !result.candidates && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal) {
+    const fix = await spellFix(client, store.id, k, pq.keywords, category);
+    if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
+  }
+
   // client base: materialise the parsed use so client-computed implied weights match the server
   const clientBase = new URLSearchParams(raw);
   if (use && !clientBase.get('use')) clientBase.set('use', use);
@@ -202,6 +213,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <AppShell>
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-10 pt-7">
         <header className="flex flex-col gap-2">
+          {orig && k ? (
+            <p className="m-0 text-[15px] text-ink-2" role="status">
+              Showing results for <strong className="font-semibold text-ink">{k}</strong>.{' '}
+              <a href={hrefWith({ k: orig, orig: null, spell: '0' })} className="text-ink underline underline-offset-2">
+                Search instead for {orig}
+              </a>
+            </p>
+          ) : null}
           <Kicker>{k ? `You searched “${k}”` : 'Browse'}</Kicker>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">{title}</h1>
           <p className="m-0 text-[15px] text-ink-2">
