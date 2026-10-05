@@ -14,6 +14,7 @@ import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/Bu
 import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
+import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
@@ -227,7 +228,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         <div className="flex flex-col gap-[18px]">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <BackLink fallbackHref={storePath(store, '/s')} />
-            <Breadcrumbs trail={trail} className="hidden sm:block" />
+            <div className="flex items-center gap-3">
+              <Breadcrumbs trail={trail} className="hidden sm:block" />
+              {p.archived ? null : <ShareButton title={p.title} path={productUrl(p)} image={p.image ? zoomImage(p.image) : undefined} />}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-start gap-7">
