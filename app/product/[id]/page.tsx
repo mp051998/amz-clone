@@ -18,11 +18,11 @@ import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
-import { ContinueRow } from '@/components/home/HomeSections';
+import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { readUser } from '@/lib/auth';
 import { getProvider } from '@/lib/ai';
 import { summarizeReviews } from '@/lib/ai/features/reviews';
-import { getProduct, getProductInfo, getProducts } from '@/lib/data/catalog';
+import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { savedProductIds } from '@/lib/data/collections';
 import { messageFor } from '@/lib/data/errors';
 import { deliveryDate } from '@/lib/dates';
@@ -39,7 +39,7 @@ import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { siteOrigin } from '@/lib/origin';
 import { zoomImage } from '@/lib/product-images';
-import { readRecentIds } from '@/lib/recent';
+import { recentProducts } from '@/lib/recent-products';
 import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
@@ -111,16 +111,6 @@ function thingsToKnow(p: Product, insight: ProductInsight | null, warn: string |
   return [...new Set(out)].slice(0, 3);
 }
 
-/** What this device viewed before, newest first: this store's live products, not this one. */
-async function recentlyViewed(client: Awaited<ReturnType<typeof db>>, currentId: string, market: Product['market']): Promise<Product[]> {
-  try {
-    const ids = (await readRecentIds()).filter((x) => x !== currentId);
-    return (await getProducts(client, ids)).filter((r) => r.market === market).slice(0, 8);
-  } catch {
-    return [];
-  }
-}
-
 export default async function ProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const client = await db();
@@ -145,7 +135,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     getProductInfo(client, p.id),
     boughtTogether(p, 2, client).catch(() => []),
     readDeliverTo(store.id),
-    recentlyViewed(client, p.id, store.id),
+    recentProducts(client, store.id, { exclude: [p.id] }),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -370,15 +360,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           </section>
         ) : null}
 
-        {recent.length ? (
-          <section aria-labelledby="history-h" className="flex flex-col gap-3.5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="history-h" className="m-0 text-[22px] font-semibold">Your browsing history</h2>
-              <a href={storePath(store, '/history')} className="text-[14px] text-ink underline underline-offset-2">See all</a>
-            </div>
-            <ContinueRow products={recent} store={store} />
-          </section>
-        ) : null}
+        <BrowsingHistory products={recent} store={store} />
       </div>
     </AppShell>
   );

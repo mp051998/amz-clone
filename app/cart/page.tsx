@@ -6,6 +6,7 @@ import { Alert } from '@/components/primitives/Alert';
 import { CartQty } from '@/components/cart/CartQty';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
 import { SavedForLater } from '@/components/cart/SavedForLater';
+import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { cartEta, longDate, relativeDayName } from '@/components/orders/format';
 import { addToCart, removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
@@ -13,6 +14,7 @@ import { db } from '@/lib/supabase/server';
 import { listCollections } from '@/lib/data/collections';
 import { accessoriesFor, alternativesFor, type Accessory, type Alternative } from '@/lib/decision/server';
 import { shortTitle } from '@/lib/decision/verdict';
+import { recentProducts } from '@/lib/recent-products';
 import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -68,9 +70,13 @@ export default async function CartPage() {
   const sp = (path: string) => storePath(store, path);
   const [cart, user] = await Promise.all([viewerCart(), readUser()]);
   const { lines, count, totals } = cart;
-  const lists = user ? await savedLists(store.id) : [];
+  const [lists, recent] = await Promise.all([
+    user ? savedLists(store.id) : Promise.resolve([]),
+    recentProducts(await db(), store.id, { exclude: lines.map((l) => l.product.id) }),
+  ]);
   const later = lists.find((c) => c.kind === 'later');
   const savedSection = later ? <SavedForLater collectionId={later.id} items={later.items} sp={sp} /> : null;
+  const history = <BrowsingHistory products={recent} store={store} />;
 
   if (lines.length === 0) {
     return (
@@ -80,15 +86,31 @@ export default async function CartPage() {
           <EmptyState
             title="Your cart is empty"
             action={
-              <span className="flex flex-wrap gap-2">
-                <a href={sp('/s')} className={buttonClasses({ variant: 'dark' })}>Find something</a>
-                {user ? <a href={sp('/collections')} className={buttonClasses({ variant: 'secondary' })}>Open your collections</a> : null}
-              </span>
+              user ? (
+                <span className="flex flex-wrap gap-2">
+                  <a href={sp('/s')} className={buttonClasses({ variant: 'dark' })}>Find something</a>
+                  <a href={sp('/collections')} className={buttonClasses({ variant: 'secondary' })}>Open your collections</a>
+                </span>
+              ) : (
+                // a guest's empty cart may only mean they are signed out: their account's cart comes back on sign in
+                <span className="flex flex-wrap gap-2">
+                  <a href={sp(`/signin?next=${encodeURIComponent('/cart')}`)} className={buttonClasses({ variant: 'primary' })}>Sign in to your account</a>
+                  <a href={sp(`/signin?new=1&next=${encodeURIComponent('/cart')}`)} className={buttonClasses({ variant: 'secondary' })}>Create an account</a>
+                </span>
+              )
             }
           >
-            Tell us what you need and we&apos;ll rank the options for you.
+            {user ? (
+              <>Tell us what you need and we&apos;ll rank the options for you.</>
+            ) : (
+              <>
+                Signed in before? Items you added are saved to your account.{' '}
+                <a href={sp('/deals')} className="text-ink underline underline-offset-2">Shop today&apos;s deals</a>
+              </>
+            )}
           </EmptyState>
           {savedSection}
+          {history}
         </div>
       </AppShell>
     );
@@ -265,6 +287,7 @@ export default async function CartPage() {
             </span>
           </aside>
         </div>
+        {history}
       </div>
     </AppShell>
   );
