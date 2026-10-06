@@ -91,3 +91,18 @@ it('no add-ons row when nothing pairs', async () => {
   render(await OrderPage({ params: Promise.resolve({ id: 'ORD-9' }), searchParams: Promise.resolve({ placed: '1' }) }));
   expect(screen.queryByRole('region', { name: 'Goes with your order' })).toBeNull();
 });
+
+it('a gift order shows its note', async () => {
+  state.order = order({ gift: { message: 'Happy birthday!\nLove, Sam' } });
+  await show();
+  expect(screen.getByText('Gift', { selector: 'dt' }).nextElementSibling).toHaveTextContent('“Happy birthday! Love, Sam”');
+  cleanup();
+  state.order = order({ gift: {} });
+  await show();
+  expect(screen.getByText('Gift', { selector: 'dt' }).nextElementSibling).toHaveTextContent('Yes, no message');
+});
+
+it('no gift row for an ordinary order', async () => {
+  await show();
+  expect(screen.queryByText('Gift', { selector: 'dt' })).toBeNull();
+});

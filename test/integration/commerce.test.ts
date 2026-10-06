@@ -207,3 +207,51 @@ describe('checkout', () => {
     expect(data).toEqual({ price_minor: p.price_minor, stock: p.stock });
   });
 });
+
+describe('gift orders', () => {
+  let shopper: TestUser;
+  const shipping = {
+    full_name: US_SHIPPING.fullName,
+    phone: US_SHIPPING.phone,
+    line1: US_SHIPPING.line1,
+    city: US_SHIPPING.city,
+    state: US_SHIPPING.state,
+    postcode: US_SHIPPING.postcode,
+  };
+  const placeRaw = async (args: { p_gift?: boolean; p_gift_message?: string }) => {
+    const { data, error } = await shopper.db.rpc('place_order', { p_market: 'US', p_payment_method: 'giftcard', p_shipping: shipping, ...args });
+    if (error) throw error;
+    return toOrder(data as unknown as Parameters<typeof toOrder>[0]);
+  };
+
+  beforeAll(async () => {
+    shopper = await newUser('Gift Giver');
+  });
+  afterAll(async () => {
+    await deleteUser(shopper);
+  });
+
+  it('a gift order keeps its note', async () => {
+    const p = await pickProduct('US', 9);
+    await addToCart(shopper.db, 'US', p.id, 1);
+    const order = await placeOrder(shopper.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING, gift: { message: 'Happy birthday!\nLove, Sam' } });
+    expect(order.gift).toEqual({ message: 'Happy birthday!\nLove, Sam' });
+    expect((await getOrder(shopper.db, order.id))?.gift).toEqual({ message: 'Happy birthday!\nLove, Sam' });
+  });
+
+  it('the database trims the note to 240 characters and drops one sent without the gift flag', async () => {
+    const p = await pickProduct('US', 9);
+    await addToCart(shopper.db, 'US', p.id, 1);
+    expect((await placeRaw({ p_gift: true, p_gift_message: `  ${'x'.repeat(300)}` })).gift?.message).toHaveLength(240);
+    await addToCart(shopper.db, 'US', p.id, 1);
+    expect((await placeRaw({ p_gift: true, p_gift_message: '   ' })).gift).toEqual({});
+    await addToCart(shopper.db, 'US', p.id, 1);
+    expect((await placeRaw({ p_gift_message: 'stray' })).gift).toBeUndefined();
+  });
+
+  it('customers cannot add a note to an order afterwards', async () => {
+    const [mine] = await listOrders(shopper.db, 'US');
+    const forged = await shopper.db.from('orders').update({ gift_message: 'changed' }).eq('id', mine.id).select('id');
+    expect(forged.error ?? (forged.data?.length === 0 ? 'no rows' : null)).toBeTruthy();
+  });
+});

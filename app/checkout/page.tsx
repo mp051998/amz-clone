@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { AddressStep } from '@/components/checkout/AddressStep';
+import { GiftOption } from '@/components/checkout/GiftOption';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StepCard } from '@/components/checkout/StepCard';
@@ -15,6 +16,7 @@ import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
+import { GIFT_NOTE_MAX } from '@/lib/data/orders';
 import { messageFor } from '@/lib/data/errors';
 import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -94,7 +96,9 @@ export default async function CheckoutPage({
             title="Delivery"
             value={arrivingText(eta, store, now)}
             sub={totals.shipMinor === 0 ? 'FREE delivery' : `Delivery ${money(totals.shipMinor)} · FREE over ${money(cart.freeShipThresholdMinor)}`}
-          />
+          >
+            <GiftOption max={GIFT_NOTE_MAX} />
+          </StepCard>
           <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">
             <h2 id="co-items-h" className="m-0 text-[13px] font-normal text-ink-3">Items ({count})</h2>
             <ul className="m-0 flex list-none flex-col gap-2.5 p-0">

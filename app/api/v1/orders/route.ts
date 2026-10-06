@@ -13,7 +13,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode } }
+ * POST /api/v1/orders { paymentMethod, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode }, gift?: { message? } }
  * Checks out the caller's cart in this store. The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to.
@@ -23,8 +23,9 @@ export const POST = route(async (ctx) => {
   const b = await body(ctx.req);
   if (!isPaymentMethod(b.paymentMethod)) throw new DataError('payment_method_unavailable');
   const shipping = (b.shipping && typeof b.shipping === 'object' ? b.shipping : {}) as AddressFieldsInput;
+  const gift = b.gift && typeof b.gift === 'object' ? { message: (b.gift as { message?: unknown }).message } : b.gift === true ? {} : undefined;
 
-  const order = await placeOrder(ctx.db, ctx.market, { paymentMethod: b.paymentMethod, shipping });
+  const order = await placeOrder(ctx.db, ctx.market, { paymentMethod: b.paymentMethod, shipping, gift });
   if (order.status === 'placed') return json({ order }, { status: 201 });
 
   const origin = ctx.req.nextUrl.origin;

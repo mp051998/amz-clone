@@ -134,5 +134,7 @@ export function toOrder(row: OrderWithItems): Order {
     refund: row.refund_status
       ? { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor ?? row.total_minor, refundedAt: opt(row.refunded_at) }
       : undefined,
+    // absent on rows read before the gift migration lands
+    ...(row.gift ? { gift: row.gift_message ? { message: row.gift_message } : {} } : {}),
   };
 }
