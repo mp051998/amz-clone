@@ -48,7 +48,8 @@ describe('coupons', () => {
     expect(p.percentOff).toBeGreaterThanOrEqual(5);
     expect(await couponFor(anon(), p.id, false)).toEqual({ percentOff: p.percentOff, clipped: false });
     expect((await couponPercents(anon(), [p.id])).get(p.id)).toBe(p.percentOff);
-    expect(await code(clipCoupon(anon(), p.id))).toBe('not_authenticated');
+    // signed-out callers can't run it at all
+    expect(await code(clipCoupon(anon(), p.id))).toBe('forbidden');
 
     const none = await product('US', false);
     expect(await couponFor(anon(), none.id, false)).toBeNull();
