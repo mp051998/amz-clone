@@ -76,6 +76,8 @@ it('makes a new list with the product on it, and says when the name is taken', a
   fireEvent.click(screen.getByRole('button', { name: 'Create' }));
   expect(await screen.findByText('You already have a list with that name.')).toBeTruthy();
   expect(calls.create).toEqual([['Wedding registry', 'p1']]);
+  // the error can paint before the transition settles; Create stays disabled until it does
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled());
 
   calls.result = { collection: { id: 'n', name: 'Diwali gifts' } };
   fireEvent.change(screen.getByLabelText('New list'), { target: { value: 'Diwali gifts' } });
