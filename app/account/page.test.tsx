@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
+import { product } from '@/test/fixtures/decision';
 
 const state = vi.hoisted(() => ({
   store: null as unknown,
@@ -11,6 +12,7 @@ const state = vi.hoisted(() => ({
   paused: false,
   plus: null as { since: string } | null,
   balance: 0 as number | null,
+  collections: [] as unknown[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -23,7 +25,10 @@ vi.mock('@/lib/auth', () => ({ readUser: async () => state.user }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ countOrders: async () => state.orders }));
 vi.mock('@/lib/data/addresses', () => ({ listAddresses: async () => [] }));
-vi.mock('@/lib/data/collections', () => ({ listCollections: async () => [] }));
+vi.mock('@/lib/data/collections', async (actual) => ({
+  ...(await actual<typeof import('@/lib/data/collections')>()),
+  listCollections: async () => state.collections,
+}));
 vi.mock('@/lib/data/plus', () => ({ plusMembership: async () => state.plus }));
 vi.mock('@/lib/data/balance', () => ({ storeBalance: async () => state.balance }));
 vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
@@ -43,6 +48,7 @@ beforeEach(() => {
   state.paused = false;
   state.plus = null;
   state.balance = 0;
+  state.collections = [];
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -93,4 +99,14 @@ it('shows the gift card balance in this store', async () => {
   state.balance = 12550;
   render(await AccountPage());
   expect(within(tile('Gift card balance')).getByText('$125.50')).toBeInTheDocument();
+});
+
+it('counts saved items, lists and price drops', async () => {
+  const item = (id: string, savedPriceMinor: number) => ({ product: product({ id, priceMinor: 8000 }), savedPriceMinor, addedAt: '2026-10-01T00:00:00Z' });
+  state.collections = [
+    { id: 'c', name: "Things I'm Considering", note: '', kind: 'considering', createdAt: '', items: [item('p1', 9999), item('p2', 8000)] },
+    { id: 'w', name: 'Wedding', note: '', kind: 'custom', createdAt: '', items: [item('p1', 8500)] },
+  ];
+  render(await AccountPage());
+  expect(within(tile('Collections')).getByText('3 saved items · 2 lists · 1 price drop')).toBeInTheDocument();
 });

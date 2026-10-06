@@ -195,6 +195,46 @@ export async function listChoices(db: Db, market: Market, productId: string): Pr
     .map((r) => ({ id: r.id, name: r.name, kind: asKind(r.kind), has: (r.collection_items ?? []).length > 0 }));
 }
 
+/** A saved product that costs less now than when it was saved. */
+export interface PriceDrop {
+  product: Product;
+  savedPriceMinor: number;
+  /** saved price minus today's, in the product's own currency */
+  dropMinor: number;
+}
+
+/**
+ * Saved products that are cheaper now than when they were saved, biggest drop (by share) first.
+ * A product on several lists counts once, against the highest price it was saved at. Products
+ * that are sold out or off sale are left out: there's nothing to buy.
+ */
+export function priceDrops(items: { product: Product; savedPriceMinor: number }[]): PriceDrop[] {
+  const best = new Map<string, PriceDrop>();
+  for (const { product, savedPriceMinor } of items) {
+    const dropMinor = savedPriceMinor - product.priceMinor;
+    if (dropMinor <= 0 || product.archived || product.stock <= 0) continue;
+    const seen = best.get(product.id);
+    if (!seen || dropMinor > seen.dropMinor) best.set(product.id, { product, savedPriceMinor, dropMinor });
+  }
+  return [...best.values()].sort((a, b) => b.dropMinor / b.savedPriceMinor - a.dropMinor / a.savedPriceMinor);
+}
+
+/** Price drops across all the caller's lists in this store (the home page row). */
+export async function savedPriceDrops(db: Db, market: Market, limit = 8): Promise<PriceDrop[]> {
+  const rows = unwrap(
+    await db
+      .from('collection_items')
+      .select('product_id, saved_price_minor, collections!inner(market_id)')
+      .eq('collections.market_id', market),
+  );
+  const byId = new Map((await getProducts(db, [...new Set(rows.map((r) => r.product_id))])).map((p) => [p.id, p]));
+  const items = rows.flatMap((r) => {
+    const product = byId.get(r.product_id);
+    return product ? [{ product, savedPriceMinor: r.saved_price_minor }] : [];
+  });
+  return priceDrops(items).slice(0, limit);
+}
+
 /** Ids of every product the caller has saved in any collection in this store. */
 export async function savedProductIds(db: Db, market: Market): Promise<Set<string>> {
   const rows = unwrap(

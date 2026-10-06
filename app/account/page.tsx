@@ -7,7 +7,7 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { countOrders } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
-import { listCollections } from '@/lib/data/collections';
+import { listCollections, priceDrops } from '@/lib/data/collections';
 import { plusMembership } from '@/lib/data/plus';
 import { storeBalance } from '@/lib/data/balance';
 import { formatMoney } from '@/lib/marketplaces';
@@ -38,11 +38,12 @@ export default async function AccountPage() {
     storeBalance(client, store.id),
   ]);
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
+  const drops = priceDrops(collections.flatMap((c) => c.items)).length;
   const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
 
   const tiles = [
     { title: 'Orders', meta: orderCount ? plural(orderCount, 'order') : 'No orders yet', desc: 'Track deliveries and see what you bought.', href: '/orders' },
-    { title: 'Collections', meta: saved ? `${plural(saved, 'saved item')} · ${plural(collections.length, 'list')}` : 'Nothing saved yet', desc: 'Saved products with prices tracked since you saved them.', href: '/collections' },
+    { title: 'Collections', meta: saved ? `${plural(saved, 'saved item')} · ${plural(collections.length, 'list')}${drops ? ` · ${plural(drops, 'price drop')}` : ''}` : 'Nothing saved yet', desc: 'Saved products with prices tracked since you saved them.', href: '/collections' },
     { title: 'Addresses', meta: addresses.length ? `${plural(addresses.length, 'address', 'addresses')}${defaultAddr ? ` · default ${defaultAddr.city}` : ''}` : 'None saved', desc: 'Where your orders go. Pick one at checkout.', href: '/account/addresses' },
     {
       title: 'Plus membership',
