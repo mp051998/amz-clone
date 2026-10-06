@@ -146,9 +146,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                           Invoice
                         </a>
                       )}
-                      <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'secondary' })} aria-label={`Track order ${o.id}`}>
-                        Track →
-                      </a>
+                      {o.status === 'awaiting_payment' ? (
+                        <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'primary' })} aria-label={`Complete payment for order ${o.id}`}>
+                          Complete payment →
+                        </a>
+                      ) : (
+                        <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'secondary' })} aria-label={`Track order ${o.id}`}>
+                          Track →
+                        </a>
+                      )}
                     </div>
                   </div>
                 </li>

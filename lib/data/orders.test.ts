@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Db } from '../db/client';
 
 vi.mock('./refunds', () => ({ refundOrder: async () => undefined }));
+vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
 import { GIFT_NOTE_MAX, placeOrder, readGiftNote } from './orders';

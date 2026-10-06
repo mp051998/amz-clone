@@ -6,8 +6,8 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { cancelOrder, cancelPendingOrder, isPaymentMethod, placeOrder } from '@/lib/data/orders';
-import { startCardCheckout } from '@/lib/data/payments';
+import { cancelOrder, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder } from '@/lib/data/orders';
+import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import type { Order } from '@/lib/types';
 
@@ -99,3 +99,34 @@ export async function cancelMyOrder(orderId: string): Promise<void> {
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'cancelled=1'}`));
 }
 
+
+/**
+ * "Complete payment" on an unpaid card order: back to Stripe (the same page while it's open), or
+ * straight to the order when Stripe says it was paid after all.
+ */
+export async function payForOrder(orderId: string): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  const order = await getOrder(await db(), orderId);
+  if (!order) redirect(sp('/orders'));
+  if (order.status !== 'awaiting_payment') redirect(sp(`${page}?placed=0`));
+
+  const origin = await siteOrigin();
+  let url: string | null = null;
+  let code: string | null = null;
+  try {
+    url = await resumeCardCheckout(
+      order,
+      { successUrl: `${origin}${sp('/checkout/success')}`, cancelUrl: `${origin}${sp('/checkout/cancel')}` },
+      origin,
+    );
+  } catch (err) {
+    code = err instanceof DataError ? err.code : 'internal';
+    if (!(err instanceof DataError)) console.error('[orders] resume payment failed', orderId, err);
+  }
+  revalidatePath('/', 'layout');
+  redirect(url ?? sp(`${page}?placed=${code ? '0' : '1'}${code ? `&error=${encodeURIComponent(code)}` : ''}`));
+}

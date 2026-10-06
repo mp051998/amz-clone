@@ -85,6 +85,53 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
   return session.url;
 }
 
+/** The Stripe Checkout Session last attached to an order (service role: it's not in the order JSON). */
+async function sessionIdOf(orderId: string): Promise<string | null> {
+  const { data } = await createAdminClient().from('orders').select('stripe_session_id').eq('id', orderId).maybeSingle();
+  return data?.stripe_session_id ?? null;
+}
+
+/**
+ * "Complete payment" on an unpaid card order: back to its Stripe page while that is still open (so
+ * there's never a second payable session), otherwise a new one. Returns where to send the shopper,
+ * or null when Stripe says it was paid after all (the order is confirmed here).
+ */
+export async function resumeCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string): Promise<string | null> {
+  const s = requireStripe();
+  if (order.paymentMethod !== 'card' || order.status !== 'awaiting_payment') throw new DataError('order_not_pending');
+  const id = await sessionIdOf(order.id);
+  if (id) {
+    let session: Stripe.Checkout.Session | null = null;
+    try {
+      session = await s.checkout.sessions.retrieve(id, { expand: ['payment_intent.latest_charge'] });
+    } catch (err) {
+      console.error('[stripe] session retrieve failed', err instanceof Error ? err.message : err);
+      throw new DataError('payments_unavailable');
+    }
+    if (session.status === 'open' && session.url) return session.url;
+    if (session.payment_status === 'paid') {
+      await confirmSession(session);
+      return null;
+    }
+  }
+  return startCardCheckout(order, urls, imageOrigin);
+}
+
+/**
+ * Close an unpaid order's Stripe page, so a cancelled order can't be paid afterwards. Best effort:
+ * a session that already lapsed or was paid can't be expired, and that's fine.
+ */
+export async function expireCardCheckout(orderId: string): Promise<void> {
+  if (!stripe) return;
+  const id = await sessionIdOf(orderId);
+  if (!id) return;
+  try {
+    await stripe.checkout.sessions.expire(id);
+  } catch {
+    // not open any more
+  }
+}
+
 function brandLabel(brand?: string | null): string {
   switch (brand) {
     case 'visa': return 'Visa';
