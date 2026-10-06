@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deliverOrder } from '@/lib/data/admin-orders';
 import { addToCart, getCart, setCartQty } from '@/lib/data/cart';
-import { clipCoupon, couponFor, couponPercents, couponUnitSavings, unclipCoupon } from '@/lib/data/coupons';
+import { clipCoupon, couponFor, couponPercents, couponUnitSavings, listCouponOffers, unclipCoupon } from '@/lib/data/coupons';
 import { DataError } from '@/lib/data/errors';
 import { placeOrder } from '@/lib/data/orders';
 import { requestReturn } from '@/lib/data/returns';
@@ -119,6 +119,22 @@ describe('coupons', () => {
     // everything back but delivery: never more than was paid
     expect(one.refundMinor + rest.refundMinor).toBe(t.totalMinor - t.shipMinor);
     await unclipCoupon(shopper.db, p.id);
+  });
+
+  it('the coupons page lists a store’s coupons on products on sale, biggest first', async () => {
+    const p = await product('IN', true);
+    const signedOut = await listCouponOffers(anon(), 'IN', false);
+    expect(signedOut.find((o) => o.product.id === p.id)).toMatchObject({ percentOff: p.percentOff, clipped: false });
+    expect(signedOut.every((o) => o.product.market === 'IN' && !o.product.archived)).toBe(true);
+    const pcts = signedOut.map((o) => o.percentOff);
+    expect(pcts).toEqual([...pcts].sort((a, b) => b - a));
+
+    await clipCoupon(other.db, p.id);
+    const mine = await listCouponOffers(other.db, 'IN', true);
+    expect(mine.filter((o) => o.clipped).map((o) => o.product.id)).toEqual([p.id]);
+    expect((await listCouponOffers(shopper.db, 'IN', true)).some((o) => o.clipped)).toBe(false);
+    expect((await listCouponOffers(anon(), 'US', false)).every((o) => o.product.market === 'US')).toBe(true);
+    await unclipCoupon(other.db, p.id);
   });
 
   it('a guest cart never gets a coupon discount', async () => {

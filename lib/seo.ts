@@ -12,6 +12,7 @@ import type { Category, Market, Product } from './types';
 export const STORE_PAGES = [
   '/',
   '/deals',
+  '/coupons',
   '/bestsellers',
   '/new-releases',
   '/gift-cards',
