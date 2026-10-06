@@ -1,5 +1,6 @@
 import type { Db } from '../db/client';
-import type { Review } from '../types';
+import type { Market, Product, Review } from '../types';
+import { getProducts } from './catalog';
 import { DataError, unwrap } from './errors';
 
 export const REVIEW_REPORT_REASONS = ['spam', 'offensive', 'off_topic', 'other'] as const;
@@ -190,4 +191,75 @@ export async function reportReview(db: Db, reviewId: string, reason: unknown = '
   const res = await db.from('review_reports').upsert({ review_id: reviewId, reason: r }, { onConflict: 'review_id,user_id', ignoreDuplicates: true });
   if (res.error?.code === '23503') throw new DataError('review_not_found');
   unwrap(res);
+}
+
+/** One of the caller's reviews, with the product it's about (Your reviews). */
+export interface MyReview {
+  review: Review;
+  product: Product;
+}
+
+/** The caller's reviews of products in this store, newest first. Hidden ones are included, marked. */
+export async function listMyReviews(db: Db, market: Market, userId: string): Promise<MyReview[]> {
+  const rows = unwrap(
+    await db
+      .from('reviews')
+      .select(`${REVIEW_COLS}, product_id, products!inner(market_id)`)
+      .eq('user_id', userId)
+      .eq('products.market_id', market)
+      .order('created_at', { ascending: false })
+      .limit(100),
+  ) as unknown as (ReviewRow & { product_id: string })[];
+  const byId = new Map((await getProducts(db, rows.map((r) => r.product_id), { includeArchived: true })).map((p) => [p.id, p]));
+  return rows.flatMap((r) => {
+    const product = byId.get(r.product_id);
+    return product ? [{ review: toReview(r, userId, new Set(), new Set()), product }] : [];
+  });
+}
+
+/** A product the caller has received and not reviewed yet. */
+export interface ToReview {
+  product: Product;
+  orderId: string;
+  deliveredAt: string;
+}
+
+/**
+ * Products from the caller's delivered orders in this store that they haven't reviewed, most
+ * recently delivered first, each once. Products no longer on sale are left out.
+ */
+export async function awaitingReview(db: Db, market: Market, userId: string, now = new Date()): Promise<ToReview[]> {
+  const [orders, reviewed] = await Promise.all([
+    db
+      .from('orders')
+      .select('id, delivered_at, order_items(product_id)')
+      .eq('user_id', userId)
+      .eq('market_id', market)
+      .eq('status', 'placed')
+      .lte('delivered_at', now.toISOString())
+      .order('delivered_at', { ascending: false })
+      .limit(100),
+    db.from('reviews').select('product_id').eq('user_id', userId),
+  ]);
+  const done = new Set(unwrap(reviewed).map((r) => r.product_id));
+  const first = new Map<string, { orderId: string; deliveredAt: string }>();
+  for (const o of unwrap(orders)) {
+    for (const it of o.order_items ?? []) {
+      if (it.product_id && o.delivered_at && !done.has(it.product_id) && !first.has(it.product_id)) {
+        first.set(it.product_id, { orderId: o.id, deliveredAt: o.delivered_at });
+      }
+    }
+  }
+  const byId = new Map((await getProducts(db, [...first.keys()])).map((p) => [p.id, p]));
+  return [...first].flatMap(([id, at]) => {
+    const product = byId.get(id);
+    return product ? [{ product, ...at }] : [];
+  });
+}
+
+/** Which of these products the caller has reviewed (the order page's "Edit your review"). */
+export async function reviewedProductIds(db: Db, userId: string, productIds: string[]): Promise<Set<string>> {
+  if (!productIds.length) return new Set();
+  const rows = unwrap(await db.from('reviews').select('product_id').eq('user_id', userId).in('product_id', productIds));
+  return new Set(rows.map((r) => r.product_id));
 }

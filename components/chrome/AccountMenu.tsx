@@ -9,9 +9,11 @@ const SIGNED_IN_LINKS = [
   { label: 'Collections', href: '/collections' },
   { label: 'Orders', href: '/orders' },
   { label: 'Buy again', href: '/orders/buy-again' },
+  { label: 'Your reviews', href: '/account/reviews' },
   { label: 'Browsing history', href: '/history' },
   { label: 'Account', href: '/account' },
   { label: 'Plus membership', href: '/prime' },
+  { label: 'Gift cards', href: '/gift-cards' },
   { label: 'Addresses', href: '/account/addresses' },
 ];
 

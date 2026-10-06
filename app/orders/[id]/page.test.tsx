@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][] }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -16,6 +16,7 @@ vi.mock('@/lib/marketplace-server', () => ({ getMarketplace: async () => amazon 
 vi.mock('@/lib/auth', () => ({ readUser: async () => ({ id: 'u1', email: 'a@b.test' }), firstName: () => 'Asha' }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ getOrder: async () => state.order }));
+vi.mock('@/lib/data/reviews', () => ({ reviewedProductIds: async () => new Set(state.reviewed) }));
 vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US' })) }));
 vi.mock('@/lib/decision/server', () => ({
   accessoriesFor: async (bought: { id: string }[]) => {
@@ -59,6 +60,7 @@ beforeEach(() => {
   state.order = order();
   state.pairs = [];
   state.paired = [];
+  state.reviewed = [];
 });
 
 it('offers a review for each item once the order is delivered', async () => {
@@ -68,7 +70,18 @@ it('offers a review for each item once the order is delivered', async () => {
   expect(screen.getByRole('link', { name: 'Write a product review: Mug' })).toHaveAttribute('href', '/product/m#write-review');
 });
 
+it('says Edit for what the shopper has already reviewed', async () => {
+  state.order = order({ deliveredAt: '2026-09-04T10:00:00Z' });
+  state.reviewed = ['m'];
+  await show();
+  expect(screen.getByRole('link', { name: 'Write a product review: Kettle' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Edit your review: Mug' })).toHaveAttribute('href', '/product/m#write-review');
+  expect(screen.queryByRole('link', { name: 'Write a product review: Mug' })).toBeNull();
+});
+
 it('not before it arrives, nor for a cancelled order', async () => {
+  // delivery is booked at placement: no review link until that time passes
+  state.order = order({ shippedAt: '2998-12-30T10:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
   await show();
   expect(screen.queryByRole('link', { name: /Write a product review/ })).toBeNull();
   cleanup();

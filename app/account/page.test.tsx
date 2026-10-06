@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   plus: null as { since: string } | null,
   balance: 0 as number | null,
   collections: [] as unknown[],
+  toReview: [] as unknown[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -30,6 +31,7 @@ vi.mock('@/lib/data/collections', async (actual) => ({
   listCollections: async () => state.collections,
 }));
 vi.mock('@/lib/data/plus', () => ({ plusMembership: async () => state.plus }));
+vi.mock('@/lib/data/reviews', () => ({ awaitingReview: async () => state.toReview }));
 vi.mock('@/lib/data/balance', () => ({ storeBalance: async () => state.balance }));
 vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
 vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, historyPaused: async () => state.paused }));
@@ -49,6 +51,7 @@ beforeEach(() => {
   state.plus = null;
   state.balance = 0;
   state.collections = [];
+  state.toReview = [];
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -109,4 +112,14 @@ it('counts saved items, lists and price drops', async () => {
   ];
   render(await AccountPage());
   expect(within(tile('Collections')).getByText('3 saved items · 2 lists · 1 price drop')).toBeInTheDocument();
+});
+
+it('counts what’s waiting for a review', async () => {
+  render(await AccountPage());
+  expect(tile('Your reviews')).toHaveAttribute('href', '/account/reviews');
+  expect(within(tile('Your reviews')).getByText('All caught up')).toBeInTheDocument();
+  cleanup();
+  state.toReview = [{ product: product({ id: 'p1' }), orderId: 'o', deliveredAt: '2026-10-01T00:00:00Z' }, { product: product({ id: 'p2' }), orderId: 'o', deliveredAt: '2026-10-01T00:00:00Z' }];
+  render(await AccountPage());
+  expect(within(tile('Your reviews')).getByText('2 items to review')).toBeInTheDocument();
 });
