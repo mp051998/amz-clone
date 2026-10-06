@@ -77,7 +77,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
       </form>
 
       {result.orders.length ? (
-        <div className="overflow-x-auto rounded-panel border border-line bg-surface">
+        <div className="relative overflow-x-auto rounded-panel border border-line bg-surface">
           <table className="w-full min-w-[820px] border-collapse text-left text-[14px]">
             <caption className="sr-only">{FILTER_LABEL[filter]} orders, newest first</caption>
             <thead>

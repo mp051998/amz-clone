@@ -54,6 +54,13 @@ it('continue shopping renders one card per recently viewed product', () => {
   expect(screen.getAllByText('Viewed recently')).toHaveLength(2);
 });
 
+it('the continue row is a positioned scroller, so its screen-reader text can’t widen the page on a phone', () => {
+  // `sr-only` text is absolutely positioned: without a positioned scroller it escapes the row's
+  // overflow clip and stretches the page sideways once a few cards are in it
+  render(<ContinueRow products={[product(), product({ id: 'p2' }), product({ id: 'p3' })]} store={amazon} />);
+  expect(screen.getByRole('list')).toHaveClass('overflow-x-auto', 'relative');
+});
+
 it('greets by store-local hour and counts down to local midnight', () => {
   const at = new Date('2026-09-26T13:30:00Z'); // 06:30 Los Angeles, 19:00 Kolkata
   expect(greetingFor(at, 'America/Los_Angeles')).toBe('Good morning');
