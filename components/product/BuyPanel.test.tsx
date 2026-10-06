@@ -6,6 +6,7 @@ vi.mock('@/app/actions/cart', () => ({ buyNow: async () => {} }));
 vi.mock('@/app/product/[id]/actions', () => ({ addToCartInline: async () => ({ ok: true }) }));
 vi.mock('../decision/Compare', () => ({ CompareToggle: () => null }));
 vi.mock('../decision/SaveButton', () => ({ SaveButton: () => null }));
+vi.mock('../collections/AddToList', () => ({ AddToList: () => null }));
 vi.mock('../decision/Toast', () => ({ useToast: () => ({ toast: () => {} }) }));
 
 import { BuyPanel, type BuyPanelProps } from './BuyPanel';

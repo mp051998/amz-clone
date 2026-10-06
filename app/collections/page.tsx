@@ -39,6 +39,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
   // archived products stay in the list but are out of the catalog, so compare skips them
   const comparable = selected ? selected.items.filter((i) => !i.product.archived) : [];
   const compareIds = comparable.slice(0, COMPARE_MAX).map((i) => encodeURIComponent(i.product.id));
+  const moveTargets = selected ? collections.filter((x) => x.id !== selected.id).map((x) => ({ id: x.id, name: x.name })) : [];
   const shareUrl = selected?.shareToken ? `${await siteOrigin()}${sp(`/lists/${selected.shareToken}`)}` : null;
 
   return (
@@ -107,7 +108,9 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
 
                 {selected.items.length === 0 ? (
                   <EmptyState action={<a href={sp('/s')} className={buttonClasses({ variant: 'secondary' })}>Find something to save</a>}>
-                    Nothing here yet. Tap ♡ Save on any product.
+                    {selected.kind === 'custom'
+                      ? 'Nothing here yet. Use Add to List on any product page to put things here.'
+                      : 'Nothing here yet. Tap ♡ Save on any product.'}
                   </EmptyState>
                 ) : (
                   <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">
@@ -147,6 +150,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                             inStock={p.stock > 0}
                             unavailable={p.archived}
                             market={store.id}
+                            moveTo={moveTargets}
                           />
                         </li>
                       );

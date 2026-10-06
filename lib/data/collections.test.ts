@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { getSharedList, isShareToken, shareCollection, unshareCollection } from './collections';
+import { getSharedList, isShareToken, listChoices, moveItem, shareCollection, unshareCollection } from './collections';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
 
@@ -49,4 +49,31 @@ it('shares by id and hands back the link token', async () => {
   const { db, rpcs } = fakeDb({ share_collection: { data: { token: TOKEN, shared_at: '2026-10-05T10:00:00Z' }, error: null } });
   expect(await shareCollection(db, id)).toEqual({ token: TOKEN, sharedAt: '2026-10-05T10:00:00Z' });
   expect(rpcs).toEqual([['share_collection', { p_collection: id }]]);
+});
+
+it('moves between two lists by id, and never onto the same list', async () => {
+  const a = '00000000-0000-4000-8000-000000000001';
+  const b = '00000000-0000-4000-8000-000000000002';
+  const { db, rpcs } = fakeDb({});
+  await expect(moveItem(db, 'nope', b, 'p1')).rejects.toMatchObject({ code: 'collection_not_found' });
+  await expect(moveItem(db, a, a, 'p1')).rejects.toMatchObject({ code: 'invalid_input', message: 'Pick a different list.' });
+  expect(rpcs).toEqual([]);
+  await moveItem(db, a, b, 'p1');
+  expect(rpcs).toEqual([['move_collection_item', { p_from: a, p_to: b, p_product: 'p1' }]]);
+});
+
+it('lists the shopper’s lists in Collections order, ticking the ones that hold the product', async () => {
+  const rows = [
+    { id: 'l', name: 'Saved for later', kind: 'later', position: 0, created_at: '2026-10-01', collection_items: [{ product_id: 'p1' }] },
+    { id: 'b', name: 'Birthday', kind: 'custom', position: 0, created_at: '2026-10-03', collection_items: [] },
+    { id: 'c', name: "Things I'm Considering", kind: 'considering', position: 0, created_at: '2026-10-04', collection_items: [] },
+    { id: 'a', name: 'Apartment', kind: 'custom', position: 0, created_at: '2026-10-02', collection_items: [{ product_id: 'p1' }] },
+  ];
+  const { db } = fakeDb({}, rows);
+  expect(await listChoices(db, 'US', 'p1')).toEqual([
+    { id: 'c', name: "Things I'm Considering", kind: 'considering', has: false },
+    { id: 'a', name: 'Apartment', kind: 'custom', has: true },
+    { id: 'b', name: 'Birthday', kind: 'custom', has: false },
+    { id: 'l', name: 'Saved for later', kind: 'later', has: true },
+  ]);
 });

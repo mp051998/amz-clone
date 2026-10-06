@@ -73,6 +73,7 @@ export function GET(): Response {
       'DELETE /collections/:id',
       'POST   /collections/:id/items',
       'DELETE /collections/:id/items/:productId',
+      'POST   /collections/:id/items/:productId/move',
       'POST   /collections/:id/share',
       'DELETE /collections/:id/share',
       'GET    /lists/:token',

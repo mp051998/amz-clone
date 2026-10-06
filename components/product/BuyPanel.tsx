@@ -7,6 +7,8 @@ import { buttonClasses } from '../primitives/Button';
 import { selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
 import { storeHref, type MarketId } from '../lib/store';
+import type { ListChoice } from '@/lib/data/collections';
+import { AddToList } from '../collections/AddToList';
 import { CompareToggle } from '../decision/Compare';
 import { SaveButton } from '../decision/SaveButton';
 import { useToast } from '../decision/Toast';
@@ -23,6 +25,8 @@ export interface BuyPanelProps {
   market: MarketId;
   stock: number;
   saved: boolean;
+  /** the shopper's lists for "Add to List"; null/absent when signed out */
+  lists?: ListChoice[] | null;
   delivery: {
     /** "FREE delivery" or "FREE delivery over $35" */
     headline: string;
@@ -55,9 +59,9 @@ const LEVEL_TONE = {
 
 /**
  * PDP aside (prototype Product detail): delivery card, Purchase confidence, qty, Add to Cart (accent,
- * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare.
+ * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare, and Add to List.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, delivery, confidence, error }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
@@ -149,9 +153,11 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
       ) : null}
 
       <div className="flex gap-2">
-        <SaveButton productId={productId} saved={saved} name={name} market={market} />
+        {/* remount when the server's saved state changes (e.g. after Add to List) */}
+        <SaveButton key={saved ? 'saved' : 'unsaved'} productId={productId} saved={saved} name={name} market={market} />
         <CompareToggle item={{ id: productId, name, image, category, categoryName }} />
       </div>
+      <AddToList productId={productId} productName={name} market={market} lists={lists} />
     </div>
   );
 }
