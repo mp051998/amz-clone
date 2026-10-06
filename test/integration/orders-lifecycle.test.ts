@@ -276,8 +276,9 @@ describe('refund bookkeeping', () => {
     await admin().from('orders').update({ status: 'placed', placed_at: iso(Date.now()) }).eq('id', o.id);
     const svc = admin();
     const f = fake({ status: 'pending' });
-    const cancelled = await adminCancelOrder(boss.db, o.id); // Stripe isn't asked here: no PaymentIntent on record
-    expect(cancelled.refund?.status).toBe('failed');
+    // no PaymentIntent on record: with Stripe set up the attempt fails; without it (CI) the refund waits
+    const cancelled = await adminCancelOrder(boss.db, o.id);
+    expect(cancelled.refund?.status).toBe(stripe ? 'failed' : 'pending');
 
     await svc.rpc('record_payment_intent', { p_order_id: o.id, p_payment_intent: 'pi_fake' });
     expect(await refundOrder(o.id, { db: svc, stripe: f.s })).toBe('pending');
