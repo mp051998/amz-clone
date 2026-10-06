@@ -3,7 +3,8 @@ import { NextRequest } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { setCartQty } from '@/lib/data/cart';
 import { getOrder, placeOrder } from '@/lib/data/orders';
-import { startCardCheckout } from '@/lib/data/payments';
+import { startGiftCardPurchase } from '@/lib/data/gift-card-purchases';
+import { startCardCheckout, startGiftCardCheckout } from '@/lib/data/payments';
 import { POST } from '@/app/api/v1/webhooks/stripe/route';
 import { admin, deleteUser, newUser, pickProduct, stockOf, US_SHIPPING, type TestUser } from './helpers';
 
@@ -81,5 +82,19 @@ describe.runIf(stripe)('stripe webhook', () => {
     expect((await POST(signed(sessionEvent('checkout.session.expired', { id: sessionId })))).status).toBe(200);
     expect(await stockOf(p.id)).toBe(reserved + 1);
     await setCartQty(buyer.db, 'US', p.id, 0);
+  });
+
+  it('a forged "paid" gift card event issues no code', async () => {
+    const purchase = await startGiftCardPurchase(buyer.db, 'US', { amountMinor: 2500 });
+    const url = await startGiftCardCheckout(purchase, { successUrl: 'http://localhost:3100/gift-cards/success', cancelUrl: 'http://localhost:3100/gift-cards' }, 'Store gift card');
+    expect(url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
+    const { data } = await admin().from('gift_card_purchases').select('stripe_session_id').eq('id', purchase.id).single();
+    const sessionId = data!.stripe_session_id!;
+    const forged = sessionEvent('checkout.session.completed', { id: sessionId, payment_status: 'paid', metadata: { kind: 'gift_card', purchaseId: purchase.id } });
+    expect(await (await POST(signed(forged))).json()).toEqual({ received: true, outcome: 'payment_incomplete' });
+    const { data: after } = await admin().from('gift_card_purchases').select('status, gift_card_code').eq('id', purchase.id).single();
+    expect(after).toEqual({ status: 'awaiting_payment', gift_card_code: null });
+    await stripe!.checkout.sessions.expire(sessionId);
+    expect((await POST(signed(sessionEvent('checkout.session.expired', { id: sessionId, metadata: { kind: 'gift_card' } })))).status).toBe(200);
   });
 });

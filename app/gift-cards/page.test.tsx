@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
 import type { BalanceEntry, GiftCard } from '@/lib/data/balance';
+import type { GiftCardPurchase } from '@/lib/data/gift-card-purchases';
 
 const state = vi.hoisted(() => ({
   store: null as unknown,
@@ -11,6 +12,8 @@ const state = vi.hoisted(() => ({
   history: [] as BalanceEntry[],
   demo: null as GiftCard | null,
   demoAmount: null as number | null,
+  purchases: [] as GiftCardPurchase[],
+  stripe: true,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -24,11 +27,20 @@ vi.mock('@/lib/data/balance', () => ({
   demoGiftCard: async () => state.demo,
   demoGiftCardAmount: async () => state.demoAmount,
 }));
-vi.mock('@/app/actions/gift-cards', () => ({ redeemGiftCardAction: async () => ({}), claimDemoGiftCardAction: async () => {} }));
+vi.mock('@/lib/data/gift-card-purchases', async (actual) => ({
+  ...(await actual<typeof import('@/lib/data/gift-card-purchases')>()),
+  listGiftCardPurchases: async () => state.purchases,
+}));
+vi.mock('@/lib/stripe', () => ({
+  get stripeConfigured() {
+    return state.stripe;
+  },
+}));
+vi.mock('@/app/actions/gift-cards', () => ({ redeemGiftCardAction: async () => ({}), claimDemoGiftCardAction: async () => {}, buyGiftCardAction: async () => ({}) }));
 
 import GiftCardsPage from './page';
 
-const page = async (sp: { claimed?: string } = {}) => render(await GiftCardsPage({ searchParams: Promise.resolve(sp) }));
+const page = async (sp: Record<string, string> = {}) => render(await GiftCardsPage({ searchParams: Promise.resolve(sp) }));
 const asha = { id: 'u1', name: 'Asha', email: 'asha@example.com' };
 
 afterEach(cleanup);
@@ -39,6 +51,62 @@ beforeEach(() => {
   state.history = [];
   state.demo = null;
   state.demoAmount = null;
+  state.purchases = [];
+  state.stripe = true;
+});
+
+const purchase = (over: Partial<GiftCardPurchase> = {}): GiftCardPurchase => ({
+  id: 'p1', market: 'US', amountMinor: 5000, currency: 'USD', recipientName: 'Ravi', message: 'Happy birthday!', status: 'paid',
+  code: 'ZZZZ-YYYYYY-XXXX', redeemed: false, createdAt: '2026-10-05T10:00:00Z', paidAt: '2026-10-05T10:01:00Z', ...over,
+});
+
+it('signed out, buying starts with signing in and comes back to the form', async () => {
+  await page();
+  const tiles = screen.getAllByRole('link', { name: /Buy$/ });
+  expect(tiles[0]).toHaveAttribute('href', `/signin?next=${encodeURIComponent('/gift-cards#buy')}`);
+  expect(screen.getByRole('link', { name: 'Birthday' })).toHaveAttribute('href', `/signin?next=${encodeURIComponent('/gift-cards?occasion=Birthday#buy')}`);
+  expect(screen.queryByRole('button', { name: /Buy .* gift card/ })).toBeNull();
+});
+
+it('signed in, picks an amount and buys; an occasion prefills the message', async () => {
+  state.user = asha;
+  state.balance = 0;
+  await page({ occasion: 'Birthday' });
+  expect(screen.getByRole('button', { name: 'Buy $50 gift card' })).toBeEnabled();
+  expect(screen.getByLabelText(/Message/)).toHaveValue('Happy birthday!');
+  expect(screen.getByRole('link', { name: 'Thank you' })).toHaveAttribute('href', `/gift-cards?occasion=${encodeURIComponent('Thank you')}#buy`);
+});
+
+it('without card payments, says gift cards can’t be bought', async () => {
+  state.user = asha;
+  state.balance = 0;
+  state.stripe = false;
+  await page();
+  expect(screen.getByText(/Card payments aren’t set up here/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Buy/ })).toBeNull();
+});
+
+it('lists bought gift cards with their codes, and the one just bought', async () => {
+  state.user = asha;
+  state.balance = 0;
+  state.purchases = [purchase(), purchase({ id: 'p0', recipientName: null, message: null, redeemed: true, code: 'AAAA-BBBBBB-CCCC', amountMinor: 2500 })];
+  await page({ bought: 'p1' });
+  expect(screen.getByText(/Your \$50 gift card is ready/)).toHaveTextContent('ZZZZ-YYYYYY-XXXX');
+  expect(screen.getByText(/Give the code to Ravi/)).toBeInTheDocument();
+  expect(screen.getByDisplayValue('AAAA-BBBBBB-CCCC')).toBeInTheDocument();
+  expect(screen.getByText('Redeemed')).toBeInTheDocument();
+  expect(screen.getByText('Not redeemed yet')).toBeInTheDocument();
+  expect(screen.getByText('“Happy birthday!”')).toBeInTheDocument();
+});
+
+it('back from Stripe without paying, or with an error, says so', async () => {
+  state.user = asha;
+  state.balance = 0;
+  await page({ canceled: '1' });
+  expect(screen.getByText(/Payment canceled/)).toBeInTheDocument();
+  cleanup();
+  await page({ error: 'payments_unavailable' });
+  expect(screen.getByText('Card payments are unavailable right now.')).toBeInTheDocument();
 });
 
 it('signed out, redeeming starts with signing in', async () => {

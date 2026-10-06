@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
-import { confirmCheckoutSession, releaseSession } from '@/lib/data/payments';
+import { confirmCheckoutSession, confirmGiftCardCheckout, isGiftCardSession, releaseSession } from '@/lib/data/payments';
 import { recordRefundEvent } from '@/lib/data/refunds';
 import { DataError } from '@/lib/data/errors';
 
@@ -9,7 +9,8 @@ import { DataError } from '@/lib/data/errors';
  * POST /api/v1/webhooks/stripe — Stripe's server-to-server notifications, so an
  * order is confirmed even if the shopper never makes it back to the success
  * page, reserved stock is released when a Checkout Session expires unpaid, and
- * refunds of cancelled orders are tracked until they settle.
+ * refunds of cancelled orders are tracked until they settle. A gift card
+ * purchase's session issues its code once paid; expiring, it leaves nothing to release.
  * Requests are authenticated by Stripe's signature (STRIPE_WEBHOOK_SECRET).
  */
 export async function POST(req: NextRequest): Promise<Response> {
@@ -31,12 +32,15 @@ export async function POST(req: NextRequest): Promise<Response> {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object;
-        if (session.payment_status === 'paid') await confirmCheckoutSession(session.id);
+        if (session.payment_status !== 'paid') break;
+        // both re-read the session from Stripe rather than trusting the event body
+        if (isGiftCardSession(session)) await confirmGiftCardCheckout(session.id);
+        else await confirmCheckoutSession(session.id);
         break;
       }
       case 'checkout.session.expired':
       case 'checkout.session.async_payment_failed':
-        await releaseSession(event.data.object.id);
+        if (!isGiftCardSession(event.data.object)) await releaseSession(event.data.object.id);
         break;
       case 'refund.created':
       case 'refund.updated':

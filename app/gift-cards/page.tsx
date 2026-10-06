@@ -7,6 +7,8 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { cn } from '@/components/lib/cn';
 import { Alert } from '@/components/primitives/Alert';
 import { ClaimDemoButton, RedeemForm } from '@/components/gift-cards/RedeemForm';
+import { BuyForm } from '@/components/gift-cards/BuyForm';
+import { CopyCode } from '@/components/gift-cards/CopyCode';
 import { shortDate } from '@/components/orders/format';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -14,6 +16,9 @@ import { formatMoney } from '@/lib/marketplaces';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { balanceHistory, demoGiftCard, demoGiftCardAmount, storeBalance, type BalanceEntry } from '@/lib/data/balance';
+import { GIFT_CARD_LIMITS, listGiftCardPurchases, wholeMoney, type GiftCardPurchase } from '@/lib/data/gift-card-purchases';
+import { messageFor } from '@/lib/data/errors';
+import { stripeConfigured } from '@/lib/stripe';
 
 export const metadata: Metadata = { title: 'Gift cards · Store' };
 
@@ -29,6 +34,20 @@ const FORMATS = [
   { title: 'Corporate gifting', desc: 'Reward employees and clients at scale with bulk cards.' },
 ];
 
+/** An occasion pill prefills the message. */
+const OCCASIONS: Record<'US' | 'IN', Record<string, string>> = {
+  US: {
+    Birthday: 'Happy birthday!', 'Thank you': 'Thank you!', Congratulations: 'Congratulations!',
+    Holiday: 'Happy holidays!', Wedding: 'Congratulations on your wedding!', 'Just because': 'Thinking of you.',
+  },
+  IN: {
+    Birthday: 'Happy birthday!', Diwali: 'Happy Diwali!', Rakhi: 'Happy Raksha Bandhan!',
+    Wedding: 'Congratulations on your wedding!', 'Thank you': 'Thank you!', Congrats: 'Congratulations!',
+  },
+};
+
+type SP = { claimed?: string; bought?: string; canceled?: string; error?: string; occasion?: string };
+
 function entryText(e: BalanceEntry): string {
   switch (e.kind) {
     case 'gift_card': return e.giftCardCode ? `Gift card ${e.giftCardCode}` : 'Gift card';
@@ -37,21 +56,30 @@ function entryText(e: BalanceEntry): string {
   }
 }
 
-export default async function GiftCardsPage({ searchParams }: { searchParams: Promise<{ claimed?: string }> }) {
+export default async function GiftCardsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const [store, user, sp0] = await Promise.all([getMarketplace(), readUser(), searchParams]);
   const client = await db();
-  const [balance, history, demo, demoAmount] = user
-    ? await Promise.all([storeBalance(client, store.id), balanceHistory(client, store.id), demoGiftCard(client, store.id, user.id), demoGiftCardAmount(client, store.id)])
-    : [null, [], null, null];
+  const [balance, history, demo, demoAmount, purchases] = user
+    ? await Promise.all([
+        storeBalance(client, store.id),
+        balanceHistory(client, store.id),
+        demoGiftCard(client, store.id, user.id),
+        demoGiftCardAmount(client, store.id),
+        listGiftCardPurchases(client, store.id),
+      ])
+    : [null, [], null, null, [] as GiftCardPurchase[]];
   const money = (minor: number) => formatMoney(minor, store.currency.code);
   const isIN = store.id === 'IN';
   const sym = store.currency.symbol;
   const sp = (p: string) => storePath(store, p);
   const denoms = DENOMS[isIN ? 'IN' : 'US'];
   const fmt = (n: number) => `${sym}${n.toLocaleString(isIN ? 'en-IN' : 'en-US')}`;
-  const occasions = isIN
-    ? ['Birthday', 'Diwali', 'Rakhi', 'Wedding', 'Thank you', 'Congrats']
-    : ['Birthday', 'Thank you', 'Congratulations', 'Holiday', 'Wedding', 'Just because'];
+  const occasions = OCCASIONS[isIN ? 'IN' : 'US'];
+  const limits = GIFT_CARD_LIMITS[store.id];
+  const whole = (minor: number) => wholeMoney(minor, store.currency.code);
+  const bought = sp0.bought ? purchases.find((p) => p.id === sp0.bought) : undefined;
+  const buyNext = (occasion?: string) => `/gift-cards${occasion ? `?occasion=${encodeURIComponent(occasion)}` : ''}#buy`;
+  const signinToBuy = (occasion?: string) => sp(`/signin?next=${encodeURIComponent(buyNext(occasion))}`);
 
   return (
     <AppShell>
@@ -62,7 +90,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
             title="Let them choose"
             actions={
               <>
-                <a href="#amounts" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Choose an amount</a>
+                <a href="#buy" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Choose an amount</a>
                 <a href="#balance" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Redeem a card</a>
               </>
             }
@@ -79,30 +107,79 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
           </div>
         </div>
 
-        <Section id="amounts" title="Choose an amount" note="Delivered by email in minutes">
-          <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6">
-            {denoms.map((d) => (
-              <li key={d}>
-                <a
-                  href={sp('/signin?new=1')}
-                  className="flex min-h-[96px] flex-col items-center justify-center gap-1 rounded-card border border-line bg-surface p-3 text-ink no-underline transition-colors hover:border-ink"
-                >
-                  <span className="text-[22px] font-bold tabular-nums">{fmt(d)}</span>
-                  <span className="text-[13px] text-ink-3">Buy</span>
-                </a>
-              </li>
-            ))}
-            <li>
-              <a
-                href={sp('/signin?new=1')}
-                className="flex min-h-[96px] flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line-3 bg-surface p-3 text-ink no-underline transition-colors hover:border-ink"
-              >
-                <span className="text-[16px] font-semibold">Custom</span>
-                <span className="text-[13px] text-ink-3">Any amount</span>
-              </a>
-            </li>
-          </ul>
+        <Section id="buy" title="Buy a gift card" note={`${whole(limits.minMinor)}–${whole(limits.maxMinor)}, paid by card`}>
+          {sp0.canceled ? <Alert tone="info">Payment canceled. You haven’t been charged.</Alert> : null}
+          {sp0.error ? <Alert tone="error">{messageFor(sp0.error) ?? 'Something went wrong. Please try again.'}</Alert> : null}
+          {user && stripeConfigured ? (
+            <Card>
+              <BuyForm
+                denoms={denoms}
+                min={limits.minMinor / 100}
+                max={limits.maxMinor / 100}
+                symbol={sym}
+                locale={store.locale.default}
+                defaultMessage={sp0.occasion ? occasions[sp0.occasion] ?? '' : ''}
+              />
+            </Card>
+          ) : (
+            <>
+              <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6">
+                {denoms.map((d) => (
+                  <li key={d}>
+                    {user ? (
+                      <div className="flex min-h-[96px] flex-col items-center justify-center gap-1 rounded-card border border-line bg-surface p-3 text-ink">
+                        <span className="text-[22px] font-bold tabular-nums">{fmt(d)}</span>
+                      </div>
+                    ) : (
+                      <a
+                        href={signinToBuy()}
+                        className="flex min-h-[96px] flex-col items-center justify-center gap-1 rounded-card border border-line bg-surface p-3 text-ink no-underline transition-colors hover:border-ink"
+                      >
+                        <span className="text-[22px] font-bold tabular-nums">{fmt(d)}</span>
+                        <span className="text-[13px] text-ink-3">Buy</span>
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="m-0 text-[14px] text-ink-2">
+                {user ? (
+                  'Card payments aren’t set up here, so gift cards can’t be bought right now.'
+                ) : (
+                  <><a href={signinToBuy()} className="text-ink underline underline-offset-2">Sign in</a> to buy a gift card.</>
+                )}
+              </p>
+            </>
+          )}
         </Section>
+
+        {user && purchases.length ? (
+          <Section id="purchases" title="Gift cards you bought" note="Give the code, or redeem it yourself below">
+            {bought?.code ? (
+              <Alert tone="success">
+                Your {whole(bought.amountMinor)} gift card is ready: <b className="font-mono">{bought.code}</b>.{' '}
+                {bought.recipientName ? `Give the code to ${bought.recipientName}.` : 'Give the code to someone, or redeem it below.'}
+              </Alert>
+            ) : null}
+            <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-2">
+              {purchases.map((p) => (
+                <li key={p.id}>
+                  <Card className="flex flex-col gap-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-[22px] font-bold tabular-nums">{whole(p.amountMinor)}</span>
+                      <span className={cn('text-[13px] font-semibold', p.redeemed ? 'text-ink-3' : 'text-good')}>{p.redeemed ? 'Redeemed' : 'Not redeemed yet'}</span>
+                    </div>
+                    <p className="m-0 text-[14px] text-ink-2">
+                      {p.recipientName ? `For ${p.recipientName} · ` : ''}Bought {shortDate(new Date(p.paidAt ?? p.createdAt), store)}
+                    </p>
+                    {p.message ? <p className="m-0 text-[14px] italic text-ink-2">“{p.message}”</p> : null}
+                    {p.code ? <CopyCode code={p.code} /> : null}
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
 
         <Section title="Pick how you send it">
           <div className={cardGrid}>
@@ -112,7 +189,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
 
         <Section title="Shop by occasion">
           <div className="flex flex-wrap gap-2">
-            {occasions.map((o) => (<Pill key={o} href={sp('/signin?new=1')}>{o}</Pill>))}
+            {Object.keys(occasions).map((o) => (<Pill key={o} href={user ? sp(buyNext(o)) : signinToBuy(o)}>{o}</Pill>))}
           </div>
         </Section>
 
@@ -177,7 +254,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
           )}
         </Section>
 
-        <DemoNote>Demo store — buying gift cards isn’t available and no payment is processed. Demo gift card codes are real here: redeeming one adds to your balance in this store, and paying with the balance takes the order total from it.</DemoNote>
+        <DemoNote>Demo store — gift cards are paid with a Stripe test card, so no real money moves, and no email is sent: share the code yourself. Gift card codes, bought or demo, are real here: redeeming one adds to your balance in this store, and paying with the balance takes the order total from it.</DemoNote>
       </Page>
     </AppShell>
   );
