@@ -11,6 +11,7 @@ import { CheckList } from '../decision/CheckList';
 import { CompareToggle } from '../decision/Compare';
 import { ProductFrame } from '../decision/ProductFrame';
 import { SaveButton } from '../decision/SaveButton';
+import { QuickAdd } from '../deals/QuickAdd';
 import { VariantSwatches } from '../product/VariantSwatches';
 import { Badge } from '../primitives/Badge';
 import { Price } from '../primitives/Price';
@@ -88,6 +89,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
       <div className="mt-auto flex gap-2">
         <CompareToggle item={{ id: p.id, name: shortTitle(p.title, 6), image: p.image, category: p.category, categoryName: p.categoryName }} />
         <SaveButton productId={p.id} saved={saved} name={p.title} market={store.id} />
+        {p.stock > 0 ? <QuickAdd productId={p.id} name={p.title} className="ml-auto" /> : null}
       </div>
     </article>
   );
