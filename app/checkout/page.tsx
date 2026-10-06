@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { AddressStep } from '@/components/checkout/AddressStep';
+import { BuyNowQty } from '@/components/checkout/BuyNowQty';
 import { DeliverySpeed } from '@/components/checkout/DeliverySpeed';
 import { GiftOption } from '@/components/checkout/GiftOption';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
@@ -138,8 +139,13 @@ export default async function CheckoutPage({
       {blocked ? (
         productHref ? (
           <Alert tone="warning">
-            {unavailable ? 'This item is no longer available.' : 'There isn’t enough stock for that many.'}{' '}
-            <a href={productHref} className="underline">Back to the product</a> to pick again.
+            {unavailable ? (
+              <>
+                This item is no longer available. <a href={productHref} className="underline">Back to the product</a> to pick again.
+              </>
+            ) : (
+              'There isn’t enough stock for that many. Lower the quantity under Items to place the order.'
+            )}
           </Alert>
         ) : (
           <Alert tone="warning">
@@ -185,7 +191,13 @@ export default async function CheckoutPage({
                 <li key={l.product.id} className="flex justify-between gap-3 text-[15px]">
                   <span className="min-w-0">
                     {l.product.title}
-                    <span className="text-ink-3"> × {l.qty}</span>
+                    {buy ? (
+                      <span className="block">
+                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={l.product.stock} name={l.product.title} />
+                      </span>
+                    ) : (
+                      <span className="text-ink-3"> × {l.qty}</span>
+                    )}
                     {l.discountMinor ? <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor)}</span> : null}
                     {!l.available ? (
                       <span className="block text-[13px] font-semibold text-warn">⚠ No longer available</span>
