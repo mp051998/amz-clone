@@ -1,0 +1,47 @@
+import { describe, expect, it } from 'vitest';
+import { budgetRange } from './decision/attributes';
+import { parseQuery, pricePresets } from './search';
+
+describe('parseQuery price range', () => {
+  it('reads min and max as whole minor units', () => {
+    expect(parseQuery({ min: '2500', max: '10000' })).toMatchObject({ minPrice: 2500, maxPrice: 10000 });
+    expect(parseQuery({ min: ['500', '900'] }).minPrice).toBe(500);
+  });
+
+  it('drops anything that is not a positive whole number', () => {
+    for (const v of ['0', '-5', '12.5', 'abc', '', '1e30']) {
+      const q = parseQuery({ min: v, max: v });
+      expect(q.minPrice).toBeUndefined();
+      expect(q.maxPrice).toBeUndefined();
+    }
+    expect(parseQuery({}).minPrice).toBeUndefined();
+  });
+});
+
+describe('pricePresets', () => {
+  it('buckets a department range at round prices the budget slider can reach', () => {
+    expect(pricePresets(budgetRange('US', null))).toEqual([
+      { label: 'Under $50', min: null, max: 5000 },
+      { label: '$50 to $100', min: 5000, max: 10000 },
+      { label: '$100 to $200', min: 10000, max: 20000 },
+      { label: '$200 to $500', min: 20000, max: 50000 },
+      { label: '$500 & above', min: 50000, max: null },
+    ]);
+    expect(pricePresets(budgetRange('US', 'books')).map((p) => p.label)).toEqual(['Under $10', '$10 to $25', '$25 & above']);
+  });
+
+  it('keeps at most four boundaries, spread across the range', () => {
+    expect(pricePresets(budgetRange('IN', null)).map((p) => p.label)).toEqual([
+      'Under ₹1,000',
+      '₹1,000 to ₹2,000',
+      '₹2,000 to ₹10,000',
+      '₹10,000 to ₹20,000',
+      '₹20,000 & above',
+    ]);
+    expect(pricePresets(budgetRange('IN', null), 2).map((p) => p.max)).toEqual([100_000, 2_000_000, null]);
+  });
+
+  it('is empty when no round price fits inside the range', () => {
+    expect(pricePresets({ currency: 'USD', minMinor: 1000, maxMinor: 2000, stepMinor: 100, defaultMinor: 1500 })).toEqual([]);
+  });
+});

@@ -1,3 +1,4 @@
+import type { PricePreset } from '@/lib/search';
 import type { Category } from '@/lib/types';
 import { cn } from '../lib/cn';
 import { Stars } from '../primitives/Stars';
@@ -10,6 +11,11 @@ export interface MoreFiltersProps {
   brands: string[];
   rating?: number;
   deal: boolean;
+  /** price buckets for the department (empty = no Price section) */
+  pricePresets?: PricePreset[];
+  /** current price range, minor units (null = open-ended) */
+  minPrice?: number | null;
+  maxPrice?: number | null;
   /** href for the current search with these params changed (null = remove). */
   hrefWith: (patch: Record<string, string | null>) => string;
 }
@@ -24,8 +30,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, rating, deals) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, price, rating, deals) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, pricePresets = [], minPrice = null, maxPrice = null, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -62,6 +68,29 @@ export function MoreFilters({ categories, dept, brandFacets, brands, rating, dea
                     <Box on={on} />
                     <span className={on ? 'font-semibold' : undefined}>{b.name}</span>
                     <span className="ml-auto text-[12px] text-ink-3 tabular-nums">{b.count}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {pricePresets.length ? (
+        <div>
+          <h3 className="m-0 mb-1 text-[14px] font-semibold">Price</h3>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {pricePresets.map((p) => {
+              const on = p.min === minPrice && p.max === maxPrice;
+              // `budget=0`: no ceiling, even one read from the words typed
+              const href = on
+                ? hrefWith({ min: null, budget: '0' })
+                : hrefWith({ min: p.min ? String(p.min) : null, budget: p.max ? String(p.max) : '0' });
+              return (
+                <li key={p.label}>
+                  <a href={href} role="checkbox" aria-checked={on} className={row}>
+                    <Box on={on} />
+                    <span className={on ? 'font-semibold' : undefined}>{p.label}</span>
                   </a>
                 </li>
               );

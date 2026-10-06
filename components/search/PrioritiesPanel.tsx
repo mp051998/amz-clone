@@ -18,7 +18,8 @@ export interface PrioritiesPanelProps {
   /** "Travel", "Custom", "Tuned for you" — shown on the mobile toggle. */
   presetLabel: string;
   currency: CurrencyCode;
-  budget: { valueMinor: number | null; minMinor: number; maxMinor: number; stepMinor: number };
+  /** `floorMinor`: the lowest price picked in More filters, if any */
+  budget: { valueMinor: number | null; minMinor: number; maxMinor: number; stepMinor: number; floorMinor?: number | null };
   /** current /s query (no "?"), with the effective `use` materialised so implied weights match the server. */
   baseQuery: string;
   resetHref: string;
@@ -74,7 +75,13 @@ export function PrioritiesPanel(props: PrioritiesPanelProps) {
     }, SLIDER_DEBOUNCE_MS);
   };
 
-  const budgetText = budget.valueMinor == null && budgetValue >= budget.maxMinor ? 'Any price' : `${formatMoney(0, currency)} — ${formatMoney(budgetValue, currency)}`;
+  const floor = formatMoney(budget.floorMinor ?? 0, currency);
+  const budgetText =
+    budget.valueMinor == null && budgetValue >= budget.maxMinor
+      ? budget.floorMinor
+        ? `${floor} & above`
+        : 'Any price'
+      : `${floor} — ${formatMoney(budgetValue, currency)}`;
 
   return (
     <div className="flex flex-col gap-3">
