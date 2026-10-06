@@ -132,7 +132,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
 
       <Section title={`In the ${STORE_NAME[store.id]} nav`} note={`${nav.length} categories, in nav order`}>
         {nav.length ? (
-          <div className="overflow-x-auto rounded-panel border border-line bg-surface">
+          <div className="relative overflow-x-auto rounded-panel border border-line bg-surface">
             <table className="w-full min-w-[760px] border-collapse text-left text-[14px]">
               <caption className="sr-only">Categories in this store’s nav, in order</caption>
               {head(['#', 'Category', 'Products', 'Decision tools', `${STORE_NAME[other]} nav`, ''])}
@@ -178,7 +178,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
 
       {unlisted.length ? (
         <Section title="Not in this store" note="Listing one adds it to the end of the nav">
-          <div className="overflow-x-auto rounded-panel border border-line bg-surface">
+          <div className="relative overflow-x-auto rounded-panel border border-line bg-surface">
             <table className="w-full min-w-[640px] border-collapse text-left text-[14px]">
               <caption className="sr-only">Categories this store doesn’t list</caption>
               {head(['Category', 'Decision tools', `${STORE_NAME[other]} nav`, ''])}

@@ -104,7 +104,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
       </form>
 
       {result.items.length ? (
-        <div className="overflow-x-auto rounded-panel border border-line bg-surface">
+        <div className="relative overflow-x-auto rounded-panel border border-line bg-surface">
           <table className="w-full min-w-[760px] border-collapse text-left text-[14px]">
             <caption className="sr-only">{archivedTab ? 'Archived products' : 'Products on sale'}, most recently changed first</caption>
             <thead>

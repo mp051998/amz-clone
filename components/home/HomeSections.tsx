@@ -42,7 +42,7 @@ function Rating({ p }: { p: Product }) {
 /** Continue shopping: horizontally scrolling recently-viewed cards. */
 export function ContinueRow({ products, store, kicker = 'Viewed recently' }: { products: Product[]; store: Store; /** the small line over each title */ kicker?: string }) {
   return (
-    <ul className="no-scrollbar m-0 flex list-none gap-3.5 overflow-x-auto p-0 pb-1.5">
+    <ul className="no-scrollbar relative m-0 flex list-none gap-3.5 overflow-x-auto p-0 pb-1.5">
       {products.map((p) => (
         <li key={p.id} className="flex-[0_0_230px]">
           <a
