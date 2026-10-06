@@ -9,6 +9,7 @@ import { countOrders } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
 import { listCollections } from '@/lib/data/collections';
 import { viewerCart } from '@/lib/storefront';
+import { historyPaused, readRecentIds } from '@/lib/recent';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
@@ -23,11 +24,13 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
     viewerCart(),
+    readRecentIds(),
+    historyPaused(),
   ]);
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
   const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
@@ -38,6 +41,10 @@ export default async function AccountPage() {
     { title: 'Addresses', meta: addresses.length ? `${plural(addresses.length, 'address', 'addresses')}${defaultAddr ? ` · default ${defaultAddr.city}` : ''}` : 'None saved', desc: 'Where your orders go. Pick one at checkout.', href: '/account/addresses' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
+    { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
+    // the device's history spans both stores, so no count here: the page shows this store's share
+    { title: 'Browsing history', meta: paused ? 'Paused' : recent.length ? 'On this device' : 'Nothing viewed yet', desc: 'Products you looked at recently. Pause or clear it any time.', href: '/history' },
+    { title: 'Customer service', meta: 'Help', desc: 'Returns, refunds, delivery problems and order changes.', href: '/customer-service' },
   ];
 
   return (
