@@ -163,6 +163,8 @@ export interface Order {
   paymentLabel: string;
   totals: OrderTotals;
   shipTo: ShippingAddress;
+  /** set while the shopper keeps it out of their order list */
+  archivedAt?: string;
   items: OrderItem[];
   createdAt: string;
   placedAt?: string;

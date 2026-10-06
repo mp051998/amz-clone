@@ -7,7 +7,7 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
-import { cancelMyOrder, payForOrder } from '@/app/actions/order';
+import { archiveMyOrder, cancelMyOrder, payForOrder } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
@@ -64,10 +64,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned } = await searchParams;
+  const { placed, cancelled, error, return: returned, archived } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -133,6 +133,13 @@ export default async function OrderPage({
                 {order.status === 'cancelled' ? 'Order summary' : 'Invoice'}
               </a>
             )}
+            {order.status === 'awaiting_payment' ? null : (
+              <form action={archiveMyOrder.bind(null, order.id, !order.archivedAt)}>
+                <button type="submit" className="border-0 bg-transparent p-0 text-[14px] text-ink underline underline-offset-2">
+                  {order.archivedAt ? 'Unarchive order' : 'Archive order'}
+                </button>
+              </form>
+            )}
             <a href={sp('/orders')} className="text-[14px] text-ink underline underline-offset-2">All orders</a>
           </div>
         </div>
@@ -145,6 +152,15 @@ export default async function OrderPage({
           <Alert tone="success">Return started. Drop the items off with the code below.</Alert>
         ) : returned === 'cancelled' ? (
           <Alert tone="success">Your return is cancelled.</Alert>
+        ) : archived === '1' && order.archivedAt ? (
+          <Alert tone="success">
+            Order archived. It’s no longer in your order list; find it under{' '}
+            <a href={sp('/orders?period=archived')} className="text-ink underline underline-offset-2">Archived orders</a>.
+          </Alert>
+        ) : archived === '0' && !order.archivedAt ? (
+          <Alert tone="success">Order unarchived. It’s back in your order list.</Alert>
+        ) : order.archivedAt ? (
+          <Alert tone="info">This order is archived, so it isn’t in your order list. Unarchive it to bring it back.</Alert>
         ) : null}
 
         <EtaPanel kicker={view.kicker} headline={view.headline} window={view.window} />

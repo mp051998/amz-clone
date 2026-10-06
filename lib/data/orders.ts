@@ -116,6 +116,13 @@ export async function getOrder(db: Db, id: string): Promise<Order | null> {
   return row ? toOrder(row) : null;
 }
 
+/** Owner moves an order to (or back from) the "Archived" view of their order list. */
+export async function archiveOrder(db: Db, id: string, archived: boolean): Promise<Order> {
+  const json = unwrap(await db.rpc('archive_my_order', { p_order_id: id, p_archived: archived }));
+  if (!json) throw new DataError('order_not_found');
+  return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
 /** Owner abandons an unpaid card checkout: order cancelled, reserved stock released. */
 export async function cancelPendingOrder(db: Db, id: string): Promise<Order> {
   const json = unwrap(await db.rpc('cancel_pending_order', { p_order_id: id }));

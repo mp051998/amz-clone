@@ -122,3 +122,27 @@ it('an unpaid card order links to finishing payment instead of tracking', async 
   expect(screen.getByRole('link', { name: 'Complete payment for order ORD-1' })).toHaveAttribute('href', '/orders/ORD-1?placed=0');
   expect(listed()).toEqual(['ORD-2']);
 });
+
+it('archived orders are under Archived, marked, and a search still finds them', async () => {
+  state.orders = [{ ...order('ORD-1', 2, 'Sony Headphones'), archivedAt: new Date().toISOString() }, order('ORD-2', 40)];
+  await show();
+  expect(listed()).toEqual(['ORD-2']);
+  const periods = screen.getByRole('group', { name: 'Orders placed in' });
+  expect(within(periods).getByRole('link', { name: 'Archived' })).toHaveAttribute('href', '/orders?period=archived');
+  cleanup();
+
+  await show({ period: 'archived' });
+  expect(listed()).toEqual(['ORD-1']);
+  expect(screen.getByRole('status')).toHaveTextContent('1 order archived');
+  expect(within(screen.getByText('ORD-1').closest('li')!).getByText('Archived')).toBeInTheDocument();
+  cleanup();
+
+  await show({ q: 'sony' });
+  expect(listed()).toEqual(['ORD-1']);
+});
+
+it('says how to archive when nothing is archived', async () => {
+  await show({ period: 'archived' });
+  expect(screen.getByText('No orders archived')).toBeInTheDocument();
+  expect(screen.getByText('Archive an order from its page to keep it out of your order list.')).toBeInTheDocument();
+});

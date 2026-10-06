@@ -5,7 +5,7 @@ vi.mock('./refunds', () => ({ refundOrder: async () => undefined }));
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { GIFT_NOTE_MAX, placeOrder, readGiftNote } from './orders';
+import { archiveOrder, GIFT_NOTE_MAX, placeOrder, readGiftNote } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -66,6 +66,19 @@ describe('placeOrder delivery instructions', () => {
     const order = await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING });
     expect(plain.calls[0].p_shipping).toMatchObject({ instructions: null });
     expect(order.shipTo.instructions).toBeUndefined();
+  });
+});
+
+describe('archiveOrder', () => {
+  it('archives or brings back the order, and reads when it was archived', async () => {
+    const archived = fakeDb({ ...row, archived_at: '2026-10-06T12:00:00Z' });
+    const order = await archiveOrder(archived.db, row.id, true);
+    expect(archived.calls[0]).toEqual({ p_order_id: row.id, p_archived: true });
+    expect(order.archivedAt).toBe('2026-10-06T12:00:00Z');
+
+    const back = fakeDb({ ...row, archived_at: null });
+    expect((await archiveOrder(back.db, row.id, false)).archivedAt).toBeUndefined();
+    expect(back.calls[0]).toEqual({ p_order_id: row.id, p_archived: false });
   });
 });
 

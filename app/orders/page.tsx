@@ -74,7 +74,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 <SegmentedControl
                   ariaLabel="Orders placed in"
                   value={filter.period}
-                  options={periodOptions(orders, now).map((o) => ({ ...o, href: hrefWith({ period: o.value }) }))}
+                  options={periodOptions(orders, now, filter.period).map((o) => ({ ...o, href: hrefWith({ period: o.value }) }))}
                   className="max-w-full overflow-x-auto"
                 />
               )}
@@ -103,7 +103,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             title={filter.q ? `No orders match “${filter.q}”` : `No orders ${periodPhrase(filter.period)}`}
             action={<a href={hrefWith({ q: '', period: 'all' })} className={buttonClasses({ variant: 'secondary' })}>See all orders</a>}
           >
-            {filter.q ? 'Search for an item, a seller, who it went to, or an order number.' : 'Older orders are under the other periods.'}
+            {filter.q
+              ? 'Search for an item, a seller, who it went to, or an order number.'
+              : filter.period === 'archived'
+                ? 'Archive an order from its page to keep it out of your order list.'
+                : 'Older orders are under the other periods.'}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
@@ -116,6 +120,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     <span className="flex flex-wrap gap-1.5">
                       <StatusChip label={v.chip.label} tone={v.chip.tone} />
                       {returns.has(o.id) ? <StatusChip {...RETURN_SUMMARY_CHIP[returns.get(o.id)!]} /> : null}
+                      {o.archivedAt ? <StatusChip label="Archived" tone="neutral" /> : null}
                     </span>
                     <span className="font-mono text-[12px] text-ink-3">{o.id}</span>
                   </div>

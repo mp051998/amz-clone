@@ -41,6 +41,7 @@ describe('readOrderFilter', () => {
     expect(readOrderFilter({ q: '  kettle ', period: 'y2025', page: '3' })).toEqual({ q: 'kettle', period: 'y2025', page: 3 });
     expect(readOrderFilter({ period: ['last30', 'all'] })).toMatchObject({ period: 'last30' });
     expect(readOrderFilter({ period: 'all' })).toMatchObject({ period: 'all' });
+    expect(readOrderFilter({ period: 'archived' })).toMatchObject({ period: 'archived' });
   });
 
   it('ignores what it does not know', () => {
@@ -65,6 +66,20 @@ describe('periodOptions', () => {
   it('always offers the current year', () => {
     expect(periodOptions([], NOW).map((o) => o.value)).toEqual(['last30', 'months3', 'y2026', 'all']);
   });
+
+  it('adds Archived while an order is archived, or while it is the view', () => {
+    const archived = [ORDERS[0], { ...ORDERS[4], archivedAt: '2026-10-02T00:00:00Z' }];
+    // 2024's only order is archived, so 2024 isn't a period
+    expect(periodOptions(archived, NOW)).toEqual([
+      { value: 'last30', label: 'Last 30 days' },
+      { value: 'months3', label: 'Past 3 months' },
+      { value: 'y2026', label: '2026' },
+      { value: 'all', label: 'All' },
+      { value: 'archived', label: 'Archived' },
+    ]);
+    expect(periodOptions(ORDERS, NOW, 'archived').at(-1)).toEqual({ value: 'archived', label: 'Archived' });
+    expect(periodOptions(ORDERS, NOW, 'all').map((o) => o.value)).not.toContain('archived');
+  });
 });
 
 describe('filterOrders', () => {
@@ -87,6 +102,15 @@ describe('filterOrders', () => {
     expect(filterOrders(ORDERS, f({ q: 'trampoline' }), NOW).total).toBe(0);
   });
 
+  it('archived orders leave the periods for Archived; a search still finds them', () => {
+    const list = ORDERS.map((o) => (o.id === 'ORD-A' || o.id === 'ORD-D' ? { ...o, archivedAt: '2026-10-02T00:00:00Z' } : o));
+    expect(ids(filterOrders(list, f(), NOW))).toEqual(['ORD-B']);
+    expect(ids(filterOrders(list, f({ period: 'all' }), NOW))).toEqual(['ORD-B', 'ORD-C', 'ORD-E']);
+    expect(ids(filterOrders(list, f({ period: 'archived' }), NOW))).toEqual(['ORD-A', 'ORD-D']);
+    expect(ids(filterOrders(list, f({ q: 'mug' }), NOW))).toEqual(['ORD-D']);
+    expect(filterOrders(ORDERS, f({ period: 'archived' }), NOW).total).toBe(0);
+  });
+
   it('pages ten at a time, a page past the end showing the last', () => {
     const many = Array.from({ length: 23 }, (_, i) => order(`ORD-${i}`, '2026-10-01T00:00:00Z'));
     const p1 = filterOrders(many, f(), NOW);
@@ -104,6 +128,7 @@ describe('orderSummary', () => {
     expect(orderSummary(1, f({ period: 'last30' }))).toBe('1 order placed in the last 30 days');
     expect(orderSummary(3, f({ period: 'y2025' }))).toBe('3 orders placed in 2025');
     expect(orderSummary(5, f({ period: 'all' }))).toBe('5 orders in all');
+    expect(orderSummary(2, f({ period: 'archived' }))).toBe('2 orders archived');
     expect(orderSummary(1, f({ q: 'mug' }))).toBe('1 order matching “mug”');
   });
 });

@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { cancelOrder, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder } from '@/lib/data/orders';
+import { archiveOrder, cancelOrder, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
@@ -109,6 +109,26 @@ export async function cancelMyOrder(orderId: string): Promise<void> {
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'cancelled=1'}`));
 }
 
+/**
+ * "Archive order" / "Unarchive order" on an order page (bound to the id and the direction; the
+ * database checks the order is the caller's). Back to the order, which says where it went.
+ */
+export async function archiveMyOrder(orderId: string, archived: boolean): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let code: string | null = null;
+  try {
+    await archiveOrder(await db(), orderId, archived === true);
+  } catch (err) {
+    code = err instanceof DataError ? err.code : 'internal';
+    if (!(err instanceof DataError)) console.error('[orders] archive failed', orderId, err);
+  }
+  revalidatePath('/orders');
+  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : `archived=${archived === true ? 1 : 0}`}`));
+}
 
 /**
  * "Complete payment" on an unpaid card order: back to Stripe (the same page while it's open), or

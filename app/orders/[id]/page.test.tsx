@@ -25,7 +25,7 @@ vi.mock('@/lib/decision/server', () => ({
   },
 }));
 vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, returns: [] }), canStartReturn: () => false }));
-vi.mock('@/app/actions/order', () => ({ cancelMyOrder: async () => {}, payForOrder: async () => {} }));
+vi.mock('@/app/actions/order', () => ({ archiveMyOrder: async () => {}, cancelMyOrder: async () => {}, payForOrder: async () => {} }));
 vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {} }));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
@@ -51,8 +51,8 @@ function order(over: Partial<Order> = {}): Order {
   };
 }
 
-async function show() {
-  render(await OrderPage({ params: Promise.resolve({ id: 'ORD-9' }), searchParams: Promise.resolve({ placed: '0' }) }));
+async function show(params: Record<string, string> = {}) {
+  render(await OrderPage({ params: Promise.resolve({ id: 'ORD-9' }), searchParams: Promise.resolve({ placed: '0', ...params }) }));
 }
 
 afterEach(cleanup);
@@ -132,4 +132,31 @@ it('an unpaid card order offers to finish paying or cancel', async () => {
   await show();
   expect(screen.queryByRole('region', { name: 'Payment' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Complete payment' })).toBeNull();
+});
+
+it('an order can be archived, and an archived one says so and can come back', async () => {
+  await show();
+  expect(screen.getByRole('button', { name: 'Archive order' })).toBeInTheDocument();
+  cleanup();
+
+  state.order = order({ archivedAt: '2026-09-02T10:00:00Z' });
+  await show();
+  expect(screen.getByRole('button', { name: 'Unarchive order' })).toBeInTheDocument();
+  expect(screen.getByText(/This order is archived/)).toBeInTheDocument();
+  cleanup();
+
+  await show({ archived: '1' });
+  expect(screen.getByText(/Order archived/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Archived orders' })).toHaveAttribute('href', '/orders?period=archived');
+  cleanup();
+
+  state.order = order();
+  await show({ archived: '0' });
+  expect(screen.getByText('Order unarchived. It’s back in your order list.')).toBeInTheDocument();
+});
+
+it('an unpaid order has nothing to archive', async () => {
+  state.order = order({ status: 'awaiting_payment', placedAt: undefined });
+  await show();
+  expect(screen.queryByRole('button', { name: 'Archive order' })).toBeNull();
 });
