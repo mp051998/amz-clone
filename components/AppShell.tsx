@@ -100,7 +100,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
     {
       heading: 'Help & settings',
       links: [
-        ...(user ? [to('Your account', '/account'), to('Orders', '/orders')] : [{ label: 'Sign in', href: signIn.signInHref }]),
+        ...(user ? [to('Your account', '/account'), to('Orders', '/orders'), to('Saved', '/collections')] : [{ label: 'Sign in', href: signIn.signInHref }]),
         to('Customer service', '/customer-service'),
         ...(admin ? [to('Admin · Catalogue', '/admin/products')] : []),
         key === 'IN' ? { label: 'Shop the United States store (USD)', href: '/' } : { label: 'Shop the India store (INR)', href: '/in' },
