@@ -49,7 +49,7 @@ import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
 import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
-import { listQuestions, type QuestionPage } from '@/lib/data/questions';
+import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/data/questions';
 import type { Product } from '@/lib/types';
 
 type SP = Record<string, string | string[] | undefined>;
@@ -134,7 +134,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus, coupon, questions] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -147,6 +147,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     user ? plusMembership(client) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : couponFor(client, p.id, user != null),
     listQuestions(client, p.id, user?.id ?? null, { limit: 10 }).catch((): QuestionPage => ({ items: [], total: 0 })),
+    countAnsweredQuestions(client, p.id),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -269,11 +270,18 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   <a href={storePath(store, `/s?brand=${encodeURIComponent(p.brand)}`)} className="self-start text-[14px] text-ink-2 no-underline hover:text-accent-ink">{p.brand}</a>
                 ) : null}
                 <h1 className="m-0 text-[clamp(24px,3vw,32px)] font-semibold leading-[1.12] tracking-[-0.01em] text-pretty">{p.title}</h1>
-                <a href="#insight" className="inline-flex min-h-8 items-center gap-1.5 self-start text-[15px] text-ink no-underline">
-                  <Stars rating={rating} size={16} />
-                  <strong className="font-semibold tabular-nums">{rating.toFixed(1)}</strong>
-                  <span className="text-ink-2 underline underline-offset-2">({num(ratingCount)} ratings)</span>
-                </a>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <a href="#insight" className="inline-flex min-h-8 items-center gap-1.5 text-[15px] text-ink no-underline">
+                    <Stars rating={rating} size={16} />
+                    <strong className="font-semibold tabular-nums">{rating.toFixed(1)}</strong>
+                    <span className="text-ink-2 underline underline-offset-2">({num(ratingCount)} ratings)</span>
+                  </a>
+                  {answered ? (
+                    <a href="#questions" className="inline-flex min-h-8 items-center border-l border-line-3 pl-3 text-[15px] text-ink-2 underline underline-offset-2 hover:text-ink">
+                      {num(answered)} answered {answered === 1 ? 'question' : 'questions'}
+                    </a>
+                  ) : null}
+                </div>
                 {p.archived ? null : (
                   <div className="flex flex-wrap items-center gap-2">
                     <MatchBadge match={ranked.match} />

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { DataError } from './errors';
-import { askQuestion, containsPattern, listQuestions } from './questions';
+import { askQuestion, containsPattern, countAnsweredQuestions, listQuestions } from './questions';
 
 type Reply = { data: unknown; error: unknown; count?: number | null };
 
@@ -14,7 +14,7 @@ function fakeDb(replies: Record<string, Reply[]>) {
       const call = { table, ops: [] as [string, unknown[]][] };
       calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'in', 'ilike', 'order', 'range', 'limit']) {
+      for (const m of ['select', 'eq', 'gt', 'in', 'ilike', 'order', 'range', 'limit']) {
         q[m] = (...args: unknown[]) => {
           call.ops.push([m, args]);
           return q;
@@ -92,6 +92,22 @@ it('searches question text and answers', async () => {
   expect(search.ops).toContainEqual(['in', ['question_id', ['q2', 'q3']]]);
   expect(search.ops).toContainEqual(['ilike', ['body', '%battery%']]);
   expect(main.ops).toContainEqual(['in', ['id', ['q1', 'q3']]]);
+});
+
+it('counts answered questions, and reads 0 when it can’t', async () => {
+  const { db, calls } = fakeDb({
+    product_questions: [
+      { data: null, error: null, count: 12 },
+      { data: null, error: { code: 'PGRST205', message: 'missing' } },
+    ],
+  });
+  expect(await countAnsweredQuestions(db, 'p1')).toBe(12);
+  expect(calls[0].ops).toEqual([
+    ['select', ['id', { count: 'exact', head: true }]],
+    ['eq', ['product_id', 'p1']],
+    ['gt', ['answer_count', 0]],
+  ]);
+  expect(await countAnsweredQuestions(db, 'p1')).toBe(0);
 });
 
 it('checks the question length before asking', async () => {
