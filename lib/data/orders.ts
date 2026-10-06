@@ -3,6 +3,7 @@ import type { Market, Order, PaymentMethod } from '../types';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
+import { refundOrder } from './refunds';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -43,20 +44,32 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
 
 const ORDER_SELECT = '*, order_items(*)';
 
-/** The caller's placed orders in a store, newest first. */
+// Orders that were placed or charged: placed ones (cancelled later or not) and card
+// payments that arrived after their stock sold out. Abandoned checkouts are left out.
+const PLACED_OR_CHARGED = 'placed_at.not.is.null,refund_status.not.is.null';
+// Postgres "undefined column": refund_status is missing until the lifecycle migration lands.
+const MISSING_COLUMN = '42703';
+
+/** The caller's placed or charged orders in a store (cancelled ones included), newest first. */
 export async function listOrders(db: Db, market: Market, opts: { limit?: number } = {}): Promise<Order[]> {
-  let q = db
-    .from('orders')
-    .select(ORDER_SELECT)
-    .eq('market_id', market)
-    .eq('status', 'placed')
-    .order('created_at', { ascending: false });
-  if (opts.limit) q = q.limit(opts.limit);
-  return unwrap(await q).map((row) => toOrder(row));
+  const query = (placedOnly: boolean) => {
+    let q = db.from('orders').select(ORDER_SELECT).eq('market_id', market);
+    q = placedOnly ? q.not('placed_at', 'is', null) : q.or(PLACED_OR_CHARGED);
+    q = q.order('created_at', { ascending: false });
+    return opts.limit ? q.limit(opts.limit) : q;
+  };
+  let res = await query(false);
+  if (res.error?.code === MISSING_COLUMN) res = await query(true);
+  return unwrap(res).map((row) => toOrder(row));
 }
 
 export async function countOrders(db: Db, market: Market): Promise<number> {
-  const res = await db.from('orders').select('id', { count: 'exact', head: true }).eq('market_id', market).eq('status', 'placed');
+  const query = (placedOnly: boolean) => {
+    const q = db.from('orders').select('id', { count: 'exact', head: true }).eq('market_id', market);
+    return placedOnly ? q.not('placed_at', 'is', null) : q.or(PLACED_OR_CHARGED);
+  };
+  let res = await query(false);
+  if (res.error?.code === MISSING_COLUMN) res = await query(true);
   unwrap(res);
   return res.count ?? 0;
 }
@@ -72,4 +85,25 @@ export async function cancelPendingOrder(db: Db, id: string): Promise<Order> {
   const json = unwrap(await db.rpc('cancel_pending_order', { p_order_id: id }));
   if (!json) throw new DataError('order_not_found');
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
+/**
+ * Owner cancels an order: an unpaid checkout (stock released, as cancelPendingOrder),
+ * or a placed order that hasn't shipped yet — stock returned, and a card payment
+ * refunded on Stripe. The cancel stands even if the refund fails (admins retry it).
+ */
+export async function cancelOrder(db: Db, id: string): Promise<Order> {
+  const res = await db.rpc('cancel_my_order', { p_order_id: id });
+  // PGRST202: the RPC doesn't exist yet (lifecycle migration not applied)
+  if (res.error?.code === 'PGRST202') return cancelPendingOrder(db, id);
+  const json = unwrap(res);
+  if (!json) throw new DataError('order_not_found');
+  const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  if (order.paymentMethod !== 'card' || order.refund?.status !== 'pending') return order;
+  try {
+    await refundOrder(id);
+  } catch (err) {
+    console.error('[orders] refund after cancel failed', id, err);
+  }
+  return (await getOrder(db, id)) ?? order;
 }

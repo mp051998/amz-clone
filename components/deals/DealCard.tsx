@@ -29,7 +29,7 @@ export function DealCard({ product: p, store, saved = false }: { product: Produc
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {pct > 0 ? (
-            <span className="self-start rounded-tag bg-accent px-[7px] py-[3px] text-[13px] font-bold leading-none text-ink">{pct}% off</span>
+            <span className="self-start rounded-tag bg-accent px-[7px] py-[3px] text-[13px] font-bold leading-none text-on-accent">{pct}% off</span>
           ) : null}
           <a href={href} className="line-clamp-2 text-[15px] font-semibold leading-tight text-ink no-underline hover:text-accent-ink">
             {p.title}

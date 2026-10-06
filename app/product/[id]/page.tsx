@@ -9,26 +9,39 @@ import { Price } from '@/components/primitives/Price';
 import { Stars } from '@/components/primitives/Stars';
 import { Alternatives, type AlternativeCard } from '@/components/product/Alternatives';
 import { BackLink } from '@/components/product/BackLink';
+import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
 import { Gallery } from '@/components/product/Gallery';
+import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
+import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
+import { UnavailablePanel } from '@/components/product/UnavailablePanel';
+import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { readUser } from '@/lib/auth';
 import { getProvider } from '@/lib/ai';
 import { summarizeReviews } from '@/lib/ai/features/reviews';
-import { getProduct } from '@/lib/data/catalog';
+import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { savedProductIds } from '@/lib/data/collections';
 import { messageFor } from '@/lib/data/errors';
 import { deliveryDate } from '@/lib/dates';
 import { decisionConfig } from '@/lib/decision/attributes';
 import { effectiveWeights, readDecisionParams } from '@/lib/decision/params';
+import { shortTitle } from '@/lib/decision/verdict';
 import { rankOne, scoresFor } from '@/lib/decision/rank';
-import { alternativesFor, getInsight } from '@/lib/decision/server';
+import { alternativesFor, boughtTogether, getInsight } from '@/lib/decision/server';
 import type { ProductInsight } from '@/lib/decision/types';
+import { deliverLabel } from '@/lib/deliver-to';
+import { readDeliverTo } from '@/lib/deliver-to-server';
 import { toStoreMinor } from '@/lib/fx';
 import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
+import { siteOrigin } from '@/lib/origin';
+import { zoomImage } from '@/lib/product-images';
+import { recentProducts } from '@/lib/recent-products';
+import { bestsellerRank } from '@/lib/bestseller-rank';
+import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
 import type { Product } from '@/lib/types';
@@ -37,8 +50,21 @@ type SP = Record<string, string | string[] | undefined>;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const p = await getProduct(await db(), id);
-  return { title: p ? `${p.title} · Store` : 'Product · Store' };
+  const p = await getProduct(await db(), id, { includeArchived: true });
+  if (!p) return { title: 'Product · Store' };
+  const title = `${p.title} · Store`;
+  const description = productDescription(p);
+  const images = p.image ? [{ url: zoomImage(p.image), alt: p.title }] : undefined;
+  return {
+    title,
+    description,
+    // one address per product (its own store, no decision params)
+    alternates: { canonical: productUrl(p) },
+    openGraph: { type: 'website', siteName: 'Store', title: p.title, description, url: productUrl(p), locale: p.market === 'IN' ? 'en_IN' : 'en_US', images },
+    twitter: { card: images ? 'summary_large_image' : 'summary', title: p.title, description, images: images?.map((i) => i.url) },
+    // archived products keep their page (links, order history, reviews) but leave search engines
+    ...(p.archived ? { robots: { index: false } } : {}),
+  };
 }
 
 /** Decision params that travel with product links (search → PDP → alternatives). */
@@ -89,7 +115,7 @@ function thingsToKnow(p: Product, insight: ProductInsight | null, warn: string |
 export default async function ProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const client = await db();
-  const p = await getProduct(client, id);
+  const p = await getProduct(client, id, { includeArchived: true });
   if (!p) notFound();
 
   const store = await getMarketplace();
@@ -102,15 +128,20 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
     user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+    getProductInfo(client, p.id),
+    boughtTogether(p, 2, client).catch(() => []),
+    readDeliverTo(store.id),
+    recentProducts(client, store.id, { exclude: [p.id] }),
+    p.archived ? Promise.resolve(null) : bestsellerRank(client, p).catch(() => null),
   ]);
 
   const ranked = rankOne(p, insight, weights);
-  const aiPending = insight?.source !== 'ai' && reviews.page.total > 0 && getProvider() != null;
+  const aiPending = !p.archived && insight?.source !== 'ai' && reviews.page.total > 0 && getProvider() != null;
   if (aiPending) kickAiSummary(p.id);
 
   const cur = store.currency.code;
@@ -130,7 +161,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const confidence: ConfidenceRow[] = [
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
-    { k: 'Returns', v: '30-day refund' },
+    { k: 'Returns', v: `${store.returns.days}-day refund` },
     { k: 'Sold by', v: p.seller },
   ];
 
@@ -140,9 +171,19 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     headline: priceMinor >= threshold ? 'FREE delivery' : `FREE delivery on orders over ${formatMoney(threshold, cur)}`,
     promise: deliveryDate(3, store),
     fastest: deliveryDate(1, store),
-    to: store.id === 'IN' ? 'to Bengaluru 560001' : undefined,
+    to: deliverTo.current ? `to ${deliverLabel(deliverTo.current)}` : undefined,
   };
 
+  const bundleEntries: BundleEntry[] = bundle.length
+    ? [p, ...bundle.map((b) => b.product)].map((x) => ({
+        id: x.id,
+        title: shortTitle(x.title, 12),
+        image: x.image,
+        href: storePath(store, `/product/${encodeURIComponent(x.id)}`),
+        priceMinor: toStoreMinor(x.priceMinor, cur, x.curBase),
+        current: x.id === p.id,
+      }))
+    : [];
   const altCards: AlternativeCard[] = alts.map((a) => ({
     id: a.product.id,
     name: a.product.title,
@@ -154,20 +195,27 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     match: tuned ? a.match : undefined,
   }));
 
+  const bestsellersHref = storePath(store, `/bestsellers?c=${encodeURIComponent(p.category)}`);
   const scores = scoresFor(p, insight);
+  // the info table leads with its own Brand / Author row; the General group repeats it only without one
+  const namesMaker = info.details.some(([k]) => /^(brand|author|manufacturer)$/i.test(k));
+  // with the open group, like Amazon's product details
+  const rankRow = rank ? [{ k: 'Best Sellers Rank', v: <a href={bestsellersHref} className="text-ink underline underline-offset-2">#{num(rank)} in {p.categoryName}</a> }] : [];
   const specs: SpecGroup[] = [
+    { name: 'Product information', open: true, rows: [...info.details.map(([k, v]) => ({ k, v })), ...(info.details.length ? rankRow : [])] },
     {
       name: 'General',
-      open: true,
+      open: !info.details.length,
       rows: [
-        { k: 'Brand', v: p.brand ?? 'Generic' },
+        ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
+        ...(info.details.length ? [] : rankRow),
         { k: 'Sold by', v: p.seller },
         { k: 'Ships from', v: p.shipsFrom },
-        { k: 'Availability', v: p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
+        { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
       ],
     },
-    { name: 'Details', rows: p.bullets.map((b) => ({ v: b })) },
+    { name: 'About this item', rows: p.bullets.map((b) => ({ v: b })) },
     {
       name: 'Scores',
       rows: scoreRows(cfg.attributes.filter((a) => scores[a.key] != null).map((a) => ({ label: a.label, score: scores[a.key] }))),
@@ -179,19 +227,25 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     { label: p.categoryName, href: storePath(store, `/s?dept=${encodeURIComponent(p.category)}`) },
   ];
 
+  const structured = p.archived ? null : productJsonLd(p, await siteOrigin(), { rating, count: ratingCount });
+
   return (
     <AppShell>
-      <RecordView productId={p.id} />
+      {structured ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(structured) }} /> : null}
+      {p.archived ? null : <RecordView productId={p.id} />}
       <div className="mx-auto flex w-full max-w-page flex-col gap-11 px-[clamp(16px,3vw,24px)] pb-10 pt-[22px]">
         <div className="flex flex-col gap-[18px]">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <BackLink fallbackHref={storePath(store, '/s')} />
-            <Breadcrumbs trail={trail} className="hidden sm:block" />
+            <div className="flex items-center gap-3">
+              <Breadcrumbs trail={trail} className="hidden sm:block" />
+              {p.archived ? null : <ShareButton title={p.title} path={productUrl(p)} image={p.image ? zoomImage(p.image) : undefined} />}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-start gap-7">
             <div className="min-w-0 flex-[1_1_400px] max-sm:basis-full">
-              <Gallery images={p.image ? [p.image] : []} alt={p.title} />
+              <Gallery images={[p.image, ...info.gallery].filter(Boolean)} alt={p.title} />
             </div>
 
             <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-[18px] max-sm:basis-full">
@@ -205,18 +259,40 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   <strong className="font-semibold tabular-nums">{rating.toFixed(1)}</strong>
                   <span className="text-ink-2 underline underline-offset-2">({num(ratingCount)} ratings)</span>
                 </a>
-                <div className="flex flex-wrap items-center gap-2">
-                  <MatchBadge match={ranked.match} />
-                  <span className="text-[13px] text-ink-3">{tuned ? 'for your priorities' : `for typical ${cfg.noun} priorities`}</span>
-                </div>
+                {p.archived ? null : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MatchBadge match={ranked.match} />
+                    <span className="text-[13px] text-ink-3">{tuned ? 'for your priorities' : `for typical ${cfg.noun} priorities`}</span>
+                  </div>
+                )}
+                {rank === 1 ? (
+                  <a href={bestsellersHref} className="inline-flex items-center gap-1.5 self-start text-[13px] text-ink-2 no-underline hover:text-ink">
+                    <span className="rounded-tag bg-ink px-1.5 py-0.5 text-[12px] font-bold text-on-ink">#1 Best Seller</span>{' '}
+                    <span>in <span className="underline underline-offset-2">{p.categoryName}</span></span>
+                  </a>
+                ) : null}
                 {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
               </div>
 
-              <div className="flex flex-col gap-1 border-t border-line pt-4">
-                <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
-                {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
-                {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
-              </div>
+              {p.archived ? null : (
+                <div className="flex flex-col gap-1 border-t border-line pt-4">
+                  <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
+                  {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+                  {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
+                </div>
+              )}
+
+              {info.variants ? (
+                <VariantPicker
+                  axis={info.variants.axis}
+                  label={info.variants.label}
+                  options={info.variants.options.map((o) => ({
+                    ...o,
+                    href: storePath(store, `/product/${encodeURIComponent(o.id)}${qs}`),
+                    priceText: money(o.priceMinor),
+                  }))}
+                />
+              ) : null}
 
               {prosFor(p, insight, ranked.why).length ? (
                 <div className="flex flex-col gap-2">
@@ -236,22 +312,34 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             </div>
 
             <aside aria-label="Buy" className="min-w-0 flex-[1_1_280px] max-sm:basis-full">
-              <BuyPanel
-                productId={p.id}
-                name={p.title}
-                image={p.image}
-                category={p.category}
-                categoryName={p.categoryName}
-                market={store.id}
-                stock={p.stock}
-                saved={saved.has(p.id)}
-                delivery={delivery}
-                confidence={{ level, rows: confidence }}
-                error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
-              />
+              {p.archived ? (
+                <UnavailablePanel categoryName={p.categoryName} categoryHref={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} />
+              ) : (
+                <BuyPanel
+                  productId={p.id}
+                  name={p.title}
+                  image={p.image}
+                  category={p.category}
+                  categoryName={p.categoryName}
+                  market={store.id}
+                  stock={p.stock}
+                  saved={saved.has(p.id)}
+                  delivery={delivery}
+                  confidence={{ level, rows: confidence }}
+                  error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
+                />
+              )}
             </aside>
           </div>
         </div>
+
+        {bundleEntries.length > 1 ? (
+          <section aria-labelledby="fbt-h" className="flex max-w-[980px] flex-col gap-3">
+            {/* only order data earns "Frequently bought together"; rules picks are just suggestions */}
+            <h2 id="fbt-h" className="m-0 text-[22px] font-semibold">{bundle.every((b) => b.source === 'orders') ? 'Frequently bought together' : 'Goes well with this'}</h2>
+            <BoughtTogether productId={p.id} items={bundleEntries} currency={cur} />
+          </section>
+        ) : null}
 
         <Reviews
           data={reviews}
@@ -267,7 +355,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
         {altCards.length ? (
           <section aria-labelledby="alts-h" className="flex flex-col gap-3.5">
-            <h2 id="alts-h" className="m-0 text-[22px] font-semibold">Often compared with</h2>
+            <h2 id="alts-h" className="m-0 text-[22px] font-semibold">{p.archived ? 'Similar items on sale' : 'Often compared with'}</h2>
             <Alternatives base={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} items={altCards} />
           </section>
         ) : null}
@@ -276,6 +364,15 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <h2 id="specs-h" className="m-0 text-[22px] font-semibold">Specifications</h2>
           <Specs groups={specs} />
         </section>
+
+        {info.description ? (
+          <section aria-labelledby="desc-h" className="flex max-w-[860px] flex-col gap-3">
+            <h2 id="desc-h" className="m-0 text-[22px] font-semibold">Product description</h2>
+            <p className="m-0 whitespace-pre-line text-[15px] leading-relaxed text-ink-2 text-pretty">{info.description}</p>
+          </section>
+        ) : null}
+
+        <BrowsingHistory products={recent} store={store} />
       </div>
     </AppShell>
   );

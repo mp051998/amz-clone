@@ -1,5 +1,5 @@
 'use client';
-import { useActionState, useEffect, useId, useState, type ReactNode } from 'react';
+import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { ProductFormState } from '@/app/admin/actions';
 import { Alert } from '../primitives/Alert';
@@ -9,6 +9,7 @@ import { Input } from '../primitives/Input';
 import { Select } from '../primitives/Select';
 import { fieldClass } from '../lib/controls';
 import { cn } from '../lib/cn';
+import { GalleryField } from './GalleryField';
 
 /** Form values as strings (prices in major units, bullets one per line). */
 export interface ProductFormValues {
@@ -24,7 +25,24 @@ export interface ProductFormValues {
   seller: string;
   shipsFrom: string;
   bullets: string;
+  description: string;
+  /** "Label: value", one row per line. */
+  details: string;
   stock: string;
+  /** extra image URLs, one per line. */
+  gallery: string;
+  variantGroup: string;
+  variantAxis: string;
+  variantLabel: string;
+}
+
+/** Another product in this one's variant group (edit page). */
+export interface VariantSibling {
+  id: string;
+  label: string;
+  title: string;
+  href: string;
+  archived: boolean;
 }
 
 export interface ProductFormProps {
@@ -35,6 +53,13 @@ export interface ProductFormProps {
   currencySymbol: string;
   submitLabel: string;
   cancelHref: string;
+  galleryMax: number;
+  /** the store's variant groups, for suggestions (and to fill in their option name). */
+  variantGroups: { group: string; axis: string; count: number }[];
+  variantAxes: string[];
+  siblings?: VariantSibling[];
+  /** "add another option" link for a grouped product (edit page). */
+  addOptionHref?: string;
 }
 
 function Submit({ children }: { children: string }) {
@@ -59,13 +84,32 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  * Add / edit a product (admin). Validation errors come back from the server action with the
  * submitted values, so nothing typed is lost; a chosen image file has to be picked again.
  */
-export function ProductForm({ action, initial, categories, badges, currencySymbol, submitLabel, cancelHref }: ProductFormProps) {
+export function ProductForm({
+  action,
+  initial,
+  categories,
+  badges,
+  currencySymbol,
+  submitLabel,
+  cancelHref,
+  galleryMax,
+  variantGroups,
+  variantAxes,
+  siblings = [],
+  addOptionHref,
+}: ProductFormProps) {
   const [state, formAction] = useActionState(action, {});
   const v = state.values;
   const val = (k: Exclude<keyof ProductFormValues, 'deal'>) => v?.[k] ?? initial[k];
   const e = state.errors ?? {};
   const bulletsId = useId();
+  const descriptionId = useId();
+  const detailsId = useId();
   const badgeList = useId();
+  const groupList = useId();
+  const axisList = useId();
+  const axisRef = useRef<HTMLInputElement>(null);
+  const gallery = val('gallery').split('\n').filter(Boolean);
 
   const [preview, setPreview] = useState<string | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -115,7 +159,7 @@ export function ProductForm({ action, initial, categories, badges, currencySymbo
             </div>
           </Group>
 
-          <Group title="Key features">
+          <Group title="Product details">
             <div className="flex flex-col gap-1.5">
               <label htmlFor={bulletsId} className="text-[14px] font-semibold">About this item</label>
               <textarea
@@ -128,6 +172,79 @@ export function ProductForm({ action, initial, categories, badges, currencySymbo
               />
               {e.bullets ? <span className="text-[13px] text-bad">⚠ {e.bullets}</span> : <span className="text-[13px] text-ink-3">One point per line, up to 10.</span>}
             </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={descriptionId} className="text-[14px] font-semibold">Product description</label>
+              <textarea
+                id={descriptionId}
+                name="description"
+                rows={4}
+                maxLength={2000}
+                defaultValue={val('description')}
+                aria-invalid={e.description ? true : undefined}
+                className={cn(fieldClass, 'h-auto py-2.5 leading-normal', e.description && 'border-bad')}
+              />
+              {e.description ? <span className="text-[13px] text-bad">⚠ {e.description}</span> : <span className="text-[13px] text-ink-3">Optional. A short paragraph under the specifications.</span>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={detailsId} className="text-[14px] font-semibold">Product information</label>
+              <textarea
+                id={detailsId}
+                name="details"
+                rows={7}
+                defaultValue={val('details')}
+                placeholder={'Brand: Acme\nColor: Black\nItem weight: 1.2 lb'}
+                aria-invalid={e.details ? true : undefined}
+                className={cn(fieldClass, 'h-auto py-2.5 font-mono text-[13px] leading-normal', e.details && 'border-bad')}
+              />
+              {e.details ? <span className="text-[13px] text-bad">⚠ {e.details}</span> : <span className="text-[13px] text-ink-3">One “Label: value” per line, up to 20. Shown as a table on the product page.</span>}
+            </div>
+          </Group>
+
+          <Group title="Variants">
+            <p className="m-0 text-[14px] text-ink-2">
+              Products that share a group show as options of each other on their pages (e.g. Color: Black, Blue). Each keeps its own price, stock and reviews.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Input
+                label="Group"
+                name="variantGroup"
+                list={groupList}
+                maxLength={60}
+                defaultValue={val('variantGroup')}
+                error={e.variantGroup}
+                hint="Optional, e.g. sony-wh-ch520"
+                autoCapitalize="none"
+                spellCheck={false}
+                onChange={(ev) => {
+                  // joining a known group: use its option name
+                  const g = variantGroups.find((x) => x.group === ev.currentTarget.value.trim().toLowerCase());
+                  if (g && axisRef.current) axisRef.current.value = g.axis;
+                }}
+              />
+              <datalist id={groupList}>
+                {variantGroups.map((g) => <option key={g.group} value={g.group}>{`${g.axis} · ${g.count} product${g.count === 1 ? '' : 's'}`}</option>)}
+              </datalist>
+              <Input ref={axisRef} label="Option name" name="variantAxis" list={axisList} maxLength={30} defaultValue={val('variantAxis')} error={e.variantAxis} hint="e.g. Color or Size" />
+              <datalist id={axisList}>{variantAxes.map((a) => <option key={a} value={a} />)}</datalist>
+              <Input label="This product’s option" name="variantLabel" maxLength={60} defaultValue={val('variantLabel')} error={e.variantLabel} hint="e.g. Black" />
+            </div>
+            {siblings.length ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-[14px] font-semibold">Other options in this group</span>
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-[14px]">
+                  {siblings.map((s) => (
+                    <li key={s.id} className="flex flex-wrap items-baseline gap-x-2">
+                      <a href={s.href} className="font-semibold underline underline-offset-2">{s.label}</a>
+                      <span className="min-w-0 truncate text-ink-3">{s.title}</span>
+                      {s.archived ? <span className="text-[13px] text-ink-3">(archived, hidden)</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {addOptionHref ? (
+              <a href={addOptionHref} className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Add another option</a>
+            ) : null}
           </Group>
         </div>
 
@@ -154,6 +271,11 @@ export function ProductForm({ action, initial, categories, badges, currencySymbo
               <span className="text-[13px] text-ink-3">JPEG, PNG or WebP, up to 3 MB.</span>
             </div>
             <Input label="Or image URL" name="image" defaultValue={val('image')} error={e.image} placeholder="https://…" hint="Used when no file is uploaded." />
+          </Group>
+
+          <Group title="More images">
+            {/* re-seeded from the server's echo after a failed save */}
+            <GalleryField key={v?.gallery ?? 'initial'} initial={gallery} max={galleryMax} error={e.gallery} />
           </Group>
 
           <div className="flex flex-wrap items-center gap-3">

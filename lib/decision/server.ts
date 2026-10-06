@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Db } from '../db/client';
-import { listProducts, searchCatalog } from '../data/catalog';
+import { getProducts, listProducts, searchCatalog } from '../data/catalog';
 import { getInsight as readInsight, getInsights } from '../data/insights';
 import { formatMoney } from '../marketplaces';
 import { PAGE_SIZE, type SortKey } from '../search';
@@ -11,6 +11,7 @@ import { pricePercentiles } from './derive';
 import { kindMatch, productKind, sameKind } from './kind';
 import { rankProducts, scoresFor, type RankSort } from './rank';
 import type { ParsedQuery, ProductInsight, RankedProduct, Weights } from './types';
+import { foldVariants } from '../variants';
 import { shortTitle } from './verdict';
 
 /**
@@ -91,8 +92,9 @@ export async function rankedSearch(
   }
   const insights = await getInsights(db, products.map((p) => p.id));
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);
-  const items = rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' });
-  return { items, total: items.length, candidates: products.length };
+  // one card per variant group: its best-ranked option (within budget, if any)
+  const items = foldVariants(rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' }), (r) => r.product);
+  return { items, total: items.length, candidates: foldVariants(products).length };
 }
 
 /** A product's stored insight (public), or null. */
@@ -136,6 +138,8 @@ export async function alternativesFor(product: Product, n = 3, weights?: Weights
   const pool = await listProducts(db, product.market, { category: product.category, excludeId: product.id, order: 'popular', limit: CANDIDATE_LIMIT });
   // category is broad (headphones vs smartwatches) — keep to the same sort of product
   const near = sameKind(product.title, pool)
+    // another option of the same product isn't an alternative (the page offers those as variants)
+    .filter((p) => !product.variant || p.variant?.group !== product.variant.group)
     .filter((p) => p.priceMinor >= product.priceMinor * 0.5 && p.priceMinor <= product.priceMinor * 1.5 && p.stock > 0)
     .sort(
       (a, b) =>
@@ -162,14 +166,17 @@ export async function alternativesFor(product: Product, n = 3, weights?: Weights
 /** Where accessories for a category come from. */
 const ACCESSORY_CATEGORIES: Record<string, string[]> = {
   electronics: ['electronics', 'mobiles'],
+  wearables: ['wearables', 'electronics'],
   computers: ['electronics', 'computers'],
-  mobiles: ['electronics', 'mobiles'],
-  'home-kitchen': ['home-kitchen'],
+  mobiles: ['electronics', 'mobiles', 'wearables'],
+  'home-kitchen': ['home-kitchen', 'kitchen-appliances'],
+  'kitchen-appliances': ['kitchen-appliances', 'home-kitchen'],
   fashion: ['fashion', 'sports'],
   beauty: ['beauty'],
   books: ['books'],
   toys: ['toys', 'books'],
-  sports: ['sports', 'fashion'],
+  sports: ['sports', 'yoga', 'fashion'],
+  yoga: ['yoga', 'sports'],
 };
 
 /** Round a price up to a friendly ceiling: 1/2/2.5/5 × 10^k major units (minor in, minor out). */
@@ -225,6 +232,39 @@ export async function accessoriesFor(cartProducts: Product[], n = 4, c?: Db): Pr
       seen.add(hit.p.id);
       const ceiling = formatMoney(niceCeiling(hit.p.priceMinor), hit.p.curBase);
       out.push({ product: hit.p, reason: `Goes with your ${shortTitle(hit.anchor.title)} · under ${ceiling}` });
+    }
+  }
+  return out;
+}
+
+export interface BundleItem extends Accessory {
+  /** `orders`: shoppers bought them together; `rules`: a likely accessory (no order signal yet) */
+  source: 'orders' | 'rules';
+}
+
+/**
+ * "Frequently bought together" for a product page: what shoppers put in the same order (from
+ * `bought_together()`, which needs two different shoppers per pair), topped up with likely
+ * accessories while there aren't enough orders. In stock, same store, never the product's own
+ * options.
+ */
+export async function boughtTogether(product: Product, n = 2, c?: Db): Promise<BundleItem[]> {
+  if (product.archived || product.stock <= 0) return [];
+  const db = await client(c);
+  const res = await db.rpc('bought_together', { p_product_id: product.id, p_limit: n });
+  const pairs = res.error ? [] : ((res.data ?? []) as { id: string; shoppers: number }[]); // not migrated yet: rules only
+  const sameGroup = (p: Product) => Boolean(product.variant && p.variant?.group === product.variant.group);
+  const bought = (await getProducts(db, pairs.map((x) => x.id)))
+    .filter((p) => p.market === product.market && p.stock > 0 && !p.archived && !sameGroup(p))
+    .map((p): BundleItem => ({ product: p, reason: 'Often bought together', source: 'orders' }));
+  const out = foldVariants(bought, (b) => b.product).slice(0, n);
+  if (out.length < n) {
+    const have = new Set([product.id, ...out.map((b) => b.product.id)]);
+    for (const a of await accessoriesFor([product], n + 2, db)) {
+      if (out.length >= n) break;
+      if (have.has(a.product.id) || sameGroup(a.product)) continue;
+      have.add(a.product.id);
+      out.push({ ...a, source: 'rules' });
     }
   }
   return out;

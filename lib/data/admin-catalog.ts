@@ -1,13 +1,19 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type { Db } from '../db/client';
+import { decisionConfig } from '../decision/attributes';
+import { deriveInsight, pricePercentiles } from '../decision/derive';
+import { DETAIL_LIMITS, toDetailRows, type DetailRow } from '../product-details';
 import type { Market } from '../types';
+import { getProduct } from './catalog';
 import { DataError, fromPostgrest, unwrap } from './errors';
+import { upsertInsight } from './insights';
 
 /**
  * Catalog management for store admins (/admin, /api/v1/admin). Every write runs with the caller's
  * client, so the database decides: products and product-images only accept writes from users in
  * public.admins (supabase/migrations/20260929090000_admin.sql). Non-admins get `forbidden`.
+ * Products are archived rather than deleted once ordered (20260930090000_catalog_admin.sql).
  */
 
 export const PRODUCT_IMAGE_BUCKET = 'product-images';
@@ -47,13 +53,31 @@ export interface ProductInput {
   seller: string;
   shipsFrom: string;
   bullets: string[];
+  /** the "Product description" paragraph. */
+  description: string | null;
+  /** the "Product information" table, most important row first. */
+  details: DetailRow[];
   stock: number;
+  /** more images after the main one, in order (up to 8). */
+  gallery: string[];
+  /** products of a store sharing this key show as options of each other; null when it has none. */
+  variantGroup: string | null;
+  /** what the options differ by, e.g. "Color" (the same across a group). */
+  variantAxis: string | null;
+  /** this product's option, e.g. "Black" (unique within its group). */
+  variantLabel: string | null;
 }
+
+export const GALLERY_MAX = 8;
+/** Option names the form suggests; any short name works. */
+export const VARIANT_AXES = ['Color', 'Size', 'Style', 'Capacity', 'Configuration', 'Pattern', 'Pack size'];
 
 const required = (label: string, max: number) =>
   z.string().trim().min(1, `Enter ${label}`).max(max, `Keep it under ${max} characters`);
 const optional = (max: number) =>
   z.string().trim().max(max, `Keep it under ${max} characters`).nullable().transform((v) => v || null);
+
+const IMAGE_URL = /^(\/products\/[A-Za-z0-9._/-]+|https:\/\/\S+)$/;
 
 const ProductInputSchema = z
   .object({
@@ -64,7 +88,7 @@ const ProductInputSchema = z
       .string()
       .trim()
       .max(500, 'Keep it under 500 characters')
-      .regex(/^(\/products\/[A-Za-z0-9._/-]+|https:\/\/\S+)$/, 'Upload an image or paste an https:// image URL'),
+      .regex(IMAGE_URL, 'Upload an image or paste an https:// image URL'),
     priceMinor: z.number().int('Enter a price').positive('Price must be more than 0').max(100_000_000, 'That price is too high'),
     listMinor: z.number().int().positive().max(100_000_000).nullable(),
     deal: z.boolean(),
@@ -73,9 +97,45 @@ const ProductInputSchema = z
     seller: required('the seller', 120),
     shipsFrom: required('where it ships from', 120),
     bullets: z.array(z.string().trim().min(1).max(300, 'Keep each point under 300 characters')).max(10, 'Up to 10 points'),
+    description: optional(DETAIL_LIMITS.description).default(null),
+    details: z
+      .array(
+        z.tuple([
+          z.string().trim().min(1, 'Every row needs a label').max(DETAIL_LIMITS.label, `Keep labels under ${DETAIL_LIMITS.label} characters`),
+          z.string().trim().min(1, 'Every row needs a value').max(DETAIL_LIMITS.value, `Keep values under ${DETAIL_LIMITS.value} characters`),
+        ]),
+      )
+      .max(DETAIL_LIMITS.rows, `Up to ${DETAIL_LIMITS.rows} rows`)
+      .default([]),
     stock: z.number().int('Enter a whole number').min(0, 'Stock can’t be negative').max(1_000_000, 'That’s a lot of stock'),
+    gallery: z
+      .array(z.string().trim().max(500, 'Keep image URLs under 500 characters').regex(IMAGE_URL, 'Gallery images need an https:// URL'))
+      .max(GALLERY_MAX, `Up to ${GALLERY_MAX} more images`)
+      .default([]),
+    variantGroup: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(60, 'Keep it under 60 characters')
+      .regex(/^([a-z0-9][a-z0-9-]*)?$/, 'Use lowercase letters, numbers and dashes, e.g. sony-wh-ch520')
+      .nullable()
+      .default(null)
+      .transform((v) => v || null),
+    variantAxis: optional(30).default(null),
+    variantLabel: optional(60).default(null),
   })
+  .transform((v) => ({
+    ...v,
+    // the main image isn't repeated, nor any image twice
+    gallery: [...new Set(v.gallery)].filter((g) => g !== v.image),
+    // without a group the option fields mean nothing; with one, the option name defaults to Style
+    variantAxis: v.variantGroup ? v.variantAxis ?? 'Style' : null,
+    variantLabel: v.variantGroup ? v.variantLabel : null,
+  }))
   .superRefine((v, ctx) => {
+    if (v.variantGroup && !v.variantLabel) {
+      ctx.addIssue({ code: 'custom', path: ['variantLabel'], message: 'Name this product’s option, e.g. Black' });
+    }
     if (v.listMinor != null && v.listMinor <= v.priceMinor) {
       ctx.addIssue({ code: 'custom', path: ['listMinor'], message: 'The list price must be higher than the price' });
     }
@@ -133,7 +193,13 @@ function toRow(p: ProductInput) {
     seller: p.seller,
     ships_from: p.shipsFrom,
     bullets: p.bullets,
+    description: p.description,
+    details: p.details,
     stock: p.stock,
+    gallery: p.gallery,
+    variant_group: p.variantGroup,
+    variant_axis: p.variantAxis,
+    variant_label: p.variantLabel,
   };
 }
 
@@ -159,6 +225,8 @@ export interface AdminProductSummary {
   deal: boolean;
   stock: number;
   updatedAt: string;
+  /** when it was taken off sale; null while on sale. */
+  archivedAt: string | null;
 }
 
 export interface AdminProductPage {
@@ -170,17 +238,25 @@ export interface AdminProductPage {
 
 export const ADMIN_PAGE_SIZE = 25;
 
-const SUMMARY = 'id, title, brand, image, category_slug, price_minor, list_minor, deal, stock, updated_at, categories(name)';
+const SUMMARY = 'id, title, brand, image, category_slug, price_minor, list_minor, deal, stock, updated_at, archived_at, categories(name)';
 
-/** A store's products, most recently changed first; `q` matches the title or id. */
+/** On sale, or taken off sale (archived). */
+export type ProductStatus = 'active' | 'archived';
+
+export function productStatus(v: string | null | undefined): ProductStatus {
+  return v === 'archived' ? 'archived' : 'active';
+}
+
+/** A store's products in one status, most recently changed first; `q` matches the title or id. */
 export async function listAdminProducts(
   db: Db,
   market: Market,
-  opts: { q?: string; category?: string; page?: number; pageSize?: number } = {},
+  opts: { q?: string; category?: string; status?: ProductStatus; page?: number; pageSize?: number } = {},
 ): Promise<AdminProductPage> {
   const size = opts.pageSize ?? ADMIN_PAGE_SIZE;
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   let q = db.from('products').select(SUMMARY, { count: 'exact' }).eq('market_id', market);
+  q = opts.status === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null);
   if (opts.category) q = q.eq('category_slug', opts.category);
   const term = opts.q?.trim().slice(0, 100);
   if (term) {
@@ -206,6 +282,7 @@ export async function listAdminProducts(
       deal: r.deal,
       stock: r.stock,
       updatedAt: r.updated_at,
+      archivedAt: r.archived_at,
     })),
     total,
     page,
@@ -213,11 +290,25 @@ export async function listAdminProducts(
   };
 }
 
+/** Products per status in a store (for the Active / Archived tabs). */
+export async function countAdminProducts(db: Db, market: Market): Promise<Record<ProductStatus, number>> {
+  const count = async (status: ProductStatus) => {
+    let q = db.from('products').select('id', { count: 'exact', head: true }).eq('market_id', market);
+    q = status === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null);
+    const { count: n, error } = await q;
+    if (error) throw fromPostgrest(error);
+    return n ?? 0;
+  };
+  const [active, archived] = await Promise.all([count('active'), count('archived')]);
+  return { active, archived };
+}
+
 export interface AdminProduct extends ProductInput {
   id: string;
   market: Market;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
 }
 
 export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct | null> {
@@ -238,10 +329,24 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     seller: r.seller,
     shipsFrom: r.ships_from,
     bullets: r.bullets,
+    description: r.description,
+    details: toDetailRows(r.details),
     stock: r.stock,
+    gallery: r.gallery ?? [],
+    variantGroup: r.variant_group ?? null,
+    variantAxis: r.variant_axis ?? null,
+    variantLabel: r.variant_label ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    archivedAt: r.archived_at,
   };
+}
+
+/** Whether any order includes the product (then it can be archived, not deleted). Admins only. */
+export async function productHasOrders(db: Db, id: string): Promise<boolean> {
+  const { data, error } = await db.rpc('product_has_orders', { p_product_id: id });
+  if (error) throw fromPostgrest(error);
+  return data === true;
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +355,7 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
 
 /** Add a product to a store (placed last in catalog order). Returns its id. */
 export async function createProduct(db: Db, market: Market, input: unknown): Promise<string> {
-  const p = parse(input);
+  const p = await checkVariantGroup(db, market, null, parse(input));
   const last = unwrap(
     await db.from('products').select('position').eq('market_id', market).order('position', { ascending: false }).limit(1).maybeSingle(),
   );
@@ -260,15 +365,101 @@ export async function createProduct(db: Db, market: Market, input: unknown): Pro
     .insert({ id, market_id: market, position: (last?.position ?? -1) + 1, ...toRow(p) })
     .select('id')
     .single();
-  if (res.error) throw fromPostgrest(res.error);
+  if (res.error) throw writeError(res.error);
+  await refreshInsight(db, res.data.id, true);
   return res.data.id;
 }
 
-/** Replace a product's editable fields (its id and store never change). */
+/**
+ * Replace a product's editable fields (its id and store never change). A new category or new
+ * wording re-derives its rules insight (see `refreshInsight`).
+ */
 export async function updateProduct(db: Db, id: string, input: unknown): Promise<void> {
-  const p = parse(input);
-  const row = unwrap(await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle());
+  const before = unwrap(await db.from('products').select('market_id, category_slug, title, brand, bullets').eq('id', id).maybeSingle());
   // RLS hides the row from non-admins, so "no row" is either missing or not allowed
+  if (!before) throw new DataError('product_not_found');
+  const p = await checkVariantGroup(db, before.market_id as Market, id, parse(input));
+  const updated = await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle();
+  if (updated.error) throw writeError(updated.error);
+  if (!updated.data) throw new DataError('product_not_found');
+  const moved = before.category_slug !== p.category;
+  const reworded = before.title !== p.title || before.brand !== p.brand || before.bullets.join('\n') !== p.bullets.join('\n');
+  if (moved || reworded) await refreshInsight(db, id, moved);
+}
+
+/**
+ * A group's option name is shared: joining a group means using its name (Color, Size, …), spelled
+ * as the group already does. Labels are unique per group (products_variant_label_key), checked
+ * here for a clear message too. Returns the input with the group's spelling.
+ */
+async function checkVariantGroup(db: Db, market: Market, id: string | null, p: ProductInput): Promise<ProductInput> {
+  if (!p.variantGroup) return p;
+  let q = db.from('products').select('id, variant_axis, variant_label').eq('market_id', market).eq('variant_group', p.variantGroup);
+  if (id) q = q.neq('id', id);
+  const others = unwrap(await q);
+  const axis = others.find((o) => o.variant_axis)?.variant_axis;
+  if (axis && axis.toLowerCase() !== p.variantAxis?.toLowerCase()) {
+    throw new DataError('invalid_input', 'variantAxis', `Products in this group use “${axis}”`);
+  }
+  if (others.some((o) => o.variant_label?.toLowerCase() === p.variantLabel?.toLowerCase())) {
+    throw new DataError('invalid_input', 'variantLabel', 'Another product in this group already uses that option');
+  }
+  return axis ? { ...p, variantAxis: axis } : p;
+}
+
+/** A failed product write: a duplicate option label (a race past the check) reads as a field error. */
+function writeError(err: { code?: string; message: string; details?: string | null }): DataError {
+  if (err.code === '23505' && /products_variant_label_key/.test(err.message)) {
+    return new DataError('invalid_input', 'variantLabel', 'Another product in this group already uses that option');
+  }
+  return fromPostgrest(err as Parameters<typeof fromPostgrest>[0]);
+}
+
+/** A store's variant groups with their option name and size, for the product form's suggestions. */
+export async function listVariantGroups(db: Db, market: Market): Promise<{ group: string; axis: string; count: number }[]> {
+  const res = await db.from('products').select('variant_group, variant_axis').eq('market_id', market).not('variant_group', 'is', null);
+  if (res.error) return []; // suggestions only (or the columns aren't deployed yet)
+  const groups = new Map<string, { group: string; axis: string; count: number }>();
+  for (const r of res.data) {
+    const g = groups.get(r.variant_group!) ?? { group: r.variant_group!, axis: r.variant_axis ?? 'Style', count: 0 };
+    g.count += 1;
+    groups.set(g.group, g);
+  }
+  return [...groups.values()].sort((a, b) => a.group.localeCompare(b.group));
+}
+
+/** The other products in a variant group (archived ones too; the storefront hides those). */
+export async function listVariantSiblings(
+  db: Db,
+  market: Market,
+  group: string,
+  exceptId: string,
+): Promise<{ id: string; title: string; label: string; archived: boolean }[]> {
+  const rows = unwrap(
+    await db.from('products').select('id, title, variant_label, archived_at').eq('market_id', market).eq('variant_group', group).neq('id', exceptId),
+  );
+  const byLabel = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+  return rows
+    .map((r) => ({ id: r.id, title: r.title, label: r.variant_label ?? '', archived: r.archived_at != null }))
+    .sort((a, b) => byLabel.compare(a.label, b.label));
+}
+
+/**
+ * Take a product off sale (`archived`) or put it back. Archived products leave every listing and
+ * can't be added to carts or saved lists; their page, reviews and order history stay.
+ */
+export async function setArchived(db: Db, id: string, archived: boolean): Promise<void> {
+  const current = await getAdminProduct(db, id);
+  if (!current) throw new DataError('product_not_found');
+  if ((current.archivedAt != null) === archived) return; // keep the original archive date
+  const row = unwrap(
+    await db
+      .from('products')
+      .update({ archived_at: archived ? new Date().toISOString() : null })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle(),
+  );
   if (!row) throw new DataError('product_not_found');
 }
 
@@ -280,17 +471,60 @@ export async function deleteProduct(db: Db, id: string): Promise<void> {
   if (!res.data.length) throw new DataError('product_not_found');
 }
 
+/**
+ * Re-derive a product's rules insight after an admin save, so its scores use its category's
+ * attributes and its current wording. `replaceAi` (a new product, or one moved to another
+ * category) also replaces an AI insight, whose attributes would belong to the old category;
+ * otherwise only a rules insight (or none) is rewritten. Best effort: the product is already
+ * saved, and pages score a product without an insight live from the same rules.
+ */
+export async function refreshInsight(db: Db, id: string, replaceAi: boolean): Promise<boolean> {
+  try {
+    const product = await getProduct(db, id, { includeArchived: true });
+    if (!product) return false;
+    if (!replaceAi) {
+      const current = unwrap(await db.from('product_insights').select('source').eq('product_id', id).maybeSingle());
+      if (current && current.source !== 'rules') return false;
+    }
+    // price rank among the store's other products in the category
+    const peers = unwrap(
+      await db
+        .from('products')
+        .select('id, price_minor')
+        .eq('market_id', product.market)
+        .eq('category_slug', product.category)
+        .is('archived_at', null),
+    );
+    const pct = pricePercentiles([
+      ...peers.filter((r) => r.id !== id).map((r) => ({ id: r.id, category: product.category, priceMinor: r.price_minor })),
+      { id, category: product.category, priceMinor: product.priceMinor },
+    ]);
+    await upsertInsight(db, deriveInsight(product, decisionConfig(product.category), { pricePercentile: pct.get(id) ?? 0.5 }));
+    return true;
+  } catch (err) {
+    console.warn(`[admin] insight refresh skipped for ${id}:`, (err as Error).message);
+    return false;
+  }
+}
+
+/** Why an image file can't be used (type or size), or null when it can. */
+export function imageFileError(file: File): string | null {
+  if (!IMAGE_TYPES[file.type]) return 'Use a JPEG, PNG or WebP image';
+  if (file.size > PRODUCT_IMAGE_MAX_BYTES) return 'Images can be up to 3 MB';
+  return null;
+}
+
 /** Store an uploaded image in the public product-images bucket; returns its public URL. */
-export async function uploadProductImage(db: Db, market: Market, file: File): Promise<string> {
+export async function uploadProductImage(db: Db, market: Market, file: File, field: 'image' | 'gallery' = 'image'): Promise<string> {
+  const bad = imageFileError(file);
+  if (bad) throw new DataError('invalid_input', field, bad);
   const ext = IMAGE_TYPES[file.type];
-  if (!ext) throw new DataError('invalid_input', 'image', 'Use a JPEG, PNG or WebP image');
-  if (file.size > PRODUCT_IMAGE_MAX_BYTES) throw new DataError('invalid_input', 'image', 'Images can be up to 3 MB');
   const path = `${market.toLowerCase()}/${randomBytes(12).toString('hex')}.${ext}`;
   const bucket = db.storage.from(PRODUCT_IMAGE_BUCKET);
   const { error } = await bucket.upload(path, file, { contentType: file.type, upsert: false });
   if (error) {
-    if (/row-level security|unauthorized/i.test(error.message)) throw new DataError('forbidden', 'image');
-    throw new DataError('invalid_input', 'image', 'The image could not be uploaded. Try again, or paste an image URL.');
+    if (/row-level security|unauthorized/i.test(error.message)) throw new DataError('forbidden', field);
+    throw new DataError('invalid_input', field, 'The image could not be uploaded. Try again, or paste an image URL.');
   }
   return bucket.getPublicUrl(path).data.publicUrl;
 }

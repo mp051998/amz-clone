@@ -5,6 +5,7 @@ import { createAdminClient } from '../supabase/admin';
 import type { Order } from '../types';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
+import { refundOrder } from './refunds';
 
 /**
  * Card payments run on Stripe hosted Checkout (the card is typed on Stripe, never
@@ -100,21 +101,37 @@ function paymentLabel(session: Stripe.Checkout.Session): string {
   return card?.last4 ? `${brandLabel(card.brand)} ending ${card.last4}` : brandLabel(card?.brand);
 }
 
-/** Mark the order paid from a session Stripe reports as paid. Idempotent. */
+function paymentIntentId(session: Stripe.Checkout.Session): string | null {
+  const pi = session.payment_intent;
+  return typeof pi === 'string' ? pi : pi?.id ?? null;
+}
+
+/**
+ * Mark the order paid from a session Stripe reports as paid. Idempotent.
+ * Paid after its reserved stock was released and sold (`stock_released`): the order
+ * stays cancelled and is refunded in full, then the error is passed on.
+ */
 export async function confirmSession(session: Stripe.Checkout.Session): Promise<Order> {
   const orderId = session.metadata?.orderId ?? session.client_reference_id;
   if (!orderId) throw new DataError('order_not_found');
   if (session.payment_status !== 'paid') throw new DataError('payment_incomplete');
-  const json = unwrap(
-    await createAdminClient().rpc('confirm_order_payment', {
-      p_order_id: orderId,
-      p_session_id: session.id,
-      p_amount_minor: session.amount_total ?? -1,
-      p_currency: session.currency ?? '',
-      p_payment_label: paymentLabel(session),
-    }),
-  );
-  return toOrder(json as unknown as OrderRowJson);
+  const db = createAdminClient();
+  const res = await db.rpc('confirm_order_payment', {
+    p_order_id: orderId,
+    p_session_id: session.id,
+    p_amount_minor: session.amount_total ?? -1,
+    p_currency: session.currency ?? '',
+    p_payment_label: paymentLabel(session),
+  });
+  // Best effort: refunds can also find the PaymentIntent through the session.
+  const pi = paymentIntentId(session);
+  if (pi) await db.rpc('record_payment_intent', { p_order_id: orderId, p_payment_intent: pi });
+  if (res.error?.message === 'stock_released') {
+    const sold = await db.rpc('mark_sold_out', { p_order_id: orderId });
+    if (sold.error) console.error('[stripe] mark_sold_out failed', orderId, sold.error.message);
+    else await refundOrder(orderId, { db }).catch((err) => console.error('[stripe] sold-out refund failed', orderId, err));
+  }
+  return toOrder(unwrap(res) as unknown as OrderRowJson);
 }
 
 /** Return trip from Stripe: fetch the session server-side and confirm it. */

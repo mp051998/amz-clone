@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation';
 import {
   createProduct,
   deleteProduct,
-  isAdmin,
+  GALLERY_MAX,
+  imageFileError,
+  setArchived,
   toMinor,
   updateProduct,
   uploadProductImage,
@@ -14,7 +16,8 @@ import {
 import { DataError } from '@/lib/data/errors';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { db } from '@/lib/supabase/server';
+import { parseDetailLines } from '@/lib/product-details';
+import { adminClient } from './guard';
 
 /** What the product form needs back: field errors, a form-level message, and the values to keep. */
 export interface ProductFormState {
@@ -22,24 +25,20 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'stock'] as const;
-
-/** Signed in + admin, checked on every call (a form on an admin page is not a security boundary). */
-async function adminClient() {
-  const client = await db();
-  const { data } = await client.auth.getUser();
-  if (!data.user) return { client, error: 'Your session ended. Sign in again to continue.' };
-  if (!(await isAdmin(client))) return { client, error: 'Only store admins can change the catalogue.' };
-  return { client, error: null };
-}
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+/** Field errors the data layer can raise after validation. */
+const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
 /**
  * Create (`id` null) or update a product from the admin form. Prices arrive in major units
- * ("19.99"); an uploaded image wins over the image URL field.
+ * ("19.99"); an uploaded image wins over the image URL field. Gallery images arrive as kept URLs
+ * (`gallery`, in order) plus new uploads (`galleryFiles`), which go after them.
  */
 export async function saveProduct(id: string | null, _prev: ProductFormState, formData: FormData): Promise<ProductFormState> {
   const values: Record<string, string> = Object.fromEntries(FIELDS.map((k) => [k, String(formData.get(k) ?? '')]));
   values.deal = formData.get('deal') === 'on' ? 'on' : '';
+  const kept = formData.getAll('gallery').map((v) => String(v).trim()).filter(Boolean);
+  values.gallery = kept.join('\n');
   const back = (errors: ProductFormState['errors']): ProductFormState => ({ errors, values });
 
   const store = await getMarketplace();
@@ -48,9 +47,11 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
 
   const file = formData.get('imageFile');
   const upload = file instanceof File && file.size > 0 ? file : null;
+  const galleryUploads = formData.getAll('galleryFiles').filter((f): f is File => f instanceof File && f.size > 0);
   const priceMinor = toMinor(values.price);
   const listMinor = values.listPrice.trim() ? toMinor(values.listPrice) : null;
   const stock = /^\d+$/.test(values.stock.trim()) ? Number(values.stock.trim()) : NaN;
+  const details = parseDetailLines(values.details);
   const input = {
     title: values.title,
     brand: values.brand,
@@ -65,7 +66,14 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     seller: values.seller,
     shipsFrom: values.shipsFrom,
     bullets: values.bullets.split('\n').map((l) => l.trim()).filter(Boolean),
+    description: values.description,
+    details: details.rows,
     stock,
+    // new uploads hold their place until the form checks out (like the main image)
+    gallery: [...kept, ...galleryUploads.map((_, i) => `https://upload.pending/gallery-${i}`)],
+    variantGroup: values.variantGroup,
+    variantAxis: values.variantAxis,
+    variantLabel: values.variantLabel,
   };
 
   const checked = validateProduct(input);
@@ -73,12 +81,20 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   if (priceMinor == null) errors.priceMinor = 'Enter a price like 19.99';
   if (values.listPrice.trim() && listMinor == null) errors.listMinor = 'Enter a price like 24.99, or leave it blank';
   if (Number.isNaN(stock)) errors.stock = 'Enter a whole number';
+  if (details.error) errors.details = details.error;
+  if (kept.length + galleryUploads.length > GALLERY_MAX) errors.gallery = `Up to ${GALLERY_MAX} more images; remove ${kept.length + galleryUploads.length - GALLERY_MAX}`;
+  const badFile = galleryUploads.map(imageFileError).find(Boolean);
+  if (badFile) errors.gallery ??= badFile;
   if (Object.keys(errors).length) return back(errors);
 
   let saved: string;
   try {
     if (upload) input.image = await uploadProductImage(client, store.id, upload);
     values.image = input.image;
+    const uploaded = [];
+    for (const f of galleryUploads) uploaded.push(await uploadProductImage(client, store.id, f, 'gallery'));
+    input.gallery = [...kept, ...uploaded];
+    values.gallery = input.gallery.join('\n');
     if (id) {
       await updateProduct(client, id, input);
       saved = id;
@@ -87,7 +103,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     }
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
-    const field = err.detail === 'image' ? 'image' : err.code === 'invalid_category' ? 'category' : null;
+    const field = err.detail && LATE_FIELDS.has(err.detail) ? err.detail : err.code === 'invalid_category' ? 'category' : null;
     return back(field ? { [field]: err.message } : { form: err.message });
   }
 
@@ -109,4 +125,26 @@ export async function removeProduct(id: string): Promise<void> {
   }
   revalidatePath('/', 'layout');
   redirect(storePath(store, '/admin/products?done=deleted'));
+}
+
+/**
+ * Take a product off sale, or put it back. `from` is where the button was: the edit page, or the
+ * list's Active / Archived tab (the redirect goes back there).
+ */
+export async function archiveProduct(id: string, archived: boolean, from: 'edit' | 'active' | 'archived'): Promise<void> {
+  const store = await getMarketplace();
+  const { client, error } = await adminClient();
+  const edit = storePath(store, `/admin/products/${encodeURIComponent(id)}`);
+  if (error) redirect(`${edit}?error=forbidden`);
+  try {
+    await setArchived(client, id, archived);
+  } catch (err) {
+    if (err instanceof DataError) redirect(`${edit}?error=${err.code}`);
+    throw err;
+  }
+  revalidatePath('/', 'layout');
+  const done = archived ? 'archived' : 'restored';
+  if (from === 'edit') redirect(`${edit}?done=${done}`);
+  const tab = from === 'archived' ? 'status=archived&' : '';
+  redirect(storePath(store, `/admin/products?${tab}done=${done}&id=${encodeURIComponent(id)}`));
 }

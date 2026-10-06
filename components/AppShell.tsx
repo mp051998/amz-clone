@@ -4,15 +4,20 @@ import { storeCategories, viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { footerDest } from '@/lib/footer-links';
+import { readTheme } from '@/lib/theme-server';
+import { readDeliverTo } from '@/lib/deliver-to-server';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { Header } from './chrome/Header';
 import { Footer, type FooterColumn, type FooterLink } from './chrome/Footer';
+import type { AllMenuSection } from './chrome/AllMenu';
 import { ToastProvider } from './decision/Toast';
 import { CompareProvider, CompareTray } from './decision/Compare';
 
 export interface AppShellProps {
   children: ReactNode;
   cartCount?: number;
+  /** the search being looked at; the header search box shows it (results page) */
+  query?: string;
 }
 
 /** Program links shown before the catalog departments in the category strip. */
@@ -20,6 +25,17 @@ const STRIP_PROGRAMS = [
   { label: "Today's Deals", path: '/deals' },
   { label: 'New & Trending', path: '/new-releases' },
   { label: 'Bestsellers', path: '/bestsellers' },
+];
+
+/** "All" menu: the store's own pages beyond the departments. */
+const MENU_PROGRAMS = [
+  { label: 'Membership', path: '/prime' },
+  { label: 'Video', path: '/prime-video' },
+  { label: 'Gift cards', path: '/gift-cards' },
+  { label: 'Registry', path: '/registry' },
+  { label: 'Pay', path: '/amazon-pay' },
+  { label: 'Business', path: '/business' },
+  { label: 'Sell with us', path: '/sell' },
 ];
 
 /** Footer columns. `label` → footerDest when `path` is absent (lib/footer-links.ts). */
@@ -33,6 +49,8 @@ const FOOTER_COLUMNS: { heading: string; links: { label: string; path?: string; 
   { heading: 'Your things', links: [
     { label: 'Collections', path: '/collections' },
     { label: 'Orders', path: '/orders' },
+    { label: 'Buy again', path: '/orders/buy-again' },
+    { label: 'Browsing history', path: '/history' },
     { label: 'Cart', path: '/cart' },
     { label: 'Account', path: '/account' },
   ] },
@@ -59,15 +77,31 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  * Page chrome for every storefront route (design.md §6 Layout): sticky header + category strip,
  * content, calm footer, and the global toast + compare tray. Store-aware (US at /, IN at /in).
  */
-export async function AppShell({ children, cartCount }: AppShellProps) {
+export async function AppShell({ children, cartCount, query }: AppShellProps) {
   const store = await getMarketplace();
-  const [cart, user, categories, admin] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin()]);
+  const [cart, user, categories, admin, deliverTo] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id)]);
   const count = cartCount ?? cart.count;
   const key = store.id === 'IN' ? 'IN' : 'US';
 
   const strip = [
     ...STRIP_PROGRAMS.map((p) => ({ label: p.label, href: storePath(store, p.path) })),
     ...categories.map((c) => ({ label: c.name, href: storePath(store, `/s?dept=${encodeURIComponent(c.slug)}`) })),
+  ];
+
+  const to = (label: string, path: string) => ({ label, href: storePath(store, path) });
+  const menu: AllMenuSection[] = [
+    { heading: 'Trending', links: STRIP_PROGRAMS.map((p) => to(p.label, p.path)) },
+    { heading: 'Shop by department', links: categories.map((c) => to(c.name, `/s?dept=${encodeURIComponent(c.slug)}`)) },
+    { heading: 'Programs & features', links: MENU_PROGRAMS.map((p) => to(p.label, p.path)) },
+    {
+      heading: 'Help & settings',
+      links: [
+        ...(user ? [to('Your account', '/account'), to('Orders', '/orders')] : [to('Sign in', '/signin')]),
+        to('Customer service', '/customer-service'),
+        ...(admin ? [to('Admin · Catalogue', '/admin/products')] : []),
+        key === 'IN' ? { label: 'Shop the United States store (USD)', href: '/' } : { label: 'Shop the India store (INR)', href: '/in' },
+      ],
+    },
   ];
 
   const resolve = (label: string, destLabel: string): FooterLink => {
@@ -88,17 +122,20 @@ export async function AppShell({ children, cartCount }: AppShellProps) {
     <ToastProvider>
       <CompareProvider market={store.id}>
         <div id="top" className="flex min-h-screen flex-col bg-bg">
-          <a href="#main" className="sr-only z-[90] rounded-pill bg-ink px-4 py-2 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3">Skip to content</a>
+          <a href="#main" className="sr-only z-[90] rounded-pill bg-ink px-4 py-2 text-on-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-3">Skip to content</a>
           <Header
             store={store}
             cartCount={count}
             userName={user ? firstName(user) : undefined}
             isAdmin={admin}
             categories={strip}
+            deliverTo={deliverTo}
+            defaultQuery={query}
+            menu={{ greeting: user ? `Hello, ${firstName(user)}` : 'Hello, sign in', greetingHref: storePath(store, user ? '/account' : '/signin'), sections: menu }}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>
-          <Footer storeName={store.name} columns={columns} stores={stores} legal={legal} homeHref={storePath(store, '/')} />
+          <Footer storeName={store.name} columns={columns} stores={stores} legal={legal} homeHref={storePath(store, '/')} theme={await readTheme()} />
           <CompareTray />
         </div>
       </CompareProvider>

@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
 import { Instrument_Sans, JetBrains_Mono } from 'next/font/google';
+import { getMarketplace } from '@/lib/marketplace-server';
+import { siteOrigin } from '@/lib/origin';
+import { themeAttr } from '@/lib/theme';
+import { readTheme } from '@/lib/theme-server';
 import './globals.css';
 
 // Self-hosted by next/font; exposed as CSS variables consumed by --font-sans / --font-mono (app/globals.css).
@@ -16,15 +20,22 @@ const mono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: 'Store — shop by what matters to you',
   description:
     'A decision-support demo store: tell it what matters, see every pick explained, compare with a verdict, and track prices. Unofficial demo — no real orders, not affiliated with any retailer.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/** metadataBase resolves every page's relative canonical and link-preview image URLs. */
+export async function generateMetadata(): Promise<Metadata> {
+  return { ...metadata, metadataBase: new URL(await siteOrigin()) };
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // en-US / en-IN: spelling, hyphenation and screen-reader voice follow the store
+  const store = await getMarketplace();
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang={store.locale.default} data-theme={themeAttr(await readTheme())} className={`${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

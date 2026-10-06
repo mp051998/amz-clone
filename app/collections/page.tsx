@@ -34,7 +34,9 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
   const money = (minor: number) => formatMoney(minor, cur);
   const collections = await listCollections(await db(), store.id);
   const selected = collections.find((x) => x.id === c) ?? collections[0] ?? null;
-  const compareIds = selected ? selected.items.slice(0, COMPARE_MAX).map((i) => encodeURIComponent(i.product.id)) : [];
+  // archived products stay in the list but are out of the catalog, so compare skips them
+  const comparable = selected ? selected.items.filter((i) => !i.product.archived) : [];
+  const compareIds = comparable.slice(0, COMPARE_MAX).map((i) => encodeURIComponent(i.product.id));
 
   return (
     <AppShell>
@@ -58,15 +60,15 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                     aria-current={on ? 'page' : undefined}
                     className={cn(
                       'flex min-h-14 items-center justify-between gap-2.5 rounded-card border px-4 py-3.5 no-underline transition-colors',
-                      on ? 'border-ink bg-ink text-white hover:text-white' : 'border-line bg-surface text-ink hover:border-ink hover:text-ink',
+                      on ? 'border-ink bg-ink text-on-ink hover:text-on-ink' : 'border-line bg-surface text-ink hover:border-ink hover:text-ink',
                     )}
                   >
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[16px] font-semibold">{col.name}</span>
-                      <span className={cn('text-[13px]', on ? 'text-white/80' : 'text-ink-3')}>{n} {n === 1 ? 'item' : 'items'}</span>
+                      <span className={cn('text-[13px]', on ? 'text-on-ink/80' : 'text-ink-3')}>{n} {n === 1 ? 'item' : 'items'}</span>
                     </span>
                     {drop > 0 ? (
-                      <span className={cn('flex-none font-mono text-[12px]', on ? 'text-white' : 'text-good-strong')} aria-label={`Prices down ${money(drop)} since saved`}>
+                      <span className={cn('flex-none font-mono text-[12px]', on ? 'text-on-ink' : 'text-good-strong')} aria-label={`Prices down ${money(drop)} since saved`}>
                         ↓ {money(drop)}
                       </span>
                     ) : null}
@@ -91,9 +93,9 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                   <h2 id="collection-h" className="m-0 text-[22px] font-semibold">{selected.name}</h2>
                   <div className="flex flex-wrap items-center gap-2">
                     {selected.kind === 'custom' ? <CollectionMenu id={selected.id} name={selected.name} market={store.id} /> : null}
-                    {selected.items.length >= 2 ? (
+                    {comparable.length >= 2 ? (
                       <a href={sp(`/compare?ids=${compareIds.join(',')}`)} className={buttonClasses({ variant: 'dark' })}>
-                        Compare these{selected.items.length > COMPARE_MAX ? ` (first ${COMPARE_MAX})` : ''}
+                        Compare these{comparable.length > COMPARE_MAX ? ` (first ${COMPARE_MAX})` : ''}
                       </a>
                     ) : null}
                   </div>
@@ -111,21 +113,27 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                       const href = sp(`/product/${p.id}`);
                       return (
                         <li key={p.id} className="flex flex-wrap items-center gap-3.5 border-t border-line-2 px-4 py-3.5 first:border-t-0">
-                          <a href={href} className="w-[72px] flex-none" tabIndex={-1} aria-hidden>
+                          <a href={href} className={cn('w-[72px] flex-none', p.archived && 'opacity-50')} tabIndex={-1} aria-hidden>
                             <ProductFrame src={p.image} alt="" aspect="1/1" />
                           </a>
                           <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-[3px]">
                             <a href={href} className="line-clamp-2 text-[16px] font-semibold text-ink no-underline">{p.title}</a>
-                            <strong className="text-[17px] tabular-nums">{formatMoney(p.priceMinor, p.curBase)}</strong>
-                            <span
-                              className={cn('text-[14px] font-semibold', d > 0 ? 'text-good-strong' : d < 0 ? 'text-warn' : 'font-normal text-ink-3')}
-                            >
-                              {d > 0
-                                ? `↓ ${formatMoney(d, p.curBase)} since you saved`
-                                : d < 0
-                                  ? `↑ ${formatMoney(-d, p.curBase)} since you saved`
-                                  : 'Same price as when saved'}
-                            </span>
+                            {p.archived ? (
+                              <span className="text-[14px] font-semibold text-warn">No longer available</span>
+                            ) : (
+                              <>
+                                <strong className="text-[17px] tabular-nums">{formatMoney(p.priceMinor, p.curBase)}</strong>
+                                <span
+                                  className={cn('text-[14px] font-semibold', d > 0 ? 'text-good-strong' : d < 0 ? 'text-warn' : 'font-normal text-ink-3')}
+                                >
+                                  {d > 0
+                                    ? `↓ ${formatMoney(d, p.curBase)} since you saved`
+                                    : d < 0
+                                      ? `↑ ${formatMoney(-d, p.curBase)} since you saved`
+                                      : 'Same price as when saved'}
+                                </span>
+                              </>
+                            )}
                           </div>
                           <ItemActions
                             collectionId={selected.id}
@@ -133,6 +141,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                             productId={p.id}
                             productName={p.title}
                             inStock={p.stock > 0}
+                            unavailable={p.archived}
                             market={store.id}
                           />
                         </li>

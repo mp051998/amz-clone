@@ -32,6 +32,7 @@ Base URL: `https://<host>/api/v1` (local: `http://localhost:3000/api/v1`).
 | Tax | 8% added at checkout | prices include GST |
 | Shipping | $5.99, free from $35 | ₹40, free from ₹499 |
 | Payment methods | `card`, `giftcard` | `upi`, `card`, `netbanking`, `cod`, `emi`, `amazonpay` |
+| Returns | 30 days after delivery | 10 days after delivery |
 | Address | US ZIP, 2-letter state | 6-digit pincode, `line2` (area) required, optional `landmark`, `addressType: home|office` |
 
 Max 30 units per cart line. Quantities are also capped at available stock.
@@ -40,12 +41,19 @@ Max 30 units per cart line. Quantities are also capped at available stock.
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | `{email, password, name?}` | `201` token pair. If the project requires email confirmation: `202 {confirmationRequired: true, user}` |
+| POST | `/auth/signup` | `{email, password, name?}` | `201` token pair. The account is active at once: this demo store doesn't verify email addresses |
 | POST | `/auth/token` | `{email, password}` | `200` token pair |
 | POST | `/auth/refresh` | `{refreshToken}` | `200` new token pair |
 | GET 🔒 | `/me` | | `{user: {id, email, name, createdAt}}` |
+| PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
 
 Token pair: `{tokenType: "bearer", accessToken, refreshToken, expiresAt, expiresIn, user: {id, email}}`.
+
+`PATCH /me`:
+- Changing `email` or setting `newPassword` needs `currentPassword` (`422 invalid_input`, `detail: "currentPassword"` when it's wrong). A taken email is `409 duplicate`.
+- Every field is checked before anything changes: name 1–80 characters, password 6–72.
+- A new password ends every session of the account, including the caller's, so switch to the returned `session`.
+- Password resets are web only: `/signin/forgot` emails a link that opens `/auth/confirm` and then the Login & security page.
 Access tokens are Supabase JWTs (1 h by default). The API only uses them to call
 Postgres as that user, so RLS decides what each caller can see.
 
@@ -54,8 +62,10 @@ Postgres as that user, so RLS decides what each caller can see.
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/categories` | `{market, categories: [{slug, name}]}` in the store's nav order |
-| GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
-| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Returns `404 product_not_found` if the product doesn't exist in this store. |
+| GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, groups, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Items and `total` are per product, so each option of a variant group is its own item (see `variant`); `groups` counts the matches with a group's options once, as the storefront shows them, and brand counts do the same. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
+| GET | `/suggest?q=` | Search-as-you-type for the search box. The last word counts as a prefix. Returns `{market, q, total, terms: [{text, count}], departments: [{slug, name, count}], products: [{id, title, image}]}`. `terms` holds up to 4 completions of the last word, taken from matching titles and brands, most common first, each as a whole query (`sony he` → `sony headphones`). `departments` holds the 2 departments with the most matches for the top completion. `products` holds the 4 best-reviewed matches. Counts and products count a variant group once. Input with fewer than two letters or digits returns everything empty. |
+| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null), `details`, the "Product information" table as `[label, value]` pairs, most important first, `gallery` (more image URLs after `image`, in order) and `variants`: null, or `{group, axis, label, options: [{id, label, image, priceMinor, stock, current}]}` when other products of this store share its variant group (e.g. `axis: "Color"`, `label: "Black"`). Options are in label order; archived ones are left out, except the product itself. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
+| GET | `/products/:id/bought-together` | `{items: [{product, reason, source}]}`: up to 2 products to buy with this one for the product page's "Frequently bought together". `source: orders` items are bought together in placed orders by at least two shoppers; when there are fewer, `source: rules` accessories fill in. Empty for a sold-out or archived product. Returns `404 product_not_found` if the product doesn't exist in this store. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
 `Product` has these fields:
@@ -64,6 +74,8 @@ Postgres as that user, so RLS decides what each caller can see.
 - Ratings: `rating, reviewCount`
 - Fulfilment: `seller, shipsFrom, stock`
 - Content: `bullets[], badge?, boughtPastMonth?`
+- Variant: `variant?: {group, axis, label}` when the product is one option of a variant group (`/products/:id` lists the others)
+- Status: `archived?`, true when an admin has taken it off sale. Archived products never appear in search and browse (`/products`), deals or compare. Their page and reviews stay, and carts and collections that already hold one keep it.
 
 ## Reviews
 
@@ -73,18 +85,19 @@ Postgres as that user, so RLS decides what each caller can see.
 | POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body}` | `201 {review}`. Creates or replaces your one review of the product. The DB sets `author`, `verified` (true when you have a placed order containing it) and keeps the product's rating rollup current. |
 | DELETE 🔒 | `/reviews/:id` | | `204`. Only works on your own review (`404` otherwise). |
 | POST 🔒 | `/reviews/:id/helpful` | | Toggle. Returns `{reviewId, helpful, helpfulCount}`. Returns `409 own_review` on your own review. |
-| POST 🔒 | `/reviews/:id/report` | `{reason: spam\|offensive\|off_topic\|other}` | `204`. Idempotent. |
+| POST 🔒 | `/reviews/:id/report` | `{reason: spam\|offensive\|off_topic\|other}` | `204`. Idempotent. Three open reports (from different shoppers, since an admin last looked) hide the review until an admin keeps it. |
 
 `Review` has these fields:
 - Content: `id, author, initial, rating, title, body, createdAt`
 - Status: `verified, helpful`
 - Viewer state: `mine, votedHelpful, reported`
+- `hidden: true` only on your own review while it's hidden (by reports or an admin). Hidden reviews are left out of `items` and `total` for everyone else, and out of the star rating.
 
 ## Cart
 
 Every cart response is `{cart}`, where `Cart` has these fields:
 - Store: `market, currency, freeShipThresholdMinor`
-- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock}]`
+- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock, available}]`. `available` is false for an archived product. Such a line can only be removed, and `inStock` is false for it too.
 - Totals: `{subtotalMinor, shipMinor, taxMinor, totalMinor}`
 
 Prices and totals are computed by the database on every read.
@@ -93,24 +106,25 @@ Prices and totals are computed by the database on every read.
 | --- | --- | --- | --- |
 | GET | `/cart` | | The signed-in user's cart, or the guest cart for `X-Cart-Token`. Returns an empty cart when neither is present. |
 | DELETE | `/cart` | | Empty it |
-| POST | `/cart/items` | `{productId, qty = 1}` | `201`. Adds to the line. `404 product_not_found` if the product isn't in this store. `409 out_of_stock`. Mints a guest token when needed. |
-| PATCH | `/cart/items/:productId` | `{qty}` | Sets the quantity. `0` removes the line. |
+| POST | `/cart/items` | `{productId, qty = 1}` | `201`. Adds to the line. `404 product_not_found` if the product isn't in this store. `409 out_of_stock`, or `409 product_unavailable` if it's archived. Mints a guest token when needed. |
+| PATCH | `/cart/items/:productId` | `{qty}` | Sets the quantity. `0` removes the line. Archived products only accept `0` (`409 product_unavailable`). |
 | DELETE | `/cart/items/:productId` | | Remove the line |
-| POST 🔒 | `/cart/merge` | `{cartToken}` or `X-Cart-Token` | Folds the guest cart (all stores) into the account and deletes it. Returns `{merged, cart}`. |
+| POST 🔒 | `/cart/merge` | `{cartToken}` or `X-Cart-Token` | Folds the guest cart (all stores) into the account and deletes it. Sold-out and archived products are dropped. Returns `{merged, cart}`. |
 
 ## Orders 🔒
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}}` | Checks out your cart in this store. See the details after this table. |
-| GET | `/orders?limit=50` | | Placed orders in this store, newest first |
+| GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
+| GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
-| POST | `/orders/:id/cancel` | | Abandons an `awaiting_payment` card order. Releases the reserved stock. The cart is kept. |
+| POST | `/orders/:id/cancel` | | `{order}`. An `awaiting_payment` card order is abandoned: the reserved stock is released and the cart is kept. A placed order can be cancelled until it ships (`409 order_not_cancellable` after that): the stock goes back and the payment is refunded (see `refund`). |
 
 There is no guest checkout. Orders belong to an account, so every route here needs a signed-in user (`401 not_authenticated`), and so does `place_order()` in the database. A guest's cart carries over: sign in, then `POST /cart/merge`.
 
 How `POST /orders` works:
-- In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). It then snapshots each line's title, price and seller and computes the totals.
+- In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price and seller and computes the totals.
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 
@@ -121,7 +135,37 @@ How `POST /orders` works:
 - Money: `totals`
 - Delivery: `shipTo`
 - Lines: `items: [{productId, title, image, seller, unitPriceMinor, qty}]`
-- Timestamps: `createdAt, placedAt?`
+- Timestamps: `createdAt, placedAt?, cancelledAt?`
+- Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
+- Cancellation: `cancelReason?: customer | admin | sold_out`, and for orders that were placed or charged `refund?: {status, amountMinor, refundedAt?}`. `status` is `pending` / `succeeded` / `failed` for card refunds on Stripe, `succeeded` straight away for the simulated methods, and `not_charged` for pay on delivery.
+
+### Returns
+
+Delivered items can be returned within the store's window (`markets.return_days`). A return covers some or all of an order's lines and quantities; an order can have several returns, until every unit is in one that is open or received.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/orders/:id/returns` | | `{delivered, returnBy?, returnable: {<productId>: qty}, returns: [Return]}`. `returnBy` is set once the order is delivered. `returnable` is what's left to return. `404` for someone else's order. |
+| POST | `/orders/:id/returns` | `{items: [{productId, qty}], reason, comment?}` | `201 {return}`. `409 return_not_allowed` with `detail` `not_delivered` or `window_closed`; `422 invalid_input` with `detail` `items` (none, unknown, or more than is left), `reason` or `comment` (≤ 1000 chars). |
+| POST | `/returns/:id/cancel` | | `{return}`. Only while `requested` (`409 return_not_open` after). |
+
+`reason` is one of `no_longer_needed`, `bought_by_mistake`, `better_price`, `damaged`, `defective`, `wrong_item`, `missing_parts`, `not_as_described`. The last five are the store's fault.
+
+The refund is priced when the return starts:
+- `itemsMinor`: the returned units at the prices paid.
+- `taxMinor`: the items' share of the order's tax (US). The return that brings the order to fully returned gets whatever tax is left, so the shares add up to the tax charged.
+- `shipMinor`: the items' share of the delivery charge, but only for store-fault reasons.
+- `refundMinor = itemsMinor + taxMinor + shipMinor`.
+
+`Return` has these fields:
+- `id, orderId, status: requested | received | rejected | cancelled, reason, comment?`
+- `items: [{productId, title, image, unitPriceMinor, qty}]`
+- `itemsMinor, taxMinor, shipMinor, refundMinor`
+- `refund?: {status: pending | succeeded | failed, refundedAt?}`, set once received
+- `dropoffCode` (e.g. `7F3A-09BC`, shown at a drop-off point), `dropoffBy` (14 days after the start)
+- `rejectNote?`, `createdAt, receivedAt?, rejectedAt?, cancelledAt?`
+
+When an admin marks a return received, the units go back into stock and the shopper is refunded: card payments on Stripe (a partial refund of the PaymentIntent, `metadata.returnId` set), simulated methods at once, pay on delivery at once to the shopper's bank (simulated).
 
 ### How card payment is confirmed
 
@@ -142,6 +186,14 @@ The customer never tells us they paid. Stripe does:
 - It returns `503` when the secret is unset and `400` for a bad signature.
 - Final domain outcomes (e.g. `payment_incomplete` for a forged "paid" event) are
   acknowledged with `200 {received, outcome}` so Stripe stops retrying.
+- `refund.created`, `refund.updated` and `refund.failed` settle a return's refund
+  (matched by the refund's `metadata.returnId`) or a cancelled order's (by
+  `metadata.orderId`, else its PaymentIntent). Enable these events on the Stripe
+  endpoint alongside the `checkout.session.*` ones.
+
+A payment that arrives after the order's reserved stock was released and sold
+(`409 stock_released`) leaves the order cancelled (`cancelReason: sold_out`) and
+refunds the card in full.
 
 ## Addresses 🔒
 
@@ -163,7 +215,7 @@ Phone numbers are normalised: digits only, with a leading `+1` / `+91` dropped.
 
 Saved products, per store. Two system lists are created on first use: `considering` ("Things I'm Considering", where the Save button puts things) and `later` ("Saved for later", from the cart). Shoppers can add up to 20 collections, each holding up to 200 items.
 
-`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, items: [{product, savedPriceMinor, addedAt}]`. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops.
+`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, items: [{product, savedPriceMinor, addedAt}]`. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops. Items keep archived products (`product.archived: true`).
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
@@ -172,7 +224,7 @@ Saved products, per store. Two system lists are created on first use: `consideri
 | GET | `/collections/:id` | | `{collection}`. `404 collection_not_found` if it isn't yours. |
 | PATCH | `/collections/:id` | `{name?, note?}` | `{collection}` |
 | DELETE | `/collections/:id` | | `204`. Deletes its items too. |
-| POST | `/collections/:id/items` | `{productId}` | `201 {item}`. Idempotent: re-adding keeps the original saved price. `404 product_not_found` if the product is from another store. `409 collection_item_limit` past 200. |
+| POST | `/collections/:id/items` | `{productId}` | `201 {item}`. Idempotent: re-adding keeps the original saved price. `404 product_not_found` if the product is from another store. `409 product_unavailable` if it's archived. `409 collection_item_limit` past 200. |
 | DELETE | `/collections/:id/items/:productId` | | `204`. A no-op when the product isn't in the collection. |
 
 ## AI layer
@@ -199,22 +251,81 @@ Configuration (`.env.local` / Vercel):
 
 ## Admin 🔒
 
-Catalog management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products` and the `product-images` bucket), so going around these routes doesn't help. Everything is per store (`?market=` / `X-Market`), and a product never moves between stores.
+Catalog and order management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products`, `categories`, `market_categories`, `product_insights` and the `product-images` bucket; `is_admin()` inside the order functions), so going around these routes doesn't help. Products are per store (`?market=` / `X-Market`), and a product never moves between stores.
+
+### Products
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/products?q=&category=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt}], total, page, pageCount}`. Most recently changed first. `q` matches the title, or an exact id. |
+| GET | `/admin/products?status=&q=&category=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt, archivedAt}], total, page, pageCount}`. Products on sale, or with `status=archived` the archived ones. Most recently changed first. `q` matches the title, or an exact id. |
 | POST | `/admin/products` | `ProductInput` | `201 {product}`. The id is generated (`n…`, or `in-n…` in India) and the product goes last in catalog order. |
-| GET | `/admin/products/:id` | | `{product}`: every editable field plus `id, market, createdAt, updatedAt`. |
-| PATCH | `/admin/products/:id` | any `ProductInput` fields | `{product}`. Fields you leave out keep their values. |
-| DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: set `stock` to 0 instead. |
+| GET | `/admin/products/:id` | | `{product}`: every editable field plus `id, market, createdAt, updatedAt, archivedAt`. |
+| PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
+| DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 
-`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], stock}`:
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
 - `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
 - `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.
 - `bullets`: up to 10, each up to 300 characters.
+- `description`: the product page's "Product description", up to 2,000 characters (blank or left out: none).
+- `details`: the "Product information" table, up to 20 `[label, value]` rows (labels up to 40 characters, values up to 200). Left out on create: empty. The admin form edits it as one `Label: value` per line.
+- `gallery`: up to 8 more images after `image`, each a site path or `https://` URL, shown in this order. Repeats and the main image are dropped. Left out on create: none.
+- `variantGroup`: products of a store with the same group show as options of each other (each keeps its own price, stock, reviews and orders). A lowercase slug (`sony-wh-ch520`), up to 60 characters; blank or null for none, which also clears `variantAxis` and `variantLabel`.
+- `variantAxis`: what the options differ by, e.g. `Color` or `Size` (up to 30 characters, `Style` when left out). Every product in a group uses the same one (`422 invalid_input`, `detail: "variantAxis"`).
+- `variantLabel`: this product's option, e.g. `Black` (up to 60 characters). Needed with a group, and unique within it, ignoring case (`422 invalid_input`, `detail: "variantLabel"`).
 - Validation errors are `422 invalid_input` with the field in `detail`.
+
+Saving re-derives the product's rules insight (scores, pros and cons for its category's attributes). This happens on create, and on any change of category, title, brand or bullets. A new category replaces an AI insight too, since its attributes belong to the old category. New wording only replaces a rules insight.
+
+### Categories
+
+A category (`{slug, name}`) is shared by both stores. Each store chooses whether its nav lists it, and where. The slug never changes once created, because products, links (`/s?dept=`) and saved searches key on it.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/categories` | | `{market, nav: [slug], categories: [{slug, name, tailored, stores: {US, IN}}]}`. `nav` is this store's order. Each `stores` entry is `{position, products, archived}`: `position` is null when that store doesn't list it, and `products` includes archived ones. `tailored` means the decision tools have attributes, presets and a quiz written for it. Other categories use a generic set. |
+| POST | `/admin/categories` | `{name: 1..80, slug?, listed = true}` | `201 {category}`. The slug defaults to one made from the name (`Garden & Outdoors` → `garden-and-outdoors`). It must be lowercase words joined by single hyphens, up to 40 characters. `listed` puts it last in this store's nav. `409 category_exists` if the slug is taken. |
+| PATCH | `/admin/categories/:slug` | `{name?, listed?, move?}` | `{category}`. `name` renames it. `listed: true` / `false` adds it to or drops it from this store's nav. A store can't drop a category it still has products in (`409 category_in_use`), archived ones included. `move` shifts it that many places in this store's nav (negative = earlier), clamped at the ends. |
+| DELETE | `/admin/categories/:slug` | | `204`, and it leaves every store's nav. `409 category_in_use` while any product in any store uses it. |
+
+### Orders
+
+Orders of this store that were placed or charged (abandoned checkouts are left out).
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/orders?filter=&q=&page=` | | `{orders: [{id, status, stage, currency, paymentMethod, paymentLabel, totalMinor, createdAt, placedAt, cancelledAt, cancelReason, refundStatus, shipName, customer: {email, name}, itemCount, firstTitle}], total, page, pageSize, counts}`. Newest first, 25 a page. `filter`: `all`, `preparing`, `shipped` (shipped or out for delivery), `delivered`, `cancelled`, `refund_issues` (refund `pending` or `failed`). `q` matches the start of the order number or part of the customer's email. `counts` has each filter's total, ignoring `q`. |
+| GET | `/admin/orders/:id` | | `{order, returns}`: an `Order` plus `stage`, `customer: {id, email, name}`, `stripePaymentIntent`, `stripeRefundId`, and its returns as `AdminReturn`s (see below), oldest first. Another store's order is `404`. |
+| POST | `/admin/orders/:id/ship` | | `{order}`. Shipped now; out for delivery and delivered move up to the next delivery morning if that's earlier. Placed orders only (`409 order_not_open`); repeating does nothing. |
+| POST | `/admin/orders/:id/deliver` | | `{order}`. Every step still ahead happens now. Placed orders only. |
+| POST | `/admin/orders/:id/cancel` | | `{order}`. Any order not yet delivered (`409 order_not_cancellable` after). Stock goes back; a card payment is refunded on Stripe. If Stripe refuses, the cancel stands with `refund.status: failed`. |
+| POST | `/admin/orders/:id/refund` | | `{order}`. Retries a card refund that failed (or never reached Stripe). `502 refund_failed` if it fails again. |
+
+### Returns
+
+Returns of this store's orders.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/returns?filter=&page=` | | `{returns: [AdminReturn], total, page, pageSize, counts: {open, refund_issues, closed, all}}`. 25 a page. `filter`: `open` (the default: `requested`, oldest first), `refund_issues` (received, card refund `failed` or `pending`), `closed` (received, rejected or cancelled, newest first) or `all`. |
+| GET | `/admin/returns/:id` | | `{return}`: a `Return` plus `order: {id, market, currency, paymentMethod, paymentLabel, totalMinor, deliveredAt}`, `customer: {id, email, name}` and `stripeRefundId?`. Another store's return is `404`. |
+| POST | `/admin/returns/:id/receive` | | `{return}`. The items are back: stock returned and the refund issued. A card refund is `pending` until Stripe confirms it, or `failed`. Open returns only (`409 return_not_open`). |
+| POST | `/admin/returns/:id/reject` | `{note?}` | `{return}`. Closed without a refund; the shopper sees the note (≤ 500 chars). |
+| POST | `/admin/returns/:id/refund` | | `{return}`. Retries a received return's card refund that failed or never reached Stripe. `502 refund_failed` if it fails again. |
+
+### Reviews
+
+Reviews of this store's products that shoppers reported, or that are hidden. A report is open when it was filed after the review's last admin decision; three open reports hide a review (`hiddenReason: reports`).
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/reviews?view=&page=` | | `{reviews: [{id, productId, productTitle, author, rating, title, body, verified, seeded, helpful, createdAt, hiddenAt, hiddenReason, moderatedAt, openReports, lastReportedAt, reasons}], total, page, pageSize, counts: {reported, hidden}}`. 25 a page. `view`: `reported` (the default: open reports, most reported first) or `hidden` (hidden by `reports` or `admin`, newest first). `reasons` counts open reports by reason, e.g. `{spam: 2, offensive: 1}`. |
+| POST | `/admin/reviews/:id/keep` | | `{review: {id, deleted, hiddenAt, hiddenReason, moderatedAt}}`. Visible again; the reports so far are resolved, so it takes three new ones to hide it again. |
+| POST | `/admin/reviews/:id/hide` | | `{review}`. Hidden by an admin until kept; also resolves the open reports. |
+| DELETE | `/admin/reviews/:id` | | `{review: {id, deleted: true}}`. Removes the review with its votes and reports. |
+
+Another store's review is `404 review_not_found`. Shoppers can't change the moderation fields, not even on their own review: editing a hidden review keeps it hidden.
 
 **Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
 
@@ -223,7 +334,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products` (and `/in/admin/products`). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns` and `/admin/reviews` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -233,11 +344,12 @@ The web UI is at `/admin/products` (and `/in/admin/products`). Admins also get a
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `mixed_categories`, `product_has_orders`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
+| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable` |
+| 502 | `refund_failed` |
 | 503 | `payments_unavailable` |
 
 ## Walkthrough
@@ -268,7 +380,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Seven migrations live in `supabase/migrations/`:
+Nineteen migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -279,13 +391,34 @@ Seven migrations live in `supabase/migrations/`:
 | reviews | `reviews` (one per user per product), `review_votes`, `review_reports`, and the `product_ratings` rollup kept by triggers |
 | admin | `admins` (no API access), `is_admin()`, admin-only insert/update/delete policies and column grants on `products`, a trigger that keeps a product in a category its store carries, and the public `product-images` Storage bucket (admin-only writes) |
 | decision | `product_insights` (public read, server-written; seeded from `supabase/seed-insights.sql`, built by `npm run db:insights:build`), `collections`/`collection_items` (owner RLS, limit + saved-price triggers), `ai_cache` (service role only) |
+| catalog admin | admin writes on `categories`, `market_categories` and `product_insights`; `move_category()`, `category_counts()`, `product_has_orders()`; a trigger stopping a store from unlisting a category it has products in; `products.archived_at`, with `catalog_products` now filtering archived products out and `catalog_products_all` keeping them; carts, checkout and saved lists refuse archived products |
+| split IN categories | data only: moves India's smartwatches, mixer grinders and yoga mats into `wearables`, `kitchen-appliances` and `yoga`, and re-derives their insights. A no-op on a fresh database, where the seed already has them |
+| order lifecycle | `markets.time_zone`; the saved delivery schedule on `orders` (filled by trigger when an order is placed, backfilled for existing ones); cancellation and refund columns; `cancel_my_order()`; the admin order functions `admin_list_orders()`, `admin_get_order()`, `admin_ship_order()`, `admin_deliver_order()`, `admin_cancel_order()`; and the service-role `record_payment_intent()`, `record_refund()`, `mark_sold_out()` |
+| catalog enrichment | `products.description` and `products.details` (admin-writable, read by the product page and API, not the catalog views); for databases seeded earlier, the seeded products' descriptions, spec tables and missing brands (book authors) and category-specific wording for the seeded reviews. A no-op on a fresh database, where the seed has them |
+| email in use | `email_in_use()`, service role only: whether an account already has an email address, checked before the server changes an account's email |
+| review moderation | `reviews.hidden_at`, `hidden_reason` (`reports` or `admin`) and `moderated_at`; a trigger on `review_reports` that hides a review at three open reports; hidden reviews leave the public read policy (their author and admins still see them) and the `product_ratings` rollup; the admin functions `admin_review_queue()` and `admin_moderate_review()` (keep, hide, delete) |
+| returns | `markets.return_days` (US 30, IN 10); `returns` and `return_items` (owner read only); `request_return()`, `order_returns()` and `cancel_my_return()` for shoppers; the admin functions `admin_list_returns()`, `admin_get_return()`, `admin_receive_return()` and `admin_reject_return()`; and the service-role `record_return_refund()` |
+| galleries and variants | `products.gallery` (up to 8 more images) and `variant_group`, `variant_axis`, `variant_label`, admin-writable and read by the product page and API; labels unique per store and group (`products_variant_label_key`); for databases seeded earlier, the seeded variant groups (Sony, Brooks and FHUMSH colours in the US; Hawkins sizes and Lenovo configurations in India). A no-op on a fresh database, where the seed has them (`supabase/seed/variants.json`) |
+| admin order returns | admin read policies on `returns` and `return_items` (the admin orders list marks orders with a return) and `admin_order_returns()`, one order's returns for the admin order page |
+| folded variants | `variant_group`, `variant_axis` and `variant_label` on the `catalog_products` and `catalog_products_all` views; `search_catalog()` adds `groups` (matches with each variant group counted once) and counts brand facets the same way |
+| search suggestions | `search_suggest()`: completions, departments and products for the header search box (`/suggest`) |
+| bought together | `bought_together()`: the products most often in the same placed orders as a product, in the same store and in stock, other options of its variant group left out. A pair only counts once two different shoppers have bought it, so no one's order shows through (`/products/:id/bought-together`) |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
-- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session` and `release_checkout_session` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
+- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund`, `record_return_refund`, `mark_sold_out` and `email_in_use` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
 - **Guest carts.** They are only reachable through the `cart_*` functions with their token. `purge_stale_guest_carts()` deletes guest carts that have been idle for 30 days. It is service-role only, so schedule it with pg_cron or call it from a cron job.
 
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
 - totals, carts, stock reservation and overselling, card confirmation rules
 - RLS isolation, reviews, addresses, search and home content
+- returns: the delivery and window checks, what's left to return, refund pricing (tax shares that add up, delivery only for store-fault reasons), cancel, admin receive (stock back, refund per payment method) and reject, the admin list per store, an order's returns for the admin order page, and real Stripe test-mode partial refunds
+- review moderation: auto-hide on the third report, who sees a hidden review, the rating rollup, keep resolving reports, admin hide, the queue per store, admin-only access, delete
+- account settings: sign-up, rename, email change (current password, taken addresses), password change (sessions ended, new session returned, reset-link sessions)
 - the signed Stripe webhook
+- product variants and galleries: sibling options per store in label order, unique labels (and the index behind them), one option name per group, archived options, leaving a group, the gallery cap; listings and ranked search showing one card per group, group counts and brand facets, and the swatch summaries
+- search suggestions: completions, departments that follow the top completion, one card per group, store isolation, short and punctuation-only input
+- bought together: pairs from placed orders only, the two-shopper threshold, sold-out products left out, and the product page's pick (order pairs first, then accessories)
+- admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
+- buy again: one entry per product across orders, newest first, cancelled orders left out, per store and per shopper, sold-out and archived products last, and the API route
+- order lifecycle: the saved schedule in both time zones, shopper and admin cancel windows, stock and refund state per payment method, admin moves and listing, refund bookkeeping, and real Stripe test-mode refunds

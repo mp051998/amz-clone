@@ -1,0 +1,17 @@
+{
+  "groups": [
+    { "group": "sony-wh-ch520", "axis": "Color", "options": [["41lArSiD5hL", "Black"], ["41JACWTwWL", "Blue"]] },
+    { "group": "brooks-adrenaline-gts-25", "axis": "Color", "options": [["71dRz5HBeTL", "Black"], ["81TMcoN7PL", "Grey/Yellow"]] },
+    { "group": "fhumsh-a10-pro", "axis": "Color", "options": [["61D5ZCSIymL", "Black"], ["61P4QAI28CL", "White"]] },
+    {
+      "group": "hawkins-contura-black",
+      "axis": "Size",
+      "options": [["in-619CmDHn8L", "1.5 Litre"], ["in-51K1LMDAvkL", "3 Litre"], ["in-51LKIBnva1L", "3 Litre XT (induction)"]]
+    },
+    {
+      "group": "lenovo-v15-g4",
+      "axis": "Configuration",
+      "options": [["in-61AccNkmFFL", "Athlon Silver 7120U, 8 GB RAM"], ["in-61qLlDAZEL", "Ryzen 5 7520U, 16 GB RAM"]]
+    }
+  ]
+}

@@ -23,6 +23,7 @@ export const GET = route(async (ctx) => {
     market: ctx.market,
     query: r.query,
     total: r.total,
+    groups: r.groups,
     page: r.query.page,
     pageSize: PAGE_SIZE,
     pageCount: r.pageCount,

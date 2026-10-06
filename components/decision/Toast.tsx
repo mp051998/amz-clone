@@ -44,7 +44,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           lifted ? 'bottom-[150px] md:bottom-[96px]' : 'bottom-6'
         }`}
       >
-        {text ? <div className="rounded-input bg-ink px-4 py-[11px] text-[14px] text-white shadow-toast">{text}</div> : null}
+        {text ? <div className="rounded-input bg-ink px-4 py-[11px] text-[14px] text-on-ink shadow-toast">{text}</div> : null}
       </div>
     </ToastContext.Provider>
   );

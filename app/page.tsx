@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
+import { SearchBar } from '@/components/chrome/SearchBar';
 import { ContinueRow, DealGrid, HomeSection, PickGrid } from '@/components/home/HomeSections';
 import { Kicker } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
@@ -10,6 +11,8 @@ import { firstName, readUser } from '@/lib/auth';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
 import { getMarketplace } from '@/lib/marketplace-server';
+import { siteOrigin } from '@/lib/origin';
+import { jsonLdHtml, websiteJsonLd } from '@/lib/seo';
 import { storePath } from '@/lib/marketplace';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,33 +27,30 @@ export default async function Home() {
   const home = await getDecisionHome(client, store, recentIds, now);
   const greeting = user ? `${greetingFor(now, store.dates.timeZone)}, ${firstName(user)}` : 'Welcome';
   const searchHref = storePath(store, '/s');
+  const site = websiteJsonLd(await siteOrigin(), store.id, store.name);
 
   return (
     <AppShell>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(site) }} />
       <div className="mx-auto flex w-full max-w-page flex-col gap-14 px-[clamp(16px,3vw,24px)] pb-10 pt-10">
         <section aria-labelledby="home-title" className="flex max-w-[860px] flex-col gap-[18px]">
           <Kicker>{greeting}</Kicker>
           <h1 id="home-title" className="m-0 text-[clamp(30px,4.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
             What are you looking for?
           </h1>
-          <form action={searchHref} method="get" role="search" className="flex items-stretch overflow-hidden rounded-panel border-[1.5px] border-ink bg-surface shadow-hero focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
-            <label htmlFor="home-q" className="sr-only">Search for products, brands, or describe what you need</label>
-            <input
-              id="home-q"
-              name="k"
-              type="search"
-              autoComplete="off"
-              placeholder="Search for products, brands, or describe what you need..."
-              className="min-w-0 flex-1 border-0 bg-transparent px-[18px] py-[18px] text-[17px] outline-none placeholder:text-ink-4"
-            />
-            <button type="submit" className="bg-accent px-[26px] text-[16px] font-semibold text-ink hover:bg-accent-hover">Search</button>
-          </form>
+          <SearchBar
+            size="hero"
+            actionPath={searchHref}
+            market={store.id}
+            label="Search for products, brands, or describe what you need"
+            placeholder="Search for products, brands, or describe what you need..."
+          />
           <div className="flex flex-wrap items-center gap-2">
             <QuizButton
               market={store.id}
               category={null}
               categories={categories}
-              className="inline-flex min-h-[34px] items-center rounded-pill bg-ink px-3.5 text-[14px] font-medium text-white hover:bg-ink-raised"
+              className="inline-flex min-h-[34px] items-center rounded-pill bg-ink px-3.5 text-[14px] font-medium text-on-ink hover:bg-ink-raised"
             >
               Not sure what you need? Answer 5 questions
             </QuizButton>
@@ -64,7 +64,7 @@ export default async function Home() {
         </section>
 
         {home.recent.length ? (
-          <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits">
+          <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits" link={{ href: storePath(store, '/history'), label: 'See history' }}>
             <ContinueRow products={home.recent} store={store} />
           </HomeSection>
         ) : null}

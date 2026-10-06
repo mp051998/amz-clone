@@ -7,9 +7,9 @@ import { cn } from '../lib/cn';
  */
 export type BadgeTone = 'accent' | 'neutral' | 'dark' | 'good' | 'warn';
 const TONE: Record<BadgeTone, string> = {
-  accent: 'bg-accent text-ink',
+  accent: 'bg-accent text-on-accent',
   neutral: 'bg-surface-2 text-ink-2',
-  dark: 'bg-ink text-white',
+  dark: 'bg-ink text-on-ink',
   good: 'bg-good-bg text-good-strong',
   warn: 'bg-warn-bg text-warn-strong',
 };

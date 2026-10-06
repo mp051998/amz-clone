@@ -45,7 +45,7 @@ export function RankCard({ product: p, store, rank, tag, saved = false }: RankCa
                 {rank != null ? <span className="sr-only">Rank </span> : null}{label}
               </span>
             ) : <span />}
-            {pct > 0 ? <span className="rounded-tag bg-accent px-[7px] py-[3px] text-[12px] font-bold leading-none text-ink">{pct}% off</span> : null}
+            {pct > 0 ? <span className="rounded-tag bg-accent px-[7px] py-[3px] text-[12px] font-bold leading-none text-on-accent">{pct}% off</span> : null}
           </div>
           <a href={href} className="line-clamp-2 text-[16px] font-semibold leading-tight text-ink no-underline hover:text-accent-ink">
             {p.title}

@@ -3,8 +3,10 @@ import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { Wordmark } from './Wordmark';
 import { SearchBar } from './SearchBar';
-import { DeliverToPopover } from './DeliverToPopover';
+import { DeliverToPopover, type SavedPlace } from './DeliverToPopover';
+import { deliverLabel, type DeliverTo } from '@/lib/deliver-to';
 import { AccountMenu } from './AccountMenu';
+import { AllMenu, type AllMenuProps } from './AllMenu';
 import { CategoryStrip, type CategoryLink } from './CategoryStrip';
 
 export interface HeaderProps {
@@ -18,7 +20,12 @@ export interface HeaderProps {
   categories?: CategoryLink[];
   /** store switch trigger (desktop, lg+). */
   regionSlot?: ReactNode;
+  /** the search being looked at, shown in the search box (results page) */
   defaultQuery?: string;
+  /** where things go (picked, default address or store default) and the saved addresses */
+  deliverTo?: { current: DeliverTo | null; addresses: SavedPlace[] };
+  /** the "All" side menu at the start of the category strip */
+  menu?: AllMenuProps;
 }
 
 function CartPill({ href, count, compact = false }: { href: string; count: number; compact?: boolean }) {
@@ -29,17 +36,25 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
       className={`flex flex-none items-center gap-2 rounded-pill border border-line text-[14px] font-semibold text-ink no-underline hover:border-ink hover:text-ink ${compact ? 'min-h-11 gap-1.5 px-3' : 'min-h-10 px-3.5'}`}
     >
       Cart
-      <span aria-hidden className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-accent px-1.5 text-[12px] tabular-nums">{count}</span>
+      <span aria-hidden className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-accent text-on-accent px-1.5 text-[12px] tabular-nums">{count}</span>
     </a>
   );
 }
 
 /** Sticky white header: desktop row, mobile stack, category strip (design.md §5 Header). Store-aware. */
-export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery }: HeaderProps) {
+export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery, deliverTo, menu }: HeaderProps) {
   const home = storePath(store, '/');
   const action = storePath(store, '/s');
-  const locationText = store.id === 'IN' ? 'Bengaluru 560001' : 'Update location';
-  const deliver = { schema: store.address.schema, postcodeLabel: store.address.postcode.label, locationText };
+  const current = deliverTo?.current ?? null;
+  const deliver = {
+    schema: store.address.schema,
+    postcodeLabel: store.address.postcode.label,
+    locationText: current ? deliverLabel(current) : 'Update location',
+    current,
+    addresses: deliverTo?.addresses ?? [],
+    signInHref: storePath(store, '/signin'),
+    addressesHref: storePath(store, '/account/addresses'),
+  };
   const savedHref = storePath(store, userName ? '/collections' : '/signin');
   const ordersHref = storePath(store, '/orders');
   const cartHref = storePath(store, '/cart');
@@ -51,7 +66,7 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
       <div className="mx-auto hidden max-w-page items-center gap-5 px-6 py-3 md:flex">
         <a href={home} aria-label={`${store.name} demo store home`} className="flex-none no-underline"><Wordmark /></a>
         <DeliverToPopover {...deliver} />
-        <SearchBar actionPath={action} defaultQuery={defaultQuery} />
+        <SearchBar key={defaultQuery} actionPath={action} market={store.id} defaultQuery={defaultQuery} />
         {regionSlot ? <div className="hidden lg:block">{regionSlot}</div> : null}
         <AccountMenu store={store} userName={userName} isAdmin={isAdmin} />
         <a href={ordersHref} className={navLink}>Orders</a>
@@ -67,11 +82,11 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
           <a href={ordersHref} className={navLink}>Orders</a>
           <CartPill href={cartHref} count={cartCount} compact />
         </div>
-        <SearchBar actionPath={action} defaultQuery={defaultQuery} placeholder="Search or describe what you need" />
+        <SearchBar key={defaultQuery} actionPath={action} market={store.id} defaultQuery={defaultQuery} placeholder="Search or describe what you need" />
         <DeliverToPopover {...deliver} layout="inline" userName={userName} />
       </div>
 
-      <CategoryStrip links={categories} />
+      <CategoryStrip links={categories} lead={menu ? <AllMenu {...menu} /> : null} />
     </header>
   );
 }

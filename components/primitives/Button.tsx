@@ -19,8 +19,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-ink border-transparent hover:bg-accent-hover',
-  dark: 'bg-ink text-white border-transparent hover:bg-ink-raised',
+  primary: 'bg-accent text-on-accent border-transparent hover:bg-accent-hover',
+  dark: 'bg-ink text-on-ink border-transparent hover:bg-ink-raised',
   secondary: 'bg-surface text-ink border-line-3 hover:border-ink',
   dashed: 'bg-surface text-ink border-[1.5px] border-dashed border-ink hover:bg-surface-2',
   link: 'bg-transparent text-ink border-transparent underline underline-offset-2 hover:text-accent-ink !px-0 !h-auto',

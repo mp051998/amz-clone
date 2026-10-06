@@ -3,6 +3,7 @@ import { shortTitle } from '@/lib/decision/verdict';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { toStoreMinor } from '@/lib/fx';
+import type { VariantSummary } from '@/lib/variants';
 import { cn } from '../lib/cn';
 import type { Store } from '../lib/store';
 import { MatchBadge, TopPickBadge, Kicker } from '../decision/Badges';
@@ -10,6 +11,7 @@ import { CheckList } from '../decision/CheckList';
 import { CompareToggle } from '../decision/Compare';
 import { ProductFrame } from '../decision/ProductFrame';
 import { SaveButton } from '../decision/SaveButton';
+import { VariantSwatches } from '../product/VariantSwatches';
 import { Price } from '../primitives/Price';
 import { Stars } from '../primitives/Stars';
 
@@ -24,6 +26,8 @@ export interface ResultCardProps {
   /** show the match badge (off for plain price/rating sorts). */
   showMatch?: boolean;
   priority?: boolean;
+  /** the product's variant group (other colours, sizes), when it has one. */
+  variants?: VariantSummary;
 }
 
 /** Store-aware delivery promise from the store's free-delivery threshold. */
@@ -35,7 +39,7 @@ export function deliveryLine(store: Store, priceMinor: number, stock: number): s
 }
 
 /** Ranked search result card (prototype Search screen; design.md §5 Why it's here). */
-export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false }: ResultCardProps) {
+export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants }: ResultCardProps) {
   const p = r.product;
   const cur = store.currency.code;
   const href = storePath(store, `/product/${p.id}`);
@@ -60,9 +64,10 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
           <span>{p.rating.toFixed(1)} · {p.reviewCount.toLocaleString('en-US')} reviews</span>
         </span>
       </div>
+      {variants ? <VariantSwatches variants={variants} currentId={p.id} store={store} /> : null}
       <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} />
       <span className="text-[13px] text-ink-2">
-        <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-white">{store.membership.name}</span>
+        <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
         {deliveryLine(store, price, p.stock)}
       </span>
       {r.why.length || r.warn ? (

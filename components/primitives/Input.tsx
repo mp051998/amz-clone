@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes, type Ref } from 'react';
 import { cn } from '../lib/cn';
 import { fieldClass } from '../lib/controls';
 
@@ -6,6 +6,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  ref?: Ref<HTMLInputElement>;
 }
 
 /** 44px field, radius 10, line-3 border, ink focus (design.md §5 Inputs). Label above, error below. */

@@ -8,12 +8,17 @@ import type { Store } from '../lib/store';
 import { ProductFrame } from '../decision/ProductFrame';
 
 /** Section wrapper: 22px title + optional meta on the right (design.md §3 Section title). */
-export function HomeSection({ title, meta, children, id }: { title: string; meta?: string; children: ReactNode; id: string }) {
+export function HomeSection({ title, meta, link, children, id }: { title: string; meta?: string; link?: { href: string; label: string }; children: ReactNode; id: string }) {
   return (
     <section aria-labelledby={id} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id={id} className="m-0 text-[22px] font-semibold">{title}</h2>
-        {meta ? <span className="text-[14px] text-ink-3">{meta}</span> : null}
+        {meta || link ? (
+          <span className="flex items-baseline gap-3 text-[14px]">
+            {meta ? <span className="text-ink-3">{meta}</span> : null}
+            {link ? <a href={link.href} className="text-ink underline underline-offset-2">{link.label}</a> : null}
+          </span>
+        ) : null}
       </div>
       {children}
     </section>
@@ -34,7 +39,7 @@ function Rating({ p }: { p: Product }) {
 }
 
 /** Continue shopping: horizontally scrolling recently-viewed cards. */
-export function ContinueRow({ products, store }: { products: Product[]; store: Store }) {
+export function ContinueRow({ products, store, kicker = 'Viewed recently' }: { products: Product[]; store: Store; /** the small line over each title */ kicker?: string }) {
   return (
     <ul className="no-scrollbar m-0 flex list-none gap-3.5 overflow-x-auto p-0 pb-1.5">
       {products.map((p) => (
@@ -44,7 +49,7 @@ export function ContinueRow({ products, store }: { products: Product[]; store: S
             className="flex h-full flex-col gap-2.5 rounded-card border border-line bg-surface p-3 text-ink no-underline transition-colors hover:border-ink hover:text-ink"
           >
             <ProductFrame src={p.image} alt="" />
-            <span className="font-mono text-[12px] text-ink-3">Viewed recently</span>
+            <span className="font-mono text-[12px] text-ink-3">{kicker}</span>
             <span className="line-clamp-2 text-[16px] font-semibold leading-tight">{p.title}</span>
             <span className="mt-auto flex items-center justify-between text-[14px]">
               <strong className="text-[16px] tabular-nums">{money(p, store)}</strong>
@@ -102,7 +107,7 @@ export function DealGrid({ deals, store }: { deals: HomeDeal[]; store: Store }) 
                 <ProductFrame src={p.image} alt="" aspect="auto" className="h-full min-h-[110px]" label="product" />
               </div>
               <div className="flex min-w-0 flex-col gap-1.5">
-                {off > 0 ? <span className="self-start rounded-tag bg-accent px-[7px] py-[3px] text-[13px] font-bold">{off}% OFF</span> : null}
+                {off > 0 ? <span className="self-start rounded-tag bg-accent text-on-accent px-[7px] py-[3px] text-[13px] font-bold">{off}% OFF</span> : null}
                 <span className="line-clamp-2 text-[15px] font-semibold leading-tight">{p.title}</span>
                 <span className="flex flex-wrap items-baseline gap-2">
                   <strong className="text-[18px] tabular-nums">{money(p, store)}</strong>

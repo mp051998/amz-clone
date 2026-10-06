@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Pagination } from '@/components/commerce/Pagination';
 import { EmptyState, Kicker } from '@/components/decision/Badges';
@@ -7,6 +8,7 @@ import { Pill } from '@/components/decision/Pill';
 import { SegmentedControl } from '@/components/decision/SegmentedControl';
 import { QuizButton } from '@/components/quiz/QuizDialog';
 import { decodeProfile, PROFILE_COOKIE } from '@/components/quiz/profileCookie';
+import { ContinueRow } from '@/components/home/HomeSections';
 import { ResultCard } from '@/components/results/ResultCard';
 import { savedIdsFor } from '@/components/results/viewerSaved';
 import { MoreFilters } from '@/components/search/MoreFilters';
@@ -17,7 +19,8 @@ import { readDecisionParams } from '@/lib/decision/params';
 import { buildParsedQuery } from '@/lib/decision/query';
 import type { RankSort } from '@/lib/decision/rank';
 import { niceCeiling, rankedSearch } from '@/lib/decision/server';
-import { searchCatalog } from '@/lib/data/catalog';
+import { listProducts, searchCatalog, variantSummaries } from '@/lib/data/catalog';
+import { spellFix } from '@/lib/data/spell';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -33,7 +36,8 @@ const PER_PAGE = 12;
 
 const SORT_OPTIONS: { value: RankSort; label: string }[] = [
   { value: 'match', label: 'Best match' },
-  { value: 'price-asc', label: 'Price' },
+  { value: 'price-asc', label: 'Lowest price' },
+  { value: 'price-desc', label: 'Highest price' },
   { value: 'rating', label: 'Rating' },
 ];
 
@@ -56,6 +60,8 @@ function one(sp: SP, key: string): string | undefined {
  *   budget ceiling in minor units; `0` = budget chip removed
  *   use    use-case preset from the query; `none` = use chip removed
  *   preset refine preset id, or `ai` = weights tuned by the quiz (summary in the `tuned_profile` cookie)
+ *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
+ *   spell  `0` = search exactly as typed, no spelling correction
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|rating  ·  page
  *   brand, rating, deal — "More filters" facets
  */
@@ -115,6 +121,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     const qs = out.toString().replace(/%2C/gi, ',');
     return storePath(store, qs ? `/s?${qs}` : '/s');
   };
+  // nothing matched the words as typed: retry with typos corrected (only when that finds something)
+  const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
+  if (k && pq.keywords && !result.candidates && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal) {
+    const fix = await spellFix(client, store.id, k, pq.keywords, category);
+    if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
+  }
+
   // client base: materialise the parsed use so client-computed implied weights match the server
   const clientBase = new URLSearchParams(raw);
   if (use && !clientBase.get('use')) clientBase.set('use', use);
@@ -163,8 +176,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
   const page = Math.min(pageCount, Math.max(1, Number(one(sp, 'page')) || 1));
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  // nothing found: something to go on instead of a dead end (not under a budget — these could cost more)
+  const popular = items.length || budgetMinor ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
   const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0);
-  const scopeTotal = scope && !facetFilters ? Math.max(scope.total, result.candidates) : result.candidates;
+  // products, not options: a group's variants count once
+  const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
+  const variants = await variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : [])));
   const range = budgetRange(store.id, category);
   const cur = store.currency.code;
   const title = pq.title === 'Results' ? 'All products' : pq.title;
@@ -197,9 +214,17 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   );
 
   return (
-    <AppShell>
+    <AppShell query={k || undefined}>
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-10 pt-7">
         <header className="flex flex-col gap-2">
+          {orig && k ? (
+            <p className="m-0 text-[15px] text-ink-2" role="status">
+              Showing results for <strong className="font-semibold text-ink">{k}</strong>.{' '}
+              <a href={hrefWith({ k: orig, orig: null, spell: '0' })} className="text-ink underline underline-offset-2">
+                Search instead for {orig}
+              </a>
+            </p>
+          ) : null}
           <Kicker>{k ? `You searched “${k}”` : 'Browse'}</Kicker>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">{title}</h1>
           <p className="m-0 text-[15px] text-ink-2">
@@ -272,8 +297,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <span className="text-[14px] text-ink-2">{RANK_NOTE[sort]}</span>
               <SegmentedControl
                 ariaLabel="Sort results"
-                value={sort === 'price-desc' ? 'price-asc' : sort}
+                value={sort}
                 options={SORT_OPTIONS.map((o) => ({ ...o, href: hrefWith({ sort: o.value === 'match' ? null : o.value }) }))}
+                className="no-scrollbar max-w-full overflow-x-auto whitespace-nowrap"
               />
             </div>
             {items.length ? (
@@ -288,13 +314,22 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                         saved={saved.has(r.product.id)}
                         bestForFallback={presetSpec?.bestFor}
                         priority={page === 1 && i < 3}
+                        variants={r.product.variant ? variants.get(r.product.variant.group) : undefined}
                       />
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              empty
+              <>
+                {empty}
+                {popular.length ? (
+                  <section aria-labelledby="popular-h" className="flex flex-col gap-3 pt-2">
+                    <h2 id="popular-h" className="m-0 text-[20px] font-semibold">{category ? `Popular in ${cfg.noun}` : 'Popular right now'}</h2>
+                    <ContinueRow products={popular} store={store} kicker="Popular" />
+                  </section>
+                ) : null}
+              </>
             )}
             {pageCount > 1 ? <Pagination page={page} pageCount={pageCount} hrefFor={(n) => hrefWith({ page: n === 1 ? null : String(n) }, true)} /> : null}
           </section>

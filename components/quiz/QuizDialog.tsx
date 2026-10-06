@@ -222,7 +222,7 @@ function QuizDialog({ market, category, categories = [], baseQuery = '', budgetM
   const optionClass = (on: boolean) =>
     cn(
       'flex min-h-14 items-center gap-2.5 rounded-card border-[1.5px] p-3.5 text-left text-[15px] font-medium transition-colors',
-      on ? 'border-ink bg-ink text-white' : 'border-line-3 bg-surface text-ink hover:border-ink',
+      on ? 'border-ink bg-ink text-on-ink' : 'border-line-3 bg-surface text-ink hover:border-ink',
     );
 
   const body = (
@@ -350,7 +350,7 @@ function QuizDialog({ market, category, categories = [], baseQuery = '', budgetM
             </span>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button type="button" onClick={() => setStep(0)} className="py-2 text-[15px] underline underline-offset-2">Change answers</button>
-              <button type="button" onClick={apply} className="inline-flex min-h-12 items-center rounded-pill bg-accent px-[22px] text-[15px] font-semibold text-ink hover:bg-accent-hover">
+              <button type="button" onClick={apply} className="inline-flex min-h-12 items-center rounded-pill bg-accent px-[22px] text-[15px] font-semibold text-on-accent hover:bg-accent-hover">
                 Apply to results
               </button>
             </div>
@@ -388,7 +388,7 @@ function Footer({ showBack, onBack, onNext, nextLabel, canNext }: { showBack: bo
         type="button"
         onClick={onNext}
         disabled={!canNext}
-        className="inline-flex min-h-12 items-center rounded-pill bg-accent px-[22px] text-[15px] font-semibold text-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-4 disabled:text-ink-4"
+        className="inline-flex min-h-12 items-center rounded-pill bg-accent px-[22px] text-[15px] font-semibold text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-4 disabled:text-ink-4"
       >
         {nextLabel}
       </button>

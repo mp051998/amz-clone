@@ -94,7 +94,7 @@ const ELECTRONICS: CategorySpec = {
   headline: 'Headphones & audio',
   synonyms: [
     'electronics', 'headphones', 'headphone', 'earbuds', 'earbud', 'earphones', 'headset', 'audio', 'speaker',
-    'smartwatch', 'smart watch', 'watch', 'tws', 'airdopes', 'buds', 'bluetooth',
+    'tws', 'airdopes', 'buds', 'bluetooth',
   ],
   attributes: [
     {
@@ -282,7 +282,7 @@ const HOME_KITCHEN: CategorySpec = {
   headline: 'Kitchenware',
   synonyms: [
     'home-kitchen', 'home & kitchen', 'kitchen', 'cookware', 'pots', 'pans', 'pots and pans', 'frying pan', 'cooker',
-    'pressure cooker', 'mixer', 'grinder', 'mixer grinder', 'blender', 'nonstick',
+    'pressure cooker', 'nonstick',
   ],
   attributes: [
     {
@@ -580,7 +580,7 @@ const SPORTS: CategorySpec = {
   category: 'sports',
   noun: 'fitness gear',
   headline: 'Fitness gear',
-  synonyms: ['sports', 'sports & outdoors', 'dumbbell', 'dumbbells', 'weights', 'kettlebell', 'barbell', 'yoga mat', 'yoga', 'mat', 'home gym', 'fitness equipment'],
+  synonyms: ['sports', 'sports & outdoors', 'dumbbell', 'dumbbells', 'weights', 'kettlebell', 'barbell', 'home gym', 'fitness equipment'],
   attributes: [
     {
       key: 'versatility', label: 'Weight range', phrase: 'weight range',
@@ -621,7 +621,7 @@ const SPORTS: CategorySpec = {
     options: [
       { label: 'Build strength', boosts: { versatility: 2, build: 1 }, reason: 'Progressing needs heavier, sturdier gear' },
       { label: 'Tone & stay active', boosts: { grip: 1, value: 1 }, reason: 'Lighter, comfortable gear suits toning' },
-      { label: 'Yoga & stretching', boosts: { grip: 2 }, reason: 'Stretching needs a grip that stays put' },
+      { label: 'Circuits & HIIT', boosts: { grip: 2 }, reason: 'Fast circuits need a grip that stays put' },
       { label: 'Train in a small space', boosts: { compact: 2 }, reason: 'Limited space means compact gear' },
     ],
   },
@@ -631,6 +631,190 @@ const SPORTS: CategorySpec = {
       { label: 'Once a week or less', boosts: { value: 1 }, reason: 'Occasional use, so value matters' },
       { label: '2–4 times a week', boosts: {}, reason: '' },
       { label: 'Almost every day', boosts: { build: 2 }, reason: 'Daily training makes build quality critical' },
+    ],
+  },
+};
+
+const WEARABLES: CategorySpec = {
+  category: 'wearables',
+  noun: 'smartwatches',
+  headline: 'Smartwatches',
+  synonyms: [
+    'wearables', 'wearable', 'smartwatch', 'smartwatches', 'smart watch', 'smart watches', 'watch', 'watches',
+    'fitness band', 'fitness tracker',
+  ],
+  attributes: [
+    {
+      key: 'display', label: 'Display', phrase: 'display',
+      strong: 'Stunning display', good: 'Bright, clear display', weak: 'Basic display',
+      pain: 'Hard to read outdoors', painReason: 'A dim screen has been hard to read',
+      signals: [['amoled|oled|always-on', 2], ['\\bhd display|\\b(?:1\\.9\\d|2\\.\\d+)"', 1], ['\\btft\\b', -1]],
+      detail: { pattern: '\\b(\\d\\.\\d{2})"', template: '$1" display' },
+    },
+    {
+      key: 'battery', label: 'Battery life', phrase: 'battery life',
+      strong: 'A week or more per charge', good: 'Multi-day battery', weak: 'Needs charging every couple of days',
+      pain: 'Charging it every night', painReason: 'Nightly charging has been a chore',
+      signals: [['\\b(?:[7-9]|1\\d)[- ]day', 2], ['\\b[3-6][- ]day', 1], ['amoled', -1]],
+      detail: { pattern: '\\b(\\d{1,2})[- ]day battery', template: '$1-day battery' },
+    },
+    {
+      key: 'fitness', label: 'Health & fitness tracking', phrase: 'fitness tracking',
+      strong: 'Tracks every workout', good: 'Solid health tracking', weak: 'Basic fitness tracking',
+      pain: 'Unreliable step or heart-rate readings', painReason: 'Unreliable tracking has let you down',
+      signals: [['heart rate monitor|\\bip68\\b|5\\s?atm|\\bgps\\b', 1], ['\\b(?:1[2-9]\\d|[2-9]\\d\\d)\\+?\\s*sports modes', 1]],
+    },
+    {
+      key: 'calling', label: 'Calls & smart features', phrase: 'calling & smart features',
+      strong: 'Great for calls on the wrist', good: 'Handy calling & smart features', weak: 'Limited smart features',
+      pain: 'Missing calls and alerts', painReason: 'Missed calls and alerts have frustrated you',
+      signals: [['\\bbt calling|bluetooth calling', 1], ['voice assistant|\\balexa\\b|\\bnfc\\b|contactless', 1]],
+    },
+    VALUE_ATTR,
+  ],
+  presets: [
+    { id: 'fitness', label: 'Fitness first', weights: w({ display: 2, battery: 4, fitness: 5, calling: 2, value: 3 }), keywords: ['fitness', 'gym', 'workout', 'running', 'run', 'sports', 'health'], bestFor: 'Workouts & health tracking' },
+    { id: 'everyday', label: 'Everyday', weights: w({ display: 3, battery: 4, fitness: 3, calling: 4, value: 3 }), keywords: ['everyday', 'daily', 'calls', 'calling', 'office', 'work'], bestFor: 'Everyday wear & calls' },
+    { id: 'style', label: 'Style & display', weights: w({ display: 5, battery: 2, fitness: 2, calling: 3, value: 2 }), keywords: ['style', 'stylish', 'premium', 'amoled', 'metal', 'classy'], bestFor: 'A watch that looks the part' },
+    { id: 'value', label: 'Best value', weights: w({ display: 3, battery: 3, fitness: 3, calling: 3, value: 5 }), keywords: ['cheap', 'budget', 'affordable', 'value'], bestFor: 'Getting the most for less' },
+  ],
+  defaultWeights: w({ display: 3, battery: 3, fitness: 3, calling: 3, value: 3 }),
+  uses: {
+    title: 'What will you mostly use it for?', sub: 'Pick all that apply.',
+    options: [
+      { label: 'Workouts & runs', boosts: { fitness: 2, battery: 1 }, reason: 'Workouts lean on accurate tracking' },
+      { label: 'Calls & notifications', boosts: { calling: 2 }, reason: 'Taking calls on your wrist needs solid calling' },
+      { label: 'Sleep & health tracking', boosts: { fitness: 1, battery: 1 }, reason: 'Wearing it overnight needs battery and tracking', watch: 'Smartwatch health readings are estimates, not medical measurements.' },
+      { label: 'Style & everyday wear', boosts: { display: 2 }, reason: 'A watch you wear all day should look good' },
+    ],
+  },
+  duration: {
+    title: 'How often are you happy to charge it?', sub: 'Bigger, brighter screens use more battery.',
+    options: [
+      { label: 'Every night is fine', boosts: { display: 1, battery: -1 }, reason: 'Nightly charging frees you to pick a better screen' },
+      { label: 'Every few days', boosts: {}, reason: '' },
+      { label: 'Once a week or less', boosts: { battery: 2 }, reason: 'Charging weekly makes battery critical' },
+    ],
+  },
+};
+
+const KITCHEN_APPLIANCES: CategorySpec = {
+  category: 'kitchen-appliances',
+  noun: 'kitchen appliances',
+  headline: 'Kitchen appliances',
+  synonyms: [
+    'kitchen-appliances', 'kitchen appliances', 'kitchen appliance', 'appliance', 'appliances', 'mixer', 'grinder',
+    'mixer grinder', 'mixie', 'blender', 'juicer', 'food processor',
+  ],
+  attributes: [
+    {
+      key: 'power', label: 'Motor power', phrase: 'motor power',
+      strong: 'Powers through tough grinding', good: 'Strong motor', weak: 'Struggles with tough grinding',
+      pain: 'Motor straining on hard spices', painReason: 'An underpowered motor has let you down',
+      signals: [['\\b1\\d{3}\\s*w\\b', 2], ['\\b(?:7[5-9]\\d|[89]\\d\\d)\\s*w\\b', 1], ['\\b[1-5]\\d\\d\\s*w\\b', -1], ['\\b(?:2[2-9]|3\\d)000\\s*rpm', 1]],
+      detail: { pattern: '\\b(\\d{3,4})\\s*W\\b', template: '$1W motor' },
+    },
+    {
+      key: 'versatility', label: 'Jars & modes', phrase: 'versatility',
+      strong: 'Handles every recipe', good: 'Versatile jars & modes', weak: 'Fewer jars and settings',
+      pain: 'Not enough jars or settings', painReason: 'Juggling too few jars has slowed you down',
+      signals: [['\\b[4-6]\\s*jars', 1], ['pulse|modes|multifunctional|attachments', 1], ['\\b[12]\\s*jars?\\b', -1]],
+      detail: { pattern: '\\b(\\d)\\s*Jars', template: '$1 jars' },
+    },
+    {
+      key: 'durability', label: 'Durability', phrase: 'durability',
+      strong: 'Built to last', good: 'Sturdy build', weak: 'Lighter-duty build',
+      pain: 'Motor burning out', painReason: 'An appliance wearing out early has annoyed you',
+      signals: [['double ball bearing|stone pounding|copper motor', 1], ['\\b[2-9][- ]year|non-stop|continuous', 1]],
+    },
+    {
+      key: 'ease', label: 'Ease of use', phrase: 'ease of use',
+      strong: 'Effortless to use and clean', good: 'Easy to use', weak: 'Can be loud and fiddly',
+      pain: 'Loud, messy or fiddly to clean', painReason: 'Noisy, messy appliances have been a chore',
+      signals: [['low noise|quiet|silent|leak-?proof|easy to clean|dishwasher|one-touch|flow breaker', 1], ['\\b1\\d{3}\\s*w\\b', -1]],
+    },
+    VALUE_ATTR,
+  ],
+  presets: [
+    { id: 'heavy', label: 'Heavy grinding', weights: w({ power: 5, versatility: 3, durability: 5, ease: 2, value: 2 }), keywords: ['heavy', 'tough', 'idli', 'dosa', 'batter', 'masala', 'spices', 'family'], bestFor: 'Heavy daily grinding' },
+    { id: 'everyday', label: 'Everyday', weights: w({ power: 3, versatility: 4, durability: 3, ease: 4, value: 3 }), keywords: ['everyday', 'daily', 'home', 'chutney', 'smoothie', 'juice'], bestFor: 'Everyday cooking' },
+    { id: 'value', label: 'Best value', weights: w({ power: 3, versatility: 3, durability: 3, ease: 3, value: 5 }), keywords: ['cheap', 'budget', 'affordable', 'value'], bestFor: 'Getting the most for less' },
+  ],
+  defaultWeights: w({ power: 3, versatility: 3, durability: 3, ease: 3, value: 3 }),
+  uses: {
+    title: 'What will you grind most?', sub: 'Pick all that apply.',
+    options: [
+      { label: 'Dry masalas & spices', boosts: { power: 2 }, reason: 'Hard spices need a strong motor' },
+      { label: 'Idli & dosa batter', boosts: { power: 1, durability: 1 }, reason: 'Wet grinding runs the motor long and hard' },
+      { label: 'Chutneys & purées', boosts: { versatility: 1, ease: 1 }, reason: 'Small jars and pulse make chutneys easy' },
+      { label: 'Juices & smoothies', boosts: { versatility: 2 }, reason: 'Juicing needs the right jar or attachment', watch: 'Check the jar list: not every mixer comes with a juicer attachment.' },
+    ],
+  },
+  duration: {
+    title: 'How often will you use it?', sub: 'Daily use is hard on the motor.',
+    options: [
+      { label: 'A few times a week', boosts: { durability: -1 }, reason: 'Light use, so durability matters less' },
+      { label: 'Once a day', boosts: {}, reason: '' },
+      { label: 'Several times a day', boosts: { durability: 2 }, reason: 'Daily heavy use makes durability critical' },
+    ],
+  },
+};
+
+const YOGA: CategorySpec = {
+  category: 'yoga',
+  noun: 'yoga mats',
+  headline: 'Yoga mats',
+  synonyms: ['yoga', 'yoga mat', 'yoga mats', 'exercise mat', 'fitness mat', 'workout mat', 'mat', 'mats', 'pilates'],
+  attributes: [
+    {
+      key: 'grip', label: 'Grip', phrase: 'grip',
+      strong: 'Rock-solid grip', good: 'Non-slip grip', weak: 'Can slip when sweaty',
+      pain: 'Slipping in poses', painReason: 'Slipping mid-pose has thrown you off',
+      signals: [['\\btpe\\b|natural rubber|\\bpu\\b', 1], ['\\beva\\b|\\bpvc\\b', -1]],
+    },
+    {
+      key: 'cushioning', label: 'Cushioning', phrase: 'cushioning',
+      strong: 'Plush, joint-friendly cushioning', good: 'Comfortable cushioning', weak: 'Thin under the knees',
+      pain: 'Sore knees and wrists', painReason: 'A thin mat has hurt your knees before',
+      signals: [['\\b(?:8|10|12|15)\\s*mm', 1], ['high-density|extra thick', 1], ['\\b[1-4]\\s*mm', -1]],
+      detail: { pattern: '\\b(\\d{1,2})\\s*mm\\b', template: '$1mm thick' },
+    },
+    {
+      key: 'durability', label: 'Durability', phrase: 'durability',
+      strong: 'Built to last', good: 'Holds up well', weak: 'May flake or tear over time',
+      pain: 'Mats tearing or flaking', painReason: 'A mat falling apart has annoyed you',
+      signals: [['high-density|natural rubber|tear-?resistant|\\bpu\\b', 1], ['\\beva\\b|\\bpvc\\b', -1]],
+    },
+    {
+      key: 'portability', label: 'Easy to carry', phrase: 'portability',
+      strong: 'Grab-and-go light', good: 'Easy to carry', weak: 'Bulky to carry',
+      pain: 'Awkward to carry or store', painReason: 'Lugging a bulky mat has been a pain',
+      signals: [['strap|foldable|travel', 1], ['\\b(?:10|12|15)\\s*mm|extra thick', -1]],
+    },
+    VALUE_ATTR,
+  ],
+  presets: [
+    { id: 'yoga', label: 'Yoga practice', weights: w({ grip: 5, cushioning: 3, durability: 4, portability: 2, value: 2 }), keywords: ['asana', 'vinyasa', 'hot yoga', 'power yoga', 'practice', 'flow'], bestFor: 'Regular yoga practice' },
+    { id: 'comfort', label: 'Extra comfort', weights: w({ grip: 3, cushioning: 5, durability: 3, portability: 2, value: 3 }), keywords: ['thick', 'comfort', 'knees', 'joints', 'pilates', 'floor', 'home workout'], bestFor: 'Floor work & sensitive joints' },
+    { id: 'travel', label: 'On the go', weights: w({ grip: 3, cushioning: 2, durability: 3, portability: 5, value: 3 }), keywords: ['travel', 'portable', 'lightweight', 'gym', 'carry', 'foldable'], bestFor: 'Taking it to class or the gym' },
+    { id: 'value', label: 'Best value', weights: w({ grip: 3, cushioning: 3, durability: 3, portability: 2, value: 5 }), keywords: ['cheap', 'budget', 'affordable', 'value'], bestFor: 'Getting the most for less' },
+  ],
+  defaultWeights: w({ grip: 3, cushioning: 3, durability: 3, portability: 3, value: 3 }),
+  uses: {
+    title: 'What will you use it for?', sub: 'Pick all that apply.',
+    options: [
+      { label: 'Yoga flows', boosts: { grip: 2 }, reason: 'Flowing between poses needs a grip that holds' },
+      { label: 'Pilates & floor work', boosts: { cushioning: 2 }, reason: 'Floor work is easier on a cushioned mat' },
+      { label: 'Home workouts & stretching', boosts: { cushioning: 1, durability: 1 }, reason: 'Workouts wear a mat faster' },
+      { label: 'Classes or the gym', boosts: { portability: 2 }, reason: 'Carrying it to class makes weight matter' },
+    ],
+  },
+  duration: {
+    title: 'How often will you practise?', sub: 'Frequent use wears a mat faster.',
+    options: [
+      { label: 'Once a week or less', boosts: { value: 1 }, reason: 'Occasional use, so value matters' },
+      { label: '2–4 times a week', boosts: {}, reason: '' },
+      { label: 'Almost every day', boosts: { durability: 2 }, reason: 'Daily practice makes durability critical' },
     ],
   },
 };
@@ -695,14 +879,17 @@ export const GENERIC_CONFIG: CategorySpec = {
 
 const CONFIGS: Record<string, CategorySpec> = {
   electronics: ELECTRONICS,
+  wearables: WEARABLES,
   computers: COMPUTERS,
   mobiles: MOBILES,
   'home-kitchen': HOME_KITCHEN,
+  'kitchen-appliances': KITCHEN_APPLIANCES,
   fashion: FASHION,
   beauty: BEAUTY,
   books: BOOKS,
   toys: TOYS,
   sports: SPORTS,
+  yoga: YOGA,
 };
 
 /** Every category slug with a dedicated config (the generic fallback excluded). */
@@ -787,26 +974,32 @@ type Range = [number, number, number, number];
 const BUDGETS: Record<Market, Record<string, Range>> = {
   US: {
     electronics: [10, 300, 5, 150],
+    wearables: [30, 500, 10, 200],
     computers: [200, 2000, 50, 800],
     mobiles: [100, 1500, 50, 600],
     'home-kitchen': [20, 400, 10, 200],
+    'kitchen-appliances': [30, 400, 10, 150],
     fashion: [20, 250, 5, 120],
     beauty: [10, 120, 5, 60],
     books: [5, 40, 1, 25],
     toys: [10, 100, 5, 50],
     sports: [30, 500, 10, 350],
+    yoga: [15, 150, 5, 50],
     generic: [10, 1000, 10, 200],
   },
   IN: {
     electronics: [500, 10_000, 250, 3_000],
+    wearables: [1_000, 10_000, 250, 3_000],
     computers: [20_000, 200_000, 5_000, 60_000],
     mobiles: [5_000, 120_000, 1_000, 25_000],
     'home-kitchen': [500, 10_000, 250, 5_000],
+    'kitchen-appliances': [1_500, 12_000, 250, 5_000],
     fashion: [300, 3_000, 100, 1_200],
     beauty: [100, 1_500, 50, 600],
     books: [100, 1_000, 50, 500],
     toys: [100, 3_000, 100, 1_000],
     sports: [300, 20_000, 500, 5_000],
+    yoga: [300, 5_000, 100, 1_500],
     generic: [500, 50_000, 500, 5_000],
   },
 };

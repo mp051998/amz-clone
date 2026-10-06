@@ -13,7 +13,7 @@ export function MatchBadge({ match, className }: { match: number; className?: st
 
 /** Accent tag for the #1 ranked item ("Top pick for you", "Best match"). */
 export function TopPickBadge({ children = 'Top pick for you', className }: { children?: ReactNode; className?: string }) {
-  return <span className={cn('inline-flex items-center rounded-chip bg-accent px-2 py-1 text-[12px] font-bold leading-none text-ink', className)}>{children}</span>;
+  return <span className={cn('inline-flex items-center rounded-chip bg-accent px-2 py-1 text-[12px] font-bold leading-none text-on-accent', className)}>{children}</span>;
 }
 
 /** Mono uppercase kicker ("YOU SEARCHED", "WHY IT'S HERE"). `onDark` uses accent-soft for dark panels. */

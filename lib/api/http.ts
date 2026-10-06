@@ -114,6 +114,13 @@ export function requireUser(ctx: ApiContext): ApiUser {
   return ctx.user;
 }
 
+/** The caller's access token: the bearer token, or the one in the web session cookie. */
+export async function accessToken(ctx: ApiContext): Promise<string> {
+  const token = bearer(ctx.req) ?? (await ctx.db.auth.getSession()).data.session?.access_token;
+  if (!token) throw new DataError('not_authenticated');
+  return token;
+}
+
 /** Parse a JSON object body (empty body → {}). */
 export async function body(req: NextRequest): Promise<Record<string, unknown>> {
   const text = await req.text();

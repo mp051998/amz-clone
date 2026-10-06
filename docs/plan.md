@@ -6,7 +6,8 @@ Unofficial demo — not affiliated with Amazon.
 ## Architecture
 - **Single Next.js app** (App Router, React 19, Tailwind v4). Components vendored under `components/`, local types/formatters under `lib/`.
 - **Data:** seed + session. Seeded TS catalog; cart, orders, and auth in signed cookies. No DB → the live demo can't break on a connection.
-- **Images:** real product photos downloaded from Amazon's CDN, **self-hosted** in `public/products/` (Amazon blocks hotlinking).
+- **SEO / link previews:** `robots.txt` (private pages of both stores kept out) and `sitemap.xml` (shared pages with en-US/en-IN alternates, departments, every product with its photo); product pages carry a description, canonical, Open Graph/Twitter image and schema.org `Product` JSON-LD (`lib/seo.ts`).
+- **Images:** real product photos downloaded from Amazon's CDN, **self-hosted** in `public/products/` (Amazon blocks hotlinking). Cards use the 400px copy; the product page zoom and full view use a 1000px copy in `zoom/` next to it (`scripts/fetch-zoom-images.mjs`, mapped by `lib/product-images.ts`).
 - **Deploy:** Vercel (production URL already live).
 
 ## Done so far
@@ -21,7 +22,7 @@ Unofficial demo — not affiliated with Amazon.
 
 **Home** — hero carousel (full-bleed colored bg, "{Category} under $50", ‹ › arrows) · grid of **white category cards** over a grey band, each: heading + single image OR 2×2 image grid with labels + teal "See more / Shop X" link · product rails lower down.
 
-**Search results (SRP)** — left **facet rail**: Department, Brands (checkboxes), Customer Reviews (★ & Up), Deals & Discounts · results header "1-16 of over N results" + "Sort by" dropdown · **list rows**: image | title (link) + spec subtitle + badges (Overall Pick / Amazon's Choice / "Top Reviewed for X") + rating (stars + count) + "N bought in past month" + price + colour swatches + "Add to cart". Sponsored tag on some.
+**Search results (SRP)** — left **facet rail**: Department, Brands (checkboxes), Customer Reviews (★ & Up), Deals & Discounts · results header "1-16 of over N results" + "Sort by" dropdown · **list rows**: image | title (link) + spec subtitle + badges (Overall Pick / Amazon's Choice / "Top Reviewed for X") + rating (stars + count) + "N bought in past month" + price + colour swatches + "Add to cart". Sponsored tag on some. A misspelt search ("wirless hedphones") is corrected against the store's own catalog words and shown as "Showing results for … · Search instead for …" (`lib/spell.ts`).
 
 **Product page (PDP)** — breadcrumb · left thumbnail strip + main image · center: title, "Visit the {Brand} Store" (teal), rating + count, Amazon's Choice badge, "N bought in past month", **deal badge + price** (`-X%` red, price, unit price, "List Price" struck), colour/variant tiles, "About this item" bullets + accordions · right **buy box**: delivery date (green) + "Order within {countdown}", **In Stock** (green), Quantity, **Add to cart** (yellow `#FFD814`), **Buy Now** (orange `#FFA41C`), **Ships from / Sold by {seller}**, Returns, Add to List.
 

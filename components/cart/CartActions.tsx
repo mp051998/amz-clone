@@ -1,7 +1,7 @@
 'use client';
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { moveCartItemToSaved } from '@/app/actions/collections';
+import { moveCartItemToSaved, moveSavedToCart, removeFromCollection } from '@/app/actions/collections';
 import { swapCartLine } from '@/app/cart/actions';
 import { useToast } from '../decision/Toast';
 import { Button } from '../primitives/Button';
@@ -60,5 +60,51 @@ export function SwapButton({ fromId, toId, amount }: { fromId: string; toId: str
     <Button variant="dark" onClick={onClick} loading={pending}>
       Swap &amp; save {amount}
     </Button>
+  );
+}
+
+/** "Move to cart" / "Delete" on a "Saved for later" item. */
+export function SavedItemActions({ collectionId, productId, name, canMove }: { collectionId: string; productId: string; name: string; canMove: boolean }) {
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const { toast } = useToast();
+  const act = (fn: () => Promise<{ ok: true } | { error: string; message?: string }>, done: string, failed: string) =>
+    start(async () => {
+      try {
+        const res = await fn();
+        if ('error' in res) {
+          toast(res.message ?? failed);
+          return;
+        }
+        toast(done);
+        router.refresh();
+      } catch {
+        toast(`${failed} — try again`);
+      }
+    });
+
+  return (
+    <>
+      {canMove ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => act(() => moveSavedToCart(collectionId, productId), 'Moved to cart', "Couldn't move that to your cart")}
+          className="min-h-11 rounded-pill border border-ink bg-surface px-3.5 text-[14px] font-semibold text-ink hover:bg-surface-2 disabled:cursor-progress disabled:opacity-60"
+          aria-label={`Move ${name} to cart`}
+        >
+          Move to cart
+        </button>
+      ) : null}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => act(() => removeFromCollection(collectionId, productId), 'Removed from Saved for later', "Couldn't remove that")}
+        className={textBtn}
+        aria-label={`Delete ${name} from Saved for later`}
+      >
+        Delete
+      </button>
+    </>
   );
 }
