@@ -113,13 +113,15 @@ describe('fast delivery', () => {
     expect(deliveryOptions(new Date('2026-10-07T04:30:00.000Z'), IST)).toEqual({
       standard: '2026-10-08T06:00:00.000Z',
       fast: '2026-10-07T14:00:00.000Z',
+      fastBy: '2026-10-07T06:30:00.000Z', // order by noon IST
     });
     // 15:00 IST: tomorrow 19:30 would be later than tomorrow 11:30
-    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({ standard: '2026-10-08T06:00:00.000Z', fast: null });
+    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({ standard: '2026-10-08T06:00:00.000Z', fast: null, fastBy: null });
     // 21:00 IST: tomorrow 19:30 vs the day after, 11:30
     expect(deliveryOptions(new Date('2026-10-07T15:30:00.000Z'), IST)).toEqual({
       standard: '2026-10-09T06:00:00.000Z',
       fast: '2026-10-08T14:00:00.000Z',
+      fastBy: '2026-10-08T06:30:00.000Z', // tomorrow's noon still gets tomorrow's run
     });
   });
 

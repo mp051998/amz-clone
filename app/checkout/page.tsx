@@ -11,7 +11,7 @@ import { GiftOption } from '@/components/checkout/GiftOption';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StepCard } from '@/components/checkout/StepCard';
-import { arrivingText, lcFirst, longDate, relativeDayName, timeOfDay } from '@/components/orders/format';
+import { arrivingText, byTimeText, lcFirst, relativeDayName } from '@/components/orders/format';
 import { submitCheckout } from '@/app/actions/order';
 import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
@@ -76,7 +76,7 @@ export default async function CheckoutPage({
   const eta = new Date(options.standard);
   // faster delivery is offered only while it beats standard (and once the store has a fee for it)
   const fast = options.fast && fastFee !== null ? { eta: new Date(options.fast), feeMinor: fastFee } : null;
-  const fastWhen = fast ? `${relativeDayName(fast.eta, store, now) ?? longDate(fast.eta, store)} by ${timeOfDay(fast.eta, store)}` : '';
+  const fastWhen = fast ? byTimeText(fast.eta, store, now) : '';
   const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
   const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
   // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast)

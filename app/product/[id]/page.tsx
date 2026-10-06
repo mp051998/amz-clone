@@ -11,6 +11,7 @@ import { Alternatives, type AlternativeCard } from '@/components/product/Alterna
 import { BackLink } from '@/components/product/BackLink';
 import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
+import { byTimeText, dayLabel, orderWithinText } from '@/components/orders/format';
 import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
@@ -25,7 +26,7 @@ import { summarizeReviews } from '@/lib/ai/features/reviews';
 import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { savedProductIds } from '@/lib/data/collections';
 import { messageFor } from '@/lib/data/errors';
-import { deliveryDate } from '@/lib/dates';
+import { deliveryOptions } from '@/lib/decision/tracking';
 import { decisionConfig } from '@/lib/decision/attributes';
 import { effectiveWeights, readDecisionParams } from '@/lib/decision/params';
 import { shortTitle } from '@/lib/decision/verdict';
@@ -166,11 +167,15 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   ];
 
   const threshold = store.delivery.freeThresholdMinor;
+  // the same schedule checkout and order tracking use
+  const now = new Date();
+  const options = deliveryOptions(now, store.dates.timeZone);
   const delivery = {
     member: store.membership.name,
     headline: priceMinor >= threshold ? 'FREE delivery' : `FREE delivery on orders over ${formatMoney(threshold, cur)}`,
-    promise: deliveryDate(3, store),
-    fastest: deliveryDate(1, store),
+    promise: dayLabel(new Date(options.standard), store, now),
+    fastest: options.fast ? byTimeText(new Date(options.fast), store, now) : undefined,
+    orderWithin: options.fastBy ? orderWithinText(now, new Date(options.fastBy)) ?? undefined : undefined,
     to: deliverTo.current ? `to ${deliverLabel(deliverTo.current)}` : undefined,
   };
 

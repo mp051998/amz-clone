@@ -74,6 +74,21 @@ export function stepTime(date: Date, store: StoreDates, now: Date = new Date()):
   return `${day}, ${timeOfDay(date, store)}`;
 }
 
+/** "Today by 7:30 PM" / "Thursday, October 9 by 7:30 PM". */
+export function byTimeText(date: Date, store: StoreDates, now: Date = new Date()): string {
+  return `${relativeDayName(date, store, now) ?? longDate(date, store)} by ${timeOfDay(date, store)}`;
+}
+
+/** "Order within 2 hrs 13 mins" / "Order within 45 mins" until `by`; null when under a minute is left. */
+export function orderWithinText(now: Date, by: Date): string | null {
+  const mins = Math.floor((by.getTime() - now.getTime()) / 60_000);
+  if (mins < 1) return null;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const part = (n: number, unit: string) => (n ? `${n} ${unit}${n === 1 ? '' : 's'}` : '');
+  return `Order within ${[part(h, 'hr'), part(m, 'min')].filter(Boolean).join(' ')}`;
+}
+
 /** Delivery window around the ETA (11:30 local): "9 AM – 1 PM". */
 export function deliveryWindow(eta: Date, store: StoreDates): string {
   const from = new Date(eta.getTime() - 2.5 * 3_600_000);
