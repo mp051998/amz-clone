@@ -38,9 +38,9 @@ function reasonFor(next: string): string | null {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string; new?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; new?: string; closed?: string }>;
 }) {
-  const { next = '/', error, new: isNew } = await searchParams;
+  const { next = '/', error, new: isNew, closed } = await searchParams;
   const creating = isNew === '1';
   const store = await getMarketplace();
   const homeHref = storePath(store, '/');
@@ -56,6 +56,7 @@ export default async function SignInPage({
         title={creating ? 'Create your account' : 'Sign in'}
         lead={reason ?? (creating ? 'Save products, track prices and check out faster.' : 'Welcome back.')}
       >
+        {closed === '1' && !error ? <Alert tone="success">Your account is closed. Thanks for shopping with us.</Alert> : null}
         {error ? <Alert tone="error">{ERRORS[error] ?? 'Something went wrong. Try again.'}</Alert> : null}
 
         <form action={signIn} className="flex flex-col gap-3.5">

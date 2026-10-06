@@ -1,5 +1,5 @@
-import { accessToken, body, json, preflight, requireUser, route, type ApiContext } from '@/lib/api/http';
-import { changeEmail, changePassword, renameAccount, validEmail, validName, validPassword } from '@/lib/data/account';
+import { accessToken, body, json, noContent, preflight, requireUser, route, type ApiContext } from '@/lib/api/http';
+import { changeEmail, changePassword, closeAccount, renameAccount, validEmail, validName, validPassword } from '@/lib/data/account';
 import { DataError, unwrap } from '@/lib/data/errors';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tokenBody } from '@/lib/api/auth';
@@ -53,6 +53,19 @@ export const PATCH = route(async (ctx) => {
     return json({ user: await me(ctx, user.id, account.email), session: tokenBody(session) });
   }
   return json({ user: await me(ctx, user.id, account.email) });
+});
+
+/**
+ * DELETE /api/v1/me { currentPassword } — close the account for good: `204`. `409
+ * account_not_closable` while orders are on the way, a return or refund is open, or an unpaid
+ * checkout is waiting. The tokens stop working; orders and returns stay on the store's books.
+ */
+export const DELETE = route(async (ctx) => {
+  const user = requireUser(ctx);
+  if (!user.email) throw new DataError('forbidden');
+  const b = await body(ctx.req);
+  await closeAccount(createAdminClient(), ctx.db, { id: user.id, email: user.email }, { currentPassword: b.currentPassword });
+  return noContent();
 });
 
 export const OPTIONS = preflight;

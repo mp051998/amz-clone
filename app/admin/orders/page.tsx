@@ -100,7 +100,8 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                     </td>
                     <td className="max-w-[220px] px-4 py-3">
                       <span className="block truncate">{o.customer.name || o.shipName}</span>
-                      <span className="block truncate text-[12px] text-ink-3">{o.customer.email ?? '—'}</span>
+                      {/* every account has an email: none means the shopper closed theirs */}
+                      <span className="block truncate text-[12px] text-ink-3">{o.customer.email ?? 'Account closed'}</span>
                     </td>
                     <td className="max-w-[260px] px-4 py-3">
                       <span className="line-clamp-1">{o.firstTitle ?? '—'}</span>

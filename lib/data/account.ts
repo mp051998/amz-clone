@@ -2,11 +2,12 @@ import 'server-only';
 import type { AuthError, Session, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/database.types';
 import type { Db } from '@/lib/db/client';
+import type { CurrencyCode } from '@/lib/contracts';
 import { authClient } from '@/lib/api/auth';
-import { DataError } from './errors';
+import { DataError, unwrap } from './errors';
 
 /**
- * Account changes: sign-up, name, email, password. Changes to the auth user go through
+ * Account changes: sign-up, name, email, password, closing it. Changes to the auth user go through
  * the service-role admin API once the caller is verified (it works the same for cookie
  * sessions and API bearer tokens). This demo store doesn't verify email addresses:
  * accounts are active at once and an email change applies immediately, but changing the
@@ -150,4 +151,72 @@ export function isRecovery(claims: { amr?: unknown } | null | undefined, nowS = 
     const { method, timestamp } = (e ?? {}) as { method?: unknown; timestamp?: unknown };
     return typeof method === 'string' && EMAIL_LINK.has(method) && typeof timestamp === 'number' && nowS - timestamp <= RECOVERY_WINDOW_S;
   });
+}
+
+/** What stands in the way of closing the caller's account, and the gift card balance it would lose. */
+export interface ClosureCheck {
+  /** card checkouts never paid: their stock is held until they're paid for or cancelled */
+  unpaidOrders: number;
+  /** placed orders not delivered yet */
+  openOrders: number;
+  /** returns waiting to be dropped off or received */
+  openReturns: number;
+  /** order or return refunds still on their way */
+  pendingRefunds: number;
+  /** gift card checkouts whose Stripe page may still be paid */
+  giftCardCheckouts: number;
+  /** gift card balance left in each store */
+  balances: { market: string; currency: CurrencyCode; balanceMinor: number }[];
+}
+
+export async function closureCheck(db: Db): Promise<ClosureCheck> {
+  const raw = (unwrap(await db.rpc('account_closure_check')) ?? {}) as Record<string, unknown>;
+  const n = (k: string) => Number(raw[k]) || 0;
+  const balances = Array.isArray(raw.balances) ? (raw.balances as Record<string, unknown>[]) : [];
+  return {
+    unpaidOrders: n('unpaidOrders'),
+    openOrders: n('openOrders'),
+    openReturns: n('openReturns'),
+    pendingRefunds: n('pendingRefunds'),
+    giftCardCheckouts: n('giftCardCheckouts'),
+    balances: balances.map((b) => ({ market: String(b.market), currency: b.currency as CurrencyCode, balanceMinor: Number(b.balanceMinor) || 0 })),
+  };
+}
+
+const count = (k: number, one: string, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
+
+/** Each thing still open, as a phrase ("2 orders on the way"); empty when the account can close. */
+export function closureBlockers(c: ClosureCheck): string[] {
+  return [
+    c.unpaidOrders ? `${count(c.unpaidOrders, 'unpaid order')} to pay for or cancel` : '',
+    c.openOrders ? `${count(c.openOrders, 'order')} on the way` : '',
+    c.openReturns ? `${count(c.openReturns, 'return')} in progress` : '',
+    c.pendingRefunds ? `${count(c.pendingRefunds, 'refund')} on ${c.pendingRefunds === 1 ? 'its' : 'their'} way` : '',
+    c.giftCardCheckouts ? `${count(c.giftCardCheckouts, 'gift card checkout')} still open` : '',
+  ].filter(Boolean);
+}
+
+/** "a", "a and b", "a, b and c" */
+export function listPhrase(parts: readonly string[]): string {
+  return parts.length < 2 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** Why the account can't close yet, as a sentence; null when it can. */
+export function closureMessage(c: ClosureCheck): string | null {
+  const blockers = closureBlockers(c);
+  return blockers.length ? `You can’t close your account yet: you have ${listPhrase(blockers)}.` : null;
+}
+
+/**
+ * Close the account for good. Takes the current password, and nothing may be in flight
+ * ({@link closureCheck}). Deleting the auth user drops what was only the shopper's (profile,
+ * addresses, cart, lists, balance…); orders, returns and gift card purchases stay on the
+ * store's books without the link to the account.
+ */
+export async function closeAccount(service: Service, db: Db, user: { id: string; email: string }, input: { currentPassword: unknown }): Promise<void> {
+  await requirePassword(user.email, input.currentPassword);
+  const blocked = closureMessage(await closureCheck(db));
+  if (blocked) throw new DataError('account_not_closable', undefined, blocked);
+  const { error } = await service.auth.admin.deleteUser(user.id);
+  if (error) throw new DataError('internal', `close account: ${error.code ?? ''} ${error.message}`);
 }

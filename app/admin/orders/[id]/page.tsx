@@ -168,7 +168,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
           <FactsCard
             rows={[
               { label: 'Customer', value: order.customer.name || s.name },
-              { label: 'Email', value: order.customer.email ? <a href={`mailto:${order.customer.email}`} className="break-all text-ink underline underline-offset-2">{order.customer.email}</a> : '—' },
+              { label: 'Email', value: order.customer.email ? <a href={`mailto:${order.customer.email}`} className="break-all text-ink underline underline-offset-2">{order.customer.email}</a> : order.customer.id ? '—' : 'Account closed' },
               { label: 'Deliver to', value: [s.name, s.line1, s.line2, s.landmark, `${s.city}, ${s.state} ${s.postcode}`].filter(Boolean).join(', ') },
               { label: 'Phone', value: s.phone },
               ...(s.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{s.instructions}</span> }] : []),

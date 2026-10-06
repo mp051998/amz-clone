@@ -55,6 +55,7 @@ Some products have a coupon, a percent off (5–50%). A signed-in shopper applie
 | POST | `/auth/refresh` | `{refreshToken}` | `200` new token pair |
 | GET 🔒 | `/me` | | `{user: {id, email, name, createdAt, plus: {since} \| null}}` |
 | PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
+| DELETE 🔒 | `/me` | `{currentPassword}` | `204`. Closes the account for good; its tokens stop working. `409 account_not_closable` while an order is on the way, a return or refund is open, or a checkout is unpaid (cancel unpaid orders first). The profile, addresses, cart, lists, history, coupons, Plus and gift card balance go with it; orders, returns and gift card purchases stay on the store's books without the link to the account |
 | GET 🔒 | `/me/plus` | | `{plus: {since} \| null}` |
 | POST 🔒 | `/me/plus` | | `{plus: {since}}`. Joins Plus: a demo membership, never billed. Joining again keeps the first `since` |
 | DELETE 🔒 | `/me/plus` | | `204`. Ends the membership; orders already placed keep their delivery charge |
@@ -420,7 +421,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
 | 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_in_cart`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
+| 409 | `order_not_cancellable`, `order_not_archivable`, `account_not_closable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
@@ -492,6 +493,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | cart selection | `cart_items.selected`; `cart_select()` ticks one line or all of them; `private.checkout_json()` lists every line but prices the ticked ones (`selected_count`); `place_order()` orders the ticked lines and removes only those from the cart; adding a product ticks it again |
 | delivery instructions | `addresses.instructions` and `orders.ship_instructions` (up to 250 characters); `place_order()` copies `shipping.instructions` onto the order |
 | archived orders | `orders.archived_at`; `archive_my_order()` (owner) archives an order or brings it back; an unpaid card checkout can't be archived |
+| close account | `orders`, `returns` and `gift_card_purchases` keep their rows when the account is deleted (`user_id` set null); `account_closure_check()` (caller) counts what's still open (unpaid and undelivered orders, open returns, pending refunds, gift card checkouts under an hour old) and lists the gift card balance that would be lost; the server deletes the auth user with the admin API |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

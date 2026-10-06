@@ -59,7 +59,7 @@ export default async function AccountPage() {
       desc: 'Redeem gift cards and pay with your balance at checkout.',
       href: '/gift-cards#balance',
     },
-    { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password.', href: '/account/security' },
+    { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, or close your account.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
     { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
     { title: 'Your reviews', meta: toReview.length ? `${plural(toReview.length, 'item')} to review` : 'All caught up', desc: 'Review what you’ve received, and edit or delete reviews you’ve written.', href: '/account/reviews' },

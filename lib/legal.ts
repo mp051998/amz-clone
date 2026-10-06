@@ -94,7 +94,8 @@ export const LEGAL_PAGES: Record<string, LegalPage> = {
       {
         heading: 'Your choices',
         body: [
-          'You can browse without signing in, remove items and addresses, and clear local data whenever you like. Since no real account exists, there is nothing further to delete on a server.',
+          'You can browse without signing in, remove items and addresses, and clear local data whenever you like.',
+          'If you made an account, you can close it under Account › Login & security. That deletes your profile, addresses, cart, lists, browsing history and gift card balance; a record of your orders and returns is kept, without the link to you.',
         ],
       },
     ],

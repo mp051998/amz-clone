@@ -19,6 +19,7 @@ export function GET(): Response {
       'POST   /auth/refresh',
       'GET    /me',
       'PATCH  /me',
+      'DELETE /me',
       'GET    /me/plus',
       'POST   /me/plus',
       'DELETE /me/plus',

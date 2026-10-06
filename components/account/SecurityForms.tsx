@@ -4,15 +4,16 @@ import { useFormStatus } from 'react-dom';
 import type { AccountFormState } from '@/app/actions/account';
 import { Alert } from '../primitives/Alert';
 import { Button } from '../primitives/Button';
+import { Checkbox } from '../primitives/Checkbox';
 import { Input } from '../primitives/Input';
 
 type Action = (prev: AccountFormState, formData: FormData) => Promise<AccountFormState>;
 
-function Save({ children }: { children: string }) {
+function Save({ children, pendingLabel = 'Saving…' }: { children: string; pendingLabel?: string }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" variant="secondary" loading={pending} className="self-start">
-      {pending ? 'Saving…' : children}
+      {pending ? pendingLabel : children}
     </Button>
   );
 }
@@ -109,6 +110,63 @@ export function PasswordForm({ action, recovering }: { action: Action; recoverin
         />
         <Save>{recovering ? 'Set password' : 'Change password'}</Save>
       </form>
+    </Card>
+  );
+}
+
+/**
+ * Close the account. `blocked`: why it can't close yet (orders on the way, a return in
+ * progress…), shown instead of the form. `losing`: the gift card balance that would go with it.
+ */
+export function CloseAccountForm({ action, blocked, losing, ordersHref }: { action: Action; blocked?: string | null; losing?: string | null; ordersHref: string }) {
+  const [state, formAction] = useActionState(action, {});
+  const confirmError = fieldError(state, 'confirm');
+  return (
+    <Card id="close" title="Close your account" current="Closing your account is permanent. It can’t be reopened." state={state}>
+      <div className="flex flex-col gap-2 text-[14px] leading-[1.5] text-ink-2">
+        <p className="m-0">
+          You’ll lose your saved addresses, cart, lists, browsing history, coupons and Plus membership
+          {losing ? <>, and your gift card balance of <strong className="font-semibold text-ink">{losing}</strong></> : null}.
+        </p>
+        <p className="m-0">
+          We keep a record of your orders and returns for our accounts. Reviews, questions and answers you posted stay up under the
+          name shown on them.
+        </p>
+      </div>
+      {blocked ? (
+        <Alert tone="info">
+          {blocked}{' '}
+          <a href={ordersHref} className="text-ink underline underline-offset-2">Go to Your Orders</a>
+        </Alert>
+      ) : (
+        <form action={formAction} className="flex flex-col gap-3.5">
+          <Input
+            name="currentPassword"
+            type="password"
+            label="Current password"
+            autoComplete="current-password"
+            required
+            error={fieldError(state, 'currentPassword')}
+          />
+          <div className="flex flex-col gap-1">
+            <Checkbox
+              name="confirm"
+              value="yes"
+              label="I understand that closing my account can’t be undone."
+              required
+              aria-invalid={confirmError ? true : undefined}
+              aria-describedby={confirmError ? 'close-confirm-error' : undefined}
+            />
+            {confirmError ? (
+              <span id="close-confirm-error" className="flex items-center gap-1.5 text-[13px] text-bad">
+                <span aria-hidden className="font-bold">⚠</span>
+                <span>{confirmError}</span>
+              </span>
+            ) : null}
+          </div>
+          <Save pendingLabel="Closing…">Close my account</Save>
+        </form>
+      )}
     </Card>
   );
 }
