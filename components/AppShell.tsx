@@ -23,6 +23,7 @@ export interface AppShellProps {
 /** Program links shown before the catalog departments in the category strip. */
 const STRIP_PROGRAMS = [
   { label: "Today's Deals", path: '/deals' },
+  { label: 'Coupons', path: '/coupons' },
   { label: 'New & Trending', path: '/new-releases' },
   { label: 'Bestsellers', path: '/bestsellers' },
 ];
@@ -42,6 +43,7 @@ const MENU_PROGRAMS = [
 const FOOTER_COLUMNS: { heading: string; links: { label: string; path?: string; dest?: string }[] }[] = [
   { heading: 'Shop', links: [
     { label: "Today's deals", path: '/deals' },
+    { label: 'Coupons', path: '/coupons' },
     { label: 'New & trending', path: '/new-releases' },
     { label: 'Bestsellers', path: '/bestsellers' },
     { label: 'Gift cards', path: '/gift-cards' },
