@@ -27,6 +27,9 @@ import { storePath } from '@/lib/marketplace';
 import { parseQuery as parseFacets } from '@/lib/search';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
+import { plusMembership } from '@/lib/data/plus';
+import { deliveryOptions } from '@/lib/decision/tracking';
+import { dayLabel } from '@/components/orders/format';
 
 export const metadata: Metadata = { title: 'Search · Store' };
 
@@ -101,12 +104,16 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   );
 
   const client = await db();
-  const [result, scope, saved, jar] = await Promise.all([
+  const [result, scope, saved, jar, plus] = await Promise.all([
     rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, rating: facets.rating, deal: facets.deal, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
+    plusMembership(client),
   ]);
+  // the same standard-delivery day the product page and checkout promise
+  const now = new Date();
+  const delivery = { day: dayLabel(new Date(deliveryOptions(now, store.dates.timeZone).standard), store, now), member: plus != null };
 
   // ── hrefs ────────────────────────────────────────────────────────────────
   const raw = new URLSearchParams();
@@ -315,6 +322,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                         bestForFallback={presetSpec?.bestFor}
                         priority={page === 1 && i < 3}
                         variants={r.product.variant ? variants.get(r.product.variant.group) : undefined}
+                        delivery={delivery}
                       />
                     </div>
                   </li>

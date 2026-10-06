@@ -59,3 +59,16 @@ it('adds to the cart straight from the result, while in stock', () => {
   show({ stock: 0 });
   expect(screen.queryByRole('button', { name: /to cart/ })).toBeNull();
 });
+
+it('promises the store’s delivery day: free over the threshold, and always for Plus members', () => {
+  const card = (over: Partial<Product>, delivery?: { day: string; member?: boolean }) => {
+    render(<ResultCard ranked={{ product: { ...base, ...over }, insight: null, match: 90, why: [], warn: null }} store={amazon} saved={false} delivery={delivery} />);
+    const el = screen.getByRole('article');
+    return el.textContent;
+  };
+  expect(card({ priceMinor: 1999 }, { day: 'Thursday, October 8' })).toContain('Delivery Thursday, October 8 · FREE over $35.00');
+  cleanup();
+  expect(card({ priceMinor: 1999 }, { day: 'Thursday, October 8', member: true })).toContain('FREE delivery Thursday, October 8');
+  cleanup();
+  expect(card({}, { day: 'Tomorrow, October 7' })).toContain('FREE delivery Tomorrow, October 7');
+});
