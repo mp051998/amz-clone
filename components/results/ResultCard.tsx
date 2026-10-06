@@ -12,6 +12,7 @@ import { CompareToggle } from '../decision/Compare';
 import { ProductFrame } from '../decision/ProductFrame';
 import { SaveButton } from '../decision/SaveButton';
 import { VariantSwatches } from '../product/VariantSwatches';
+import { Badge } from '../primitives/Badge';
 import { Price } from '../primitives/Price';
 import { Stars } from '../primitives/Stars';
 
@@ -56,6 +57,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
         <ProductFrame src={p.image} alt="" priority={priority} />
       </a>
       <div className="flex flex-col gap-1">
+        {p.badge ? <Badge tone="dark" className="self-start">{p.badge}</Badge> : null}
         <h3 className="m-0 text-[18px] font-semibold leading-tight">
           <a href={href} className="line-clamp-3 text-ink no-underline hover:underline">{p.title}</a>
         </h3>
@@ -63,9 +65,13 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
           <Stars rating={p.rating} size={14} />
           <span>{p.rating.toFixed(1)} · {p.reviewCount.toLocaleString('en-US')} reviews</span>
         </span>
+        {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
       </div>
       {variants ? <VariantSwatches variants={variants} currentId={p.id} store={store} /> : null}
-      <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} />
+      <div className="flex flex-col gap-0.5">
+        <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} />
+        {p.deal && !/deal/i.test(p.badge ?? '') ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+      </div>
       <span className="text-[13px] text-ink-2">
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
         {deliveryLine(store, price, p.stock)}

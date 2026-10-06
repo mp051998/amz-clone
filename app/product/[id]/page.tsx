@@ -265,6 +265,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     <span className="text-[13px] text-ink-3">{tuned ? 'for your priorities' : `for typical ${cfg.noun} priorities`}</span>
                   </div>
                 )}
+                {p.badge && !(rank === 1 && /best ?seller/i.test(p.badge)) ? (
+                  <span className="self-start rounded-tag bg-ink px-1.5 py-0.5 text-[12px] font-bold text-on-ink">{p.badge}</span>
+                ) : null}
                 {rank === 1 ? (
                   <a href={bestsellersHref} className="inline-flex items-center gap-1.5 self-start text-[13px] text-ink-2 no-underline hover:text-ink">
                     <span className="rounded-tag bg-ink px-1.5 py-0.5 text-[12px] font-bold text-on-ink">#1 Best Seller</span>{' '}
