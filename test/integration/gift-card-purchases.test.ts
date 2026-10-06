@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { redeemGiftCard } from '@/lib/data/balance';
+import { redeemGiftCard, storeBalance } from '@/lib/data/balance';
 import { DataError, unwrap } from '@/lib/data/errors';
 import { listGiftCardPurchases, startGiftCardPurchase } from '@/lib/data/gift-card-purchases';
 import { admin, anon, deleteUser, newUser, type TestUser } from './helpers';
@@ -72,7 +72,8 @@ describe('buying gift cards', () => {
 
   it('the code works for anyone once, and the buyer sees it redeemed', async () => {
     const [mine] = await listGiftCardPurchases(buyer.db, 'US');
-    expect(await redeemGiftCard(friend.db, 'US', mine.code)).toMatchObject({ amountMinor: 5000, balanceMinor: 5000 });
+    const before = (await storeBalance(friend.db, 'US')) ?? 0;
+    expect(await redeemGiftCard(friend.db, 'US', mine.code)).toEqual({ amountMinor: 5000, balanceMinor: before + 5000 });
     expect(await code(redeemGiftCard(buyer.db, 'US', mine.code))).toBe('gift_card_redeemed');
     expect((await listGiftCardPurchases(buyer.db, 'US'))[0].redeemed).toBe(true);
   });
