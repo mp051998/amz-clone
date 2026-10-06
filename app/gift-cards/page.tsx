@@ -1,13 +1,19 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
-import { Page, PageHead, Section, Card, InfoCard, TextLink, DemoNote, cardGrid } from '@/components/brand/Page';
+import { Page, PageHead, Section, Card, InfoCard, DemoNote, cardGrid } from '@/components/brand/Page';
 import { Kicker } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
 import { buttonClasses } from '@/components/primitives/Button';
-import { fieldClass } from '@/components/lib/controls';
 import { cn } from '@/components/lib/cn';
+import { Alert } from '@/components/primitives/Alert';
+import { ClaimDemoButton, RedeemForm } from '@/components/gift-cards/RedeemForm';
+import { shortDate } from '@/components/orders/format';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { formatMoney } from '@/lib/marketplaces';
+import { readUser } from '@/lib/auth';
+import { db } from '@/lib/supabase/server';
+import { balanceHistory, demoGiftCard, demoGiftCardAmount, storeBalance, type BalanceEntry } from '@/lib/data/balance';
 
 export const metadata: Metadata = { title: 'Gift cards · Store' };
 
@@ -23,8 +29,21 @@ const FORMATS = [
   { title: 'Corporate gifting', desc: 'Reward employees and clients at scale with bulk cards.' },
 ];
 
-export default async function GiftCardsPage() {
-  const store = await getMarketplace();
+function entryText(e: BalanceEntry): string {
+  switch (e.kind) {
+    case 'gift_card': return e.giftCardCode ? `Gift card ${e.giftCardCode}` : 'Gift card';
+    case 'order': return e.orderId ? `Order ${e.orderId}` : 'Order';
+    default: return e.orderId ? `Refund for order ${e.orderId}` : 'Refund';
+  }
+}
+
+export default async function GiftCardsPage({ searchParams }: { searchParams: Promise<{ claimed?: string }> }) {
+  const [store, user, sp0] = await Promise.all([getMarketplace(), readUser(), searchParams]);
+  const client = await db();
+  const [balance, history, demo, demoAmount] = user
+    ? await Promise.all([storeBalance(client, store.id), balanceHistory(client, store.id), demoGiftCard(client, store.id, user.id), demoGiftCardAmount(client, store.id)])
+    : [null, [], null, null];
+  const money = (minor: number) => formatMoney(minor, store.currency.code);
   const isIN = store.id === 'IN';
   const sym = store.currency.symbol;
   const sp = (p: string) => storePath(store, p);
@@ -44,7 +63,7 @@ export default async function GiftCardsPage() {
             actions={
               <>
                 <a href="#amounts" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Choose an amount</a>
-                <a href="#redeem" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Redeem a card</a>
+                <a href="#balance" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Redeem a card</a>
               </>
             }
           >
@@ -97,25 +116,68 @@ export default async function GiftCardsPage() {
           </div>
         </Section>
 
-        <Section id="redeem" title="Redeem or reload">
-          <div className="grid gap-3.5 md:grid-cols-2">
-            <Card className="flex flex-col gap-3">
-              <h3 className="m-0 text-[17px] font-semibold text-ink">Redeem a gift card</h3>
-              <p className="m-0 text-[14px] text-ink-2">Enter the claim code to add the amount to your balance.</p>
-              <form action={sp('/signin')} className="flex flex-col gap-2 sm:flex-row">
-                <label htmlFor="claim" className="sr-only">Gift card claim code</label>
-                {/* no name: the demo only routes to sign-in, the code never leaves the page */}
-                <input id="claim" autoComplete="off" placeholder="XXXX-XXXXXX-XXXX" className={cn(fieldClass, 'flex-1 font-mono')} />
-                <button type="submit" className={buttonClasses({ variant: 'dark' })}>Apply</button>
-              </form>
+        <Section id="balance" title="Your gift card balance" note={user ? undefined : 'Redeem codes into your balance, then pay with it at checkout'}>
+          {sp0.claimed && demo && !demo.redeemed ? (
+            <Alert tone="success">Your demo gift card is ready: <b className="font-mono">{demo.code}</b>. Redeem it below, or give the code to someone.</Alert>
+          ) : null}
+          {user && balance !== null ? (
+            <div className="grid gap-3.5 md:grid-cols-2">
+              <Card className="flex flex-col gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <Kicker>Available balance</Kicker>
+                  <p className="m-0 text-[32px] font-bold leading-none tracking-[-0.01em] tabular-nums">{money(balance)}</p>
+                </div>
+                <p className="m-0 text-[14px] text-ink-2">
+                  Pay with it at checkout ({isIN ? 'Wallet balance' : 'Gift card balance'}). Refunds of those orders come back here.
+                </p>
+                <h3 className="m-0 mt-1 text-[17px] font-semibold text-ink">Redeem a gift card</h3>
+                <RedeemForm code={demo && !demo.redeemed ? demo.code : ''} />
+              </Card>
+              <Card className="flex flex-col gap-3">
+                {demoAmount !== null && !demo ? (
+                  <div className="flex flex-col gap-2 border-b border-line-2 pb-3">
+                    <h3 className="m-0 text-[17px] font-semibold text-ink">Try it with a demo gift card</h3>
+                    <p className="m-0 text-[14px] text-ink-2">Get a {money(demoAmount)} gift card code for this store, free — one per account.</p>
+                    <ClaimDemoButton label={`Get a ${money(demoAmount)} demo gift card`} />
+                  </div>
+                ) : demo ? (
+                  <p className="m-0 border-b border-line-2 pb-3 text-[14px] text-ink-2">
+                    Your demo gift card <b className="font-mono text-ink">{demo.code}</b> ({money(demo.amountMinor)}) {demo.redeemed ? 'has been redeemed.' : 'is waiting to be redeemed.'}
+                  </p>
+                ) : null}
+                <h3 className="m-0 text-[17px] font-semibold text-ink">Activity</h3>
+                {history.length ? (
+                  <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                    {history.map((e) => (
+                      <li key={e.id} className="flex items-baseline justify-between gap-3 text-[14px]">
+                        <span className="min-w-0">
+                          <span className="block truncate text-ink">{entryText(e)}</span>
+                          <span className="text-[13px] text-ink-3">{shortDate(new Date(e.at), store)}</span>
+                        </span>
+                        <span className={cn('flex-none font-semibold tabular-nums', e.amountMinor > 0 ? 'text-good' : 'text-ink')}>
+                          {e.amountMinor > 0 ? '+' : '−'}{money(Math.abs(e.amountMinor))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="m-0 text-[14px] text-ink-2">Nothing yet. Redeemed cards, orders and refunds show up here.</p>
+                )}
+              </Card>
+            </div>
+          ) : user ? (
+            <Card>
+              <p className="m-0 text-[14px] text-ink-2">Your balance can’t be shown right now. Try again in a moment.</p>
             </Card>
-            <InfoCard title="Reload your balance" footer={<TextLink href={sp('/amazon-pay')}>Reload now</TextLink>}>
-              Top up your store balance and check out without re-entering card details.
-            </InfoCard>
-          </div>
+          ) : (
+            <Card className="flex flex-col items-start gap-3">
+              <p className="m-0 text-[14px] text-ink-2">Sign in to redeem a gift card, see your balance and get a demo gift card to try it.</p>
+              <a href={sp(`/signin?next=/gift-cards`)} className={buttonClasses({ variant: 'dark' })}>Sign in to redeem</a>
+            </Card>
+          )}
         </Section>
 
-        <DemoNote>Demo store — gift cards are illustrative, codes are not checked, and no payment is processed.</DemoNote>
+        <DemoNote>Demo store — buying gift cards isn’t available and no payment is processed. Demo gift card codes are real here: redeeming one adds to your balance in this store, and paying with the balance takes the order total from it.</DemoNote>
       </Page>
     </AppShell>
   );

@@ -40,6 +40,8 @@ Max 30 units per cart line. Quantities are also capped at available stock.
 
 Plus members (see `/me/plus`) get standard delivery free on every order, whatever the total, and faster delivery free too. The cart and order totals already reflect this for a signed-in member.
 
+Paying with the store balance (`giftcard` in the US, `amazonpay` in India) takes the order total from the shopper's gift card balance in that store when the order is placed. It fails with `409 insufficient_balance` when the balance doesn't cover it, and the cart is kept. Redeem gift card codes into the balance with `/me/balance/redeem`; each account can get one demo gift card per store (US $100, India ₹5,000). Refunds of balance orders (a cancel, or a received return) go back to the balance.
+
 ## Auth
 
 | Method | Path | Body | Returns |
@@ -52,6 +54,9 @@ Plus members (see `/me/plus`) get standard delivery free on every order, whateve
 | GET 🔒 | `/me/plus` | | `{plus: {since} \| null}` |
 | POST 🔒 | `/me/plus` | | `{plus: {since}}`. Joins Plus: a demo membership, never billed. Joining again keeps the first `since` |
 | DELETE 🔒 | `/me/plus` | | `204`. Ends the membership; orders already placed keep their delivery charge |
+| GET 🔒 | `/me/balance` | | `{balanceMinor, history: [{id, amountMinor, kind: gift_card \| order \| refund, orderId, giftCardCode, at}]}`, the caller's gift card balance in this store and its latest 50 changes (newest first) |
+| POST 🔒 | `/me/balance/redeem` | `{code}` | `{amountMinor, balanceMinor}`. Case, spaces and dashes in the code don't matter. `404 gift_card_not_found`, `409 gift_card_redeemed`, `422 gift_card_other_store` (`detail` is its store) |
+| POST 🔒 | `/me/balance/demo-card` | | `{giftCard: {code, amountMinor, redeemed}}`. The caller's demo gift card for this store, issued on the first call; it isn't redeemed until you redeem the code (anyone signed in can) |
 
 Token pair: `{tokenType: "bearer", accessToken, refreshToken, expiresAt, expiresIn, user: {id, email}}`.
 
@@ -145,7 +150,7 @@ How `POST /orders` works:
 - Lines: `items: [{productId, title, image, seller, unitPriceMinor, qty}]`
 - Timestamps: `createdAt, placedAt?, cancelledAt?`
 - Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
-- Cancellation: `cancelReason?: customer | admin | sold_out`, and for orders that were placed or charged `refund?: {status, amountMinor, refundedAt?}`. `status` is `pending` / `succeeded` / `failed` for card refunds on Stripe, `succeeded` straight away for the simulated methods, and `not_charged` for pay on delivery.
+- Cancellation: `cancelReason?: customer | admin | sold_out`, and for orders that were placed or charged `refund?: {status, amountMinor, refundedAt?}`. `status` is `pending` / `succeeded` / `failed` for card refunds on Stripe, `succeeded` straight away for the simulated methods (the store balance is credited back), and `not_charged` for pay on delivery.
 
 ### Returns
 
@@ -352,11 +357,11 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
+| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
-| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable` |
+| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
 | 503 | `payments_unavailable` |
 
@@ -388,7 +393,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-two migrations live in `supabase/migrations/`:
+Twenty-three migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -414,6 +419,7 @@ Twenty-two migrations live in `supabase/migrations/`:
 | gift orders | `orders.gift` and `gift_message` (up to 240 characters, only on a gift); `place_order()` takes `p_gift` and `p_gift_message` |
 | delivery speed | `markets.fast_ship_fee_minor`; `orders.ship_speed` (`standard` or `fast`), the fast schedule in the order trigger, and `place_order()`'s `p_speed`, refused with `delivery_option_unavailable` when faster delivery isn't offered |
 | Plus membership | `plus_members` (owner read only); `join_plus()` and `leave_plus()`; `order_totals()` (now security definer) and `place_order()` make standard and faster delivery free for members |
+| gift card balance | `markets.demo_gift_card_minor`; `gift_cards`, `store_balances` and `balance_entries` (owner read only); `claim_demo_gift_card()` and `redeem_gift_card()`; triggers that take a balance order's total when it's placed (`insufficient_balance`) and credit its refunds back, only for orders that were charged |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

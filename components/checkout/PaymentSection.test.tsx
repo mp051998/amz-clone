@@ -1,0 +1,29 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, it } from 'vitest';
+import { PaymentSection } from './PaymentSection';
+
+afterEach(cleanup);
+
+const base = { curSymbol: '$', defaultName: 'Alex Morgan' };
+
+it('shows the gift card balance that will pay the order', () => {
+  render(<PaymentSection {...base} methods={['giftcard', 'card']} balance={{ text: '$100.00', short: false, redeemHref: '/gift-cards#balance' }} />);
+  expect(screen.getByText('$100.00')).toBeInTheDocument();
+  expect(screen.getByText(/taken from your balance when you place the order/)).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Redeem a gift card' })).toBeNull();
+});
+
+it('points to redeeming a gift card when the balance is short', () => {
+  render(<PaymentSection {...base} methods={['card', 'amazonpay']} balance={{ text: '₹50.00', short: true, redeemHref: '/in/gift-cards#balance' }} />);
+  expect(screen.queryByText('₹50.00')).toBeNull(); // card is selected first
+  fireEvent.click(screen.getByLabelText(/Wallet balance/));
+  expect(screen.getByText('₹50.00')).toBeInTheDocument();
+  expect(screen.getByText(/doesn.t cover this order/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Redeem a gift card' })).toHaveAttribute('href', '/in/gift-cards#balance');
+});
+
+it('without a readable balance, it doesn’t invent one', () => {
+  render(<PaymentSection {...base} methods={['giftcard']} />);
+  expect(screen.queryByText(/Available balance/)).toBeNull();
+  expect(screen.getByText(/taken from your balance/)).toBeInTheDocument();
+});

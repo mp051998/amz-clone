@@ -19,6 +19,7 @@ import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
 import { fastShipFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
+import { isBalanceMethod, storeBalance } from '@/lib/data/balance';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
 import { viewerCart } from '@/lib/storefront';
@@ -44,11 +45,12 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/checkout'));
   const client = await db();
-  const [cart, addresses, fastFee, plus] = await Promise.all([
+  const [cart, addresses, fastFee, plus, balanceMinor] = await Promise.all([
     viewerCart(),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
     plusMembership(client),
+    storeBalance(client, store.id),
   ]);
   const { lines, count, totals } = cart;
   const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
@@ -96,6 +98,10 @@ export default async function CheckoutPage({
       </>
     ) : standard;
   const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
+  // balance methods pay the whole order from the gift card balance (null before balances exist)
+  const balance = balanceMinor !== null && methods.some(isBalanceMethod)
+    ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance') }
+    : undefined;
 
   return shell(
     <>
@@ -115,7 +121,7 @@ export default async function CheckoutPage({
         <input type="hidden" name="schema" value={store.address.schema} />
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} />
-          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} />
           <StepCard
             n={3}
             title="Delivery"

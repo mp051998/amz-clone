@@ -15,8 +15,11 @@ export interface TestUser {
   db: Db;
 }
 
-/** A confirmed account plus a client signed in as it. */
-export async function newUser(name = 'Test Shopper'): Promise<TestUser> {
+/**
+ * A confirmed account plus a client signed in as it. Its gift card balance is topped up in both
+ * stores (so tests can pay with `giftcard` / `amazonpay`) unless `funded` is false.
+ */
+export async function newUser(name = 'Test Shopper', { funded = true }: { funded?: boolean } = {}): Promise<TestUser> {
   const email = `t-${crypto.randomUUID().slice(0, 12)}@example.test`;
   const password = `pw-${crypto.randomUUID()}`;
   const { data, error } = await admin().auth.admin.createUser({
@@ -29,6 +32,12 @@ export async function newUser(name = 'Test Shopper'): Promise<TestUser> {
   const db = anon();
   const signIn = await db.auth.signInWithPassword({ email, password });
   if (signIn.error) throw signIn.error;
+  if (funded) {
+    const fund = await admin().from('store_balances').insert(
+      (['US', 'IN'] as const).map((market_id) => ({ user_id: data.user.id, market_id, balance_minor: 100_000_000 })),
+    );
+    if (fund.error) throw fund.error;
+  }
   return { id: data.user.id, email, db };
 }
 

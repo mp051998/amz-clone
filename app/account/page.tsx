@@ -9,6 +9,8 @@ import { countOrders } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
 import { listCollections } from '@/lib/data/collections';
 import { plusMembership } from '@/lib/data/plus';
+import { storeBalance } from '@/lib/data/balance';
+import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -25,7 +27,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -33,6 +35,7 @@ export default async function AccountPage() {
     readRecentIds(),
     historyPaused(),
     plusMembership(client),
+    storeBalance(client, store.id),
   ]);
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
   const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
@@ -46,6 +49,12 @@ export default async function AccountPage() {
       meta: plus ? 'Member · FREE delivery' : 'Not a member',
       desc: plus ? 'FREE delivery on every order and FREE faster delivery. End it any time.' : 'FREE delivery on every order, with no minimum. Free in this demo.',
       href: '/prime',
+    },
+    {
+      title: 'Gift card balance',
+      meta: balance ? formatMoney(balance, store.currency.code) : 'No balance yet',
+      desc: 'Redeem gift cards and pay with your balance at checkout.',
+      href: '/gift-cards#balance',
     },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
