@@ -93,6 +93,9 @@ export function GET(): Response {
       'POST   /admin/reviews/:id/keep',
       'POST   /admin/reviews/:id/hide',
       'DELETE /admin/reviews/:id',
+      'GET    /admin/questions?view=&page=',
+      'DELETE /admin/questions/:id',
+      'DELETE /admin/answers/:id',
       'POST   /webhooks/stripe',
     ],
   });

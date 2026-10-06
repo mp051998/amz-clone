@@ -359,6 +359,18 @@ Reviews of this store's products that shoppers reported, or that are hidden. A r
 
 Another store's review is `404 review_not_found`. Shoppers can't change the moderation fields, not even on their own review: editing a hidden review keeps it hidden.
 
+### Questions
+
+Shoppers' questions about this store's products, with their answers.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/questions?view=&page=` | | `{questions: [{id, productId, productTitle, author, body, answerCount, createdAt, answers: [{id, author, body, verified, helpful, createdAt}]}], total, page, pageSize, counts: {unanswered, all}}`. 25 a page, newest first. `view`: `unanswered` (the default) or `all`. Answers are oldest first. |
+| DELETE | `/admin/questions/:id` | | `{question: {id, deleted: true}}`. Removes the question with its answers and their votes. |
+| DELETE | `/admin/answers/:id` | | `{answer: {id, deleted: true}}`. Removes one answer; the question's `answerCount` drops. |
+
+Another store's question is `404 question_not_found`, and its answers `404 answer_not_found`.
+
 **Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
 
 ```bash
@@ -366,7 +378,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns` and `/admin/reviews` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews` and `/admin/questions` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 

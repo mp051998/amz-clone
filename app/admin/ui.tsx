@@ -18,6 +18,7 @@ const SECTIONS = [
   { path: '/admin/orders', label: 'Orders' },
   { path: '/admin/returns', label: 'Returns' },
   { path: '/admin/reviews', label: 'Reviews' },
+  { path: '/admin/questions', label: 'Questions' },
 ] as const;
 
 /** Admin page chrome: storefront shell, section tabs, "Admin · <store>" kicker, title, and a store switch. */
@@ -34,7 +35,7 @@ export function AdminFrame({ store, title, actions, lede, children, path }: {
   return (
     <AppShell>
       <div className={cn(pageX, 'flex flex-col gap-6 pb-16 pt-5')}>
-        <nav aria-label="Admin" className="flex gap-5 border-b border-line text-[15px]">
+        <nav aria-label="Admin" className="flex gap-5 overflow-x-auto border-b border-line text-[15px]">
           {SECTIONS.map((sec) => {
             const current = path.startsWith(sec.path);
             return (
@@ -43,7 +44,7 @@ export function AdminFrame({ store, title, actions, lede, children, path }: {
                 href={storePath(store, sec.path)}
                 aria-current={current ? 'page' : undefined}
                 className={cn(
-                  '-mb-px flex min-h-11 items-center border-b-2 no-underline',
+                  '-mb-px flex min-h-11 flex-none items-center whitespace-nowrap border-b-2 no-underline',
                   current ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink',
                 )}
               >
