@@ -55,6 +55,20 @@ describe('readGiftNote', () => {
   });
 });
 
+describe('placeOrder delivery instructions', () => {
+  it('sends the note with the address and reads it back off the order', async () => {
+    const withNote = fakeDb({ ...row, ship_instructions: 'Gate code 4321' });
+    const placed = await placeOrder(withNote.db, 'US', { paymentMethod: 'giftcard', shipping: { ...SHIPPING, instructions: ' Gate code 4321 ' } });
+    expect(withNote.calls[0].p_shipping).toMatchObject({ instructions: 'Gate code 4321' });
+    expect(placed.shipTo.instructions).toBe('Gate code 4321');
+
+    const plain = fakeDb();
+    const order = await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING });
+    expect(plain.calls[0].p_shipping).toMatchObject({ instructions: null });
+    expect(order.shipTo.instructions).toBeUndefined();
+  });
+});
+
 describe('placeOrder gift and speed', () => {
   it('sends the gift arguments only for a gift', async () => {
     const plain = fakeDb();

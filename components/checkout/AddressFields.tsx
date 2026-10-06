@@ -1,11 +1,15 @@
+import { useId } from 'react';
 import { Input } from '../primitives/Input';
+import { fieldClass } from '../lib/controls';
+import { cn } from '../lib/cn';
 import { addressChecks } from '@/lib/address-patterns';
+import { INSTRUCTIONS_MAX } from '@/lib/contracts';
 import type { Address } from '@/lib/types';
 
 /**
  * The store-aware shipping-address field grid, shared by the checkout form and the
  * address book so both collect exactly the same fields under the same names
- * (fullName / phone / line1 / line2 / landmark / city / state / postcode / addressType).
+ * (fullName / phone / line1 / line2 / landmark / city / state / postcode / addressType / instructions).
  * amazon.in adds Area/Landmark lines and a Home/Office delivery-window type; amazon.com
  * uses the leaner US layout. `address` prefills every field when editing or reordering.
  */
@@ -32,6 +36,7 @@ export function AddressFields({ isIN, address }: { isIN: boolean; address?: Part
             <label className="flex min-h-11 cursor-pointer items-center gap-2"><input type="radio" name="addressType" value="office" defaultChecked={kind === 'office'} className="h-[18px] w-[18px] accent-ink" /> Office <span className="text-ink-3">(10 am – 6 pm delivery)</span></label>
           </div>
         </fieldset>
+        <div className="sm:col-span-2"><InstructionsField defaultValue={a.instructions} /></div>
       </div>
     );
   }
@@ -45,6 +50,32 @@ export function AddressFields({ isIN, address }: { isIN: boolean; address?: Part
       <Input name="city" {...check.city} label="City" required defaultValue={a.city ?? ''} placeholder="e.g. Seattle" />
       <Input name="state" {...check.state} label="State" required defaultValue={a.state ?? ''} placeholder="e.g. WA" />
       <Input name="postcode" {...check.postcode} label="ZIP Code" inputMode="numeric" required defaultValue={a.zip ?? ''} placeholder="5-digit ZIP" />
+      <div className="sm:col-span-2"><InstructionsField defaultValue={a.instructions} /></div>
+    </div>
+  );
+}
+
+/**
+ * "Delivery instructions (optional)": a note for the courier, posted as `instructions`. The
+ * checkout also shows it on its own under a saved address, where the `hint` says the change is
+ * for this order only.
+ */
+export function InstructionsField({ defaultValue, hint }: { defaultValue?: string; hint?: string }) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[14px] font-semibold text-ink">Delivery instructions (optional)</label>
+      <textarea
+        id={id}
+        name="instructions"
+        defaultValue={defaultValue ?? ''}
+        maxLength={INSTRUCTIONS_MAX}
+        rows={2}
+        placeholder="e.g. Leave it with the front desk. Gate code 4321."
+        aria-describedby={`${id}-hint`}
+        className={cn(fieldClass, 'h-auto py-2.5 leading-normal')}
+      />
+      <span id={`${id}-hint`} className="text-[13px] text-ink-3">{hint ?? `Up to ${INSTRUCTIONS_MAX} characters, shown to whoever delivers it.`}</span>
     </div>
   );
 }

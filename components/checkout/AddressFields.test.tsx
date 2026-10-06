@@ -23,3 +23,14 @@ it('the India form checks the mobile number and Pincode its own way', () => {
   expect(screen.getByLabelText('Area, Street, Sector, Village')).toHaveAttribute('title', 'Enter an area/street');
   expect(screen.getByLabelText('Landmark (optional)')).not.toHaveAttribute('pattern');
 });
+
+it('both forms take delivery instructions, prefilled when editing', () => {
+  render(<AddressFields isIN={false} address={{ instructions: 'Gate code 4321' }} />);
+  const note = screen.getByLabelText('Delivery instructions (optional)');
+  expect(note).toHaveAttribute('name', 'instructions');
+  expect(note).toHaveAttribute('maxlength', '250');
+  expect(note).toHaveValue('Gate code 4321');
+  cleanup();
+  render(<AddressFields isIN />);
+  expect(screen.getByLabelText('Delivery instructions (optional)')).toHaveValue('');
+});

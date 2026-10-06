@@ -60,6 +60,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
         city: a.city,
         state: a.state,
         postcode: a.postcode,
+        instructions: a.instructions ?? null,
       },
       // sent only for gifts, so ordinary checkouts don't depend on the gift migration
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}) } : {}),

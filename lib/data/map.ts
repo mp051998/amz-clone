@@ -100,6 +100,8 @@ export function toAddress(row: AddressRow): Address {
     state: row.state,
     zip: row.postcode,
     kind: (opt(row.kind) as Address['kind']) ?? undefined,
+    // absent on rows read before the delivery instructions migration lands
+    instructions: opt(row.instructions) ?? undefined,
     isDefault: row.is_default,
   };
 }
@@ -133,6 +135,7 @@ export function toOrder(row: OrderWithItems): Order {
       city: row.ship_city,
       state: row.ship_state,
       postcode: row.ship_postcode,
+      instructions: opt(row.ship_instructions) ?? undefined,
     },
     items: items.map((it) => ({
       productId: it.product_id ?? '',

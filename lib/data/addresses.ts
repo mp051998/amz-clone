@@ -15,6 +15,7 @@ export interface AddressFieldsInput {
   state?: unknown;
   postcode?: unknown;
   addressType?: unknown;
+  instructions?: unknown;
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
@@ -40,6 +41,8 @@ export function parseAddress(market: Market, input: AddressFieldsInput): Address
     state: market === 'US' ? str(input.state).trim().toUpperCase() : str(input.state),
     postcode: str(input.postcode),
     addressType: market === 'IN' ? (str(input.addressType) === 'office' ? 'office' : 'home') : undefined,
+    // a textarea posts line breaks as \r\n; count them as one character, as its maxLength does
+    instructions: str(input.instructions).replace(/\r\n?/g, '\n').trim() || undefined,
   });
   if (!res.success) {
     const issue = res.error.issues[0];
@@ -60,6 +63,7 @@ function toRow(market: Market, a: AddressInput) {
     state: a.state,
     postcode: a.postcode,
     kind: a.schema === 'IN' ? a.addressType ?? 'home' : null,
+    instructions: a.instructions || null,
   };
 }
 
