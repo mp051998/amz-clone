@@ -52,7 +52,7 @@ export default async function RegistryPage() {
 
   const steps = [
     { title: 'Make a list', desc: 'In Collections, start a list and name it for the occasion.' },
-    { title: 'Add anything', desc: 'Tap ♡ Save on any product, then move it to your list. Add as much as you like.' },
+    { title: 'Add anything', desc: 'Use Add to List on any product page and pick your list. Add as much as you like.' },
     { title: 'Share the link', desc: 'Turn on sharing and send the link. People open it and add gifts to their own cart.' },
   ];
 

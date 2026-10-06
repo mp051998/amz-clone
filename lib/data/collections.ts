@@ -26,6 +26,11 @@ type RowWithItems = CollectionRow & { collection_items?: ItemRow[] };
 
 const KIND_ORDER: Record<string, number> = { considering: 0, custom: 1, later: 2 };
 
+/** considering, then custom lists (by position, oldest first), then "Saved for later". */
+function byListOrder(a: Pick<CollectionRow, 'kind' | 'position' | 'created_at'>, b: Pick<CollectionRow, 'kind' | 'position' | 'created_at'>): number {
+  return (KIND_ORDER[a.kind] ?? 1) - (KIND_ORDER[b.kind] ?? 1) || a.position - b.position || a.created_at.localeCompare(b.created_at);
+}
+
 function asKind(v: string): CollectionKind {
   return v === 'considering' || v === 'later' ? v : 'custom';
 }
@@ -48,12 +53,7 @@ async function hydrate(db: Db, rows: RowWithItems[]): Promise<Collection[]> {
   const products = new Map((await getProducts(db, ids, { includeArchived: true })).map((p) => [p.id, p]));
   return rows
     .slice()
-    .sort(
-      (a, b) =>
-        (KIND_ORDER[a.kind] ?? 1) - (KIND_ORDER[b.kind] ?? 1) ||
-        a.position - b.position ||
-        a.created_at.localeCompare(b.created_at),
-    )
+    .sort(byListOrder)
     .map((r) => ({
       id: r.id,
       name: r.name,
@@ -160,6 +160,39 @@ export async function addItem(db: Db, collectionId: string, productId: string): 
 export async function removeItem(db: Db, collectionId: string, productId: string): Promise<void> {
   if (!isUuid(collectionId)) throw new DataError('collection_not_found');
   unwrap(await db.from('collection_items').delete().eq('collection_id', collectionId).eq('product_id', productId));
+}
+
+/**
+ * Move a product to another of the caller's lists in the same store. It keeps the price it was
+ * saved at; if it's already on the target list, that copy stays and this one goes.
+ */
+export async function moveItem(db: Db, fromId: string, toId: string, productId: string): Promise<void> {
+  if (!isUuid(fromId) || !isUuid(toId)) throw new DataError('collection_not_found');
+  if (fromId === toId) throw new DataError('invalid_input', 'to', 'Pick a different list.');
+  unwrap(await db.rpc('move_collection_item', { p_from: fromId, p_to: toId, p_product: productId }));
+}
+
+/** One of the caller's lists, and whether a given product is on it (the PDP "Add to List" menu). */
+export interface ListChoice {
+  id: string;
+  name: string;
+  kind: CollectionKind;
+  has: boolean;
+}
+
+/** The caller's lists in this store (same order as /collections), each marked if it holds `productId`. */
+export async function listChoices(db: Db, market: Market, productId: string): Promise<ListChoice[]> {
+  const rows = unwrap(
+    await db
+      .from('collections')
+      .select('id, name, kind, position, created_at, collection_items(product_id)')
+      .eq('market_id', market)
+      .eq('collection_items.product_id', productId),
+  );
+  return rows
+    .slice()
+    .sort(byListOrder)
+    .map((r) => ({ id: r.id, name: r.name, kind: asKind(r.kind), has: (r.collection_items ?? []).length > 0 }));
 }
 
 /** Ids of every product the caller has saved in any collection in this store. */

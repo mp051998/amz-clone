@@ -92,6 +92,30 @@ export async function removeFromCollection(collectionId: string, productId: stri
   });
 }
 
+/** PDP "Add to List" → "New list": make a list with this product already on it. */
+export async function createCollectionWith(name: string, productId: string): Promise<{ collection: Collection } | ActionError> {
+  return run(async (client) => {
+    const created = await collections.createCollection(client, await getMarket(), { name });
+    try {
+      await collections.addItem(client, created.id, String(productId));
+    } catch (err) {
+      await collections.deleteCollection(client, created.id).catch(() => {}); // don't leave an empty list behind
+      throw err;
+    }
+    revalidate();
+    return { collection: created };
+  });
+}
+
+/** Collections "Move to": onto another of the shopper's lists, keeping the price it was saved at. */
+export async function moveToCollection(fromId: string, toId: string, productId: string): Promise<{ ok: true } | ActionError> {
+  return run(async (client) => {
+    await collections.moveItem(client, String(fromId), String(toId), String(productId));
+    revalidate();
+    return { ok: true as const };
+  });
+}
+
 /** Cart "Save for later": adds to "Saved for later", then removes the cart line. */
 export async function moveCartItemToSaved(productId: string): Promise<{ collectionName: string } | ActionError> {
   return run(async (client) => {

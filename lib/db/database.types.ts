@@ -819,6 +819,9 @@ isOneToOne: false
                            },
 "shared_collection":
 { Args: { "p_token": string }; Returns: Json
+                           },
+"move_collection_item":
+{ Args: { "p_from": string; "p_to": string; "p_product": string }; Returns: undefined
                            }
           }
           Enums: {

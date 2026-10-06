@@ -1,19 +1,21 @@
 'use client';
-import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   createCollection,
   deleteCollection,
+  moveToCollection,
   removeFromCollection,
   renameCollection,
   updateCollectionNote,
 } from '@/app/actions/collections';
 import { addToCartQuiet } from '@/app/collections/actions';
 import { useToast } from '../decision/Toast';
-import { Button } from '../primitives/Button';
+import { Button, buttonClasses } from '../primitives/Button';
 import { cn } from '../lib/cn';
 import { fieldClass } from '../lib/controls';
 import { storeHref, type MarketId } from '../lib/store';
+import { usePopover } from '../lib/usePopover';
 
 type Result = { error?: string; message?: string } | object;
 
@@ -158,8 +160,8 @@ export function CollectionMenu({ id, name, market }: { id: string; name: string;
   );
 }
 
-/** Add to cart (accent, stays on the page) + Remove from this collection. */
-export function ItemActions({ collectionId, collectionName, productId, productName, inStock, unavailable = false, market }: {
+/** Add to cart (accent, stays on the page), Move to another list, and Remove from this collection. */
+export function ItemActions({ collectionId, collectionName, productId, productName, inStock, unavailable = false, market, moveTo = [] }: {
   collectionId: string;
   collectionName: string;
   productId: string;
@@ -168,6 +170,8 @@ export function ItemActions({ collectionId, collectionName, productId, productNa
   /** archived: can't be bought any more, only removed. */
   unavailable?: boolean;
   market: MarketId;
+  /** the shopper's other lists in this store */
+  moveTo?: { id: string; name: string }[];
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -203,9 +207,84 @@ export function ItemActions({ collectionId, collectionName, productId, productNa
       <Button variant="primary" onClick={add} disabled={pending || !inStock || unavailable} aria-label={`Add ${productName} to cart`}>
         {unavailable ? 'Unavailable' : inStock ? 'Add to cart' : 'Out of stock'}
       </Button>
+      {!unavailable && moveTo.length ? (
+        <MoveTo collectionId={collectionId} productId={productId} productName={productName} targets={moveTo} market={market} />
+      ) : null}
       <Button variant="secondary" onClick={remove} disabled={pending} aria-label={`Remove ${productName} from ${collectionName}`}>
         Remove
       </Button>
+    </div>
+  );
+}
+
+/** "Move" → the shopper's other lists; the item keeps the price it was saved at. */
+function MoveTo({ collectionId, productId, productName, targets, market }: {
+  collectionId: string;
+  productId: string;
+  productName: string;
+  targets: { id: string; name: string }[];
+  market: MarketId;
+}) {
+  const { open, setOpen, close, trigger, panel } = usePopover();
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const signin = useSignin(market);
+  const { toast } = useToast();
+  const id = useId();
+
+  const move = (to: { id: string; name: string }) =>
+    start(async () => {
+      const res = await moveToCollection(collectionId, to.id, productId);
+      const err = errorOf(res);
+      if (err) {
+        if (err.error === 'not_authenticated') return signin();
+        toast(err.message ?? "Couldn't move that — try again");
+        return;
+      }
+      close(false);
+      toast(`Moved to ${to.name}`);
+      router.refresh();
+    });
+
+  return (
+    <div className="relative">
+      <button
+        ref={trigger}
+        type="button"
+        onClick={() => (open ? close() : setOpen(true))}
+        disabled={pending}
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        aria-label={`Move ${productName} to another list`}
+        className={buttonClasses({ variant: 'secondary' })}
+      >
+        Move
+      </button>
+      {open ? (
+        <div
+          ref={panel}
+          id={id}
+          role="group"
+          aria-label="Move to"
+          className="absolute right-0 top-[calc(100%+6px)] z-40 flex w-[min(260px,calc(100vw-32px))] flex-col gap-0.5 rounded-card border border-line bg-surface p-2 text-ink shadow-hero"
+        >
+          <span className="px-2 pb-1 pt-0.5 text-[13px] font-semibold text-ink-2">Move to</span>
+          <ul className="m-0 flex max-h-[264px] list-none flex-col overflow-y-auto p-0">
+            {targets.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => move(t)}
+                  disabled={pending}
+                  className="flex min-h-11 w-full items-center rounded-input px-2 text-left text-[14px] text-ink hover:bg-surface-2 disabled:cursor-progress"
+                >
+                  {t.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -25,7 +25,7 @@ import { readUser } from '@/lib/auth';
 import { getProvider } from '@/lib/ai';
 import { summarizeReviews } from '@/lib/ai/features/reviews';
 import { getProduct, getProductInfo } from '@/lib/data/catalog';
-import { savedProductIds } from '@/lib/data/collections';
+import { listChoices, type ListChoice } from '@/lib/data/collections';
 import { messageFor } from '@/lib/data/errors';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { decisionConfig } from '@/lib/decision/attributes';
@@ -134,11 +134,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
-    user ? savedProductIds(client, store.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+    user ? listChoices(client, store.id, p.id).catch((): ListChoice[] => []) : Promise.resolve(null),
     getProductInfo(client, p.id),
     boughtTogether(p, 2, client).catch(() => []),
     readDeliverTo(store.id),
@@ -360,7 +360,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   categoryName={p.categoryName}
                   market={store.id}
                   stock={p.stock}
-                  saved={saved.has(p.id)}
+                  saved={lists?.some((l) => l.has) ?? false}
+                  lists={lists}
                   delivery={delivery}
                   confidence={{ level, rows: confidence }}
                   error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}

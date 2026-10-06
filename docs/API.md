@@ -264,6 +264,7 @@ Saved products, per store. Two system lists are created on first use: `consideri
 | DELETE | `/collections/:id` | | `204`. Deletes its items too. |
 | POST | `/collections/:id/items` | `{productId}` | `201 {item}`. Idempotent: re-adding keeps the original saved price. `404 product_not_found` if the product is from another store. `409 product_unavailable` if it's archived. `409 collection_item_limit` past 200. |
 | DELETE | `/collections/:id/items/:productId` | | `204`. A no-op when the product isn't in the collection. |
+| POST | `/collections/:id/items/:productId/move` | `{to: collectionId}` | `204`. Moves it onto another of your lists in the same store and keeps the price it was saved at. If it's already on that list, that copy stays. `404 item_not_found` if it isn't on this list. `409 collection_item_limit` if the target is full. |
 | POST | `/collections/:id/share` | | `{token, sharedAt, url}`. Turns on a link anyone can open (`/lists/<token>`). The same link while it's on. |
 | DELETE | `/collections/:id/share` | | `204`. The link stops working; sharing again makes a new one. |
 
@@ -403,7 +404,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_found` |
 | 405 | wrong method on a known path |
 | 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
@@ -439,7 +440,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-seven migrations live in `supabase/migrations/`:
+Twenty-eight migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -470,6 +471,7 @@ Twenty-seven migrations live in `supabase/migrations/`:
 | product Q&A | `product_questions` and `product_answers` (everyone reads) and `answer_votes` (owner read only); `ask_question()`, `answer_question()`, `delete_question()`, `delete_answer()` and `toggle_answer_helpful()` set the author, the verified mark and the counters |
 | gift card purchases | `gift_cards.purchased_by`; `gift_card_purchases` (owner read only); `start_gift_card_purchase()`, `my_gift_card_purchases()`, and the service-role `attach_gift_card_session()` and `confirm_gift_card_purchase()`, which checks the amount and currency and issues the code |
 | shared lists | `collections.share_token` / `shared_at`; `share_collection()` and `unshare_collection()` (owner), and `shared_collection()` for anyone with the link |
+| moving list items | `move_collection_item()` (owner): moves a product between two of the caller's lists and keeps its saved price and date |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
