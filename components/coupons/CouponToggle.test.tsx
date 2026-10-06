@@ -56,3 +56,11 @@ it('an applied coupon can be removed', async () => {
   });
   expect(action.setCouponClipped).toHaveBeenCalledWith('p1', false);
 });
+
+it('leaves out the sign-in hint where the page already gives it', () => {
+  render(<CouponToggle {...base} clipped={false} signedIn={false} signinHint={false} />);
+  expect(screen.queryByText('Sign in to apply')).toBeNull();
+  cleanup();
+  render(<CouponToggle {...base} clipped={false} signedIn={false} />);
+  expect(screen.getByText('Sign in to apply')).toBeInTheDocument();
+});
