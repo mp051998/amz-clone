@@ -54,7 +54,7 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
     },
   }));
   if (order.totals.shipMinor > 0) {
-    lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.shipMinor, product_data: { name: 'Shipping' } } });
+    lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.shipMinor, product_data: { name: order.shipSpeed === 'fast' ? 'Faster delivery' : 'Shipping' } } });
   }
   if (order.totals.taxMinor > 0) {
     lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.taxMinor, product_data: { name: 'Estimated tax' } } });

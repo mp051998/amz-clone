@@ -135,6 +135,9 @@ export interface ShippingAddress {
   postcode: string;
 }
 
+/** Delivery speed chosen at checkout: standard, or the paid faster option. */
+export type ShipSpeed = 'standard' | 'fast';
+
 export interface Order {
   id: string;
   market: Market;
@@ -157,6 +160,8 @@ export interface Order {
   refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string };
   /** a gift order, with the note for the recipient when there is one. */
   gift?: { message?: string };
+  /** delivery speed chosen at checkout (absent means standard). */
+  shipSpeed?: ShipSpeed;
 }
 
 /**

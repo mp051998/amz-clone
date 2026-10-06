@@ -43,6 +43,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         addressType: formData.get('addressType'),
       },
       gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage') } : undefined,
+      speed: formData.get('shipSpeed') === 'fast' ? 'fast' : undefined,
     });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;

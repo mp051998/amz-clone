@@ -1,5 +1,5 @@
 import type { Db } from '../db/client';
-import type { Market, Order, PaymentMethod } from '../types';
+import type { Market, Order, PaymentMethod, ShipSpeed } from '../types';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
@@ -18,6 +18,12 @@ export interface PlaceOrderInput {
   shipping: AddressFieldsInput;
   /** mark the order as a gift, with an optional note for the recipient */
   gift?: { message?: unknown };
+  /** delivery speed; 'fast' only when offered right now (see deliveryOptions) */
+  speed?: ShipSpeed;
+}
+
+export function isShipSpeed(v: unknown): v is ShipSpeed {
+  return v === 'standard' || v === 'fast';
 }
 
 /** A gift note as typed: trimmed, blank is none. Longer than GIFT_NOTE_MAX is refused (invalid_input). */
@@ -53,9 +59,17 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       },
       // sent only for gifts, so ordinary checkouts don't depend on the gift migration
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}) } : {}),
+      // likewise only for fast delivery
+      ...(input.speed === 'fast' ? { p_speed: 'fast' } : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
+/** The store's fee for faster delivery (minor units); null until the delivery-speed migration lands. */
+export async function fastShipFee(db: Db, market: Market): Promise<number | null> {
+  const { data, error } = await db.from('markets').select('fast_ship_fee_minor').eq('id', market).maybeSingle();
+  return error || !data ? null : data.fast_ship_fee_minor;
 }
 
 const ORDER_SELECT = '*, order_items(*)';

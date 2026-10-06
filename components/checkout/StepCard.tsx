@@ -42,7 +42,8 @@ export function StepCard({ n, title, value, sub, toggle, children, className }: 
 }
 
 /** Radio card used in step option lists: 1.5px border (ink when chosen), round 18px radio mark. */
-export function OptionCard({ name, value, checked, onChange, label, sub, badge }: {
+export function OptionCard({ id, name, value, checked, onChange, label, sub, badge }: {
+  id?: string;
   name: string;
   value: string;
   checked: boolean;
@@ -58,7 +59,7 @@ export function OptionCard({ name, value, checked, onChange, label, sub, badge }
         checked ? 'border-ink' : 'border-line hover:border-line-3',
       )}
     >
-      <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
+      <input id={id} type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
       <span aria-hidden className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full border-[1.5px] border-ink">
         <span className={cn('h-2.5 w-2.5 rounded-full', checked ? 'bg-ink' : 'bg-transparent')} />
       </span>

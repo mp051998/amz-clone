@@ -115,7 +115,7 @@ Prices and totals are computed by the database on every read.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}, gift?: {message?}}` | Checks out your cart in this store. See the details after this table. |
+| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}, gift?: {message?}, speed?: standard \| fast}` | Checks out your cart in this store. See the details after this table. |
 | GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
 | GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
@@ -127,6 +127,7 @@ How `POST /orders` works:
 - In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price and seller and computes the totals.
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
+- **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge and is never free.
 - **Gifts:** send `gift: {message?}` (or `gift: true`) to mark the order as a gift. The note is trimmed and can be up to 240 characters (`422 invalid_input` beyond that); a blank one means no note.
 
 `Order` has these fields:
@@ -134,7 +135,7 @@ How `POST /orders` works:
 - Status: `status: placed | awaiting_payment | cancelled`
 - Payment: `paymentMethod, paymentLabel`
 - Money: `totals`
-- Delivery: `shipTo`, and `gift?: {message?}` for a gift order
+- Delivery: `shipTo`, `shipSpeed?: fast` (absent means standard), and `gift?: {message?}` for a gift order
 - Lines: `items: [{productId, title, image, seller, unitPriceMinor, qty}]`
 - Timestamps: `createdAt, placedAt?, cancelledAt?`
 - Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
@@ -349,7 +350,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 405 | wrong method on a known path |
 | 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order` |
 | 415 | `unsupported_media_type` |
-| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable` |
+| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable` |
 | 502 | `refund_failed` |
 | 503 | `payments_unavailable` |
 

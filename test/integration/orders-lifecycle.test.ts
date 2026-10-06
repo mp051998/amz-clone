@@ -5,7 +5,7 @@ import { adminCancelOrder, deliverOrder, getAdminOrder, listAdminOrders, retryRe
 import { DataError } from '@/lib/data/errors';
 import { cancelOrder, getOrder, listOrders, placeOrder } from '@/lib/data/orders';
 import { refundOrder, settleRefund, type RefundStripe } from '@/lib/data/refunds';
-import { deliveryAfter, orderStage, plannedSchedule } from '@/lib/decision/tracking';
+import { deliveryAfter, deliveryOptions, orderStage, plannedSchedule } from '@/lib/decision/tracking';
 import { stripe } from '@/lib/stripe';
 import type { Market, PaymentMethod } from '@/lib/types';
 import { POST as webhook } from '@/app/api/v1/webhooks/stripe/route';
@@ -360,5 +360,60 @@ describe.runIf(stripe)('stripe refunds', () => {
     const after = await getAdminOrder(boss.db, o.id);
     expect(after?.refund?.status).toBe('succeeded');
     expect(after?.stripeRefundId).toBe(refund.id);
+  });
+});
+
+describe('fast delivery', () => {
+  const METHOD = { US: 'giftcard', IN: 'upi' } as const;
+
+  it('charges the store’s fast fee and saves the evening-run schedule while it beats standard', async () => {
+    // the hours when fast isn't offered (about noon to 5 PM local) never overlap between the two stores
+    let placedFast = 0;
+    for (const market of ['US', 'IN'] as const) {
+      const p = await pickProduct(market, 22);
+      await buyer.db.rpc('cart_clear', { p_market: market });
+      await setCartQty(buyer.db, market, p.id, 1);
+      const offered = deliveryOptions(new Date(), TZ[market]).fast !== null;
+      const run = placeOrder(buyer.db, market, { paymentMethod: METHOD[market], shipping: market === 'IN' ? IN_SHIPPING : US_SHIPPING, speed: 'fast' });
+      if (!offered) {
+        expect(await code(run)).toBe('delivery_option_unavailable');
+        continue;
+      }
+      const o = await run;
+      placedFast++;
+      const { data: m } = await admin().from('markets').select('fast_ship_fee_minor').eq('id', market).single();
+      expect(o.shipSpeed).toBe('fast');
+      expect(o.totals.shipMinor).toBe(m!.fast_ship_fee_minor);
+      expect(o.totals.totalMinor).toBe(o.totals.subtotalMinor + o.totals.shipMinor + o.totals.taxMinor);
+      const plan = plannedSchedule(o.placedAt!, TZ[market], 'fast');
+      same(o.shippedAt, plan.shippedAt);
+      same(o.outForDeliveryAt, plan.outForDeliveryAt);
+      same(o.deliveredAt, plan.deliveredAt);
+      await cancelOrder(buyer.db, o.id);
+    }
+    expect(placedFast).toBeGreaterThan(0);
+  });
+
+  it('a paid fast order gets the evening run', async () => {
+    const { order: o } = await order('US', 'card', 23);
+    const placedAt = '2026-10-07T17:00:00.000Z'; // 10:00 PDT → out 17:00, delivered 19:30 PDT the same day
+    await admin().from('orders').update({ ship_speed: 'fast', status: 'placed', placed_at: placedAt }).eq('id', o.id);
+    const paid = await getOrder(buyer.db, o.id);
+    expect(paid?.shipSpeed).toBe('fast');
+    same(paid?.shippedAt, '2026-10-07T20:00:00.000Z');
+    same(paid?.outForDeliveryAt, '2026-10-08T00:00:00.000Z');
+    same(paid?.deliveredAt, plannedSchedule(placedAt, TZ.US, 'fast').deliveredAt);
+    same(paid?.deliveredAt, '2026-10-08T02:30:00.000Z');
+    await adminCancelOrder(boss.db, o.id);
+  });
+
+  it('refuses an unknown speed', async () => {
+    const { error } = await buyer.db.rpc('place_order', {
+      p_market: 'US',
+      p_payment_method: 'giftcard',
+      p_shipping: { full_name: US_SHIPPING.fullName, phone: US_SHIPPING.phone, line1: US_SHIPPING.line1, city: US_SHIPPING.city, state: US_SHIPPING.state, postcode: US_SHIPPING.postcode },
+      p_speed: 'warp',
+    });
+    expect(error?.message).toBe('delivery_option_unavailable');
   });
 });
