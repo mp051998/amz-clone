@@ -1,0 +1,188 @@
+name: Supabase migrations
+
+# Pull requests: build a fresh local Supabase from every migration + the seed, run the
+# DB test suite against it, check the hosted project hasn't drifted from the
+# migrations, and list what merging would apply to it.
+# main: the same checks, then push any new migrations to the hosted project.
+# Daily: the drift check alone, to catch changes made on the hosted project directly.
+# Setup (secrets, variable): supabase/SETUP.md → "Automatic migrations".
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'test/integration/**'
+      - '.github/workflows/supabase-migrations.yml'
+      - '.github/scripts/supabase-hosted.sh'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/supabase-migrations.yml'
+      - '.github/scripts/supabase-hosted.sh'
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SUPABASE_CLI_VERSION: 2.118.0
+
+jobs:
+  verify:
+    name: Migrations apply and DB tests pass
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - run: npm ci
+
+      - name: Start local Supabase (applies every migration, then the seed)
+        # only what the app and tests use: Postgres, PostgREST, Auth, Storage, and the gateway
+        run: supabase start -x studio,realtime,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor
+
+      - name: Point the DB tests at the local stack
+        # local-stack keys are the CLI's fixed development keys, not secrets
+        run: |
+          supabase status -o json | node -e '
+            const s = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const env = {
+              NEXT_PUBLIC_SUPABASE_URL: s.API_URL,
+              NEXT_PUBLIC_SUPABASE_ANON_KEY: s.ANON_KEY ?? s.PUBLISHABLE_KEY,
+              SUPABASE_SERVICE_ROLE_KEY: s.SERVICE_ROLE_KEY ?? s.SECRET_KEY,
+            };
+            for (const [k, v] of Object.entries(env)) {
+              if (!v) throw new Error(`supabase status has no value for ${k}`);
+              console.log(`${k}=${v}`);
+            }
+          ' >> "$GITHUB_ENV"
+
+      - run: npm run test:db
+
+  drift:
+    name: Hosted matches migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Check credentials
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::error::Set the SUPABASE_ACCESS_TOKEN secret and the SUPABASE_PROJECT_REF variable (supabase/SETUP.md → Automatic migrations)."
+            exit 1
+          fi
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # Every hosted command goes through `hosted` (.github/scripts/supabase-hosted.sh), and
+      # they run one after another in this job: in parallel they reset each other's login.
+      - name: List the migrations merging would apply
+        if: github.event_name == 'pull_request'
+        run: |
+          source .github/scripts/supabase-hosted.sh
+          set +e
+          hosted supabase db push --linked --dry-run > plan.txt 2>&1
+          code=$?
+          set -e
+          cat plan.txt
+          { echo '### Migrations merging would apply to the hosted project'; echo '```'; cat plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+
+      - name: Migration history
+        # Hosted may only have applied migrations that are in the repo, and anything not
+        # applied yet must be newer than the last applied one (db push skips older ones).
+        run: |
+          source .github/scripts/supabase-hosted.sh
+          hosted supabase migration list --linked --output-format json > history.json
+          missing=$(jq -r '.migrations[] | select(.local == "") | .remote' history.json)
+          pending=$(jq -r '.migrations[] | select(.remote == "") | .local' history.json)
+          latest=$(jq -r '[.migrations[] | select(.remote != "") | .remote] | max // ""' history.json)
+          if [ -n "$missing" ]; then
+            echo "::error::Applied on the hosted project but not in supabase/migrations: $(echo $missing). Merge the branch that has them, or repair the history (supabase migration repair)."
+            { echo '### Migration history drift'; echo "Applied on hosted, missing from the repo: \`$(echo $missing)\`"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          for v in $pending; do
+            if [[ "$v" < "$latest" ]]; then
+              echo "::error::Migration $v is older than $latest, the newest one applied on hosted, so db push won't apply it. Give it a newer timestamp."
+              exit 1
+            fi
+            # not applied yet: leave it out, so the diff compares hosted with what it has applied
+            rm supabase/migrations/"$v"_*.sql
+          done
+          echo "Applied on hosted: $(jq '[.migrations[] | select(.remote != "")] | length' history.json) · pending: $(echo $pending | wc -w | tr -d ' ')"
+
+      - name: Schema diff
+        # public and private are ours; auth and storage are Supabase-managed, so diffing
+        # them flags platform upgrades rather than our changes
+        run: |
+          source .github/scripts/supabase-hosted.sh
+          set +e
+          hosted supabase db diff --linked --schema public,private > drift.sql
+          code=$?
+          set -e
+          if [ $code -ne 0 ]; then exit $code; fi
+          if [ -n "$(grep -vE '^[[:space:]]*(--.*)?$' drift.sql)" ]; then
+            cat drift.sql
+            echo "::error::The hosted schema differs from supabase/migrations (SQL in the job summary). Capture an intended change with 'supabase db diff --linked -f <name>', or undo it on hosted."
+            { echo '### Schema drift on the hosted project'; echo 'SQL that turns the migrations into what hosted has:'; echo '```sql'; cat drift.sql; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo '### No drift: hosted matches supabase/migrations' >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Push to hosted
+    needs: [verify, drift]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # one push at a time; never cancel a push that has started
+    concurrency:
+      group: supabase-hosted-migrations
+      cancel-in-progress: false
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Check credentials
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::error::Set the SUPABASE_ACCESS_TOKEN secret and the SUPABASE_PROJECT_REF variable (supabase/SETUP.md → Automatic migrations)."
+            exit 1
+          fi
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Push new migrations (seeds are never pushed)
+        run: |
+          source .github/scripts/supabase-hosted.sh
+          set +e
+          hosted supabase db push --linked --yes > push.txt 2>&1
+          code=$?
+          set -e
+          cat push.txt
+          { echo '### Hosted migrations'; echo '```'; cat push.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
