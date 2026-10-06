@@ -47,8 +47,8 @@ const BUNDLE_MAX = 3;
 
 /**
  * "Add all to cart" for a bought-together bundle: one of each ticked product (`id`, repeated).
- * On to the cart when at least one went in; back to the product page (`from`) with the error
- * when none did. Ids and the page are checked here since a client can send anything.
+ * On to the cart when at least one went in (saying how many were left out, and why); back to
+ * the product page (`from`) with the error when none did. Ids and the page are checked here since a client can send anything.
  */
 export async function addBundle(formData: FormData): Promise<void> {
   const { client, market, token } = await scope();
@@ -70,28 +70,31 @@ export async function addBundle(formData: FormData): Promise<void> {
   }
   revalidatePath('/', 'layout');
   if (!added) redirect(back(code ?? 'internal'));
-  redirect(storePath({ id: market }, '/cart'));
+  // some went in: on to the cart, saying what was left out
+  redirect(storePath({ id: market }, code ? `/cart?skipped=${ids.length - added}&error=${code}` : '/cart'));
+}
+
+/** Set a cart line's quantity (0 removes it); when that fails, back to the cart saying why. */
+async function setQty(formData: FormData, qty: number): Promise<void> {
+  const { client, market, token } = await scope();
+  let code: string | null = null;
+  try {
+    await cart.setCartQty(client, market, String(formData.get('id') ?? ''), qty, token);
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    code = err.code;
+  }
+  revalidatePath('/', 'layout');
+  if (code) redirect(storePath({ id: market }, `/cart?error=${code}`));
 }
 
 /** set a line's quantity; qty=0 removes it. */
 export async function updateQty(formData: FormData): Promise<void> {
-  const { client, market, token } = await scope();
-  try {
-    await cart.setCartQty(client, market, String(formData.get('id') ?? ''), qtyOf(formData, 0), token);
-  } catch (err) {
-    if (!(err instanceof DataError)) throw err;
-  }
-  revalidatePath('/', 'layout');
+  await setQty(formData, qtyOf(formData, 0));
 }
 
 export async function removeItem(formData: FormData): Promise<void> {
-  const { client, market, token } = await scope();
-  try {
-    await cart.setCartQty(client, market, String(formData.get('id') ?? ''), 0, token);
-  } catch (err) {
-    if (!(err instanceof DataError)) throw err;
-  }
-  revalidatePath('/', 'layout');
+  await setQty(formData, 0);
 }
 
 export async function clearCart(): Promise<void> {
