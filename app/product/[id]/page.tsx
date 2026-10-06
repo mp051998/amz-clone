@@ -57,7 +57,7 @@ type SP = Record<string, string | string[] | undefined>;
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const p = await getProduct(await db(), id, { includeArchived: true });
-  if (!p) return { title: 'Product · Store' };
+  if (!p) return { title: 'Page not found · Store' };
   const title = `${p.title} · Store`;
   const description = productDescription(p);
   const images = p.image ? [{ url: zoomImage(p.image), alt: p.title }] : undefined;
