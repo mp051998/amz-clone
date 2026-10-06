@@ -72,6 +72,12 @@ describe('exportMyData', () => {
     ],
     product_questions: [{ id: 'q1', product_id: 'kettle', body: 'Is it cordless?', created_at: '2026-09-03T00:00:00Z' }],
     product_answers: [{ id: 'a1', question_id: 'q9', body: 'Yes.', created_at: '2026-09-04T00:00:00Z' }],
+    seller_feedback: [
+      {
+        order_id: 'ORD-1', seller: 'Kettle Co', rating: 5, arrived_on_time: true, as_described: null, comment: null,
+        created_at: '2026-10-03T00:00:00Z', updated_at: '2026-10-03T00:00:00Z',
+      },
+    ],
   };
   const filters: [string, string, unknown][] = [];
   const db = {
@@ -115,6 +121,12 @@ describe('exportMyData', () => {
     ]);
     expect(data.questions).toEqual([{ id: 'q1', productId: 'kettle', body: 'Is it cordless?', createdAt: '2026-09-03T00:00:00Z' }]);
     expect(data.answers).toEqual([{ id: 'a1', questionId: 'q9', body: 'Yes.', createdAt: '2026-09-04T00:00:00Z' }]);
+    expect(data.sellerFeedback).toEqual([
+      {
+        orderId: 'ORD-1', seller: 'Kettle Co', rating: 5, arrivedOnTime: true, asDescribed: null, comment: null,
+        createdAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z',
+      },
+    ]);
     expect(parts.listMyReviews).toHaveBeenCalledWith(db, 'US', 'u1');
     expect(parts.listMyReviews).toHaveBeenCalledWith(db, 'IN', 'u1');
     expect(parts.balanceHistory).toHaveBeenCalledWith(db, 'US', 1000);
@@ -125,6 +137,7 @@ describe('exportMyData', () => {
         ['returns', 'user_id', 'u1'],
         ['product_questions', 'user_id', 'u1'],
         ['product_answers', 'user_id', 'u1'],
+        ['seller_feedback', 'user_id', 'u1'],
       ]),
     );
   });

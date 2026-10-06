@@ -56,7 +56,7 @@ Some products have a coupon, a percent off (5–50%). A signed-in shopper applie
 | GET 🔒 | `/me` | | `{user: {id, email, name, createdAt, plus: {since} \| null}}` |
 | PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
 | DELETE 🔒 | `/me` | `{currentPassword}` | `204`. Closes the account for good; its tokens stop working. `409 account_not_closable` while an order is on the way, a return or refund is open, or a checkout is unpaid (cancel unpaid orders first). The profile, addresses, cart, lists, history, coupons, Plus and gift card balance go with it; orders, returns and gift card purchases stay on the store's books without the link to the account |
-| GET 🔒 | `/me/data` | | `{data}`: everything the store keeps about the caller, both stores — `account`, `plus`, `stores.{US,IN}` (`currency`, `orders`, `addresses`, `lists`, `reviews`, `giftCardBalanceMinor`, `balanceHistory`), `returns`, `questions`, `answers`. The web app serves the same file at `/account/data` |
+| GET 🔒 | `/me/data` | | `{data}`: everything the store keeps about the caller, both stores — `account`, `plus`, `stores.{US,IN}` (`currency`, `orders`, `addresses`, `lists`, `reviews`, `giftCardBalanceMinor`, `balanceHistory`), `returns`, `questions`, `answers`, `sellerFeedback`. The web app serves the same file at `/account/data` |
 | GET 🔒 | `/me/plus` | | `{plus: {since} \| null}` |
 | POST 🔒 | `/me/plus` | | `{plus: {since}}`. Joins Plus: a demo membership, never billed. Joining again keeps the first `since` |
 | DELETE 🔒 | `/me/plus` | | `204`. Ends the membership; orders already placed keep their delivery charge |
@@ -196,6 +196,9 @@ Delivered items can be returned within the store's window (`markets.return_days`
 | --- | --- | --- | --- |
 | GET | `/orders/:id/returns` | | `{delivered, returnBy?, returnable: {<productId>: qty}, returns: [Return]}`. `returnBy` is set once the order is delivered. `returnable` is what's left to return. `404` for someone else's order. |
 | POST | `/orders/:id/returns` | `{items: [{productId, qty}], reason, comment?}` | `201 {return}`. `409 return_not_allowed` with `detail` `not_delivered` or `window_closed`; `422 invalid_input` with `detail` `items` (none, unknown, or more than is left), `reason` or `comment` (≤ 1000 chars). |
+| GET | `/orders/:id/seller-feedback` | | `{feedback: [SellerFeedback]}`: the caller's ratings of the order's sellers, each `{orderId, seller, rating, arrivedOnTime, asDescribed, comment, createdAt, updatedAt}`. `404` for someone else's order. |
+| PUT | `/orders/:id/seller-feedback` | `{seller, rating: 1–5, arrivedOnTime?: boolean \| null, asDescribed?: boolean \| null, comment?}` | `{feedback}`. Rates a seller in the order, or changes the rating: once the order is delivered, for 90 days; `409 feedback_not_open` before or after. `422 invalid_input` with `detail` `seller` (not in this order), `rating` or `comment` (≤ 500 chars). Product pages show each seller's rating over the last 12 months (average and share of 4–5 star ratings), never who left it. |
+| DELETE | `/orders/:id/seller-feedback` | `{seller}` | `204`. Removes the caller's rating; `404 not_found` when there's none. |
 | POST | `/returns/:id/cancel` | | `{return}`. Only while `requested` (`409 return_not_open` after). |
 
 `reason` is one of `no_longer_needed`, `bought_by_mistake`, `better_price`, `damaged`, `defective`, `wrong_item`, `missing_parts`, `not_as_described`. The last five are the store's fault.
@@ -422,7 +425,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
 | 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_in_cart`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_editable`, `account_not_closable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
+| 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_editable`, `feedback_not_open`, `account_not_closable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
@@ -496,6 +499,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | archived orders | `orders.archived_at`; `archive_my_order()` (owner) archives an order or brings it back; an unpaid card checkout can't be archived |
 | close account | `orders`, `returns` and `gift_card_purchases` keep their rows when the account is deleted (`user_id` set null); `account_closure_check()` (caller) counts what's still open (unpaid and undelivered orders, open returns, pending refunds, gift card checkouts under an hour old) and lists the gift card balance that would be lost; the server deletes the auth user with the admin API |
 | order instructions | `set_my_order_instructions()` (owner) changes an order's `ship_instructions` until it's out for delivery |
+| seller feedback | `seller_feedback` (one per order and seller; the owner reads and deletes their own); `leave_seller_feedback()` (owner) rates a seller in a delivered order for 90 days; `seller_ratings()` (public) gives each seller's 12-month count, average and 4–5 star count |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

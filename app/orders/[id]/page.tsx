@@ -7,11 +7,12 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
-import { archiveMyOrder, cancelMyOrder, payForOrder, updateOrderInstructions } from '@/app/actions/order';
+import { archiveMyOrder, cancelMyOrder, payForOrder, rateSeller, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
+import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
 import { orderStage } from '@/lib/decision/tracking';
@@ -21,6 +22,7 @@ import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
 import { getProducts } from '@/lib/data/catalog';
 import { reviewedProductIds } from '@/lib/data/reviews';
+import { feedbackOpen, feedbackOpenUntil, orderFeedback, orderSellers, type SellerFeedback } from '@/lib/data/seller-feedback';
 import { availabilityOf } from '@/lib/buy-again';
 import { accessoriesFor, type Accessory } from '@/lib/decision/server';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -66,10 +68,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string; feedback?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, archived, instructions } = await searchParams;
+  const { placed, cancelled, error, return: returned, archived, instructions, feedback } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -86,12 +88,16 @@ export default async function OrderPage({
   const placedAt = Date.parse(order.placedAt ?? order.createdAt);
   const confirming = order.status === 'placed' && (placed === '1' || now.getTime() - placedAt < JUST_PLACED_MS) && placed !== '0';
   const productIds = order.items.map((i) => i.productId);
-  const [returns, current, reviewed] = confirming
-    ? [null, [], new Set<string>()]
+  // the sellers can be rated once it arrives, for 90 days
+  const feedbackUntil = feedbackOpenUntil(order, now);
+  const noFeedback = new Map<string, SellerFeedback>();
+  const [returns, current, reviewed, sellerFeedback] = confirming
+    ? [null, [], new Set<string>(), noFeedback]
     : await Promise.all([
         getOrderReturns(client, order.id),
         getProducts(client, productIds, { includeArchived: true }).catch(() => []),
         view.delivered ? reviewedProductIds(client, user.id, productIds).catch(() => new Set<string>()) : new Set<string>(),
+        feedbackUntil ? orderFeedback(client, order.id).catch(() => noFeedback) : noFeedback,
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
   // delivery instructions can change until the order is out for delivery
@@ -168,6 +174,10 @@ export default async function OrderPage({
           <Alert tone="success">Delivery instructions updated for this order.</Alert>
         ) : instructions === 'cleared' ? (
           <Alert tone="success">Delivery instructions removed from this order.</Alert>
+        ) : feedback === 'saved' ? (
+          <Alert tone="success">Thanks, your seller feedback is saved.</Alert>
+        ) : feedback === 'removed' ? (
+          <Alert tone="success">Your seller feedback is removed.</Alert>
         ) : order.archivedAt ? (
           <Alert tone="info">This order is archived, so it isn’t in your order list. Unarchive it to bring it back.</Alert>
         ) : null}
@@ -320,6 +330,24 @@ export default async function OrderPage({
             )}
           </dl>
         </section>
+
+        {feedbackUntil ? (
+          <SellerFeedbackSection
+            openUntil={feedbackOpen(order, now) ? longDate(feedbackUntil, store) : null}
+            rows={orderSellers(order)
+              .map((seller) =>
+                feedbackOpen(order, now)
+                  ? {
+                      seller,
+                      feedback: sellerFeedback.get(seller),
+                      rate: rateSeller.bind(null, order.id, seller),
+                      remove: removeSellerRating.bind(null, order.id, seller),
+                    }
+                  : { seller, feedback: sellerFeedback.get(seller) },
+              )
+              .filter((r) => r.rate || r.feedback)}
+          />
+        ) : null}
 
         <div className="flex flex-wrap gap-2.5">
           <a href={sp('/orders')} className={buttonClasses({ variant: 'secondary' })}>View all orders</a>

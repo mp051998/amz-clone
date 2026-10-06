@@ -119,7 +119,7 @@ export function DownloadDataCard({ href }: { href: string }) {
   return (
     <Card id="data" title="Download your data" current="A copy of what we keep about you, from both stores." state={{}}>
       <p className="m-0 text-[14px] leading-[1.5] text-ink-2">
-        One file (JSON) with your profile, orders, returns, addresses, lists, reviews, questions and answers, gift card balance and
+        One file (JSON) with your profile, orders, returns, addresses, lists, reviews, seller feedback, questions and answers, gift card balance and
         Plus membership. It’s made when you ask for it, so it’s always up to date.
       </p>
       <a href={href} download className={`${buttonClasses({ variant: 'secondary' })} self-start`}>

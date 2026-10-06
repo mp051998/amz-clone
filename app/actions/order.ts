@@ -9,6 +9,7 @@ import { siteOrigin } from '@/lib/origin';
 import { archiveOrder, cancelOrder, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
+import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
 import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
 import type { Order } from '@/lib/types';
 
@@ -150,6 +151,43 @@ export async function updateOrderInstructions(orderId: string, formData: FormDat
   }
   revalidatePath(page);
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : `instructions=${cleared ? 'cleared' : 'saved'}`}`));
+}
+
+/** "Leave seller feedback" for one seller in a delivered order (or change it), or remove it. */
+export async function rateSeller(orderId: string, seller: string, formData: FormData): Promise<void> {
+  await sellerFeedbackAction(orderId, async (client) => {
+    await leaveSellerFeedback(client, orderId, seller, {
+      rating: formData.get('rating'),
+      arrivedOnTime: formData.get('onTime'),
+      asDescribed: formData.get('asDescribed'),
+      comment: formData.get('comment'),
+    });
+    return 'saved';
+  });
+}
+
+export async function removeSellerRating(orderId: string, seller: string): Promise<void> {
+  await sellerFeedbackAction(orderId, async (client) => {
+    await removeSellerFeedback(client, orderId, seller);
+    return 'removed';
+  });
+}
+
+async function sellerFeedbackAction(orderId: string, run: (client: Awaited<ReturnType<typeof db>>) => Promise<string>): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let result: string;
+  try {
+    result = `feedback=${await run(await db())}`;
+  } catch (err) {
+    result = `error=${encodeURIComponent(err instanceof DataError ? err.code : 'internal')}`;
+    if (!(err instanceof DataError)) console.error('[orders] seller feedback failed', orderId, err);
+  }
+  revalidatePath(page);
+  redirect(sp(`${page}?placed=0&${result}#seller-feedback`));
 }
 
 /**

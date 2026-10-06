@@ -512,6 +512,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"seller_feedback": {
+                  Row: {
+                    "arrived_on_time": boolean | null,"as_described": boolean | null,"comment": string | null,"created_at": string,"market_id": string,"order_id": string,"rating": number,"seller": string,"updated_at": string,"user_id": string | null
+                  }
+                  Insert: {
+                    "arrived_on_time"?: boolean | null,"as_described"?: boolean | null,"comment"?: string | null,"created_at"?: string,"market_id": string,"order_id": string,"rating": number,"seller": string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "arrived_on_time"?: boolean | null,"as_described"?: boolean | null,"comment"?: string | null,"created_at"?: string,"market_id"?: string,"order_id"?: string,"rating"?: number,"seller"?: string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "seller_feedback_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"store_balances": {
                   Row: {
                     "balance_minor": number,"market_id": string,"updated_at": string,"user_id": string
@@ -838,6 +857,14 @@ isOneToOne: false
                            },
 "set_my_order_instructions":
 { Args: { "p_instructions": string,"p_order_id": string }; Returns: Json
+                           },
+"leave_seller_feedback":
+{ Args: { "p_as_described"?: boolean,"p_comment"?: string,"p_on_time"?: boolean,"p_order_id": string,"p_rating": number,"p_seller": string }; Returns: Json
+                           },
+"seller_ratings":
+{ Args: { "p_market": string,"p_sellers": string[] }; Returns: {
+              "average": number,"positive": number,"ratings": number,"seller": string
+            }[]
                            },
 "share_collection":
 { Args: { "p_collection": string }; Returns: Json

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[] }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -25,7 +25,18 @@ vi.mock('@/lib/decision/server', () => ({
   },
 }));
 vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, returns: [] }), canStartReturn: () => false }));
-vi.mock('@/app/actions/order', () => ({ archiveMyOrder: async () => {}, cancelMyOrder: async () => {}, payForOrder: async () => {}, updateOrderInstructions: async () => {} }));
+vi.mock('@/app/actions/order', () => ({
+  archiveMyOrder: async () => {},
+  cancelMyOrder: async () => {},
+  payForOrder: async () => {},
+  updateOrderInstructions: async () => {},
+  rateSeller: async () => {},
+  removeSellerRating: async () => {},
+}));
+vi.mock('@/lib/data/seller-feedback', async (original) => ({
+  ...(await original<typeof import('@/lib/data/seller-feedback')>()),
+  orderFeedback: async () => new Map(state.feedback),
+}));
 vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {} }));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
@@ -61,6 +72,7 @@ beforeEach(() => {
   state.pairs = [];
   state.paired = [];
   state.reviewed = [];
+  state.feedback = [];
 });
 
 it('offers a review for each item once the order is delivered', async () => {
@@ -209,3 +221,69 @@ it('says why a change did not go through', async () => {
   expect(screen.getByText('This order is already out for delivery, so its delivery instructions can’t change now.')).toBeInTheDocument();
 });
 
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+const twoSellers = [
+  { productId: 'k', title: 'Kettle', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, qty: 1 },
+  { productId: 'm', title: 'Mug', image: '', seller: 'Mugs Inc', unitPriceMinor: 2000, qty: 1 },
+  { productId: 'm2', title: 'Mug lid', image: '', seller: 'Mugs Inc', unitPriceMinor: 500, qty: 1 },
+];
+const rated = {
+  orderId: 'ORD-9', seller: 'Mugs Inc', rating: 4, arrivedOnTime: true, asDescribed: false, comment: 'Lid was the wrong size.',
+  createdAt: daysAgo(1), updatedAt: daysAgo(1),
+};
+
+it('once delivered, asks for feedback on each seller in the order', async () => {
+  state.order = order({ deliveredAt: daysAgo(2), items: twoSellers });
+  await show();
+  const section = screen.getByRole('region', { name: 'Seller feedback' });
+  expect(section).toHaveTextContent('Sold by Kettle Co');
+  expect(section).toHaveTextContent('Sold by Mugs Inc');
+  expect(screen.getAllByText('Leave seller feedback')).toHaveLength(2);
+  expect(screen.getAllByRole('radio', { name: '5 stars' })).toHaveLength(2);
+  expect(screen.getAllByRole('radio', { name: '1 star' })[0]).toBeRequired();
+  expect(screen.getAllByLabelText(/^Comments/)).toHaveLength(2);
+});
+
+it('shows feedback already left, to change or remove', async () => {
+  state.order = order({ deliveredAt: daysAgo(2), items: twoSellers });
+  state.feedback = [['Mugs Inc', rated]];
+  await show();
+  const section = screen.getByRole('region', { name: 'Seller feedback' });
+  expect(section).toHaveTextContent('Arrived on time · Not as described');
+  expect(section).toHaveTextContent('Lid was the wrong size.');
+  expect(screen.getByRole('img', { name: '4 out of 5 stars' })).toBeInTheDocument();
+  expect(screen.getByText('Change your feedback')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Remove your feedback for Mugs Inc' })).toBeInTheDocument();
+  expect(screen.getAllByRole('radio', { name: '4 stars' })[1]).toBeChecked();
+  expect(screen.getByText('Leave seller feedback')).toBeInTheDocument();
+});
+
+it('after 90 days keeps what was left, read-only, and asks for nothing new', async () => {
+  state.order = order({ deliveredAt: daysAgo(100), items: twoSellers });
+  state.feedback = [['Mugs Inc', rated]];
+  await show();
+  const section = screen.getByRole('region', { name: 'Seller feedback' });
+  expect(section).toHaveTextContent('Sold by Mugs Inc');
+  expect(section).not.toHaveTextContent('Kettle Co');
+  expect(screen.queryByText('Change your feedback')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Remove your feedback/ })).toBeNull();
+  cleanup();
+  state.feedback = [];
+  await show();
+  expect(screen.queryByRole('region', { name: 'Seller feedback' })).toBeNull();
+});
+
+it('not before the order arrives', async () => {
+  state.order = order({ ...FUTURE, items: twoSellers });
+  await show();
+  expect(screen.queryByRole('region', { name: 'Seller feedback' })).toBeNull();
+});
+
+it('confirms feedback saved or removed', async () => {
+  state.order = order({ deliveredAt: daysAgo(2) });
+  await show({ feedback: 'saved' });
+  expect(screen.getByText('Thanks, your seller feedback is saved.')).toBeInTheDocument();
+  cleanup();
+  await show({ feedback: 'removed' });
+  expect(screen.getByText('Your seller feedback is removed.')).toBeInTheDocument();
+});
