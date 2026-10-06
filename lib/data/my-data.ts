@@ -9,6 +9,7 @@ import { unwrap } from './errors';
 import { listOrders } from './orders';
 import { plusMembership, type PlusMembership } from './plus';
 import { listMyReviews, type MyReview } from './reviews';
+import { myFeedback, type SellerFeedback } from './seller-feedback';
 
 /**
  * "Request your data", as on Amazon: everything the store keeps about a shopper, in one JSON
@@ -23,6 +24,7 @@ export interface MyData {
   returns: ReturnRecord[];
   questions: { id: string; productId: string; body: string; createdAt: string }[];
   answers: { id: string; questionId: string; body: string; createdAt: string }[];
+  sellerFeedback: SellerFeedback[];
 }
 
 export interface StoreData {
@@ -127,7 +129,7 @@ async function storeData(db: Db, market: Market, userId: string): Promise<StoreD
 /** Everything about the signed-in shopper. `user` is the session's user. */
 export async function exportMyData(db: Db, user: { id: string; email: string | null; name?: string }, now = new Date()): Promise<MyData> {
   // admins can read every return, so each query names the shopper rather than leaning on RLS
-  const [profile, plus, US, IN, returns, questions, answers] = await Promise.all([
+  const [profile, plus, US, IN, returns, questions, answers, sellerFeedback] = await Promise.all([
     db.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle().then(unwrap),
     plusMembership(db),
     storeData(db, 'US', user.id),
@@ -140,6 +142,7 @@ export async function exportMyData(db: Db, user: { id: string; email: string | n
       .then(unwrap),
     db.from('product_questions').select('id, product_id, body, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).then(unwrap),
     db.from('product_answers').select('id, question_id, body, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).then(unwrap),
+    myFeedback(db, user.id),
   ]);
   return {
     exportedAt: now.toISOString(),
@@ -163,5 +166,6 @@ export async function exportMyData(db: Db, user: { id: string; email: string | n
     })),
     questions: questions.map((q) => ({ id: q.id, productId: q.product_id, body: q.body, createdAt: q.created_at })),
     answers: answers.map((a) => ({ id: a.id, questionId: a.question_id, body: a.body, createdAt: a.created_at })),
+    sellerFeedback,
   };
 }

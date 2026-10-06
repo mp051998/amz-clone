@@ -10,6 +10,7 @@ import { Stars } from '@/components/primitives/Stars';
 import { Alternatives, type AlternativeCard } from '@/components/product/Alternatives';
 import { BackLink } from '@/components/product/BackLink';
 import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
+import { ratingText, sellerRatings, type SellerRating } from '@/lib/data/seller-feedback';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
 import { byTimeText, dayLabel, orderWithinText } from '@/components/orders/format';
 import { Gallery } from '@/components/product/Gallery';
@@ -134,7 +135,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -148,7 +149,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve(null) : couponFor(client, p.id, user != null),
     listQuestions(client, p.id, user?.id ?? null, { limit: 10 }).catch((): QuestionPage => ({ items: [], total: 0 })),
     countAnsweredQuestions(client, p.id),
+    sellerRatings(client, store.id, [p.seller]).catch(() => new Map<string, SellerRating>()),
   ]);
+  const sellerRating = sellers.get(p.seller);
 
   const ranked = rankOne(p, insight, weights);
   const aiPending = !p.archived && insight?.source !== 'ai' && reviews.page.total > 0 && getProvider() != null;
@@ -172,7 +175,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
     { k: 'Returns', v: `${store.returns.days}-day refund` },
-    { k: 'Sold by', v: p.seller },
+    { k: 'Sold by', v: sellerRating ? `${p.seller} · ${sellerRating.positivePct}% positive` : p.seller },
   ];
 
   const threshold = store.delivery.freeThresholdMinor;
@@ -226,7 +229,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
         ...(info.details.length ? [] : rankRow),
-        { k: 'Sold by', v: p.seller },
+        {
+          k: 'Sold by',
+          v: sellerRating ? <>{p.seller} <span className="text-ink-2">· {ratingText(sellerRating)}</span></> : p.seller,
+        },
         { k: 'Ships from', v: p.shipsFrom },
         { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
       ],
