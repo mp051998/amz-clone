@@ -25,7 +25,7 @@ vi.mock('@/lib/decision/server', () => ({
   },
 }));
 vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, returns: [] }), canStartReturn: () => false }));
-vi.mock('@/app/actions/order', () => ({ archiveMyOrder: async () => {}, cancelMyOrder: async () => {}, payForOrder: async () => {} }));
+vi.mock('@/app/actions/order', () => ({ archiveMyOrder: async () => {}, cancelMyOrder: async () => {}, payForOrder: async () => {}, updateOrderInstructions: async () => {} }));
 vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {} }));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
@@ -160,3 +160,52 @@ it('an unpaid order has nothing to archive', async () => {
   await show();
   expect(screen.queryByRole('button', { name: 'Archive order' })).toBeNull();
 });
+
+const FUTURE = { shippedAt: '2998-12-30T10:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' };
+
+it('delivery instructions can change while the order is being prepared or shipped', async () => {
+  state.order = order({ ...FUTURE, shipTo: { ...order().shipTo, instructions: 'Gate code 4321' } });
+  await show();
+  expect(screen.getByText('Change delivery instructions')).toBeInTheDocument();
+  expect(screen.getByLabelText('Delivery instructions (optional)')).toHaveValue('Gate code 4321');
+  expect(screen.getByRole('button', { name: 'Save instructions' })).toBeInTheDocument();
+  cleanup();
+
+  // shipped, not yet out for delivery: still open; no note yet says Add
+  state.order = order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
+  await show();
+  expect(screen.getByText('Add delivery instructions')).toBeInTheDocument();
+  expect(screen.getByLabelText('Delivery instructions (optional)')).toHaveValue('');
+});
+
+it('not once it is out for delivery or delivered, unpaid or cancelled', async () => {
+  for (const o of [
+    order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2026-09-02T09:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' }),
+    order({ deliveredAt: '2026-09-04T10:00:00Z' }),
+    order({ status: 'awaiting_payment' }),
+    order({ status: 'cancelled' }),
+  ]) {
+    state.order = o;
+    await show();
+    expect(screen.queryByRole('button', { name: 'Save instructions' })).toBeNull();
+    cleanup();
+  }
+});
+
+it('confirms the change', async () => {
+  state.order = order({ ...FUTURE, shipTo: { ...order().shipTo, instructions: 'Leave it at the back door' } });
+  await show({ instructions: 'saved' });
+  expect(screen.getByText('Delivery instructions updated for this order.')).toBeInTheDocument();
+  expect(screen.getByText('Leave it at the back door', { selector: 'dd span' })).toBeInTheDocument();
+  cleanup();
+  state.order = order(FUTURE);
+  await show({ instructions: 'cleared' });
+  expect(screen.getByText('Delivery instructions removed from this order.')).toBeInTheDocument();
+});
+
+it('says why a change did not go through', async () => {
+  state.order = order({ deliveredAt: '2026-09-04T10:00:00Z' });
+  await show({ error: 'order_not_editable' });
+  expect(screen.getByText('This order is already out for delivery, so its delivery instructions can’t change now.')).toBeInTheDocument();
+});
+

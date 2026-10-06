@@ -5,7 +5,7 @@ vi.mock('./refunds', () => ({ refundOrder: async () => undefined }));
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { archiveOrder, GIFT_NOTE_MAX, placeOrder, readGiftNote } from './orders';
+import { archiveOrder, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderInstructions } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -79,6 +79,29 @@ describe('archiveOrder', () => {
     const back = fakeDb({ ...row, archived_at: null });
     expect((await archiveOrder(back.db, row.id, false)).archivedAt).toBeUndefined();
     expect(back.calls[0]).toEqual({ p_order_id: row.id, p_archived: false });
+  });
+});
+
+describe('setOrderInstructions', () => {
+  it('sends the cleaned note and reads the order back', async () => {
+    const saved = fakeDb({ ...row, ship_instructions: 'Ring twice\nBack door' });
+    const order = await setOrderInstructions(saved.db, row.id, '  Ring twice\r\nBack door  ');
+    expect(saved.calls[0]).toEqual({ p_order_id: row.id, p_instructions: 'Ring twice\nBack door' });
+    expect(order.shipTo.instructions).toBe('Ring twice\nBack door');
+  });
+
+  it('blank (or nothing) removes them', async () => {
+    const cleared = fakeDb({ ...row, ship_instructions: null });
+    expect((await setOrderInstructions(cleared.db, row.id, '   ')).shipTo.instructions).toBeUndefined();
+    expect(cleared.calls[0]).toEqual({ p_order_id: row.id, p_instructions: '' });
+    await setOrderInstructions(cleared.db, row.id, null);
+    expect(cleared.calls[1]).toEqual({ p_order_id: row.id, p_instructions: '' });
+  });
+
+  it('refuses a note over the limit before asking the database', async () => {
+    const db = fakeDb();
+    await expect(setOrderInstructions(db.db, row.id, 'x'.repeat(251))).rejects.toMatchObject({ code: 'invalid_input', detail: 'instructions' });
+    expect(db.calls).toHaveLength(0);
   });
 });
 
