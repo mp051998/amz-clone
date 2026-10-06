@@ -94,7 +94,7 @@ export default async function ReturnPage({
                     <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
                       <label htmlFor={fieldId} className="line-clamp-2 text-[15px] font-semibold">{it.title}</label>
                       <span className="text-[13px] text-ink-3">
-                        {money(it.unitPriceMinor)} each · {left === it.qty ? `${it.qty} ordered` : `${left} of ${it.qty} left to return`}
+                        {money(it.unitPriceMinor - (it.unitDiscountMinor ?? 0))} each{it.unitDiscountMinor ? ' after coupon' : ''} · {left === it.qty ? `${it.qty} ordered` : `${left} of ${it.qty} left to return`}
                       </span>
                     </div>
                     <select id={fieldId} name={`qty:${it.productId}`} defaultValue={lines.length === 1 ? String(left) : '0'} className={selectClass}>

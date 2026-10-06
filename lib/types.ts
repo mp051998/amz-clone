@@ -39,7 +39,10 @@ export interface Category {
 }
 
 export interface OrderTotals {
+  /** the items at their list price */
   subtotalMinor: number;
+  /** what applied coupons take off the items (0 or absent without one) */
+  discountMinor?: number;
   shipMinor: number;
   taxMinor: number;
   totalMinor: number;
@@ -49,6 +52,10 @@ export interface CartLine {
   product: Product;
   qty: number;
   lineTotalMinor: number;
+  /** the product's coupon, applied (clipped) by this shopper or not */
+  coupon?: { percentOff: number; clipped: boolean };
+  /** what the applied coupon takes off this line (0 when it isn't applied) */
+  discountMinor?: number;
   /** false when stock dropped below the quantity in the cart, or the product was archived. */
   inStock: boolean;
   /** false when the product was archived: it must be removed before checkout. */
@@ -122,6 +129,8 @@ export interface OrderItem {
   seller: string;
   unitPriceMinor: number;
   qty: number;
+  /** what a coupon took off each unit (absent without one) */
+  unitDiscountMinor?: number;
 }
 
 export interface ShippingAddress {

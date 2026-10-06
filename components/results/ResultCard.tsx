@@ -32,6 +32,8 @@ export interface ResultCardProps {
   variants?: VariantSummary;
   /** the standard delivery day ("Tomorrow, October 8") and whether the shopper is a Plus member. */
   delivery?: ResultDelivery;
+  /** the product's coupon, percent off (applied on the product page or in the cart). */
+  couponPct?: number;
 }
 
 export interface ResultDelivery {
@@ -48,7 +50,7 @@ export function deliveryLine(store: Store, priceMinor: number, stock: number, de
 }
 
 /** Ranked search result card (prototype Search screen; design.md §5 Why it's here). */
-export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery }: ResultCardProps) {
+export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct }: ResultCardProps) {
   const p = r.product;
   const cur = store.currency.code;
   const href = storePath(store, `/product/${p.id}`);
@@ -79,6 +81,12 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
       <div className="flex flex-col gap-0.5">
         <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} />
         {p.deal && !/deal/i.test(p.badge ?? '') ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+        {couponPct ? (
+          <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
+            <span className="rounded-tag bg-good-bg px-1.5 py-0.5 text-[12px] font-bold text-good-strong">Coupon</span>
+            Save {couponPct}% with coupon
+          </span>
+        ) : null}
       </div>
       <span className="text-[13px] text-ink-2">
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>

@@ -42,8 +42,16 @@ interface CartJson {
   currency: CurrencyCode;
   free_ship_threshold_minor: number;
   count: number;
-  lines: { product: Partial<ProductRow>; qty: number; line_total_minor: number; in_stock: boolean; available?: boolean }[];
-  totals: { subtotal_minor: number; ship_minor: number; tax_minor: number; total_minor: number };
+  lines: {
+    product: Partial<ProductRow>;
+    qty: number;
+    line_total_minor: number;
+    in_stock: boolean;
+    available?: boolean;
+    coupon?: { percent_off: number; clipped: boolean } | null;
+    discount_minor?: number;
+  }[];
+  totals: { subtotal_minor: number; discount_minor?: number; ship_minor: number; tax_minor: number; total_minor: number };
 }
 
 /** JSON returned by the cart RPCs → Cart. */
@@ -61,9 +69,13 @@ export function toCart(json: unknown): Cart {
       inStock: l.in_stock,
       // absent before the archive migration: every line was available
       available: l.available ?? true,
+      // absent before the coupons migration
+      ...(l.coupon ? { coupon: { percentOff: l.coupon.percent_off, clipped: l.coupon.clipped } } : {}),
+      discountMinor: l.discount_minor ?? 0,
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
+      discountMinor: c.totals.discount_minor ?? 0,
       shipMinor: c.totals.ship_minor,
       taxMinor: c.totals.tax_minor,
       totalMinor: c.totals.total_minor,
@@ -101,6 +113,8 @@ export function toOrder(row: OrderWithItems): Order {
     paymentLabel: row.payment_label,
     totals: {
       subtotalMinor: row.subtotal_minor,
+      // absent on rows read before the coupons migration lands
+      discountMinor: row.discount_minor ?? 0,
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
       totalMinor: row.total_minor,
@@ -122,6 +136,7 @@ export function toOrder(row: OrderWithItems): Order {
       seller: it.seller ?? '',
       unitPriceMinor: it.unit_price_minor ?? 0,
       qty: it.qty ?? 0,
+      ...(it.unit_discount_minor ? { unitDiscountMinor: it.unit_discount_minor } : {}),
     })),
     createdAt: row.created_at,
     placedAt: opt(row.placed_at),

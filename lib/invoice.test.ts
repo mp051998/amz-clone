@@ -46,10 +46,22 @@ describe('buildInvoice', () => {
     const inv = buildInvoice(order())!;
     expect(inv.kind).toBe('invoice');
     expect(inv.lines).toEqual([
-      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000 },
-      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000 },
+      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0 },
+      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0 },
     ]);
-    expect(inv).toMatchObject({ subtotalMinor: 5000, shipMinor: 599, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
+    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, shipMinor: 599, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
+  });
+
+  it('shows what a coupon took off each line and the order', () => {
+    const inv = buildInvoice(order({
+      totals: { subtotalMinor: 5000, discountMinor: 300, shipMinor: 0, taxMinor: 376, totalMinor: 5076 },
+      items: [
+        { productId: 'a', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1500, qty: 2, unitDiscountMinor: 150 },
+        { productId: 'b', title: 'Mug', image: '', seller: 'Mugs Inc', unitPriceMinor: 2000, qty: 1 },
+      ],
+    }))!;
+    expect(inv.lines.map((l) => [l.amountMinor, l.discountMinor])).toEqual([[3000, 300], [2000, 0]]);
+    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 300, totalMinor: 5076, netMinor: 5076 });
   });
 
   it('has nothing for an order still waiting for payment', () => {

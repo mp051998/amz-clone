@@ -28,6 +28,7 @@ import { parseQuery as parseFacets } from '@/lib/search';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
+import { couponPercents } from '@/lib/data/coupons';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { dayLabel } from '@/components/orders/format';
 
@@ -188,7 +189,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
-  const variants = await variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : [])));
+  const [variants, coupons] = await Promise.all([
+    variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : []))),
+    couponPercents(client, items.map((r) => r.product.id)),
+  ]);
   const range = budgetRange(store.id, category);
   const cur = store.currency.code;
   const title = pq.title === 'Results' ? 'All products' : pq.title;
@@ -323,6 +327,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                         priority={page === 1 && i < 3}
                         variants={r.product.variant ? variants.get(r.product.variant.group) : undefined}
                         delivery={delivery}
+                        couponPct={coupons.get(r.product.id)}
                       />
                     </div>
                   </li>

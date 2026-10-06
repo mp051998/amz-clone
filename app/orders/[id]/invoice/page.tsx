@@ -115,6 +115,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     <td className={cell}>
                       <span className="block font-medium">{l.title}</span>
                       <span className="block text-[13px] text-ink-3">Sold by {l.seller}</span>
+                      {l.discountMinor ? <span className="block text-[13px] text-ink-2">Coupon −{money(l.discountMinor)}</span> : null}
                     </td>
                     <td className={`${cell} text-right tabular-nums`}>{l.qty}</td>
                     <td className={`${cell} text-right tabular-nums`}>{money(l.unitMinor)}</td>
@@ -126,6 +127,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
           <dl className="m-0 ml-auto flex w-full max-w-[320px] flex-col gap-1.5 pt-2 text-[14px]">
             <div className="flex justify-between gap-4"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(inv.subtotalMinor)}</dd></div>
+            {inv.discountMinor > 0 ? (
+              <div className="flex justify-between gap-4"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(inv.discountMinor)}</dd></div>
+            ) : null}
             <div className="flex justify-between gap-4"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{inv.shipMinor === 0 ? 'FREE' : money(inv.shipMinor)}</dd></div>
             {inv.taxMinor > 0 ? (
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(inv.taxMinor)}</dd></div>

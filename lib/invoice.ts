@@ -6,7 +6,10 @@ export interface InvoiceLine {
   seller: string;
   qty: number;
   unitMinor: number;
+  /** at the list price */
   amountMinor: number;
+  /** what a coupon took off the line (0 without one) */
+  discountMinor: number;
 }
 
 export interface InvoiceRefund {
@@ -23,6 +26,8 @@ export interface Invoice {
   kind: 'invoice' | 'cancelled';
   lines: InvoiceLine[];
   subtotalMinor: number;
+  /** what coupons took off the items */
+  discountMinor: number;
   shipMinor: number;
   taxMinor: number;
   totalMinor: number;
@@ -49,6 +54,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,
+    discountMinor: (it.unitDiscountMinor ?? 0) * it.qty,
   }));
 
   const refunds: InvoiceRefund[] = [];
@@ -73,6 +79,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     kind: order.status === 'cancelled' ? 'cancelled' : 'invoice',
     lines,
     subtotalMinor: order.totals.subtotalMinor,
+    discountMinor: order.totals.discountMinor ?? 0,
     shipMinor: order.totals.shipMinor,
     taxMinor: order.totals.taxMinor,
     totalMinor: order.totals.totalMinor,

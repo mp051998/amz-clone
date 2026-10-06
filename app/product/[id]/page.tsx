@@ -46,6 +46,8 @@ import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
+import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
+import { CouponToggle } from '@/components/coupons/CouponToggle';
 import type { Product } from '@/lib/types';
 
 type SP = Record<string, string | string[] | undefined>;
@@ -130,7 +132,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus, coupon] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -141,6 +143,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     recentProducts(client, store.id, { exclude: [p.id] }),
     p.archived ? Promise.resolve(null) : bestsellerRank(client, p).catch(() => null),
     user ? plusMembership(client) : Promise.resolve(null),
+    p.archived ? Promise.resolve(null) : couponFor(client, p.id, user != null),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -290,6 +293,17 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 <div className="flex flex-col gap-1 border-t border-line pt-4">
                   <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
                   {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+                  {coupon ? (
+                    <CouponToggle
+                      productId={p.id}
+                      percentOff={coupon.percentOff}
+                      clipped={coupon.clipped}
+                      signedIn={user != null}
+                      market={store.id}
+                      savingText={formatMoney(couponUnitSavings(priceMinor, coupon.percentOff), cur)}
+                      next={`/product/${encodeURIComponent(p.id)}`}
+                    />
+                  ) : null}
                   {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
                 </div>
               )}

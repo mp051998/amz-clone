@@ -41,13 +41,14 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
   if (order.paymentMethod !== 'card' || order.status !== 'awaiting_payment') throw new DataError('order_not_pending');
 
   const currency = order.currency.toLowerCase();
+  // a coupon comes off each unit, so the line is charged at the unit price after it
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = order.items.map((it) => ({
     quantity: it.qty,
     price_data: {
       currency,
-      unit_amount: it.unitPriceMinor,
+      unit_amount: it.unitPriceMinor - (it.unitDiscountMinor ?? 0),
       product_data: {
-        name: it.title.slice(0, 120),
+        name: it.unitDiscountMinor ? `${it.title.slice(0, 104)} (coupon applied)` : it.title.slice(0, 120),
         // Stripe fetches images itself, so only offer publicly reachable ones.
         images: productImageUrl(it.image, imageOrigin),
       },
