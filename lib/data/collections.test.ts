@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { product } from '@/test/fixtures/decision';
-import { getSharedList, isShareToken, listChoices, moveItem, priceDrops, shareCollection, unshareCollection } from './collections';
+import { getSharedList, isShareToken, listChoices, markSharedGift, moveItem, priceDrops, shareCollection, unshareCollection } from './collections';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
 
@@ -43,6 +43,32 @@ it('reads a shared list, or null when the link is off', async () => {
     },
   });
   expect(await getSharedList(on.db, TOKEN)).toMatchObject({ token: TOKEN, name: 'Baby registry', market: 'IN', ownerName: 'Customer', products: [] });
+});
+
+it('reads gift givers’ marks off a shared list', async () => {
+  const items = [
+    { product_id: 'a', added_at: '2026-10-05', bought: 'you' },
+    { product_id: 'b', added_at: '2026-10-04', bought: null },
+    { product_id: 'c', added_at: '2026-10-03', bought: 'someone' },
+    { product_id: 'd', added_at: '2026-10-02', bought: 'anyone' },
+  ];
+  const { db } = fakeDb({
+    shared_collection: { data: { name: 'Wedding', kind: 'custom', market_id: 'US', shared_at: '2026-10-05T10:00:00Z', owner_name: 'Asha', mine: false, collection_id: null, items }, error: null },
+  });
+  expect((await getSharedList(db, TOKEN))!.bought).toEqual({ a: 'you', c: 'someone' });
+});
+
+it('marks a shared list item bought only for a well-formed link and product', async () => {
+  const { db, rpcs } = fakeDb({});
+  await expect(markSharedGift(db, 'nope', 'p1', true)).rejects.toMatchObject({ code: 'collection_not_found' });
+  await expect(markSharedGift(db, TOKEN, '', true)).rejects.toMatchObject({ code: 'item_not_found' });
+  expect(rpcs).toEqual([]);
+  await markSharedGift(db, TOKEN, 'p1', true);
+  await markSharedGift(db, TOKEN, 'p1', false);
+  expect(rpcs).toEqual([
+    ['mark_shared_gift', { p_token: TOKEN, p_product: 'p1', p_bought: true }],
+    ['mark_shared_gift', { p_token: TOKEN, p_product: 'p1', p_bought: false }],
+  ]);
 });
 
 it('shares by id and hands back the link token', async () => {

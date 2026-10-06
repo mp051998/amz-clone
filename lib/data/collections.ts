@@ -312,9 +312,13 @@ export interface SharedList {
   /** the viewer shared it; `collectionId` is then theirs to manage */
   mine: boolean;
   collectionId: string | null;
-  /** newest first; products no longer on sale are left out */
+  /** still to buy first, then bought; newest first within each. Products no longer on sale are left out */
   products: Product[];
+  /** items gift givers marked bought: by the viewer (`you`) or another giver. Empty for the owner */
+  bought: Record<string, GiftMark>;
 }
+
+export type GiftMark = 'you' | 'someone';
 
 export function isShareToken(v: unknown): v is string {
   return typeof v === 'string' && /^[0-9a-f]{32}$/.test(v);
@@ -341,7 +345,7 @@ interface SharedRow {
   owner_name: string;
   mine: boolean;
   collection_id: string | null;
-  items: { product_id: string; added_at: string }[];
+  items: { product_id: string; added_at: string; bought?: GiftMark | null }[];
 }
 
 /** A shared list by its link, or null when the link is off or never existed. */
@@ -352,7 +356,10 @@ export async function getSharedList(db: Db, token: string): Promise<SharedList |
   if (res.error?.code === 'PGRST202') return null;
   const row = unwrap(res) as unknown as SharedRow | null;
   if (!row) return null;
-  const ids = row.items.map((i) => i.product_id);
+  const bought: Record<string, GiftMark> = {};
+  for (const i of row.items) if (i.bought === 'you' || i.bought === 'someone') bought[i.product_id] = i.bought;
+  // stable: newest first stays within each group
+  const ids = row.items.map((i) => i.product_id).sort((a, b) => Number(a in bought) - Number(b in bought));
   const byId = new Map((await getProducts(db, ids)).map((p) => [p.id, p]));
   return {
     token,
@@ -364,5 +371,16 @@ export async function getSharedList(db: Db, token: string): Promise<SharedList |
     mine: row.mine === true,
     collectionId: row.collection_id,
     products: ids.flatMap((id) => byId.get(id) ?? []),
+    bought,
   };
+}
+
+/**
+ * A gift giver marks an item on someone's shared list as bought (or undoes their mark). One giver
+ * per item: `409 gift_already_bought` when another got there first; `409 own_list` for the owner.
+ */
+export async function markSharedGift(db: Db, token: string, productId: string, bought: boolean): Promise<void> {
+  if (!isShareToken(token)) throw new DataError('collection_not_found');
+  if (typeof productId !== 'string' || !productId) throw new DataError('item_not_found');
+  unwrap(await db.rpc('mark_shared_gift', { p_token: token, p_product: productId, p_bought: bought === true }));
 }

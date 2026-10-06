@@ -116,6 +116,15 @@ export async function moveToCollection(fromId: string, toId: string, productId: 
   });
 }
 
+/** On someone's shared list: mark an item bought by the caller, or undo their mark. */
+export async function markGiftBought(token: string, productId: string, bought: boolean): Promise<{ ok: true } | ActionError> {
+  return run(async (client) => {
+    await collections.markSharedGift(client, String(token), String(productId), bought === true);
+    revalidate();
+    return { ok: true as const };
+  });
+}
+
 /** Cart "Save for later": adds to "Saved for later", then removes the cart line. */
 export async function moveCartItemToSaved(productId: string): Promise<{ collectionName: string } | ActionError> {
   return run(async (client) => {

@@ -78,6 +78,8 @@ export function GET(): Response {
       'POST   /collections/:id/share',
       'DELETE /collections/:id/share',
       'GET    /lists/:token',
+      'POST   /lists/:token/items/:productId/bought',
+      'DELETE /lists/:token/items/:productId/bought',
       'GET    /ai/status',
       'POST   /ai/parse-query',
       'POST   /ai/profile',
