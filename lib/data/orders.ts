@@ -3,6 +3,7 @@ import type { Market, Order, PaymentMethod, ShipSpeed } from '../types';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
+import { expireCardCheckout } from './payments';
 import { refundOrder } from './refunds';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
@@ -118,8 +119,8 @@ export async function cancelPendingOrder(db: Db, id: string): Promise<Order> {
 }
 
 /**
- * Owner cancels an order: an unpaid checkout (stock released, as cancelPendingOrder),
- * or a placed order that hasn't shipped yet — stock returned, and a card payment
+ * Owner cancels an order: an unpaid checkout (stock released, as cancelPendingOrder, and its
+ * Stripe page closed), or a placed order that hasn't shipped yet — stock returned, and a card payment
  * refunded on Stripe. The cancel stands even if the refund fails (admins retry it).
  */
 export async function cancelOrder(db: Db, id: string): Promise<Order> {
@@ -129,6 +130,8 @@ export async function cancelOrder(db: Db, id: string): Promise<Order> {
   const json = unwrap(res);
   if (!json) throw new DataError('order_not_found');
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  // an unpaid card order: close its Stripe page so it can't be paid now it's cancelled
+  if (order.paymentMethod === 'card' && !order.refund) await expireCardCheckout(id);
   if (order.paymentMethod !== 'card' || order.refund?.status !== 'pending') return order;
   try {
     await refundOrder(id);

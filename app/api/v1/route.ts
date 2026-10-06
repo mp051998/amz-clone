@@ -57,6 +57,7 @@ export function GET(): Response {
       'POST   /orders',
       'GET    /orders/buy-again?limit=',
       'GET    /orders/:id',
+      'POST   /orders/:id/pay',
       'POST   /orders/:id/cancel',
       'GET    /orders/:id/returns',
       'POST   /orders/:id/returns',

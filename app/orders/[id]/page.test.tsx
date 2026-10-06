@@ -25,7 +25,7 @@ vi.mock('@/lib/decision/server', () => ({
   },
 }));
 vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, returns: [] }), canStartReturn: () => false }));
-vi.mock('@/app/actions/order', () => ({ cancelMyOrder: async () => {} }));
+vi.mock('@/app/actions/order', () => ({ cancelMyOrder: async () => {}, payForOrder: async () => {} }));
 vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {} }));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
@@ -118,4 +118,18 @@ it('a gift order shows its note', async () => {
 it('no gift row for an ordinary order', async () => {
   await show();
   expect(screen.queryByText('Gift', { selector: 'dt' })).toBeNull();
+});
+
+it('an unpaid card order offers to finish paying or cancel', async () => {
+  state.order = order({ status: 'awaiting_payment', paymentLabel: undefined });
+  await show();
+  const pay = screen.getByRole('region', { name: 'Payment' });
+  expect(pay).toHaveTextContent('This order isn’t paid yet');
+  expect(screen.getByRole('button', { name: 'Complete payment' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Cancel order' })).toBeInTheDocument();
+  cleanup();
+  state.order = order();
+  await show();
+  expect(screen.queryByRole('region', { name: 'Payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Complete payment' })).toBeNull();
 });

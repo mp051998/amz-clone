@@ -7,7 +7,7 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
-import { cancelMyOrder } from '@/app/actions/order';
+import { cancelMyOrder, payForOrder } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
@@ -164,6 +164,27 @@ export default async function OrderPage({
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}
         />
+
+        {order.status === 'awaiting_payment' ? (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Payment">
+            <p className="m-0 max-w-[460px] text-[14px] text-ink-2">
+              This order isn’t paid yet, so it hasn’t been placed. Pay {money(order.totals.totalMinor)} by card on Stripe’s secure page, or cancel it to release the items. You haven’t been charged.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <form action={payForOrder.bind(null, order.id)}>
+                <button type="submit" className={buttonClasses({ variant: 'primary' })}>Complete payment</button>
+              </form>
+              <ConfirmAction
+                action={cancelMyOrder.bind(null, order.id)}
+                label="Cancel order"
+                prompt={<>Cancel this order? You haven’t been charged, and the items go back on sale.</>}
+                confirmLabel="Yes, cancel it"
+                pendingLabel="Cancelling…"
+                cancelLabel="Keep order"
+              />
+            </div>
+          </section>
+        ) : null}
 
         {view.cancelUntil ? (
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Cancel order">

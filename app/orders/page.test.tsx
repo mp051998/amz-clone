@@ -115,3 +115,10 @@ it('sends the signed-out to sign in', async () => {
   state.user = null;
   await expect(show()).rejects.toThrow('REDIRECT /signin?next=/orders');
 });
+
+it('an unpaid card order links to finishing payment instead of tracking', async () => {
+  state.orders = [{ ...order('ORD-1', 1), status: 'awaiting_payment', deliveredAt: undefined }, order('ORD-2', 3)];
+  await show();
+  expect(screen.getByRole('link', { name: 'Complete payment for order ORD-1' })).toHaveAttribute('href', '/orders/ORD-1?placed=0');
+  expect(listed()).toEqual(['ORD-2']);
+});
