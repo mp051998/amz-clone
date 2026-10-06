@@ -24,7 +24,7 @@ import { spellFix } from '@/lib/data/spell';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { parseQuery as parseFacets } from '@/lib/search';
+import { parseQuery as parseFacets, pricePresets } from '@/lib/search';
 import { searchMetadata } from '@/lib/seo';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
@@ -67,6 +67,7 @@ function one(sp: SP, key: string): string | undefined {
  *   k      free text, parsed by parseSearchQuery (AI when configured, else rules)
  *   dept   department slug (overrides the detected one); `all` = category chip removed
  *   budget ceiling in minor units; `0` = budget chip removed
+ *   min    lowest price in minor units ("Price" in More filters)
  *   use    use-case preset from the query; `none` = use chip removed
  *   preset refine preset id, or `ai` = weights tuned by the quiz (summary in the `tuned_profile` cookie)
  *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
@@ -111,7 +112,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const client = await db();
   const [result, scope, saved, jar, plus] = await Promise.all([
-    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, rating: facets.rating, deal: facets.deal, sort }, client),
+    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, rating: facets.rating, deal: facets.deal, minPrice: facets.minPrice, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
@@ -136,7 +137,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   };
   // nothing matched the words as typed: retry with typos corrected (only when that finds something)
   const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
-  if (k && pq.keywords && !result.candidates && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal) {
+  if (k && pq.keywords && !result.candidates && !result.pricedOut && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal) {
     const fix = await spellFix(client, store.id, k, pq.keywords, category);
     if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
   }
@@ -157,6 +158,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   for (const b of brands) chips.push({ label: b, href: hrefWith({ brand: brands.filter((x) => x !== b).join(',') || null }) });
   if (facets.rating) chips.push({ label: `${facets.rating}★ & up`, href: hrefWith({ rating: null }) });
   if (facets.deal) chips.push({ label: 'On sale', href: hrefWith({ deal: null }) });
+  if (facets.minPrice) chips.push({ label: `${formatMoney(facets.minPrice, store.currency.code)} & above`, href: hrefWith({ min: null }) });
 
   const presetSpec = findPreset(category, preset ?? use);
   /** the refine pill that matches the current weights (a parsed use counts until hand-tuned) */
@@ -189,9 +191,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
   const page = Math.min(pageCount, Math.max(1, Number(one(sp, 'page')) || 1));
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  // nothing found: something to go on instead of a dead end (not under a budget — these could cost more)
-  const popular = items.length || budgetMinor ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
-  const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0);
+  // nothing found: something to go on instead of a dead end (not in a price range — these could cost anything)
+  const popular = items.length || budgetMinor || facets.minPrice ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
+  const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.minPrice ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
   const [variants, coupons] = await Promise.all([
@@ -215,6 +217,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       }
     >
       {facetFilters ? 'Your filters narrow it further — try removing one.' : null}
+    </EmptyState>
+  ) : facets.minPrice ? (
+    <EmptyState
+      title={`Nothing at ${formatMoney(facets.minPrice, cur)} & above.`}
+      action={<a href={hrefWith({ min: null })} className="text-[15px] underline underline-offset-2">Remove the price filter</a>}
+    >
+      {facetFilters > 1 ? 'Your filters narrow it further — try removing one.' : null}
     </EmptyState>
   ) : (
     <EmptyState
@@ -289,7 +298,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               weights={weights}
               presetLabel={presetLabel}
               currency={cur}
-              budget={{ valueMinor: budgetMinor, minMinor: range.minMinor, maxMinor: range.maxMinor, stepMinor: range.stepMinor }}
+              budget={{ valueMinor: budgetMinor, minMinor: range.minMinor, maxMinor: range.maxMinor, stepMinor: range.stepMinor, floorMinor: facets.minPrice ?? null }}
               baseQuery={clientBase.toString()}
               resetHref={hrefWith({ w: null, preset: null, sort: null })}
               profileSlot={profileSlot}
@@ -302,6 +311,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   brands={brands}
                   rating={facets.rating}
                   deal={!!facets.deal}
+                  pricePresets={pricePresets(range)}
+                  minPrice={facets.minPrice ?? null}
+                  maxPrice={budgetMinor}
                   hrefWith={(patch) => hrefWith(patch)}
                 />
               }

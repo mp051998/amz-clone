@@ -1,3 +1,6 @@
+import type { CurrencyCode } from './contracts';
+import type { BudgetRange } from './decision/attributes';
+import { formatMoney } from './marketplaces';
 import type { Product } from './types';
 
 // URL <-> query helpers for /s. The search itself runs in the database
@@ -20,6 +23,10 @@ export interface SearchQuery {
   brand?: string[];
   rating?: number;
   deal?: boolean;
+  /** lowest price, minor units */
+  minPrice?: number;
+  /** highest price, minor units */
+  maxPrice?: number;
   sort: SortKey;
   page: number;
 }
@@ -57,12 +64,18 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
   const brandRaw = one(sp.brand);
   const sortRaw = one(sp.sort) as SortKey | undefined;
   const rating = Number(one(sp.rating));
+  const price = (v: string | string[] | undefined) => {
+    const n = Number(one(v));
+    return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+  };
   return {
     k: one(sp.k)?.trim() || undefined,
     dept: one(sp.dept) || undefined,
     brand: brandRaw ? brandRaw.split(',').filter(Boolean) : undefined,
     rating: Number.isFinite(rating) && rating >= 1 && rating <= 5 ? rating : undefined,
     deal: one(sp.deal) === '1' || undefined,
+    minPrice: price(sp.min),
+    maxPrice: price(sp.max),
     sort: SORTS.some((s) => s.key === sortRaw) ? (sortRaw as SortKey) : 'featured',
     page: Math.max(1, Number(one(sp.page)) || 1),
   };
@@ -77,4 +90,40 @@ export function buildHref(params: Record<string, string | number | undefined | n
   }
   const qs = usp.toString();
   return qs ? `/s?${qs}` : '/s';
+}
+
+/** A "Price" filter choice: `min`/`max` in minor units, null when open-ended. */
+export interface PricePreset {
+  label: string;
+  min: number | null;
+  max: number | null;
+}
+
+/** Round price points (major units) the "Price" filter picks its boundaries from. */
+const PRICE_POINTS: Record<CurrencyCode, number[]> = {
+  USD: [10, 25, 50, 100, 200, 500, 1000, 2000, 5000],
+  INR: [100, 250, 500, 1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000],
+};
+
+/** "$50", "₹1,000": whole amounts without cents. */
+const wholeMoney = (minor: number, currency: CurrencyCode) => formatMoney(minor, currency).replace(/\.00$/, '');
+
+/**
+ * Amazon-style price buckets for a department's budget range: "Under $25", "$25 to $50", …,
+ * "$200 & above". Boundaries are round price points strictly inside the range that the budget
+ * slider can land on (multiples of its step), at most `most` of them, spread evenly.
+ */
+export function pricePresets(range: BudgetRange, most = 4): PricePreset[] {
+  const inside = PRICE_POINTS[range.currency]
+    .map((major) => major * 100)
+    .filter((m) => m > range.minMinor && m < range.maxMinor && m % range.stepMinor === 0);
+  const cuts =
+    inside.length <= most ? inside : Array.from({ length: most }, (_, i) => inside[Math.round((i * (inside.length - 1)) / (most - 1))]);
+  if (!cuts.length) return [];
+  const money = (m: number) => wholeMoney(m, range.currency);
+  return [
+    { label: `Under ${money(cuts[0])}`, min: null, max: cuts[0] },
+    ...cuts.slice(1).map((max, i) => ({ label: `${money(cuts[i])} to ${money(max)}`, min: cuts[i], max })),
+    { label: `${money(cuts[cuts.length - 1])} & above`, min: cuts[cuts.length - 1], max: null },
+  ];
 }

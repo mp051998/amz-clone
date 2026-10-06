@@ -12,7 +12,7 @@ import {
 } from '@/lib/data/collections';
 import { getInsight, getInsights } from '@/lib/data/insights';
 import { DataError } from '@/lib/data/errors';
-import { listCategories } from '@/lib/data/catalog';
+import { listCategories, searchCatalog } from '@/lib/data/catalog';
 import { alternativesFor, accessoriesFor, rankedSearch } from '@/lib/decision/server';
 import { parseQuery } from '@/lib/decision/query';
 import { summarizeReviews } from '@/lib/ai/features/reviews';
@@ -177,6 +177,28 @@ describe('decision server helpers', () => {
     expect(res.items.every((r) => r.product.priceMinor <= 20000)).toBe(true);
     const matches = res.items.map((r) => r.match);
     expect(matches).toEqual([...matches].sort((x, y) => y - x));
+  });
+
+  it('rankedSearch looks for candidates inside the price range', async () => {
+    const db = anon();
+    const cats = await listCategories(db, 'US');
+    const q = parseQuery('US', 'headphones', cats);
+    const wide = await rankedSearch('US', q, null, null, {}, db);
+    const prices = wide.items.map((r) => r.product.priceMinor).sort((a, b) => a - b);
+    expect(prices.length).toBeGreaterThan(3);
+    const lo = prices[1];
+    const hi = prices[prices.length - 2];
+    const res = await rankedSearch('US', q, null, hi, { minPrice: lo }, db);
+    expect(res.items.length).toBeGreaterThan(0);
+    expect(res.items.every((r) => r.product.priceMinor >= lo && r.product.priceMinor <= hi)).toBe(true);
+    expect(res.pricedOut).toBe(false);
+
+    // the words match, just nothing that cheap: no "popular instead", and the page can say so
+    const cheapest = await searchCatalog(db, 'US', { k: q.keywords || undefined, dept: q.category ?? undefined, sort: 'price-asc', page: 1 });
+    const none = await rankedSearch('US', q, null, Math.max(1, cheapest.items[0].priceMinor - 1), {}, db);
+    expect(none.items).toEqual([]);
+    expect(none.candidates).toBe(0);
+    expect(none.pricedOut).toBe(true);
   });
 
   it('alternativesFor and accessoriesFor return same-store suggestions', async () => {

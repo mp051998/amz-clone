@@ -3,7 +3,7 @@ import type { Db } from '../db/client';
 import { getProducts, listProducts, searchCatalog } from '../data/catalog';
 import { getInsight as readInsight, getInsights } from '../data/insights';
 import { formatMoney } from '../marketplaces';
-import { PAGE_SIZE, type SortKey } from '../search';
+import { PAGE_SIZE, type SearchQuery } from '../search';
 import { db as requestDb } from '../supabase/server';
 import type { Market, Product } from '../types';
 import { decisionConfig, weightsFor } from './attributes';
@@ -29,6 +29,8 @@ export interface RankFilters {
   /** minimum star rating 1..5 */
   rating?: number;
   deal?: boolean;
+  /** lowest price, minor units (the budget is the highest) */
+  minPrice?: number;
   sort?: RankSort;
 }
 
@@ -37,25 +39,32 @@ export interface RankedSearchResult {
   items: RankedProduct[];
   /** items.length */
   total: number;
-  /** candidates considered before the budget filter */
+  /** candidates considered, each variant group once */
   candidates: number;
+  /** nothing in the price range, though the words and filters match products at other prices */
+  pricedOut: boolean;
 }
 
 async function client(c?: Db): Promise<Db> {
   return c ?? (await requestDb());
 }
 
-async function searchCandidates(c: Db, market: Market, q: ParsedQuery, f: RankFilters): Promise<Product[]> {
-  const pages = Math.ceil(CANDIDATE_LIMIT / PAGE_SIZE);
-  const sort: SortKey = 'featured';
-  const base = {
+type CandidateQuery = Omit<SearchQuery, 'page'>;
+
+/** The catalog search behind a ranked search, at any price. */
+function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
+  return {
     k: q.keywords || undefined,
     dept: q.category ?? undefined,
     brand: f.brand?.length ? f.brand : undefined,
     rating: f.rating,
     deal: f.deal || undefined,
-    sort,
+    sort: 'featured',
   };
+}
+
+async function searchCandidates(c: Db, market: Market, base: CandidateQuery): Promise<Product[]> {
+  const pages = Math.ceil(CANDIDATE_LIMIT / PAGE_SIZE);
   const first = await searchCatalog(c, market, { ...base, page: 1 });
   const rest = await Promise.all(
     Array.from({ length: Math.min(pages, first.pageCount) - 1 }, (_, i) => searchCatalog(c, market, { ...base, page: i + 2 })),
@@ -69,10 +78,10 @@ async function searchCandidates(c: Db, market: Market, q: ParsedQuery, f: RankFi
 
 /**
  * Ranked search. Pulls up to 48 candidates via `searchCatalog` (keywords,
- * category and facet filters); when keywords match nothing inside a detected
- * category, falls back to that category's popular products. Candidates are
- * then filtered to `budgetMinor` and ranked against `weights`
- * (`filters.sort`, default 'match').
+ * category, facet filters and the price range: `filters.minPrice` up to
+ * `budgetMinor`); when keywords match nothing inside a detected category, at any
+ * price, falls back to that category's popular products. Candidates are then
+ * ranked against `weights` (`filters.sort`, default 'match').
  */
 export async function rankedSearch(
   market: Market,
@@ -83,18 +92,22 @@ export async function rankedSearch(
   c?: Db,
 ): Promise<RankedSearchResult> {
   const db = await client(c);
-  let products = await searchCandidates(db, market, parsedQuery, filters);
-  if (!products.length && parsedQuery.category && parsedQuery.keywords) {
+  const base = candidateQuery(parsedQuery, filters);
+  const priced = Boolean(filters.minPrice || budgetMinor);
+  let products = await searchCandidates(db, market, { ...base, minPrice: filters.minPrice, maxPrice: budgetMinor ?? undefined });
+  const pricedOut = !products.length && priced && (await searchCatalog(db, market, { ...base, page: 1 })).total > 0;
+  if (!products.length && !pricedOut && parsedQuery.category && parsedQuery.keywords) {
     products = await listProducts(db, market, { category: parsedQuery.category, order: 'popular', limit: CANDIDATE_LIMIT });
     if (filters.rating) products = products.filter((p) => p.rating >= filters.rating!);
     if (filters.brand?.length) products = products.filter((p) => p.brand && filters.brand!.includes(p.brand));
     if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
+    if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
   }
   const insights = await getInsights(db, products.map((p) => p.id));
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);
   // one card per variant group: its best-ranked option (within budget, if any)
   const items = foldVariants(rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' }), (r) => r.product);
-  return { items, total: items.length, candidates: foldVariants(products).length };
+  return { items, total: items.length, candidates: foldVariants(products).length, pricedOut };
 }
 
 /** A product's stored insight (public), or null. */

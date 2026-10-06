@@ -4,7 +4,7 @@ import { amazonIn } from '@/lib/marketplace-in';
 import { getProduct, getProducts, getRatingSummary, listCategories, listProducts, searchCatalog } from '@/lib/data/catalog';
 import { getHomeContent } from '@/lib/home-content';
 import { parseQuery } from '@/lib/search';
-import { anon } from './helpers';
+import { admin, anon } from './helpers';
 
 describe('catalog', () => {
   it('each store has its own departments and products', async () => {
@@ -38,6 +38,37 @@ describe('catalog', () => {
     expect(rated.items.every((p) => p.rating >= 4)).toBe(true);
     const deals = await searchCatalog(anon(), 'US', parseQuery({ deal: '1' }));
     expect(deals.items.every((p) => p.deal)).toBe(true);
+  });
+
+  it('search keeps a price range; brand facets still cover the whole department', async () => {
+    const dept = 'electronics';
+    const inDept = await searchCatalog(anon(), 'US', parseQuery({ dept, sort: 'price-asc' }));
+    const min = inDept.items[2].priceMinor;
+    const max = inDept.items[8].priceMinor;
+    const inRange = async (lo: number | null, hi: number | null) => {
+      let q = admin().from('catalog_products').select('id', { count: 'exact', head: true }).eq('market_id', 'US').eq('category_slug', dept);
+      if (lo != null) q = q.gte('price_minor', lo);
+      if (hi != null) q = q.lte('price_minor', hi);
+      return (await q).count;
+    };
+
+    const ranged = await searchCatalog(anon(), 'US', parseQuery({ dept, min: String(min), max: String(max), sort: 'price-asc' }));
+    expect(ranged.items.length).toBeGreaterThanOrEqual(7);
+    expect(ranged.items.every((p) => p.priceMinor >= min && p.priceMinor <= max)).toBe(true);
+    expect(ranged.total).toBe(await inRange(min, max));
+    expect(ranged.total).toBeLessThan(inDept.total);
+    expect(ranged.brandFacets).toEqual(inDept.brandFacets);
+
+    const from = await searchCatalog(anon(), 'US', parseQuery({ dept, min: String(max) }));
+    expect(from.items.every((p) => p.priceMinor >= max)).toBe(true);
+    expect(from.total).toBe(await inRange(max, null));
+    const upTo = await searchCatalog(anon(), 'US', parseQuery({ dept, max: String(min) }));
+    expect(upTo.items.every((p) => p.priceMinor <= min)).toBe(true);
+    expect(upTo.total).toBe(await inRange(null, min));
+
+    const backwards = await searchCatalog(anon(), 'US', parseQuery({ dept, min: String(max), max: String(min - 1) }));
+    expect(backwards.total).toBe(0);
+    expect(backwards.items).toEqual([]);
   });
 
   it('full-text search finds products by title words', async () => {

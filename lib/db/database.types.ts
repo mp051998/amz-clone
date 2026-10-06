@@ -829,7 +829,7 @@ isOneToOne: false
 { Args: { "p_comment"?: string,"p_items": Json,"p_order_id": string,"p_reason": string }; Returns: Json
                            },
 "search_catalog":
-{ Args: { "p_brands"?: (string)[],"p_deal"?: boolean,"p_dept"?: string,"p_market": string,"p_min_rating"?: number,"p_page"?: number,"p_page_size"?: number,"p_q"?: string,"p_sort"?: string }; Returns: Json
+{ Args: { "p_brands"?: (string)[],"p_deal"?: boolean,"p_dept"?: string,"p_market": string,"p_max_price"?: number,"p_min_price"?: number,"p_min_rating"?: number,"p_page"?: number,"p_page_size"?: number,"p_q"?: string,"p_sort"?: string }; Returns: Json
                            },
 "search_suggest":
 { Args: { "p_market": string,"p_q": string }; Returns: Json
