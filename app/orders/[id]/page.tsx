@@ -7,12 +7,14 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
-import { archiveMyOrder, cancelMyOrder, payForOrder } from '@/app/actions/order';
+import { archiveMyOrder, cancelMyOrder, payForOrder, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
+import { InstructionsField } from '@/components/checkout/AddressFields';
+import { orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
@@ -64,10 +66,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, archived } = await searchParams;
+  const { placed, cancelled, error, return: returned, archived, instructions } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -92,6 +94,9 @@ export default async function OrderPage({
         view.delivered ? reviewedProductIds(client, user.id, productIds).catch(() => new Set<string>()) : new Set<string>(),
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
+  // delivery instructions can change until the order is out for delivery
+  const stage = orderStage(order, now, store.dates.timeZone);
+  const instructionsOpen = stage === 'preparing' || stage === 'shipped';
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
 
   if (confirming) {
@@ -159,6 +164,10 @@ export default async function OrderPage({
           </Alert>
         ) : archived === '0' && !order.archivedAt ? (
           <Alert tone="success">Order unarchived. It’s back in your order list.</Alert>
+        ) : instructions === 'saved' ? (
+          <Alert tone="success">Delivery instructions updated for this order.</Alert>
+        ) : instructions === 'cleared' ? (
+          <Alert tone="success">Delivery instructions removed from this order.</Alert>
         ) : order.archivedAt ? (
           <Alert tone="info">This order is archived, so it isn’t in your order list. Unarchive it to bring it back.</Alert>
         ) : null}
@@ -181,6 +190,21 @@ export default async function OrderPage({
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}
         />
+
+        {instructionsOpen ? (
+          <details className="rounded-panel border border-line bg-surface px-[18px] py-3.5" open={error === 'invalid_input' || undefined}>
+            <summary className="cursor-pointer text-[15px] font-semibold text-ink">
+              {order.shipTo.instructions ? 'Change delivery instructions' : 'Add delivery instructions'}
+            </summary>
+            <form action={updateOrderInstructions.bind(null, order.id)} className="mt-3 flex flex-col gap-3">
+              <InstructionsField
+                defaultValue={order.shipTo.instructions}
+                hint="For this order, until it’s out for delivery. Leave it blank to remove them. Your address book keeps its own note."
+              />
+              <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Save instructions</button>
+            </form>
+          </details>
+        ) : null}
 
         {order.status === 'awaiting_payment' ? (
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Payment">

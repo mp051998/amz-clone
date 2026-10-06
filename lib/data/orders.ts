@@ -1,6 +1,7 @@
 import type { Db } from '../db/client';
 import type { Market, Order, PaymentMethod, ShipSpeed } from '../types';
 import type { BuyNow } from '../buy-now';
+import { INSTRUCTIONS_MAX } from '../contracts';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
@@ -114,6 +115,20 @@ export async function countOrders(db: Db, market: Market): Promise<number> {
 export async function getOrder(db: Db, id: string): Promise<Order | null> {
   const row = unwrap(await db.from('orders').select(ORDER_SELECT).eq('id', id).maybeSingle());
   return row ? toOrder(row) : null;
+}
+
+/**
+ * Owner changes an order's delivery instructions (blank clears them) until it's out for delivery
+ * (`order_not_editable` after). The saved address keeps its own note.
+ */
+export async function setOrderInstructions(db: Db, id: string, raw: unknown): Promise<Order> {
+  const text = typeof raw === 'string' ? raw.replace(/\r\n?/g, '\n').trim() : '';
+  if (text.length > INSTRUCTIONS_MAX) {
+    throw new DataError('invalid_input', 'instructions', `Keep delivery instructions under ${INSTRUCTIONS_MAX} characters.`);
+  }
+  const json = unwrap(await db.rpc('set_my_order_instructions', { p_order_id: id, p_instructions: text }));
+  if (!json) throw new DataError('order_not_found');
+  return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
 }
 
 /** Owner moves an order to (or back from) the "Archived" view of their order list. */

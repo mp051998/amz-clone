@@ -836,6 +836,9 @@ isOneToOne: false
 "toggle_answer_helpful":
 { Args: { "p_answer": string }; Returns: Json
                            },
+"set_my_order_instructions":
+{ Args: { "p_instructions": string,"p_order_id": string }; Returns: Json
+                           },
 "share_collection":
 { Args: { "p_collection": string }; Returns: Json
                            },
