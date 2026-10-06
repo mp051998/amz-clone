@@ -31,13 +31,16 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const client = await db();
   const orders = await listOrders(client, store.id);
   const now = new Date();
-  const view = filterOrders(orders, filter, now);
+  const view = filterOrders(orders, filter, now, store.dates.timeZone);
+  // a search covers every order, so it sits under the Orders tab
+  const tab = filter.q || filter.view === 'all' ? 'orders' : filter.view;
   const returns = await returnSummaries(client, view.items.filter((o) => o.deliveredAt).map((o) => o.id));
   /** this view with some of its params changed (the defaults left out of the link) */
   const hrefWith = (next: Partial<OrderFilter>) => {
     const f = { ...filter, page: 1, ...next };
     const qs = new URLSearchParams();
     if (f.q) qs.set('q', f.q);
+    else if (f.view !== 'all') qs.set('view', f.view);
     else if (f.period !== 'months3') qs.set('period', f.period);
     if (f.page > 1) qs.set('page', String(f.page));
     const s = qs.toString();
@@ -51,7 +54,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Orders</h1>
           <span className="text-[15px] text-ink-2">Every order in this store, with live delivery progress.</span>
         </div>
-        <OrdersTabs current="orders" ordersHref={sp('/orders')} buyAgainHref={sp('/orders/buy-again')} />
+        <OrdersTabs current={tab} href={sp} />
 
         {orders.length ? (
           <div className="flex flex-col gap-3">
@@ -70,7 +73,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   Search orders
                 </button>
               </form>
-              {filter.q ? null : (
+              {filter.q || filter.view !== 'all' ? null : (
                 <SegmentedControl
                   ariaLabel="Orders placed in"
                   value={filter.period}
@@ -84,7 +87,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               {filter.q ? (
                 <>
                   {' · '}
-                  <a href={hrefWith({ q: '' })} className="text-ink underline underline-offset-2">Clear search</a>
+                  <a href={hrefWith({ q: '', view: 'all' })} className="text-ink underline underline-offset-2">Clear search</a>
                 </>
               ) : null}
             </p>
@@ -100,14 +103,26 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </EmptyState>
         ) : view.total === 0 ? (
           <EmptyState
-            title={filter.q ? `No orders match “${filter.q}”` : `No orders ${periodPhrase(filter.period)}`}
-            action={<a href={hrefWith({ q: '', period: 'all' })} className={buttonClasses({ variant: 'secondary' })}>See all orders</a>}
+            title={
+              filter.q
+                ? `No orders match “${filter.q}”`
+                : filter.view === 'not-shipped'
+                  ? 'Nothing waiting to ship'
+                  : filter.view === 'cancelled'
+                    ? 'No cancelled orders'
+                    : `No orders ${periodPhrase(filter.period)}`
+            }
+            action={<a href={hrefWith({ q: '', view: 'all', period: 'all' })} className={buttonClasses({ variant: 'secondary' })}>See all orders</a>}
           >
             {filter.q
               ? 'Search for an item, a seller, who it went to, or an order number.'
-              : filter.period === 'archived'
-                ? 'Archive an order from its page to keep it out of your order list.'
-                : 'Older orders are under the other periods.'}
+              : filter.view === 'not-shipped'
+                ? 'Everything you’ve ordered is on its way or delivered.'
+                : filter.view === 'cancelled'
+                  ? 'Orders you or the store cancel show up here.'
+                  : filter.period === 'archived'
+                    ? 'Archive an order from its page to keep it out of your order list.'
+                    : 'Older orders are under the other periods.'}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">

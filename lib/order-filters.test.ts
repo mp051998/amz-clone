@@ -30,24 +30,65 @@ const ORDERS = [
   order('ORD-E', '2024-03-01T09:00:00Z', { placedAt: undefined, createdAt: '2024-03-01T09:00:00Z' }),
 ];
 
-const f = (over: Partial<OrderFilter> = {}): OrderFilter => ({ q: '', period: 'months3', page: 1, ...over });
+const f = (over: Partial<OrderFilter> = {}): OrderFilter => ({ q: '', period: 'months3', view: 'all', page: 1, ...over });
 
 describe('readOrderFilter', () => {
   it('defaults to the past 3 months, page 1', () => {
-    expect(readOrderFilter({})).toEqual({ q: '', period: 'months3', page: 1 });
+    expect(readOrderFilter({})).toEqual({ q: '', period: 'months3', view: 'all', page: 1 });
   });
 
   it('reads a search, a known period or year, and a page', () => {
-    expect(readOrderFilter({ q: '  kettle ', period: 'y2025', page: '3' })).toEqual({ q: 'kettle', period: 'y2025', page: 3 });
+    expect(readOrderFilter({ q: '  kettle ', period: 'y2025', page: '3' })).toEqual({ q: 'kettle', period: 'y2025', view: 'all', page: 3 });
     expect(readOrderFilter({ period: ['last30', 'all'] })).toMatchObject({ period: 'last30' });
     expect(readOrderFilter({ period: 'all' })).toMatchObject({ period: 'all' });
     expect(readOrderFilter({ period: 'archived' })).toMatchObject({ period: 'archived' });
   });
 
   it('ignores what it does not know', () => {
-    expect(readOrderFilter({ period: 'forever', page: '-2' })).toEqual({ q: '', period: 'months3', page: 1 });
-    expect(readOrderFilter({ period: 'y20255', page: 'x' })).toEqual({ q: '', period: 'months3', page: 1 });
+    expect(readOrderFilter({ period: 'forever', page: '-2' })).toEqual({ q: '', period: 'months3', view: 'all', page: 1 });
+    expect(readOrderFilter({ period: 'y20255', page: 'x', view: 'returned' })).toEqual({ q: '', period: 'months3', view: 'all', page: 1 });
     expect(readOrderFilter({ q: 'x'.repeat(300) }).q).toHaveLength(100);
+  });
+
+  it('reads the tab', () => {
+    expect(readOrderFilter({ view: 'not-shipped' }).view).toBe('not-shipped');
+    expect(readOrderFilter({ view: ['cancelled', 'all'] }).view).toBe('cancelled');
+  });
+});
+
+describe('the Not yet shipped and Cancelled orders tabs', () => {
+  const HOUR = 3_600_000;
+  const ago = (h: number) => new Date(NOW.getTime() - h * HOUR).toISOString();
+  const TABBED = [
+    order('PREP', ago(1)), // placed an hour ago: ships 10 h after
+    order('UNPAID', ago(30), { status: 'awaiting_payment', placedAt: undefined, createdAt: ago(30) }),
+    order('SHIPPED', ago(20)), // shipped 10 h ago, out for delivery later
+    order('SAVED', ago(5), { shippedAt: ago(1), outForDeliveryAt: ago(-20), deliveredAt: ago(-24) }), // an admin shipped it early
+    order('GONE', ago(48), { status: 'cancelled', cancelledAt: ago(47) }),
+    order('OLD-GONE', '2024-01-05T09:00:00Z', { status: 'cancelled' }),
+    order('ARCH-PREP', ago(2), { archivedAt: ago(1) }),
+    order('ARCH-GONE', ago(60), { status: 'cancelled', archivedAt: ago(1) }),
+  ];
+  const ids = (filter: Partial<OrderFilter>) => filterOrders(TABBED, f(filter), NOW).items.map((o) => o.id);
+
+  it('not yet shipped: unpaid checkouts and orders still being prepared, whatever the period', () => {
+    expect(ids({ view: 'not-shipped' })).toEqual(['PREP', 'UNPAID']);
+    expect(ids({ view: 'not-shipped', period: 'last30' })).toEqual(['PREP', 'UNPAID']);
+  });
+
+  it('cancelled: every cancelled order, however old', () => {
+    expect(ids({ view: 'cancelled' })).toEqual(['GONE', 'OLD-GONE']);
+  });
+
+  it('a search still covers every order', () => {
+    expect(ids({ view: 'cancelled', q: 'kettle' })).toHaveLength(TABBED.length);
+  });
+
+  it('sums them up', () => {
+    expect(orderSummary(2, f({ view: 'not-shipped' }))).toBe('2 orders not yet shipped');
+    expect(orderSummary(1, f({ view: 'not-shipped' }))).toBe('1 order not yet shipped');
+    expect(orderSummary(3, f({ view: 'cancelled' }))).toBe('3 cancelled orders');
+    expect(orderSummary(1, f({ view: 'cancelled', q: 'mug' }))).toBe('1 order matching “mug”');
   });
 });
 
