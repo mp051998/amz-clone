@@ -17,7 +17,7 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
 /**
  * POST /api/v1/products/:id/reviews { rating, title, body, authorName? }
  * Create or replace the caller's review (one per customer). "Verified Purchase"
- * is decided by the database from the caller's placed orders.
+ * is decided by the database: the caller has a delivered order containing it.
  */
 export const POST = route<{ id: string }>(async (ctx, { id }) => {
   const user = requireUser(ctx);

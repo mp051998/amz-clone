@@ -319,7 +319,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
               <Button variant="primary" loading={pending} onClick={onSubmit}>{mine ? 'Update review' : 'Submit review'}</Button>
               <Button variant="secondary" onClick={() => { setShowForm(false); setError(''); }}>Cancel</Button>
             </div>
-            <p className="m-0 text-[12px] text-ink-3">&ldquo;Verified purchase&rdquo; is added automatically when you have ordered this item.</p>
+            <p className="m-0 text-[12px] text-ink-3">&ldquo;Verified purchase&rdquo; is added automatically once an order of yours with this item has been delivered.</p>
           </div>
         ) : null}
 

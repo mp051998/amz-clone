@@ -69,6 +69,19 @@ export async function stockOf(id: string): Promise<number> {
   return data.stock;
 }
 
+const DAY = 86_400_000;
+
+/** Move an order's saved schedule so it was delivered `daysAgo` days ago (service role, as time passing would). */
+export async function deliveredDaysAgo(orderId: string, daysAgo = 1): Promise<void> {
+  const at = Date.now() - daysAgo * DAY;
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const { error } = await admin()
+    .from('orders')
+    .update({ placed_at: iso(at - 3 * DAY), shipped_at: iso(at - 2 * DAY), out_for_delivery_at: iso(at - 60_000), delivered_at: iso(at) })
+    .eq('id', orderId);
+  if (error) throw error;
+}
+
 export const US_SHIPPING = {
   fullName: 'Alex Morgan',
   phone: '2065550123',

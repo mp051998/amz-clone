@@ -4,7 +4,7 @@ import { getRatingSummary } from '@/lib/data/catalog';
 import { placeOrder } from '@/lib/data/orders';
 import { deleteReview, listReviews, reportReview, toggleHelpful, upsertReview } from '@/lib/data/reviews';
 import { DataError } from '@/lib/data/errors';
-import { admin, anon, deleteUser, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
+import { admin, anon, deleteUser, deliveredDaysAgo, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
 
 const code = async (p: Promise<unknown>) => {
   try {
@@ -41,12 +41,17 @@ describe('reviews', () => {
     expect(page.total).toBe((await listReviews(anon(), productId, null, { limit: 1 })).total);
   });
 
-  it('marks a review verified only when the author bought the item', async () => {
+  it('marks a review verified only once the author’s order has arrived', async () => {
     const unverified = await upsertReview(browser.db, productId, browser.id, { rating: 2, title: 'Looks fine', body: 'Have not bought it.' });
     expect(unverified.verified).toBe(false);
 
     await addToCart(buyer.db, 'US', productId, 1);
-    await placeOrder(buyer.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING });
+    const order = await placeOrder(buyer.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING });
+    // ordered, delivery booked for later: not yet
+    const early = await upsertReview(buyer.db, productId, buyer.id, { rating: 5, title: 'Great', body: 'Works as described.' });
+    expect(early).toMatchObject({ verified: false, mine: true, author: 'Verified Buyer' });
+
+    await deliveredDaysAgo(order.id);
     const verified = await upsertReview(buyer.db, productId, buyer.id, { rating: 5, title: 'Great', body: 'Works as described.' });
     expect(verified).toMatchObject({ verified: true, mine: true, author: 'Verified Buyer' });
   });

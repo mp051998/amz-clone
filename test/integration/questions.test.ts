@@ -3,7 +3,7 @@ import { addToCart } from '@/lib/data/cart';
 import { placeOrder } from '@/lib/data/orders';
 import { DataError } from '@/lib/data/errors';
 import { answerQuestion, askQuestion, countAnsweredQuestions, deleteAnswer, deleteQuestion, listQuestions, toggleAnswerHelpful } from '@/lib/data/questions';
-import { admin, anon, deleteUser, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
+import { admin, anon, deleteUser, deliveredDaysAgo, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
 
 const code = async (p: Promise<unknown>) => {
   try {
@@ -18,16 +18,18 @@ describe('product questions & answers', () => {
   let asker: TestUser;
   let owner: TestUser;
   let browser: TestUser;
+  let waiting: TestUser;
   let productId: string;
   beforeAll(async () => {
-    [asker, owner, browser] = await Promise.all([newUser('Curious Asker'), newUser('Happy Owner'), newUser('Window Shopper')]);
+    [asker, owner, browser, waiting] = await Promise.all([newUser('Curious Asker'), newUser('Happy Owner'), newUser('Window Shopper'), newUser('Still Waiting')]);
     productId = (await pickProduct('US', 17)).id;
-    await addToCart(owner.db, 'US', productId, 1);
-    await placeOrder(owner.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING });
+    for (const u of [owner, waiting]) await addToCart(u.db, 'US', productId, 1);
+    const [delivered] = await Promise.all([owner, waiting].map((u) => placeOrder(u.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING })));
+    await deliveredDaysAgo(delivered.id);
   });
   afterAll(async () => {
     await admin().from('product_questions').delete().eq('product_id', productId);
-    await Promise.all([deleteUser(asker), deleteUser(owner), deleteUser(browser)]);
+    await Promise.all([deleteUser(asker), deleteUser(owner), deleteUser(browser), deleteUser(waiting)]);
   });
 
   it('signed-in shoppers ask; everyone reads; guests can’t ask', async () => {
@@ -119,5 +121,11 @@ describe('product questions & answers', () => {
     expect((await listQuestions(anon(), productId, null)).total).toBe(0);
     const { count } = await admin().from('product_answers').select('id', { count: 'exact', head: true }).eq('question_id', q.id);
     expect(count).toBe(0);
+  });
+
+  it('an order still on its way doesn’t make an answer verified', async () => {
+    const q = await askQuestion(asker.db, productId, asker.id, 'Is the strap adjustable?');
+    expect((await answerQuestion(waiting.db, q.id, waiting.id, 'Mine hasn’t arrived yet.')).verified).toBe(false);
+    expect((await answerQuestion(owner.db, q.id, owner.id, 'Yes, it is.')).verified).toBe(true);
   });
 });
