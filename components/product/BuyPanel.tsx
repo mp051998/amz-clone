@@ -26,10 +26,12 @@ export interface BuyPanelProps {
   delivery: {
     /** "FREE delivery" or "FREE delivery over $35" */
     headline: string;
-    /** standard promise date, e.g. "Tue, Sep 29" */
+    /** standard delivery day, e.g. "Tomorrow, October 8" */
     promise: string;
-    /** fastest date */
-    fastest: string;
+    /** faster delivery ("Today by 7:30 PM"), when checkout offers it */
+    fastest?: string;
+    /** "Order within 2 hrs 13 mins": how long the faster option lasts */
+    orderWithin?: string;
     /** "to Bengaluru 560001": the shopper's delivery location, when there is one */
     to?: string;
     /** member programme name for the tag ("Plus") */
@@ -86,9 +88,13 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
           {delivery.headline}
         </span>
         <strong className="text-[18px] font-semibold">{delivery.promise}</strong>
-        <span className="text-[13px] text-ink-2">
-          Or fastest <strong className="font-semibold text-ink">{delivery.fastest}</strong>{delivery.to ? ` · ${delivery.to}` : ''}
-        </span>
+        {delivery.fastest ? (
+          <span className="text-[13px] text-ink-2">
+            Or fastest delivery <strong className="font-semibold text-ink">{delivery.fastest}</strong>
+            {delivery.orderWithin ? <>. <span className="font-semibold text-good">{delivery.orderWithin}</span></> : null}
+          </span>
+        ) : null}
+        {delivery.to ? <span className="text-[13px] text-ink-2">Delivering {delivery.to}</span> : null}
       </div>
 
       <div className="flex flex-col gap-2 rounded-card border border-line bg-surface p-4">

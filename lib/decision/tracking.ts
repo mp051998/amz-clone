@@ -101,11 +101,15 @@ function plan(t0: number, timeZone: string, speed: ShipSpeed = 'standard'): [shi
 /**
  * When a cart checked out at `now` would arrive with each speed (ISO). `fast` is null when it
  * wouldn't beat standard delivery (so it isn't offered); matches `private.fast_delivery_offered`.
+ * `fastBy` is the last moment an order still gets that fast delivery (the run's day, 17:00 less
+ * the 3 h to ship and the 2 h before the van leaves: noon).
  */
-export function deliveryOptions(now: Date, timeZone: string): { standard: string; fast: string | null } {
+export function deliveryOptions(now: Date, timeZone: string): { standard: string; fast: string | null; fastBy: string | null } {
   const standard = plan(now.getTime(), timeZone)[2];
   const fast = plan(now.getTime(), timeZone, 'fast')[2];
-  return { standard: new Date(standard).toISOString(), fast: fast < standard ? new Date(fast).toISOString() : null };
+  if (fast >= standard) return { standard: new Date(standard).toISOString(), fast: null, fastBy: null };
+  const by = wallTime(localDay(fast, timeZone), FAST_OUT.h, FAST_OUT.m, timeZone) - (FAST_SHIP_HOURS + 2) * HOUR;
+  return { standard: new Date(standard).toISOString(), fast: new Date(fast).toISOString(), fastBy: new Date(by).toISOString() };
 }
 
 /** Schedule the database saves for an order placed at `placedAt` (ISO). */
