@@ -2,7 +2,7 @@
  * What search engines and link previews read: product structured data (schema.org Product),
  * descriptions, robots rules and the sitemap. Pure; the app's metadata files feed it.
  */
-import type { MetadataRoute } from 'next';
+import type { Metadata, MetadataRoute } from 'next';
 import { legalSlugs } from './legal';
 import { storePath } from './marketplace';
 import { zoomImage } from './product-images';
@@ -54,6 +54,30 @@ export function productDescription(p: Pick<Product, 'title' | 'brand' | 'categor
   const cut = text.slice(0, DESCRIPTION_MAX - 1);
   const space = cut.lastIndexOf(' ');
   return `${(space > DESCRIPTION_MAX / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.–—-]+$/, '')}…`;
+}
+
+/**
+ * Title, blurb and indexing for the search page. A department (`/s?dept=…`, listed in the sitemap)
+ * is a landing page: its own title and one canonical address whatever sort or filters ride along.
+ * A typed search is titled with the shopper's words; crawlers follow its links but leave it out
+ * of the index, so endless query variations don't compete with the real pages.
+ */
+export function searchMetadata(market: Market, storeName: string, categories: Category[], k: string, dept?: string, page = 1): Metadata {
+  const cat = dept ? categories.find((c) => c.slug === dept) : undefined;
+  if (k) return { title: `${cat ? `${k} in ${cat.name}` : k} · ${storeName}`, robots: { index: false, follow: true } };
+  // each page of results is its own address (not folded into page 1)
+  const qs = new URLSearchParams(cat ? { dept: cat.slug } : {});
+  if (Number.isInteger(page) && page > 1) qs.set('page', String(page));
+  const canonical = storePath({ id: market }, qs.size ? `/s?${qs}` : '/s');
+  const paged = qs.has('page') ? ` · Page ${page}` : '';
+  if (cat) {
+    return {
+      title: `${cat.name}${paged} · ${storeName}`,
+      description: `Shop ${cat.name} at ${storeName}: every pick ranked by what matters to you, with its strengths and trade-offs.`,
+      alternates: { canonical },
+    };
+  }
+  return { title: `All products${paged} · ${storeName}`, alternates: { canonical } };
 }
 
 export interface ProductJsonLd {

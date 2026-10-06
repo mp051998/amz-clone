@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jsonLdHtml, productDescription, productJsonLd, productUrl, robotsRules, sitemapEntries, STORE_PAGES, websiteJsonLd } from './seo';
+import { jsonLdHtml, productDescription, productJsonLd, productUrl, robotsRules, searchMetadata, sitemapEntries, STORE_PAGES, websiteJsonLd } from './seo';
 import type { Product } from './types';
 
 const ORIGIN = 'https://store.example';
@@ -151,5 +151,36 @@ describe('websiteJsonLd', () => {
     const ind = websiteJsonLd(ORIGIN, 'IN', 'Store');
     expect(ind.url).toBe('https://store.example/in');
     expect(ind.potentialAction.target.urlTemplate).toBe('https://store.example/in/s?k={search_term_string}');
+  });
+});
+
+describe('searchMetadata', () => {
+  const cats = [{ slug: 'electronics', name: 'Electronics' }, { slug: 'home-kitchen', name: 'Home & Kitchen' }];
+
+  it('a department is a landing page with its own title and one address', () => {
+    expect(searchMetadata('US', 'Store', cats, '', 'home-kitchen')).toEqual({
+      title: 'Home & Kitchen · Store',
+      description: 'Shop Home & Kitchen at Store: every pick ranked by what matters to you, with its strengths and trade-offs.',
+      alternates: { canonical: '/s?dept=home-kitchen' },
+    });
+    expect(searchMetadata('IN', 'Store', cats, '', 'electronics').alternates).toEqual({ canonical: '/in/s?dept=electronics' });
+  });
+
+  it('a typed search is titled with the words and kept out of the index', () => {
+    expect(searchMetadata('US', 'Store', cats, 'noise cancelling headphones')).toEqual({ title: 'noise cancelling headphones · Store', robots: { index: false, follow: true } });
+    expect(searchMetadata('US', 'Store', cats, 'kettle', 'home-kitchen').title).toBe('kettle in Home & Kitchen · Store');
+  });
+
+  it('no query, or a department the store doesn’t have, is the whole catalogue', () => {
+    expect(searchMetadata('US', 'Store', cats, '')).toEqual({ title: 'All products · Store', alternates: { canonical: '/s' } });
+    expect(searchMetadata('IN', 'Store', cats, '', 'all').title).toBe('All products · Store');
+    expect(searchMetadata('US', 'Store', cats, '', 'nope').alternates).toEqual({ canonical: '/s' });
+  });
+
+  it('each page of results keeps its own address', () => {
+    expect(searchMetadata('US', 'Store', cats, '', 'electronics', 3)).toMatchObject({ title: 'Electronics · Page 3 · Store', alternates: { canonical: '/s?dept=electronics&page=3' } });
+    expect(searchMetadata('IN', 'Store', cats, '', undefined, 2)).toEqual({ title: 'All products · Page 2 · Store', alternates: { canonical: '/in/s?page=2' } });
+    // junk or first page: no page in the address
+    for (const page of [1, 0, -4, 2.5, Number.NaN]) expect(searchMetadata('US', 'Store', cats, '', 'electronics', page).alternates).toEqual({ canonical: '/s?dept=electronics' });
   });
 });

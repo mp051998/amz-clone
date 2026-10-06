@@ -25,6 +25,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { parseQuery as parseFacets } from '@/lib/search';
+import { searchMetadata } from '@/lib/seo';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
@@ -32,9 +33,13 @@ import { couponPercents } from '@/lib/data/coupons';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { dayLabel } from '@/components/orders/format';
 
-export const metadata: Metadata = { title: 'Search · Store' };
-
 type SP = Record<string, string | string[] | undefined>;
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<SP> }): Promise<Metadata> {
+  const sp = await searchParams;
+  const store = await getMarketplace();
+  return searchMetadata(store.id, store.name, await storeCategories(), (one(sp, 'k') ?? '').trim().slice(0, 200), one(sp, 'dept'), Number(one(sp, 'page') ?? 1));
+}
 
 const PER_PAGE = 12;
 
