@@ -114,9 +114,10 @@ it('counts saved items, lists and price drops', async () => {
   expect(within(tile('Collections')).getByText('3 saved items · 2 lists · 1 price drop')).toBeInTheDocument();
 });
 
-it('links to your questions and answers', async () => {
+it('links to your Q&A and transactions', async () => {
   render(await AccountPage());
   expect(tile('Your Q&A')).toHaveAttribute('href', '/account/questions');
+  expect(tile('Your transactions')).toHaveAttribute('href', '/account/transactions');
 });
 
 it('counts what’s waiting for a review', async () => {

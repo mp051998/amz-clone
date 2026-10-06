@@ -59,6 +59,7 @@ export default async function AccountPage() {
       desc: 'Redeem gift cards and pay with your balance at checkout.',
       href: '/gift-cards#balance',
     },
+    { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns and gift cards.', href: '/account/transactions' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, download your data, or close your account.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
     { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
