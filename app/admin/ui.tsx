@@ -111,6 +111,7 @@ export function productFormValues(p: AdminProduct): ProductFormValues {
     price: majorText(p.priceMinor),
     listPrice: majorText(p.listMinor),
     deal: p.deal,
+    coupon: p.couponPct == null ? '' : String(p.couponPct),
     badge: p.badge ?? '',
     boughtPastMonth: p.boughtPastMonth ?? '',
     seller: p.seller,

@@ -23,6 +23,7 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   priceMinor: 1800,
   listMinor: null,
   deal: false,
+  couponPct: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Kiln Store',

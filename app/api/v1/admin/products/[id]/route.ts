@@ -3,7 +3,7 @@ import { body, json, noContent, preflight, route, type ApiContext } from '@/lib/
 import { deleteProduct, getAdminProduct, setArchived, updateProduct } from '@/lib/data/admin-catalog';
 import { DataError } from '@/lib/data/errors';
 
-const EDITABLE = ['title', 'brand', 'category', 'image', 'priceMinor', 'listMinor', 'deal', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const EDITABLE = ['title', 'brand', 'category', 'image', 'priceMinor', 'listMinor', 'deal', 'couponPct', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 
 async function load(ctx: ApiContext, id: string) {
   const product = await getAdminProduct(ctx.db, id);
