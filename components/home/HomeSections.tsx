@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { PriceDrop } from '@/lib/data/collections';
 import type { HomeDeal, HomePick } from '@/lib/home-content';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -124,6 +125,39 @@ export function DealGrid({ deals, store }: { deals: HomeDeal[]; store: Store }) 
           </li>
         );
       })}
+    </ul>
+  );
+}
+
+/** Saved products that got cheaper: "↓ $X since you saved", today's price, the saved price struck. */
+export function SavedDropGrid({ drops, store }: { drops: PriceDrop[]; store: Store }) {
+  return (
+    <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3.5 p-0">
+      {drops.map(({ product: p, savedPriceMinor, dropMinor }) => (
+        <li key={p.id}>
+          <a
+            href={storePath(store, `/product/${p.id}`)}
+            className="flex h-full items-stretch gap-3.5 rounded-card border border-line bg-surface p-3.5 text-ink no-underline transition-colors hover:border-ink hover:text-ink"
+          >
+            <div className="min-h-[110px] flex-[0_0_96px]">
+              <ProductFrame src={p.image} alt="" aspect="auto" className="h-full min-h-[110px]" label="product" />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="self-start rounded-chip bg-good-bg px-2 py-1 text-[13px] font-semibold text-good-strong">
+                ↓ {money(p, store, dropMinor)} since you saved
+              </span>
+              <span className="line-clamp-2 text-[15px] font-semibold leading-tight">{p.title}</span>
+              <span className="flex flex-wrap items-baseline gap-2">
+                <strong className="text-[18px] tabular-nums">{money(p, store)}</strong>
+                <s className="text-[13px] text-ink-3 tabular-nums">
+                  <span className="sr-only">saved at </span>{money(p, store, savedPriceMinor)}
+                </s>
+              </span>
+              <span className="text-[13px]"><Rating p={p} /></span>
+            </div>
+          </a>
+        </li>
+      ))}
     </ul>
   );
 }

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { getSharedList, isShareToken, listChoices, moveItem, shareCollection, unshareCollection } from './collections';
+import { product } from '@/test/fixtures/decision';
+import { getSharedList, isShareToken, listChoices, moveItem, priceDrops, shareCollection, unshareCollection } from './collections';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
 
@@ -75,5 +76,23 @@ it('lists the shopper’s lists in Collections order, ticking the ones that hold
     { id: 'a', name: 'Apartment', kind: 'custom', has: true },
     { id: 'b', name: 'Birthday', kind: 'custom', has: false },
     { id: 'l', name: 'Saved for later', kind: 'later', has: true },
+  ]);
+});
+
+it('finds what got cheaper since it was saved, biggest share first, each product once', () => {
+  const kettle = product({ id: 'kettle', priceMinor: 4000 });
+  const lamp = product({ id: 'lamp', priceMinor: 900 });
+  const drops = priceDrops([
+    { product: kettle, savedPriceMinor: 4500 },
+    { product: kettle, savedPriceMinor: 5000 }, // on two lists: the higher saved price counts
+    { product: lamp, savedPriceMinor: 1000 },
+    { product: product({ id: 'same', priceMinor: 700 }), savedPriceMinor: 700 },
+    { product: product({ id: 'up', priceMinor: 800 }), savedPriceMinor: 700 },
+    { product: product({ id: 'gone', priceMinor: 100, archived: true }), savedPriceMinor: 700 },
+    { product: product({ id: 'sold-out', priceMinor: 100, stock: 0 }), savedPriceMinor: 700 },
+  ]);
+  expect(drops.map((d) => [d.product.id, d.savedPriceMinor, d.dropMinor])).toEqual([
+    ['kettle', 5000, 1000],
+    ['lamp', 1000, 100],
   ]);
 });

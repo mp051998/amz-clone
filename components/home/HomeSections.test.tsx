@@ -4,7 +4,7 @@ import { amazon } from '../../lib/amazon';
 import { amazonIn } from '../../lib/marketplace-in';
 import { endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
 import type { Product } from '../../lib/types';
-import { ContinueRow, DealGrid, PickGrid } from './HomeSections';
+import { ContinueRow, DealGrid, PickGrid, SavedDropGrid } from './HomeSections';
 
 afterEach(cleanup);
 
@@ -65,4 +65,13 @@ it('greets by store-local hour and counts down to local midnight', () => {
 it('example queries use the store currency', () => {
   expect(exampleQueries(amazon).join(' ')).toContain('$');
   expect(exampleQueries(amazonIn).join(' ')).toContain('₹');
+});
+
+it('shows what a saved product dropped by, with the price it was saved at struck through', () => {
+  render(<SavedDropGrid drops={[{ product: product({ priceMinor: 3999 }), savedPriceMinor: 4999, dropMinor: 1000 }]} store={amazon} />);
+  const card = screen.getByRole('link', { name: /since you saved/ });
+  expect(card).toHaveAttribute('href', '/product/p1');
+  expect(within(card).getByText('↓ $10.00 since you saved')).toBeInTheDocument();
+  expect(card.querySelector('s')).toHaveTextContent('saved at $49.99');
+  expect(within(card).getByText('$39.99')).toBeInTheDocument();
 });
