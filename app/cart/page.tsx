@@ -4,6 +4,7 @@ import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Alert } from '@/components/primitives/Alert';
 import { CartQty } from '@/components/cart/CartQty';
+import { cartNotice } from '@/components/cart/notice';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { SavedForLater } from '@/components/cart/SavedForLater';
@@ -66,8 +67,10 @@ async function setup(lines: CartLine[]): Promise<Accessory[]> {
   }
 }
 
-export default async function CartPage() {
-  const store = await getMarketplace();
+export default async function CartPage({ searchParams }: { searchParams: Promise<{ error?: string | string[]; skipped?: string | string[] }> }) {
+  const [store, query] = await Promise.all([getMarketplace(), searchParams]);
+  const problem = cartNotice(query.error, query.skipped);
+  const notice = problem ? <Alert tone="error">{problem}</Alert> : null;
   const cur = store.currency.code;
   const money = (minor: number) => formatMoney(minor, cur);
   const sp = (path: string) => storePath(store, path);
@@ -86,6 +89,7 @@ export default async function CartPage() {
       <AppShell>
         <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-[120px] pt-7">
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Cart</h1>
+          {notice}
           <EmptyState
             title="Your cart is empty"
             action={
@@ -136,6 +140,7 @@ export default async function CartPage() {
     <AppShell>
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-[120px] pt-7">
         <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Cart</h1>
+        {notice}
 
         <div className="flex flex-wrap items-start gap-6">
           <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-[22px]">
