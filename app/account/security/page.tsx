@@ -2,13 +2,14 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Alert } from '@/components/primitives/Alert';
-import { EmailForm, NameForm, PasswordForm } from '@/components/account/SecurityForms';
+import { CloseAccountForm, EmailForm, NameForm, PasswordForm } from '@/components/account/SecurityForms';
 import { readUser } from '@/lib/auth';
-import { isRecovery } from '@/lib/data/account';
+import { closureCheck, closureMessage, isRecovery, listPhrase } from '@/lib/data/account';
 import { db } from '@/lib/supabase/server';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { updateEmail, updateName, updatePassword } from '@/app/actions/account';
+import { formatMoney } from '@/lib/marketplaces';
+import { closeMyAccount, updateEmail, updateName, updatePassword } from '@/app/actions/account';
 
 export const metadata: Metadata = { title: 'Login & security · Store' };
 
@@ -18,8 +19,10 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
   const sp = (path: string) => storePath(store, path);
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account/security'));
-  const { data } = await (await db()).auth.getClaims();
+  const client = await db();
+  const [{ data }, closure] = await Promise.all([client.auth.getClaims(), closureCheck(client).catch(() => null)]);
   const recovering = isRecovery(data?.claims);
+  const losing = closure?.balances.length ? listPhrase(closure.balances.map((b) => formatMoney(b.balanceMinor, b.currency))) : null;
 
   const password = <PasswordForm action={updatePassword} recovering={recovering} />;
   return (
@@ -38,6 +41,9 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
         <NameForm action={updateName} name={user.name} />
         <EmailForm action={updateEmail} email={user.email} />
         {recovering ? null : password}
+        {closure ? (
+          <CloseAccountForm action={closeMyAccount} blocked={closureMessage(closure)} losing={losing} ordersHref={sp('/orders')} />
+        ) : null}
       </div>
     </AppShell>
   );

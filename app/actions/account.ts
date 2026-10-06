@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { changeEmail, changePassword, isRecovery, renameAccount, validEmail } from '@/lib/data/account';
+import { changeEmail, changePassword, closeAccount, isRecovery, renameAccount, validEmail } from '@/lib/data/account';
 import { DataError } from '@/lib/data/errors';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
@@ -85,6 +85,27 @@ export async function updatePassword(_prev: AccountFormState, formData: FormData
   // the fresh session isn't a reset session: the page lays out differently, so reload it with a notice
   if (recovering) redirect(`${storePath({ id: await getMarket() }, PAGE)}?done=password`);
   return { done: 'Password changed. You’ve been signed out on your other devices.' };
+}
+
+/**
+ * Close the account for good (the box ticked, the current password given, nothing still open).
+ * The session ends with it, and the visitor lands on sign-in with a notice.
+ */
+export async function closeMyAccount(_prev: AccountFormState, formData: FormData): Promise<AccountFormState> {
+  const user = await signedIn();
+  if (formData.get('confirm') !== 'yes') {
+    return { field: 'confirm', error: 'Tick the box to confirm you want to close your account.' };
+  }
+  const client = await db();
+  try {
+    await closeAccount(createAdminClient(), client, user, { currentPassword: formData.get('currentPassword') });
+  } catch (err) {
+    return failed(err);
+  }
+  // the user is gone; this only clears the session cookies (Auth answers the sign-out with a 404)
+  await client.auth.signOut({ scope: 'local' });
+  revalidatePath('/', 'layout');
+  redirect(`${storePath({ id: await getMarket() }, '/signin')}?closed=1`);
 }
 
 /**
