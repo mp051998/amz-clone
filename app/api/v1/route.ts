@@ -20,6 +20,7 @@ export function GET(): Response {
       'GET    /me',
       'PATCH  /me',
       'DELETE /me',
+      'GET    /me/data',
       'GET    /me/plus',
       'POST   /me/plus',
       'DELETE /me/plus',
