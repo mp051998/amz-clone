@@ -18,6 +18,7 @@ export function GET(): Response {
       'POST   /auth/token',
       'POST   /auth/refresh',
       'GET    /me',
+      'PATCH  /me',
       'GET    /me/plus',
       'POST   /me/plus',
       'DELETE /me/plus',
