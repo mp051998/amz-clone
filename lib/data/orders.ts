@@ -1,5 +1,6 @@
 import type { Db } from '../db/client';
 import type { Market, Order, PaymentMethod, ShipSpeed } from '../types';
+import type { BuyNow } from '../buy-now';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
@@ -21,6 +22,8 @@ export interface PlaceOrderInput {
   gift?: { message?: unknown };
   /** delivery speed; 'fast' only when offered right now (see deliveryOptions) */
   speed?: ShipSpeed;
+  /** Buy Now: order just this product (the cart is left as it is) */
+  buyNow?: BuyNow;
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
@@ -37,8 +40,8 @@ export function readGiftNote(v: unknown): string | undefined {
 }
 
 /**
- * Turn the caller's cart into an order (place_order RPC): stock is locked and
- * reserved, every line priced from the catalog, totals computed by the DB.
+ * Turn the caller's cart (or, for Buy Now, the one product) into an order (place_order RPC):
+ * stock is locked and reserved, every line priced from the catalog, totals computed by the DB.
  * Card orders come back `awaiting_payment` — hand them to startCardCheckout.
  */
 export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput): Promise<Order> {
@@ -62,6 +65,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}) } : {}),
       // likewise only for fast delivery
       ...(input.speed === 'fast' ? { p_speed: 'fast' } : {}),
+      ...(input.buyNow ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty } } : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);

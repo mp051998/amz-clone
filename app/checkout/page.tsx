@@ -21,7 +21,10 @@ import { fastShipFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
 import { isBalanceMethod, storeBalance } from '@/lib/data/balance';
 import { deliveryOptions } from '@/lib/decision/tracking';
-import { messageFor } from '@/lib/data/errors';
+import { DataError, messageFor } from '@/lib/data/errors';
+import { buyNowQuote } from '@/lib/data/cart';
+import { buyNowQuery, readBuyNow, type BuyNow } from '@/lib/buy-now';
+import type { Cart } from '@/lib/types';
 import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -29,12 +32,24 @@ import { formatMoney } from '@/lib/marketplaces';
 
 export const metadata: Metadata = { title: 'Checkout · Store' };
 
+/** Buy Now's one line, priced; null when the product isn't sold here (any more). */
+async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], buy: BuyNow): Promise<Cart | null> {
+  try {
+    return await buyNowQuote(client, market, buy.productId, buy.qty);
+  } catch (err) {
+    if (err instanceof DataError) return null;
+    throw err;
+  }
+}
+
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; msg?: string; canceled?: string }>;
+  searchParams: Promise<{ error?: string; msg?: string; canceled?: string; buy?: string; qty?: string }>;
 }) {
-  const { error, msg, canceled } = await searchParams;
+  const { error, msg, canceled, buy: buyId, qty: buyQty } = await searchParams;
+  // Buy Now: checkout for just this product; the cart is left as it is
+  const buy = readBuyNow(buyId, buyQty);
   const store = await getMarketplace();
   const cur = store.currency.code;
   const money = (minor: number) => formatMoney(minor, cur);
@@ -43,29 +58,38 @@ export default async function CheckoutPage({
   // checkout requires a signed-in account (orders are stored per signed-in user); the guest cart is
   // merged into the account on sign-in.
   const user = await readUser();
-  if (!user) redirect(sp('/signin?next=/checkout'));
+  if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
   const [cart, addresses, fastFee, plus, balanceMinor] = await Promise.all([
-    viewerCart(),
+    buy ? quote(client, store.id, buy) : viewerCart(),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
     plusMembership(client),
     storeBalance(client, store.id),
   ]);
-  const { lines, count, totals } = cart;
-  const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
+  const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
 
   const shell = (children: ReactNode) => (
     <AppShell>
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-[120px] pt-7">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Checkout</h1>
-          <a href={sp('/cart')} className="text-[14px] text-ink underline underline-offset-2">← Back to cart</a>
+          <a href={productHref ?? sp('/cart')} className="text-[14px] text-ink underline underline-offset-2">{productHref ? '← Back to the product' : '← Back to cart'}</a>
         </div>
         {children}
       </div>
     </AppShell>
   );
+
+  if (!cart) {
+    return shell(
+      <EmptyState title="That product isn’t available" action={<a href={sp('/s')} className={buttonClasses({ variant: 'dark' })}>Find something</a>}>
+        It isn’t sold in this store any more.
+      </EmptyState>,
+    );
+  }
+  const { lines, count, totals } = cart;
+  const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
 
   if (lines.length === 0) {
     return shell(
@@ -112,14 +136,27 @@ export default async function CheckoutPage({
         <Alert tone="info">Payment canceled — you have not been charged. Your cart is unchanged.</Alert>
       ) : null}
       {blocked ? (
-        <Alert tone="warning">
-          {unavailable ? 'Some items are no longer available.' : 'Some items no longer have enough stock.'}{' '}
-          <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
-        </Alert>
+        productHref ? (
+          <Alert tone="warning">
+            {unavailable ? 'This item is no longer available.' : 'There isn’t enough stock for that many.'}{' '}
+            <a href={productHref} className="underline">Back to the product</a> to pick again.
+          </Alert>
+        ) : (
+          <Alert tone="warning">
+            {unavailable ? 'Some items are no longer available.' : 'Some items no longer have enough stock.'}{' '}
+            <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
+          </Alert>
+        )
       ) : null}
 
       <form action={submitCheckout} className="group/co flex flex-wrap items-start gap-6">
         <input type="hidden" name="schema" value={store.address.schema} />
+        {buy ? (
+          <>
+            <input type="hidden" name="buy" value={buy.productId} />
+            <input type="hidden" name="qty" value={buy.qty} />
+          </>
+        ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} />
           <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} />
@@ -142,6 +179,7 @@ export default async function CheckoutPage({
           </StepCard>
           <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">
             <h2 id="co-items-h" className="m-0 text-[13px] font-normal text-ink-3">Items ({count})</h2>
+            {buy ? <p className="m-0 text-[13px] text-ink-3">Buy Now orders just this item. Your cart stays as it is.</p> : null}
             <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
               {lines.map((l) => (
                 <li key={l.product.id} className="flex justify-between gap-3 text-[15px]">
@@ -181,7 +219,7 @@ export default async function CheckoutPage({
             </div>
           </dl>
           {blocked ? (
-            <a href={sp('/cart')} className={buttonClasses({ variant: 'secondary', size: 'lg', block: true })}>Update your cart</a>
+            <a href={productHref ?? sp('/cart')} className={buttonClasses({ variant: 'secondary', size: 'lg', block: true })}>{productHref ? 'Back to the product' : 'Update your cart'}</a>
           ) : (
             <PlaceOrderButton />
           )}
