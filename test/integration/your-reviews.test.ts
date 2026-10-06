@@ -3,10 +3,7 @@ import { setCartQty } from '@/lib/data/cart';
 import { placeOrder } from '@/lib/data/orders';
 import { awaitingReview, listMyReviews, reviewedProductIds, upsertReview } from '@/lib/data/reviews';
 import type { Market, PaymentMethod } from '@/lib/types';
-import { admin, deleteUser, IN_SHIPPING, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
-
-const DAY = 86_400_000;
-const iso = (ms: number) => new Date(ms).toISOString();
+import { admin, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
 
 describe('your reviews', () => {
   let shopper: TestUser;
@@ -20,16 +17,6 @@ describe('your reviews', () => {
     await shopper.db.rpc('cart_clear', { p_market: market });
     for (const id of ids) await setCartQty(shopper.db, market, id, 1);
     return (await placeOrder(shopper.db, market, { paymentMethod: method, shipping: market === 'IN' ? IN_SHIPPING : US_SHIPPING })).id;
-  }
-
-  /** Delivered `daysAgo` days ago (service role, as time passing would). */
-  async function deliveredDaysAgo(id: string, daysAgo: number) {
-    const at = Date.now() - daysAgo * DAY;
-    const { error } = await admin()
-      .from('orders')
-      .update({ placed_at: iso(at - 3 * DAY), shipped_at: iso(at - 2 * DAY), out_for_delivery_at: iso(at - 60_000), delivered_at: iso(at) })
-      .eq('id', id);
-    if (error) throw error;
   }
 
   beforeAll(async () => {

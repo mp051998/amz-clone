@@ -105,7 +105,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | GET | `/products/:id/reviews?limit=10&offset=0&sort=top` | | `{items: Review[], total, mine}`. `sort=top` (default): most helpful first, then newest. `sort=recent`: newest first. With auth, your own review is pinned to the top of page 1. |
-| POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body}` | `201 {review}`. Creates or replaces your one review of the product. The DB sets `author`, `verified` (true when you have a placed order containing it) and keeps the product's rating rollup current. |
+| POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body}` | `201 {review}`. Creates or replaces your one review of the product. The DB sets `author`, `verified` (true when an order of yours containing it has been delivered, worked out on every write) and keeps the product's rating rollup current. |
 | DELETE 🔒 | `/reviews/:id` | | `204`. Only works on your own review (`404` otherwise). |
 | POST 🔒 | `/reviews/:id/helpful` | | Toggle. Returns `{reviewId, helpful, helpfulCount}`. Returns `409 own_review` on your own review. |
 | POST 🔒 | `/reviews/:id/report` | `{reason: spam\|offensive\|off_topic\|other}` | `204`. Idempotent. Three open reports (from different shoppers, since an admin last looked) hide the review until an admin keeps it. |
@@ -123,7 +123,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | GET | `/products/:id/questions?q=&limit=10&offset=0` | | `{items: Question[], total}`: most answered first, then newest, each with all its answers (most helpful first, then oldest). `q` (up to 100 characters, matched literally, any case) keeps questions whose text, or one of whose answers, contains it. |
 | POST 🔒 | `/products/:id/questions` | `{body}` | `201 {question}`. 10–300 characters (`422 invalid_input`, `detail: "body"`). Asking the same question twice is `409 duplicate`; an archived product is `409 product_unavailable`. |
 | DELETE 🔒 | `/questions/:id` | | `204`. Deletes your question and its answers (an admin can delete any); `404 question_not_found` otherwise. |
-| POST 🔒 | `/questions/:id/answers` | `{body}` | `201 {answer}`. 2–1000 characters, one answer per shopper per question (`409 duplicate`, `detail: "answer"`). The DB sets `author` and `verified` (true when you have a placed order containing the product). |
+| POST 🔒 | `/questions/:id/answers` | `{body}` | `201 {answer}`. 2–1000 characters, one answer per shopper per question (`409 duplicate`, `detail: "answer"`). The DB sets `author` and `verified` (true when an order of yours containing the product has been delivered). |
 | DELETE 🔒 | `/answers/:id` | | `204`. Your own answer (an admin, any); `404 answer_not_found` otherwise. |
 | POST 🔒 | `/answers/:id/helpful` | | Toggle. Returns `{answerId, helpful, helpfulCount}`. Returns `409 own_answer` on your own answer. |
 
@@ -443,7 +443,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-nine migrations live in `supabase/migrations/`:
+Thirty migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -476,6 +476,7 @@ Twenty-nine migrations live in `supabase/migrations/`:
 | shared lists | `collections.share_token` / `shared_at`; `share_collection()` and `unshare_collection()` (owner), and `shared_collection()` for anyone with the link |
 | moving list items | `move_collection_item()` (owner): moves a product between two of the caller's lists and keeps its saved price and date |
 | shared list gifts | `collection_gifts` (no policies: read through `shared_collection()`, which now returns each item's `bought` for everyone but the owner, and written through `mark_shared_gift()`); one giver per item, and the mark goes with the item when it's removed or moved |
+| verified after delivery | `private.has_received()`: review `verified` (in `reviews_before_write`) and answer `verified` (in `answer_question()`) need an order containing the product to have been delivered, not just placed; existing marks without one were cleared |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
