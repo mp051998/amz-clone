@@ -133,7 +133,8 @@ Postgres as that user, so RLS decides what each caller can see.
 
 Every cart response is `{cart}`, where `Cart` has these fields:
 - Store: `market, currency, freeShipThresholdMinor`
-- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock, available, coupon, discountMinor}]`. `available` is false for an archived product. Such a line can only be removed, and `inStock` is false for it too. `coupon` is null or `{percentOff, clipped}`; `discountMinor` is what the applied coupon takes off the line (`lineTotalMinor` is before it).
+- Lines: `count, selectedCount, lines: [{product, qty, lineTotalMinor, inStock, available, coupon, discountMinor, selected}]`. `available` is false for an archived product. Such a line can only be removed, and `inStock` is false for it too. `coupon` is null or `{percentOff, clipped}`; `discountMinor` is what the applied coupon takes off the line (`lineTotalMinor` is before it).
+- Selection: each line is ticked for checkout (`selected`, true when added). `count` is every item in the cart; `selectedCount` and the totals cover the ticked lines only. Checkout orders the ticked lines and leaves the rest in the cart. Adding a product (`POST /cart/items`) ticks its line again.
 - Totals: `{subtotalMinor, discountMinor, shipMinor, taxMinor, totalMinor}`, where `totalMinor = subtotalMinor - discountMinor + shipMinor + taxMinor`
 
 Prices and totals are computed by the database on every read.
@@ -141,9 +142,10 @@ Prices and totals are computed by the database on every read.
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | GET | `/cart` | | The signed-in user's cart, or the guest cart for `X-Cart-Token`. Returns an empty cart when neither is present. |
+| PATCH | `/cart` | `{selected}` | Ticks (`true`) or unticks (`false`) every line |
 | DELETE | `/cart` | | Empty it |
 | POST | `/cart/items` | `{productId, qty = 1}` | `201`. Adds to the line. `404 product_not_found` if the product isn't in this store. `409 out_of_stock`, or `409 product_unavailable` if it's archived. Mints a guest token when needed. |
-| PATCH | `/cart/items/:productId` | `{qty}` | Sets the quantity. `0` removes the line. Archived products only accept `0` (`409 product_unavailable`). |
+| PATCH | `/cart/items/:productId` | `{qty?, selected?}` | Sets the quantity (`0` removes the line) and/or ticks or unticks the line; send at least one. Archived products only accept `qty: 0` (`409 product_unavailable`). `404 not_in_cart` when ticking a line that isn't there. |
 | DELETE | `/cart/items/:productId` | | Remove the line |
 | POST 🔒 | `/cart/merge` | `{cartToken}` or `X-Cart-Token` | Folds the guest cart (all stores) into the account and deletes it. Sold-out and archived products are dropped. Returns `{merged, cart}`. |
 
@@ -163,7 +165,8 @@ There is no guest checkout. Orders belong to an account, so every route here nee
 
 How `POST /orders` works:
 - In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price, seller and coupon discount and computes the totals. An order's `totals` carry `discountMinor`, and each item `unitDiscountMinor` when a coupon applied; a return refunds what was paid for an item, after its coupon.
-- **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
+- **Ticked lines only:** a cart checkout orders the ticked lines (`selected`). The unticked ones stay in the cart. `409 nothing_selected` when the cart has lines but none is ticked.
+- **Non-card methods** return `201 {order}` with `status: "placed"`, and the ordered lines leave the cart.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 - **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
 - **Buy Now:** send `buyNow: {productId, qty}` to order just that product (`qty` 1 up to the store's line limit) instead of the cart. The cart isn't needed and is left as it is, whatever the payment method; `404 product_not_found` if the product isn't in this store. A card order's cancel page returns to that product's checkout.
@@ -217,7 +220,7 @@ The customer never tells us they paid. Stripe does:
 2. If Stripe says `paid`, `confirm_order_payment` runs. That function is only
    granted to the service role and checks that the amount and currency equal the
    order total. It is idempotent: the success page and the webhook may both run it.
-   The order moves to `placed` and the cart is emptied.
+   The order moves to `placed` and the ordered items leave the cart.
 3. `checkout.session.expired` / `async_payment_failed`, `POST /orders/:id/cancel`,
    or the web cancel page all call `cancel_order`, which returns the reserved
    stock.
@@ -410,9 +413,9 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_in_cart`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
+| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
@@ -481,6 +484,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | shared list gifts | `collection_gifts` (no policies: read through `shared_collection()`, which now returns each item's `bought` for everyone but the owner, and written through `mark_shared_gift()`); one giver per item, and the mark goes with the item when it's removed or moved |
 | verified after delivery | `private.has_received()`: review `verified` (in `reviews_before_write`) and answer `verified` (in `answer_question()`) need an order containing the product to have been delivered, not just placed; existing marks without one were cleared |
 | buy now | `place_order(p_buy)` orders just one product and leaves the cart alone; `orders.from_cart` keeps `confirm_order_payment()` from taking a Buy Now order's items out of the cart; `buy_now_quote()` prices the line, and `cart_json()` now shares `private.checkout_json()` with it |
+| cart selection | `cart_items.selected`; `cart_select()` ticks one line or all of them; `private.checkout_json()` lists every line but prices the ticked ones (`selected_count`); `place_order()` orders the ticked lines and removes only those from the cart; adding a product ticks it again |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

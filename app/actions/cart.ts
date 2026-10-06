@@ -97,6 +97,24 @@ export async function removeItem(formData: FormData): Promise<void> {
   await setQty(formData, 0);
 }
 
+/**
+ * Tick or untick a line (`id`), or every line (no `id`), for checkout. `selected` is "1" to tick;
+ * anything else unticks. When that fails, back to the cart saying why.
+ */
+export async function selectItems(formData: FormData): Promise<void> {
+  const { client, market, token } = await scope();
+  const id = String(formData.get('id') ?? '');
+  let code: string | null = null;
+  try {
+    await cart.selectCartLines(client, market, id || null, formData.get('selected') === '1', token);
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    code = err.code;
+  }
+  revalidatePath('/', 'layout');
+  if (code) redirect(storePath({ id: market }, `/cart?error=${code}`));
+}
+
 export async function clearCart(): Promise<void> {
   const { client, market, token } = await scope();
   await cart.clearCart(client, market, token);

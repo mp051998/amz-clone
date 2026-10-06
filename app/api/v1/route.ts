@@ -49,6 +49,7 @@ export function GET(): Response {
       'POST   /products/:id/coupon',
       'DELETE /products/:id/coupon',
       'GET    /cart',
+      'PATCH  /cart',
       'DELETE /cart',
       'POST   /cart/items',
       'PATCH  /cart/items/:productId',
