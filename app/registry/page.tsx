@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { Page, PageHead, Section, InfoCard, TextLink, DemoNote, cardGrid } from '@/components/brand/Page';
 import { buttonClasses } from '@/components/primitives/Button';
+import { readUser } from '@/lib/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import type { PublicMarketplace } from '@/lib/contracts';
 
 export const metadata: Metadata = { title: 'Registry & gift lists · Store' };
 
@@ -21,7 +21,7 @@ function registryTypes(isIN: boolean): RegistryType[] {
       { title: 'Birthday gifts', desc: 'Drop hints for the big day and let everyone shop your picks.' },
       { title: 'Wedding gifting', desc: 'Curate a shagun-friendly list for the couple’s new home.' },
       { title: 'Baby needs', desc: 'Line up everyday essentials for the newest arrival.' },
-      { title: 'Festive gifting', desc: 'Diwali, Rakhi and more — ready-made lists for every celebration.' },
+      { title: 'Festive gifting', desc: 'Diwali, Rakhi and more — one list for each celebration.' },
       { title: 'Custom gift list', desc: 'Mix and match items from across the store into one list.' },
     ];
   }
@@ -35,54 +35,39 @@ function registryTypes(isIN: boolean): RegistryType[] {
   ];
 }
 
-/** Benefits — store-aware (the completion discount is a US registry perk). */
-function benefits(store: PublicMarketplace, isIN: boolean): RegistryType[] {
-  const sym = store.currency.symbol;
-  return [
-    { title: 'Group gifting', desc: `Friends and family can chip in together — from as little as ${sym}5 toward the big-ticket picks.` },
-    isIN
-      ? { title: 'Easy returns', desc: 'Gift not quite right? Returns are simple, so every present finds its fit.' }
-      : { title: 'Completion discount', desc: 'As your event nears, save on everything still left on your registry.' },
-    { title: 'Private by default', desc: 'You decide who sees your list. Share a link with the people you choose — no one else.' },
-    { title: 'One list, everything', desc: 'Add anything in the store to a single list, from small treats to the headline gift.' },
-  ];
-}
+/** What a list here actually does (lib/data/collections.ts, /lists/<token>). */
+const PERKS: RegistryType[] = [
+  { title: 'Private by default', desc: 'Nobody can find your list. Only people you send the link to can open it, and you can turn the link off any time.' },
+  { title: 'Easy for them', desc: 'People open your link without an account and add gifts straight to their own cart.' },
+  { title: 'One list, everything', desc: 'Add anything in the store to a single list, from small treats to the headline gift.' },
+  { title: 'Prices tracked', desc: 'You see what’s cheaper than when you saved it. Your note and those prices stay private.' },
+];
 
 export default async function RegistryPage() {
   const store = await getMarketplace();
   const isIN = store.id === 'IN';
   const sp = (path: string) => storePath(store, path);
   const types = registryTypes(isIN);
-  const perks = benefits(store, isIN);
-  const createHref = sp('/signin?new=1');
+  const createHref = (await readUser()) ? sp('/collections') : sp(`/signin?new=1&next=${encodeURIComponent('/collections')}`);
 
   const steps = [
-    { title: 'Create your list', desc: 'Pick a registry or gift list, give it a name, and set your event date.' },
-    { title: 'Add items from anywhere', desc: 'Save anything in the store — as many items, from as many departments, as you like.' },
-    { title: 'Share it', desc: 'Send the link to the people who matter. They shop, you get what you actually wanted.' },
+    { title: 'Make a list', desc: 'In Collections, start a list and name it for the occasion.' },
+    { title: 'Add anything', desc: 'Tap ♡ Save on any product, then move it to your list. Add as much as you like.' },
+    { title: 'Share the link', desc: 'Turn on sharing and send the link. People open it and add gifts to their own cart.' },
   ];
 
   return (
     <AppShell>
       <Page>
-        <PageHead kicker="Registry & gift lists" title="Find a registry or gift list">
+        <PageHead kicker="Registry & gift lists" title="Make a registry or gift list">
           {isIN
-            ? 'Search for someone’s wish list, or start your own for birthdays, weddings, babies and every festive occasion.'
-            : 'Search for a friend’s registry by name, or create your own for weddings, babies, birthdays and beyond.'}
+            ? 'Start a wish list for birthdays, weddings, babies and every festive occasion, then share it with the people you choose.'
+            : 'Make a registry for weddings, babies, birthdays and beyond, then share it with the people you choose.'}
         </PageHead>
-
-        {/* search-by-name — real GET form to the store search page */}
-        <form action={sp('/s')} role="search" className="flex max-w-[680px] flex-col gap-2 rounded-panel border-[1.5px] border-ink bg-surface p-2 shadow-hero focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink sm:flex-row sm:items-center">
-          <label htmlFor="registry-name" className="sr-only">Search by name</label>
-          <input
-            id="registry-name"
-            type="text"
-            name="k"
-            placeholder={isIN ? 'Search by name, e.g. “Priya Sharma”' : 'Search by first or last name'}
-            className="h-11 min-w-0 flex-1 rounded-input bg-surface px-3 text-[16px] text-ink outline-none placeholder:text-ink-4"
-          />
-          <button type="submit" className={buttonClasses({ variant: 'primary' })}>Find a list</button>
-        </form>
+        <div className="flex flex-wrap gap-2.5">
+          <a href={createHref} className={buttonClasses({ variant: 'dark' })}>Start a list</a>
+          <a href={sp('/deals')} className={buttonClasses({ variant: 'secondary' })}>Shop gifts</a>
+        </div>
 
         <Section title="Start a registry or gift list" note={isIN ? 'Gifting for every occasion' : 'A list for every milestone'}>
           <div className={cardGrid}>
@@ -102,7 +87,7 @@ export default async function RegistryPage() {
 
         <Section title="Why keep your list here">
           <div className={cardGrid}>
-            {perks.map((b) => (<InfoCard key={b.title} title={b.title}>{b.desc}</InfoCard>))}
+            {PERKS.map((b) => (<InfoCard key={b.title} title={b.title}>{b.desc}</InfoCard>))}
           </div>
         </Section>
 
@@ -121,7 +106,7 @@ export default async function RegistryPage() {
           </div>
         </section>
 
-        <DemoNote>Demo store — registries are illustrative; searching looks through the product catalogue, not real people’s lists.</DemoNote>
+        <DemoNote>Demo store — lists are shared by link only. There’s no searching for other people’s lists, and nothing is marked as bought when someone shops from yours.</DemoNote>
       </Page>
     </AppShell>
   );

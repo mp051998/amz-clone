@@ -253,7 +253,7 @@ Phone numbers are normalised: digits only, with a leading `+1` / `+91` dropped.
 
 Saved products, per store. Two system lists are created on first use: `considering` ("Things I'm Considering", where the Save button puts things) and `later` ("Saved for later", from the cart). Shoppers can add up to 20 collections, each holding up to 200 items.
 
-`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, items: [{product, savedPriceMinor, addedAt}]`. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops. Items keep archived products (`product.archived: true`).
+`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, shareToken, items: [{product, savedPriceMinor, addedAt}]`. `shareToken` is set while the list is shared by link. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops. Items keep archived products (`product.archived: true`).
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
@@ -264,6 +264,14 @@ Saved products, per store. Two system lists are created on first use: `consideri
 | DELETE | `/collections/:id` | | `204`. Deletes its items too. |
 | POST | `/collections/:id/items` | `{productId}` | `201 {item}`. Idempotent: re-adding keeps the original saved price. `404 product_not_found` if the product is from another store. `409 product_unavailable` if it's archived. `409 collection_item_limit` past 200. |
 | DELETE | `/collections/:id/items/:productId` | | `204`. A no-op when the product isn't in the collection. |
+| POST | `/collections/:id/share` | | `{token, sharedAt, url}`. Turns on a link anyone can open (`/lists/<token>`). The same link while it's on. |
+| DELETE | `/collections/:id/share` | | `204`. The link stops working; sharing again makes a new one. |
+
+**Shared lists** (no sign-in). Anyone with the link reads the list's name, the sharer's first name and its products, never the note, the saved prices or whose account it is.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/lists/:token` | | `{list: {token, name, kind, market, ownerName, sharedAt, mine, collectionId, products}}`. Newest first; archived products are left out. `mine` (and `collectionId`) only for the sharer. `404 collection_not_found` when the link is off or wrong. |
 
 ## AI layer
 
@@ -431,7 +439,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-six migrations live in `supabase/migrations/`:
+Twenty-seven migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -461,6 +469,7 @@ Twenty-six migrations live in `supabase/migrations/`:
 | coupons | `coupons` (one per product, 5–50% off; everyone reads, admins write) and `coupon_clips` (owner read only); `clip_coupon()` and `unclip_coupon()`; `orders.discount_minor` and `order_items.unit_discount_minor`, with `orders_total_adds_up` taking the discount off; `cart_json()`, `place_order()` and `request_return()` price applied coupons per unit |
 | product Q&A | `product_questions` and `product_answers` (everyone reads) and `answer_votes` (owner read only); `ask_question()`, `answer_question()`, `delete_question()`, `delete_answer()` and `toggle_answer_helpful()` set the author, the verified mark and the counters |
 | gift card purchases | `gift_cards.purchased_by`; `gift_card_purchases` (owner read only); `start_gift_card_purchase()`, `my_gift_card_purchases()`, and the service-role `attach_gift_card_session()` and `confirm_gift_card_purchase()`, which checks the amount and currency and issues the code |
+| shared lists | `collections.share_token` / `shared_at`; `share_collection()` and `unshare_collection()` (owner), and `shared_collection()` for anyone with the link |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

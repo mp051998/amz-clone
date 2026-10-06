@@ -177,13 +177,13 @@ isOneToOne: false
                   ]
                 },"collections": {
                   Row: {
-                    "created_at": string,"id": string,"kind": string,"market_id": string,"name": string,"note": string,"position": number,"updated_at": string,"user_id": string
+                    "created_at": string,"id": string,"kind": string,"market_id": string,"name": string,"note": string,"position": number,"share_token": string | null,"shared_at": string | null,"updated_at": string,"user_id": string
                   }
                   Insert: {
-                    "created_at"?: string,"id"?: string,"kind"?: string,"market_id": string,"name": string,"note"?: string,"position"?: number,"updated_at"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"kind"?: string,"market_id": string,"name": string,"note"?: string,"position"?: number,"share_token"?: string | null,"shared_at"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"kind"?: string,"market_id"?: string,"name"?: string,"note"?: string,"position"?: number,"updated_at"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"kind"?: string,"market_id"?: string,"name"?: string,"note"?: string,"position"?: number,"share_token"?: string | null,"shared_at"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -810,6 +810,15 @@ isOneToOne: false
                            },
 "toggle_answer_helpful":
 { Args: { "p_answer": string }; Returns: Json
+                           },
+"share_collection":
+{ Args: { "p_collection": string }; Returns: Json
+                           },
+"unshare_collection":
+{ Args: { "p_collection": string }; Returns: undefined
+                           },
+"shared_collection":
+{ Args: { "p_token": string }; Returns: Json
                            }
           }
           Enums: {

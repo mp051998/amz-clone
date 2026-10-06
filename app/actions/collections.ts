@@ -117,3 +117,21 @@ export async function moveSavedToCart(collectionId: string, productId: string): 
     return { ok: true as const };
   });
 }
+
+/** Turn on a collection's share link; returns its token (the same one if it's already on). */
+export async function shareCollection(id: string): Promise<{ token: string } | ActionError> {
+  return run(async (client) => {
+    const { token } = await collections.shareCollection(client, String(id));
+    revalidate();
+    return { token };
+  });
+}
+
+/** Turn a collection's share link off. */
+export async function unshareCollection(id: string): Promise<{ ok: true } | ActionError> {
+  return run(async (client) => {
+    await collections.unshareCollection(client, String(id));
+    revalidate();
+    return { ok: true as const };
+  });
+}
