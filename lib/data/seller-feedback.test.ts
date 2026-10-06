@@ -8,7 +8,9 @@ import {
   orderSellers,
   parseFeedback,
   ratingText,
+  pctOf,
   removeSellerFeedback,
+  sellerProfile,
   sellerRatings,
 } from './seller-feedback';
 
@@ -93,5 +95,29 @@ describe('reads and writes', () => {
     rpc.mockClear();
     expect((await sellerRatings(db, 'US', [])).size).toBe(0);
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('sellerProfile', () => {
+  it('fills in every star and reads the rest as sent', async () => {
+    const periods = [{ period: '12m', ratings: 2, positive: 1, neutral: 0, negative: 1 }];
+    const rpc = vi.fn(async () => ({ data: { seller: 'Kettle Co', periods, stars: { 1: 1, 5: '1' }, recent: [] }, error: null }));
+    expect(await sellerProfile({ rpc } as unknown as Db, 'IN', 'Kettle Co')).toEqual({
+      seller: 'Kettle Co',
+      periods,
+      stars: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 1 },
+      recent: [],
+    });
+    expect(rpc).toHaveBeenCalledWith('seller_profile', { p_market: 'IN', p_seller: 'Kettle Co' });
+  });
+
+  it('is null for a seller the store does not know', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: null }));
+    expect(await sellerProfile({ rpc } as unknown as Db, 'US', 'Nobody')).toBeNull();
+  });
+
+  it('rounds shares, with none of nothing', () => {
+    expect(pctOf(2, 3)).toBe(67);
+    expect(pctOf(0, 0)).toBe(0);
   });
 });

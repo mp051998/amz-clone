@@ -861,6 +861,9 @@ isOneToOne: false
 "leave_seller_feedback":
 { Args: { "p_as_described"?: boolean,"p_comment"?: string,"p_on_time"?: boolean,"p_order_id": string,"p_rating": number,"p_seller": string }; Returns: Json
                            },
+"seller_profile":
+{ Args: { "p_market": string,"p_seller": string }; Returns: Json
+                           },
 "seller_ratings":
 { Args: { "p_market": string,"p_sellers": string[] }; Returns: {
               "average": number,"positive": number,"ratings": number,"seller": string

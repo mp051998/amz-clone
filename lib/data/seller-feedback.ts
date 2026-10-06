@@ -143,3 +143,44 @@ export async function sellerRatings(db: Db, market: Market, sellers: string[]): 
     ]),
   );
 }
+
+/** How a seller was rated over one span: `30d`, `90d`, `12m` or `all`. */
+export interface SellerPeriod {
+  period: '30d' | '90d' | '12m' | 'all';
+  ratings: number;
+  /** 4–5 stars */
+  positive: number;
+  /** 3 stars */
+  neutral: number;
+  /** 1–2 stars */
+  negative: number;
+}
+
+/** A seller's public profile in a store. */
+export interface SellerProfile {
+  seller: string;
+  periods: SellerPeriod[];
+  /** 12-month count per star, 1–5 */
+  stars: Record<1 | 2 | 3 | 4 | 5, number>;
+  /** the latest ratings with a comment, newest first (no names) */
+  recent: { rating: number; arrivedOnTime: boolean | null; asDescribed: boolean | null; comment: string; createdAt: string }[];
+}
+
+export const PERIOD_LABELS: Record<SellerPeriod['period'], string> = { '30d': '30 days', '90d': '90 days', '12m': '12 months', all: 'Lifetime' };
+
+/** n of total as a whole percentage (0 when there are none). */
+export const pctOf = (n: number, total: number): number => (total ? Math.round((n / total) * 100) : 0);
+
+/** A seller's profile, or null when they sell nothing in the store and have no ratings there. */
+export async function sellerProfile(db: Db, market: Market, seller: string): Promise<SellerProfile | null> {
+  const json = unwrap(await db.rpc('seller_profile', { p_market: market, p_seller: seller })) as {
+    seller: string;
+    periods: SellerPeriod[];
+    stars: Record<string, number>;
+    recent: SellerProfile['recent'];
+  } | null;
+  if (!json) return null;
+  const stars = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  for (const n of [1, 2, 3, 4, 5] as const) stars[n] = Number(json.stars?.[n] ?? 0);
+  return { seller: json.seller, periods: json.periods ?? [], stars, recent: json.recent ?? [] };
+}

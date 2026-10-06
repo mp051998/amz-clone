@@ -33,6 +33,7 @@ export function GET(): Response {
       'GET    /categories',
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
       'GET    /suggest?q=',
+      'GET    /sellers?name=',
       'GET    /products/:id',
       'GET    /products/:id/bought-together',
       'GET    /products/:id/insights?summarize=',
