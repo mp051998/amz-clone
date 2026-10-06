@@ -5,6 +5,7 @@ import type { Product } from '@/lib/types';
 
 vi.mock('../decision/Compare', () => ({ CompareToggle: () => null }));
 vi.mock('../decision/SaveButton', () => ({ SaveButton: () => null }));
+vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
 import { ResultCard } from './ResultCard';
 
@@ -49,4 +50,12 @@ it('a deal badge is not repeated as a second deal label', () => {
   const card = show({ badge: 'Limited time deal', deal: true });
   expect(card).toHaveTextContent('Limited time deal');
   expect(card).not.toHaveTextContent('Limited-time deal');
+});
+
+it('adds to the cart straight from the result, while in stock', () => {
+  show();
+  expect(screen.getByRole('button', { name: 'Add Sony WH-1000XM5 Wireless Headphones to cart' })).toBeInTheDocument();
+  cleanup();
+  show({ stock: 0 });
+  expect(screen.queryByRole('button', { name: /to cart/ })).toBeNull();
 });
