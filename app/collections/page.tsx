@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell';
 import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
 import { CollectionMenu, CollectionNote, ItemActions, NewCollection } from '@/components/collections/CollectionControls';
+import { ShareList } from '@/components/collections/ShareList';
 import { cn } from '@/components/lib/cn';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
@@ -11,6 +12,7 @@ import { listCollections } from '@/lib/data/collections';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { siteOrigin } from '@/lib/origin';
 import type { Collection, CollectionItem } from '@/lib/decision/types';
 
 export const metadata: Metadata = { title: 'Collections · Store' };
@@ -37,6 +39,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
   // archived products stay in the list but are out of the catalog, so compare skips them
   const comparable = selected ? selected.items.filter((i) => !i.product.archived) : [];
   const compareIds = comparable.slice(0, COMPARE_MAX).map((i) => encodeURIComponent(i.product.id));
+  const shareUrl = selected?.shareToken ? `${await siteOrigin()}${sp(`/lists/${selected.shareToken}`)}` : null;
 
   return (
     <AppShell>
@@ -100,6 +103,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                     ) : null}
                   </div>
                 </div>
+                <ShareList key={selected.id} id={selected.id} name={selected.name} market={store.id} url={shareUrl} />
 
                 {selected.items.length === 0 ? (
                   <EmptyState action={<a href={sp('/s')} className={buttonClasses({ variant: 'secondary' })}>Find something to save</a>}>

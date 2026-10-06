@@ -1,7 +1,7 @@
 import type { Db } from '../db/client';
 import type { Database } from '../db/database.types';
 import type { Collection, CollectionItem } from '../decision/types';
-import type { Market } from '../types';
+import type { Market, Product } from '../types';
 import { getProducts } from './catalog';
 import { DataError, unwrap } from './errors';
 
@@ -60,6 +60,7 @@ async function hydrate(db: Db, rows: RowWithItems[]): Promise<Collection[]> {
       note: r.note,
       kind: asKind(r.kind),
       createdAt: r.created_at,
+      shareToken: r.share_token ?? null,
       items: (r.collection_items ?? [])
         .slice()
         .sort((a, b) => b.added_at.localeCompare(a.added_at))
@@ -224,4 +225,71 @@ export async function toggleSaved(db: Db, market: Market, productId: string): Pr
   const target = await ensureDefaultCollection(db, market);
   await addItem(db, target.id, productId);
   return { saved: true, collectionName: target.name };
+}
+
+/** A collection as anyone with its link sees it (/lists/<token>): no note, no saved prices. */
+export interface SharedList {
+  token: string;
+  name: string;
+  kind: CollectionKind;
+  market: Market;
+  /** the sharer's first name */
+  ownerName: string;
+  sharedAt: string;
+  /** the viewer shared it; `collectionId` is then theirs to manage */
+  mine: boolean;
+  collectionId: string | null;
+  /** newest first; products no longer on sale are left out */
+  products: Product[];
+}
+
+export function isShareToken(v: unknown): v is string {
+  return typeof v === 'string' && /^[0-9a-f]{32}$/.test(v);
+}
+
+/** Turn on the link for one of the caller's collections (the same link if it's already on). */
+export async function shareCollection(db: Db, id: string): Promise<{ token: string; sharedAt: string }> {
+  if (!isUuid(id)) throw new DataError('collection_not_found');
+  const r = unwrap(await db.rpc('share_collection', { p_collection: id })) as unknown as { token: string; shared_at: string };
+  return { token: r.token, sharedAt: r.shared_at };
+}
+
+/** Turn the link off; the old one stops working, and sharing again makes a new one. */
+export async function unshareCollection(db: Db, id: string): Promise<void> {
+  if (!isUuid(id)) throw new DataError('collection_not_found');
+  unwrap(await db.rpc('unshare_collection', { p_collection: id }));
+}
+
+interface SharedRow {
+  name: string;
+  kind: string;
+  market_id: string;
+  shared_at: string;
+  owner_name: string;
+  mine: boolean;
+  collection_id: string | null;
+  items: { product_id: string; added_at: string }[];
+}
+
+/** A shared list by its link, or null when the link is off or never existed. */
+export async function getSharedList(db: Db, token: string): Promise<SharedList | null> {
+  if (!isShareToken(token)) return null;
+  const res = await db.rpc('shared_collection', { p_token: token });
+  // before the migration (the app can deploy a moment before it): no list
+  if (res.error?.code === 'PGRST202') return null;
+  const row = unwrap(res) as unknown as SharedRow | null;
+  if (!row) return null;
+  const ids = row.items.map((i) => i.product_id);
+  const byId = new Map((await getProducts(db, ids)).map((p) => [p.id, p]));
+  return {
+    token,
+    name: row.name,
+    kind: asKind(row.kind),
+    market: row.market_id as Market,
+    ownerName: row.owner_name || 'Customer',
+    sharedAt: row.shared_at,
+    mine: row.mine === true,
+    collectionId: row.collection_id,
+    products: ids.flatMap((id) => byId.get(id) ?? []),
+  };
 }

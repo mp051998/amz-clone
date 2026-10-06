@@ -129,6 +129,8 @@ export interface Collection {
    * `later` = "Saved for later" (from the cart), `custom` = shopper-made.
    */
   kind?: 'custom' | 'considering' | 'later';
+  /** set while the list is shared by link (/lists/<token>) */
+  shareToken?: string | null;
 }
 
 export interface CollectionItem {
