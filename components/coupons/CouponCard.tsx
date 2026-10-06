@@ -34,7 +34,7 @@ export function CouponCard({ offer, store, signedIn }: { offer: CouponOffer; sto
           <Price minor={price} currency={cur} listMinor={list} showSavings={false} size={18} />
           <span className="text-[13px] text-ink-2">
             <span aria-hidden className="text-star">★</span> {p.rating.toFixed(1)}
-            <span className="text-ink-3"> · {p.reviewCount.toLocaleString('en-US')} ratings</span>
+            <span className="text-ink-3"> · {p.reviewCount.toLocaleString(store.locale.default)} ratings</span>
           </span>
           {p.stock <= 0 ? <span className="text-[13px] font-semibold text-warn">Currently unavailable</span> : null}
         </div>
@@ -48,6 +48,7 @@ export function CouponCard({ offer, store, signedIn }: { offer: CouponOffer; sto
           market={store.id}
           savingText={formatMoney(couponUnitSavings(price, percentOff), cur)}
           next="/coupons"
+          signinHint={false}
         />
       </div>
     </article>

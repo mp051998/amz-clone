@@ -18,10 +18,12 @@ export interface CouponToggleProps {
   next: string;
   /** compact: one line for cart rows */
   compact?: boolean;
+  /** false where the page already says to sign in (the coupons page) */
+  signinHint?: boolean;
 }
 
 /** "Coupon: ☐ Apply 15% coupon": applies the product's coupon to the cart and checkout. */
-export function CouponToggle({ productId, percentOff, clipped, signedIn, market, savingText, next, compact = false }: CouponToggleProps) {
+export function CouponToggle({ productId, percentOff, clipped, signedIn, market, savingText, next, compact = false, signinHint = true }: CouponToggleProps) {
   const [on, setOn] = useState(clipped);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -69,7 +71,7 @@ export function CouponToggle({ productId, percentOff, clipped, signedIn, market,
       {savingText ? (
         <span className="text-ink-3">{on ? `Saving ${savingText} each at checkout` : `Save ${savingText} each`}</span>
       ) : null}
-      {!signedIn && !compact ? <span className="text-ink-3">Sign in to apply</span> : null}
+      {!signedIn && !compact && signinHint ? <span className="text-ink-3">Sign in to apply</span> : null}
     </div>
   );
 }
