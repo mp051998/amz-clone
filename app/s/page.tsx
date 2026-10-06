@@ -8,6 +8,7 @@ import { Pill } from '@/components/decision/Pill';
 import { SegmentedControl } from '@/components/decision/SegmentedControl';
 import { QuizButton } from '@/components/quiz/QuizDialog';
 import { decodeProfile, PROFILE_COOKIE } from '@/components/quiz/profileCookie';
+import { ContinueRow } from '@/components/home/HomeSections';
 import { ResultCard } from '@/components/results/ResultCard';
 import { savedIdsFor } from '@/components/results/viewerSaved';
 import { MoreFilters } from '@/components/search/MoreFilters';
@@ -18,7 +19,7 @@ import { readDecisionParams } from '@/lib/decision/params';
 import { buildParsedQuery } from '@/lib/decision/query';
 import type { RankSort } from '@/lib/decision/rank';
 import { niceCeiling, rankedSearch } from '@/lib/decision/server';
-import { searchCatalog, variantSummaries } from '@/lib/data/catalog';
+import { listProducts, searchCatalog, variantSummaries } from '@/lib/data/catalog';
 import { spellFix } from '@/lib/data/spell';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -175,6 +176,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
   const page = Math.min(pageCount, Math.max(1, Number(one(sp, 'page')) || 1));
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  // nothing found: something to go on instead of a dead end (not under a budget — these could cost more)
+  const popular = items.length || budgetMinor ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
   const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
@@ -318,7 +321,15 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 ))}
               </ul>
             ) : (
-              empty
+              <>
+                {empty}
+                {popular.length ? (
+                  <section aria-labelledby="popular-h" className="flex flex-col gap-3 pt-2">
+                    <h2 id="popular-h" className="m-0 text-[20px] font-semibold">{category ? `Popular in ${cfg.noun}` : 'Popular right now'}</h2>
+                    <ContinueRow products={popular} store={store} kicker="Popular" />
+                  </section>
+                ) : null}
+              </>
             )}
             {pageCount > 1 ? <Pagination page={page} pageCount={pageCount} hrefFor={(n) => hrefWith({ page: n === 1 ? null : String(n) }, true)} /> : null}
           </section>
