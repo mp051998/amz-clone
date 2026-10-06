@@ -25,6 +25,7 @@ export interface MyData {
   questions: { id: string; productId: string; body: string; createdAt: string }[];
   answers: { id: string; questionId: string; body: string; createdAt: string }[];
   sellerFeedback: SellerFeedback[];
+  supportCases: SupportCaseRecord[];
 }
 
 export interface StoreData {
@@ -45,6 +46,20 @@ export interface ListRecord {
   shared: boolean;
   createdAt: string;
   items: { productId: string; title: string; savedPriceMinor: number; addedAt: string }[];
+}
+
+/** A "Contact us" case and its messages, oldest first (`agent`: someone at the store). */
+export interface SupportCaseRecord {
+  id: string;
+  store: Market;
+  topic: string;
+  subject: string;
+  status: string;
+  orderId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  messages: { from: string; body: string; createdAt: string }[];
 }
 
 export interface ReviewRecord {
@@ -129,7 +144,7 @@ async function storeData(db: Db, market: Market, userId: string): Promise<StoreD
 /** Everything about the signed-in shopper. `user` is the session's user. */
 export async function exportMyData(db: Db, user: { id: string; email: string | null; name?: string }, now = new Date()): Promise<MyData> {
   // admins can read every return, so each query names the shopper rather than leaning on RLS
-  const [profile, plus, US, IN, returns, questions, answers, sellerFeedback] = await Promise.all([
+  const [profile, plus, US, IN, returns, questions, answers, sellerFeedback, cases] = await Promise.all([
     db.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle().then(unwrap),
     plusMembership(db),
     storeData(db, 'US', user.id),
@@ -143,6 +158,12 @@ export async function exportMyData(db: Db, user: { id: string; email: string | n
     db.from('product_questions').select('id, product_id, body, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).then(unwrap),
     db.from('product_answers').select('id, question_id, body, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).then(unwrap),
     myFeedback(db, user.id),
+    db
+      .from('support_cases')
+      .select('id, market_id, topic, subject, status, order_id, created_at, updated_at, closed_at, support_messages(author, body, created_at)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(unwrap),
   ]);
   return {
     exportedAt: now.toISOString(),
@@ -167,5 +188,19 @@ export async function exportMyData(db: Db, user: { id: string; email: string | n
     questions: questions.map((q) => ({ id: q.id, productId: q.product_id, body: q.body, createdAt: q.created_at })),
     answers: answers.map((a) => ({ id: a.id, questionId: a.question_id, body: a.body, createdAt: a.created_at })),
     sellerFeedback,
+    supportCases: cases.map((c) => ({
+      id: c.id,
+      store: c.market_id as Market,
+      topic: c.topic,
+      subject: c.subject,
+      status: c.status,
+      orderId: c.order_id,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      closedAt: c.closed_at,
+      messages: [...c.support_messages]
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((m) => ({ from: m.author, body: m.body, createdAt: m.created_at })),
+    })),
   };
 }

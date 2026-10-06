@@ -19,6 +19,7 @@ const SECTIONS = [
   { path: '/admin/returns', label: 'Returns' },
   { path: '/admin/reviews', label: 'Reviews' },
   { path: '/admin/questions', label: 'Questions' },
+  { path: '/admin/support', label: 'Support' },
 ] as const;
 
 /** Admin page chrome: storefront shell, section tabs, "Admin · <store>" kicker, title, and a store switch. */

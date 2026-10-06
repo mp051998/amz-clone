@@ -354,6 +354,7 @@ export default async function OrderPage({
 
         <div className="flex flex-wrap gap-2.5">
           <a href={sp('/orders')} className={buttonClasses({ variant: 'secondary' })}>View all orders</a>
+          <a href={sp(`/customer-service/contact?order=${encodeURIComponent(order.id)}`)} className={buttonClasses({ variant: 'secondary' })}>Get help with this order</a>
           <a href={sp('/')} className={buttonClasses({ variant: 'secondary' })}>Continue shopping</a>
         </div>
       </div>

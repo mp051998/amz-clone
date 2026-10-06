@@ -135,18 +135,17 @@ export default async function CustomerServicePage() {
           <div className="flex flex-col gap-1.5">
             <h2 className="m-0 text-[22px] font-semibold leading-tight text-ink">Still need help?</h2>
             <p className="m-0 text-[15px] text-ink-2">
-              {isIN ? 'Help around the clock — chat, phone or email, whichever suits you.' : 'Available 24/7 — chat with us or ask for a call back.'}
+              Tell us what’s wrong, about an order or anything else. We reply on your case, and you can follow up there until it’s sorted.
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <button type="button" className={buttonClasses({ variant: 'dark' })}>Start chat</button>
-            <button type="button" className={buttonClasses({ variant: 'secondary' })}>Call us</button>
-            {isIN ? <button type="button" className={buttonClasses({ variant: 'secondary' })}>Email us</button> : null}
+            <a href={sp('/customer-service/contact')} className={buttonClasses({ variant: 'dark' })}>Contact us</a>
+            <a href={sp('/customer-service/cases')} className={buttonClasses({ variant: 'secondary' })}>Your support cases</a>
           </div>
         </section>
 
         <DemoNote>
-          Demo store — the chat, call{isIN ? ' and email' : ''} buttons are for presentation only and don&apos;t contact anyone. See the{' '}
+          Demo store — replies come from the store’s admins, and there’s no phone or chat line. See the{' '}
           <a href={sp('/legal/conditions-of-use')} className="text-ink-2 underline underline-offset-2 hover:text-accent-ink">conditions of use</a>.
         </DemoNote>
       </Page>
