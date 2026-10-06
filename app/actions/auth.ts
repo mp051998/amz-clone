@@ -7,10 +7,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createAccount } from '@/lib/data/account';
 import { DataError } from '@/lib/data/errors';
 import { db } from '@/lib/supabase/server';
-import { clearGuestToken, getMarket, readGuestToken } from '@/lib/session';
+import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import type { Market } from '@/lib/types';
-import { mergeGuestCart } from '@/lib/data/cart';
+import { adoptGuestCart } from '@/lib/guest-cart';
 
 /** `next` is an in-store path; land back in the store the form was posted from. */
 function inStore(market: Market, next: string): string {
@@ -23,19 +23,6 @@ function signinError(market: Market, code: string, next: string, creating: boole
   const qs = new URLSearchParams({ error: code, next });
   if (creating) qs.set('new', '1');
   redirect(`${storePath({ id: market }, '/signin')}?${qs.toString()}`);
-}
-
-/** Fold the guest cart (all stores) into the account that just signed in. */
-async function adoptGuestCart(): Promise<void> {
-  const token = await readGuestToken();
-  if (!token) return;
-  try {
-    await mergeGuestCart(await db(), token);
-  } catch (err) {
-    console.error('[auth] guest cart merge failed', err);
-    return; // keep the cookie so a later sign-in can retry
-  }
-  await clearGuestToken();
 }
 
 export async function signIn(formData: FormData): Promise<void> {
