@@ -31,6 +31,7 @@ function AddressCard({ a, sp }: { a: Address; sp: (p: string) => string }) {
       <div className="flex-1 text-[14px] leading-[1.5] text-ink-2">
         {parts.map((p) => <p key={p} className="m-0">{p}</p>)}
         <p className="m-0 mt-1">Phone {a.phone}{a.kind ? ` · ${a.kind === 'office' ? 'Office' : 'Home'}` : ''}</p>
+        {a.instructions ? <p className="m-0 mt-1 whitespace-pre-line"><span className="font-semibold text-ink">Delivery instructions:</span> {a.instructions}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-3 border-t border-line-2 pt-1">
         <a href={sp(`/account/addresses?edit=${a.id}#form`)} className={textBtn} aria-label={`Edit address for ${a.name}`}>Edit</a>

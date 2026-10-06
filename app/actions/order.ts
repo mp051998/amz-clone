@@ -49,6 +49,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         state: formData.get('state'),
         postcode: formData.get('postcode'),
         addressType: formData.get('addressType'),
+        instructions: formData.get('instructions'),
       },
       gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage') } : undefined,
       speed: formData.get('shipSpeed') === 'fast' ? 'fast' : undefined,

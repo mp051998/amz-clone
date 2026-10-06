@@ -8,7 +8,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/addresses { fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?, makeDefault? }
+ * POST /api/v1/addresses { fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?, instructions?, makeDefault? }
  * Validated per store (US ZIP vs IN PIN, IN requires line2). Max 5 per store.
  */
 export const POST = route(async (ctx) => {

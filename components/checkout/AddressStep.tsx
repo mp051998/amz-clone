@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { Address } from '@/lib/types';
-import { AddressFields } from './AddressFields';
+import { AddressFields, InstructionsField } from './AddressFields';
 import { OptionCard, StepCard } from './StepCard';
 
 export interface AddressStepProps {
@@ -21,7 +21,8 @@ function oneLine(a: Address): string {
 /**
  * Step 1 — Delivery address. Picks from the address book (radio cards) or a new address typed in
  * place. Either way the form posts the same fields submitCheckout reads (fullName, phone, line1, …):
- * a saved address as hidden inputs, a new one through AddressFields.
+ * a saved address as hidden inputs (its delivery instructions stay editable, for this order only),
+ * a new one through AddressFields.
  */
 export function AddressStep({ addresses, isIN, defaultName, manageHref }: AddressStepProps) {
   const initial = addresses.find((a) => a.isDefault) ?? addresses[0];
@@ -50,6 +51,16 @@ export function AddressStep({ addresses, isIN, defaultName, manageHref }: Addres
           <input type="hidden" name="postcode" value={chosen.zip} />
           {chosen.kind ? <input type="hidden" name="addressType" value={chosen.kind} /> : null}
         </>
+      ) : null}
+
+      {chosen ? (
+        <div className={open ? 'hidden' : 'sm:pl-[42px]'}>
+          <InstructionsField
+            key={chosen.id}
+            defaultValue={chosen.instructions}
+            hint="For this order. Change the saved note in your address book."
+          />
+        </div>
       ) : null}
 
       <div id={listId} role="radiogroup" aria-label="Delivery address" className={open ? 'flex flex-col gap-2 sm:pl-[42px]' : 'hidden'}>

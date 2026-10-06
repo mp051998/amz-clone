@@ -153,7 +153,7 @@ Prices and totals are computed by the database on every read.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}, gift?: {message?}, speed?: standard \| fast, buyNow?: {productId, qty = 1}}` | Checks out your cart in this store, or with `buyNow` just that product. See the details after this table. |
+| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?, instructions?}, gift?: {message?}, speed?: standard \| fast, buyNow?: {productId, qty = 1}}` | Checks out your cart in this store, or with `buyNow` just that product. See the details after this table. |
 | GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
 | GET | `/orders/buy-now?productId=&qty=1` | | `{quote: Cart}`: what Buy Now would order, just that product at `qty` (1 up to the store's line limit), priced like a cart holding only it (coupon, delivery, tax). `404 product_not_found` if it isn't in this store. |
 | GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
@@ -171,6 +171,7 @@ How `POST /orders` works:
 - **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
 - **Buy Now:** send `buyNow: {productId, qty}` to order just that product (`qty` 1 up to the store's line limit) instead of the cart. The cart isn't needed and is left as it is, whatever the payment method; `404 product_not_found` if the product isn't in this store. A card order's cancel page returns to that product's checkout.
 - **Gifts:** send `gift: {message?}` (or `gift: true`) to mark the order as a gift. The note is trimmed and can be up to 240 characters (`422 invalid_input` beyond that); a blank one means no note.
+- **Delivery instructions:** `shipping.instructions` (up to 250 characters) goes on the order as `shipTo.instructions`. It's copied like the rest of the address, so editing a saved address later doesn't change orders already placed.
 
 `Order` has these fields:
 - Identity: `id` (`114-…` US / `402-…` IN), `market, currency`
@@ -243,7 +244,9 @@ refunds the card in full.
 ## Addresses 🔒
 
 Five per store. The first address becomes the default. There is always exactly
-one default, and deleting it promotes the next one.
+one default, and deleting it promotes the next one. Any address can carry
+`instructions`, a delivery note of up to 250 characters (`422 invalid_input`
+beyond that), returned on the address.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
@@ -485,6 +488,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | verified after delivery | `private.has_received()`: review `verified` (in `reviews_before_write`) and answer `verified` (in `answer_question()`) need an order containing the product to have been delivered, not just placed; existing marks without one were cleared |
 | buy now | `place_order(p_buy)` orders just one product and leaves the cart alone; `orders.from_cart` keeps `confirm_order_payment()` from taking a Buy Now order's items out of the cart; `buy_now_quote()` prices the line, and `cart_json()` now shares `private.checkout_json()` with it |
 | cart selection | `cart_items.selected`; `cart_select()` ticks one line or all of them; `private.checkout_json()` lists every line but prices the ticked ones (`selected_count`); `place_order()` orders the ticked lines and removes only those from the cart; adding a product ticks it again |
+| delivery instructions | `addresses.instructions` and `orders.ship_instructions` (up to 250 characters); `place_order()` copies `shipping.instructions` onto the order |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

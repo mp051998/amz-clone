@@ -21,6 +21,7 @@ function fields(fd: FormData): addresses.AddressFieldsInput {
     state: fd.get('state'),
     postcode: fd.get('postcode'),
     addressType: fd.get('addressType'),
+    instructions: fd.get('instructions'),
   };
 }
 

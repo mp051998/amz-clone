@@ -147,6 +147,8 @@ export interface ShippingAddress {
   city: string;
   state: string;
   postcode: string;
+  /** the delivery note the shopper gave with this order */
+  instructions?: string;
 }
 
 /** Delivery speed chosen at checkout: standard, or the paid faster option. */
@@ -193,6 +195,8 @@ export interface Address {
   state: string;
   zip: string;
   kind?: 'home' | 'office';
+  /** delivery note for the courier ("Leave it with the front desk") */
+  instructions?: string;
   isDefault?: boolean;
 }
 
