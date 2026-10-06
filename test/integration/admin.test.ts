@@ -14,6 +14,7 @@ import {
 } from '@/lib/data/admin-catalog';
 import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { addItem, createCollection, getCollection } from '@/lib/data/collections';
+import { clipCoupon, couponFor } from '@/lib/data/coupons';
 import { DataError } from '@/lib/data/errors';
 import { getInsight } from '@/lib/data/insights';
 import { placeOrder } from '@/lib/data/orders';
@@ -38,6 +39,7 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   priceMinor: 2599,
   listMinor: 3299,
   deal: true,
+  couponPct: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Lumen Store',
@@ -115,6 +117,25 @@ describe('catalog management', () => {
     expect(await getAdminProduct(boss.db, id)).toMatchObject({ title: 'Renamed lamp', priceMinor: 1999, listMinor: null, deal: false, stock: 0 });
     const move = await boss.db.from('products').update({ market_id: 'IN' } as never).eq('id', id);
     expect(move.error?.code).toBe('42501');
+  });
+
+  it('gives a product a coupon, changes it and takes it away (with shoppers’ clips)', async () => {
+    const id = await createProduct(boss.db, 'US', input({ couponPct: 15 }));
+    created.push(id);
+    expect((await getAdminProduct(boss.db, id))?.couponPct).toBe(15);
+    expect(await couponFor(anon(), id, false)).toEqual({ percentOff: 15, clipped: false });
+    expect(await code(createProduct(boss.db, 'US', input({ couponPct: 60 })))).toBe('invalid_input');
+
+    await clipCoupon(shopper.db, id);
+    await updateProduct(boss.db, id, input({ couponPct: 25 }));
+    // a new percent keeps it applied
+    expect(await couponFor(shopper.db, id, true)).toEqual({ percentOff: 25, clipped: true });
+
+    await updateProduct(boss.db, id, input({ couponPct: null }));
+    expect((await getAdminProduct(boss.db, id))?.couponPct).toBeNull();
+    expect(await couponFor(shopper.db, id, true)).toBeNull();
+    const clips = await admin().from('coupon_clips').select('user_id').eq('product_id', id);
+    expect(clips.data).toEqual([]);
   });
 
   it('saves the description and spec table, which shoppers read and cannot change', async () => {

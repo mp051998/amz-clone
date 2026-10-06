@@ -20,6 +20,8 @@ export interface ProductFormValues {
   price: string;
   listPrice: string;
   deal: boolean;
+  /** coupon percent, blank for none. */
+  coupon: string;
   badge: string;
   boughtPastMonth: string;
   seller: string;
@@ -146,6 +148,16 @@ export function ProductForm({
               <Input label={`List price (${currencySymbol})`} name="listPrice" inputMode="decimal" defaultValue={val('listPrice')} error={e.listMinor} hint="Optional “was” price" />
               <Input label="Stock" name="stock" inputMode="numeric" required defaultValue={val('stock')} error={e.stock} />
             </div>
+            <Input
+              label="Coupon (% off)"
+              name="coupon"
+              inputMode="numeric"
+              defaultValue={val('coupon')}
+              error={e.couponPct}
+              placeholder="15"
+              hint="Optional, 5 to 50. Shoppers apply it on the product page; removing it takes it off their carts."
+              className="sm:max-w-[240px]"
+            />
             <div className="flex flex-col gap-1">
               <Checkbox label="Show on Today’s Deals" name="deal" defaultChecked={v ? v.deal === 'on' : initial.deal} />
               {e.deal ? <span className="text-[13px] text-bad">⚠ {e.deal}</span> : <span className="text-[13px] text-ink-3">The discount is worked out from the list price.</span>}

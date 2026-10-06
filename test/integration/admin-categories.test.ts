@@ -37,6 +37,7 @@ const product = (category: string): ProductInput => ({
   priceMinor: 1500,
   listMinor: null,
   deal: false,
+  couponPct: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Test Seller',

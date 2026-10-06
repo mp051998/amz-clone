@@ -48,6 +48,8 @@ export interface ProductInput {
   listMinor: number | null;
   /** list it on Today's Deals (needs a list price). */
   deal: boolean;
+  /** percent off with the product's coupon (5–50), or null for no coupon. */
+  couponPct: number | null;
   badge: string | null;
   boughtPastMonth: string | null;
   seller: string;
@@ -69,6 +71,9 @@ export interface ProductInput {
 }
 
 export const GALLERY_MAX = 8;
+/** A coupon's range (coupons_percent_off_check). */
+export const COUPON_MIN = 5;
+export const COUPON_MAX = 50;
 /** Option names the form suggests; any short name works. */
 export const VARIANT_AXES = ['Color', 'Size', 'Style', 'Capacity', 'Configuration', 'Pattern', 'Pack size'];
 
@@ -92,6 +97,13 @@ const ProductInputSchema = z
     priceMinor: z.number().int('Enter a price').positive('Price must be more than 0').max(100_000_000, 'That price is too high'),
     listMinor: z.number().int().positive().max(100_000_000).nullable(),
     deal: z.boolean(),
+    couponPct: z
+      .number()
+      .int('Enter a whole percent')
+      .min(COUPON_MIN, `Coupons are ${COUPON_MIN}% to ${COUPON_MAX}% off`)
+      .max(COUPON_MAX, `Coupons are ${COUPON_MIN}% to ${COUPON_MAX}% off`)
+      .nullable()
+      .default(null),
     badge: optional(40),
     boughtPastMonth: optional(40),
     seller: required('the seller', 120),
@@ -312,7 +324,11 @@ export interface AdminProduct extends ProductInput {
 }
 
 export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct | null> {
-  const r = unwrap(await db.from('products').select('*').eq('id', id).maybeSingle());
+  const [r, coupon] = await Promise.all([
+    db.from('products').select('*').eq('id', id).maybeSingle().then(unwrap),
+    // before the coupons migration there are none
+    db.from('coupons').select('percent_off').eq('product_id', id).maybeSingle(),
+  ]);
   if (!r) return null;
   return {
     id: r.id,
@@ -324,6 +340,7 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     priceMinor: r.price_minor,
     listMinor: r.list_minor,
     deal: r.deal,
+    couponPct: coupon.error ? null : coupon.data?.percent_off ?? null,
     badge: r.badge,
     boughtPastMonth: r.bought_past_month,
     seller: r.seller,
@@ -366,6 +383,7 @@ export async function createProduct(db: Db, market: Market, input: unknown): Pro
     .select('id')
     .single();
   if (res.error) throw writeError(res.error);
+  await setCoupon(db, res.data.id, p.couponPct);
   await refreshInsight(db, res.data.id, true);
   return res.data.id;
 }
@@ -382,9 +400,18 @@ export async function updateProduct(db: Db, id: string, input: unknown): Promise
   const updated = await db.from('products').update(toRow(p)).eq('id', id).select('id').maybeSingle();
   if (updated.error) throw writeError(updated.error);
   if (!updated.data) throw new DataError('product_not_found');
+  await setCoupon(db, id, p.couponPct);
   const moved = before.category_slug !== p.category;
   const reworded = before.title !== p.title || before.brand !== p.brand || before.bullets.join('\n') !== p.bullets.join('\n');
   if (moved || reworded) await refreshInsight(db, id, moved);
+}
+
+/** Give a product its coupon, change its percent, or (null) take it away. Shoppers' clips go with it. */
+async function setCoupon(db: Db, productId: string, pct: number | null): Promise<void> {
+  const res = pct == null
+    ? await db.from('coupons').delete().eq('product_id', productId)
+    : await db.from('coupons').upsert({ product_id: productId, percent_off: pct }, { onConflict: 'product_id' });
+  if (res.error) throw fromPostgrest(res.error);
 }
 
 /**

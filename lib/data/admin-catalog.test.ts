@@ -9,6 +9,7 @@ const good: ProductInput = {
   priceMinor: 4999,
   listMinor: 6999,
   deal: true,
+  couponPct: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Acme Store',
@@ -42,6 +43,16 @@ describe('validateProduct', () => {
     expect(!low.ok && low.errors.listMinor).toBe('The list price must be higher than the price');
     const deal = validateProduct({ ...good, listMinor: null, deal: true });
     expect(!deal.ok && deal.errors.deal).toBe('Add a list price to show it as a deal');
+  });
+
+  it('takes a whole-percent coupon from 5 to 50, and none by default', () => {
+    expect(validateProduct({ ...good, couponPct: 15 })).toMatchObject({ ok: true, data: { couponPct: 15 } });
+    for (const bad of [4, 51, 12.5]) {
+      const res = validateProduct({ ...good, couponPct: bad });
+      expect(!res.ok && res.errors.couponPct).toBeTruthy();
+    }
+    const { couponPct: _, ...noCoupon } = good;
+    expect(validateProduct(noCoupon)).toMatchObject({ ok: true, data: { couponPct: null } });
   });
 
   it('takes site paths and https URLs only', () => {

@@ -281,10 +281,11 @@ Catalog and order management for store admins. You must be signed in **and** lis
 | PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
 | DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 
-`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, couponPct?, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
 - `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
 - `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.
+- `couponPct`: the product's coupon, a whole percent from 5 to 50; null or left out on create: none. Changing it keeps shoppers' coupons applied at the new percent; null removes the coupon and takes it off their carts.
 - `bullets`: up to 10, each up to 300 characters.
 - `description`: the product page's "Product description", up to 2,000 characters (blank or left out: none).
 - `details`: the "Product information" table, up to 20 `[label, value]` rows (labels up to 40 characters, values up to 200). Left out on create: empty. The admin form edits it as one `Label: value` per line.
