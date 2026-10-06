@@ -35,7 +35,8 @@ const PER_PAGE = 12;
 
 const SORT_OPTIONS: { value: RankSort; label: string }[] = [
   { value: 'match', label: 'Best match' },
-  { value: 'price-asc', label: 'Price' },
+  { value: 'price-asc', label: 'Lowest price' },
+  { value: 'price-desc', label: 'Highest price' },
   { value: 'rating', label: 'Rating' },
 ];
 
@@ -293,8 +294,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <span className="text-[14px] text-ink-2">{RANK_NOTE[sort]}</span>
               <SegmentedControl
                 ariaLabel="Sort results"
-                value={sort === 'price-desc' ? 'price-asc' : sort}
+                value={sort}
                 options={SORT_OPTIONS.map((o) => ({ ...o, href: hrefWith({ sort: o.value === 'match' ? null : o.value }) }))}
+                className="no-scrollbar max-w-full overflow-x-auto whitespace-nowrap"
               />
             </div>
             {items.length ? (
