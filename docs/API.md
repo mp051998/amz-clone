@@ -109,6 +109,19 @@ Postgres as that user, so RLS decides what each caller can see.
 - Viewer state: `mine, votedHelpful, reported`
 - `hidden: true` only on your own review while it's hidden (by reports or an admin). Hidden reviews are left out of `items` and `total` for everyone else, and out of the star rating.
 
+## Questions & answers
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/products/:id/questions?q=&limit=10&offset=0` | | `{items: Question[], total}`: most answered first, then newest, each with all its answers (most helpful first, then oldest). `q` (up to 100 characters, matched literally, any case) keeps questions whose text, or one of whose answers, contains it. |
+| POST 🔒 | `/products/:id/questions` | `{body}` | `201 {question}`. 10–300 characters (`422 invalid_input`, `detail: "body"`). Asking the same question twice is `409 duplicate`; an archived product is `409 product_unavailable`. |
+| DELETE 🔒 | `/questions/:id` | | `204`. Deletes your question and its answers (an admin can delete any); `404 question_not_found` otherwise. |
+| POST 🔒 | `/questions/:id/answers` | `{body}` | `201 {answer}`. 2–1000 characters, one answer per shopper per question (`409 duplicate`, `detail: "answer"`). The DB sets `author` and `verified` (true when you have a placed order containing the product). |
+| DELETE 🔒 | `/answers/:id` | | `204`. Your own answer (an admin, any); `404 answer_not_found` otherwise. |
+| POST 🔒 | `/answers/:id/helpful` | | Toggle. Returns `{answerId, helpful, helpfulCount}`. Returns `409 own_answer` on your own answer. |
+
+`Question` is `{id, productId, body, author, createdAt, answerCount, mine, answers: Answer[]}`; `Answer` is `{id, questionId, body, author, createdAt, verified, helpful, mine, votedHelpful}`. `author` is the shopper's profile name. A product taken off sale keeps its questions.
+
 ## Cart
 
 Every cart response is `{cart}`, where `Cart` has these fields:
@@ -362,9 +375,9 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `question_not_found`, `answer_not_found`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
+| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
@@ -398,7 +411,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-four migrations live in `supabase/migrations/`:
+Twenty-five migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -426,6 +439,7 @@ Twenty-four migrations live in `supabase/migrations/`:
 | Plus membership | `plus_members` (owner read only); `join_plus()` and `leave_plus()`; `order_totals()` (now security definer) and `place_order()` make standard and faster delivery free for members |
 | gift card balance | `markets.demo_gift_card_minor`; `gift_cards`, `store_balances` and `balance_entries` (owner read only); `claim_demo_gift_card()` and `redeem_gift_card()`; triggers that take a balance order's total when it's placed (`insufficient_balance`) and credit its refunds back, only for orders that were charged |
 | coupons | `coupons` (one per product, 5–50% off; everyone reads, admins write) and `coupon_clips` (owner read only); `clip_coupon()` and `unclip_coupon()`; `orders.discount_minor` and `order_items.unit_discount_minor`, with `orders_total_adds_up` taking the discount off; `cart_json()`, `place_order()` and `request_return()` price applied coupons per unit |
+| product Q&A | `product_questions` and `product_answers` (everyone reads) and `answer_votes` (owner read only); `ask_question()`, `answer_question()`, `delete_question()`, `delete_answer()` and `toggle_answer_helpful()` set the author, the verified mark and the counters |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

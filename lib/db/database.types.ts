@@ -371,6 +371,45 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
+                },"answer_votes": {
+                  Row: {
+                    "answer_id": string,"created_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "answer_id": string,"created_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "answer_id"?: string,"created_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"product_answers": {
+                  Row: {
+                    "author_name": string,"body": string,"created_at": string,"helpful_count": number,"id": string,"question_id": string,"user_id": string | null,"verified": boolean
+                  }
+                  Insert: {
+                    "author_name": string,"body": string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"question_id": string,"user_id"?: string | null,"verified"?: boolean
+                  }
+                  Update: {
+                    "author_name"?: string,"body"?: string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"question_id"?: string,"user_id"?: string | null,"verified"?: boolean
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"product_questions": {
+                  Row: {
+                    "answer_count": number,"author_name": string,"body": string,"created_at": string,"id": string,"product_id": string,"user_id": string | null
+                  }
+                  Insert: {
+                    "answer_count"?: number,"author_name": string,"body": string,"created_at"?: string,"id"?: string,"product_id": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "answer_count"?: number,"author_name"?: string,"body"?: string,"created_at"?: string,"id"?: string,"product_id"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"products": {
                   Row: {
                     "archived_at": string | null,"badge": string | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[],"category_slug": string,"created_at": string,"deal": boolean,"deal_pct": number | null,"description": string | null,"details": Json,"gallery": (string)[],"id": string,"image": string,"list_minor": number | null,"market_id": string,"position": number,"price_minor": number,"search_doc": unknown,"seller": string,"ships_from": string,"stock": number,"title": string,"updated_at": string,"variant_axis": string | null,"variant_group": string | null,"variant_label": string | null
@@ -731,6 +770,21 @@ isOneToOne: false
                            },
 "toggle_review_helpful":
 { Args: { "p_review_id": string }; Returns: Json
+                           },
+"ask_question":
+{ Args: { "p_product": string,"p_body": string }; Returns: Json
+                           },
+"answer_question":
+{ Args: { "p_question": string,"p_body": string }; Returns: Json
+                           },
+"delete_question":
+{ Args: { "p_question": string }; Returns: undefined
+                           },
+"delete_answer":
+{ Args: { "p_answer": string }; Returns: undefined
+                           },
+"toggle_answer_helpful":
+{ Args: { "p_answer": string }; Returns: Json
                            }
           }
           Enums: {

@@ -17,6 +17,7 @@ import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
 import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
+import { QuestionsPanel } from '@/components/product/QuestionsPanel';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
@@ -48,6 +49,7 @@ import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
 import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
+import { listQuestions, type QuestionPage } from '@/lib/data/questions';
 import type { Product } from '@/lib/types';
 
 type SP = Record<string, string | string[] | undefined>;
@@ -132,7 +134,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus, coupon] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus, coupon, questions] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -144,6 +146,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve(null) : bestsellerRank(client, p).catch(() => null),
     user ? plusMembership(client) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : couponFor(client, p.id, user != null),
+    listQuestions(client, p.id, user?.id ?? null, { limit: 10 }).catch((): QuestionPage => ({ items: [], total: 0 })),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -377,6 +380,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           timeZone={store.dates.timeZone}
           insight={insight ? { summary: insight.summary, praised: insight.praised, criticized: insight.criticized, source: insight.source } : null}
           aiPending={aiPending}
+        />
+
+        <QuestionsPanel
+          productId={p.id}
+          initial={questions}
+          signedIn={Boolean(user)}
+          signinHref={storePath(store, `/signin?next=${encodeURIComponent(`${here}#questions`)}`)}
+          canAsk={!p.archived}
+          locale={store.locale.default}
+          timeZone={store.dates.timeZone}
         />
 
         {altCards.length ? (
