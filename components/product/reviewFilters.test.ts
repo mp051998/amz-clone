@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Review } from '@/lib/types';
-import { applyFilters, buildFilters, chipCount, reviewThemes, themeWords } from './reviewFilters';
+import { activeStar, applyFilters, buildFilters, chipCount, reviewThemes, themeWords } from './reviewFilters';
 
 const r = (id: string, rating: number, body: string, verified = true): Review => ({
   id, author: 'A', initial: 'A', rating, title: '', body, createdAt: '2026-09-01T00:00:00Z',
@@ -31,6 +31,17 @@ describe('review filters', () => {
     expect(applyFilters(reviews, f, ['critical', 'verified']).map((x) => x.id)).toEqual(['4']);
     expect(chipCount(reviews, f, ['positive'], 'theme:battery life')).toBe(2);
     expect(chipCount(reviews, f, ['critical'], 'verified')).toBe(1);
+  });
+
+  it('adds the star picked in the histogram as the first chip, ANDed with the rest', () => {
+    expect(activeStar(['verified', 'star:2'])).toBe(2);
+    expect(activeStar(['star:9', 'positive'])).toBeNull();
+    const f = buildFilters(reviews, [], 2);
+    expect(f.map((x) => x.id)).toEqual(['star:2', 'positive', 'critical', 'verified']);
+    expect(f[0].label).toBe('2 star');
+    expect(applyFilters(reviews, f, ['star:2']).map((x) => x.id)).toEqual(['2']);
+    expect(applyFilters(reviews, f, ['star:2', 'verified'])).toEqual([]);
+    expect(chipCount(reviews, f, ['star:2'], 'verified')).toBe(0);
   });
 
   it('tags reviews with the themes they mention', () => {

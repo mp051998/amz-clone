@@ -43,8 +43,19 @@ export const BASE_FILTERS: ReviewFilter[] = [
   { id: 'verified', label: 'Verified purchase', test: (r) => r.verified },
 ];
 
-/** Fixed filters + one chip per theme that at least one loaded review mentions. */
-export function buildFilters(reviews: Review[], themes: string[]): ReviewFilter[] {
+/** "5 star": picked from the rating histogram, shown as a chip only while it is on. */
+export function starFilter(star: number): ReviewFilter {
+  return { id: `star:${star}`, label: `${star} star`, test: (r) => r.rating === star };
+}
+
+/** The star picked in the histogram, if any (`star:4` → 4). */
+export function activeStar(active: string[]): number | null {
+  const id = active.find((a) => /^star:[1-5]$/.test(a));
+  return id ? Number(id.slice(5)) : null;
+}
+
+/** Fixed filters + one chip per theme that at least one loaded review mentions (+ the picked star first). */
+export function buildFilters(reviews: Review[], themes: string[], star: number | null = null): ReviewFilter[] {
   const seen = new Set<string>();
   const themed: ReviewFilter[] = [];
   for (const t of themes) {
@@ -55,7 +66,7 @@ export function buildFilters(reviews: Review[], themes: string[]): ReviewFilter[
     const f: ReviewFilter = { id: `theme:${key}`, label: `Mentions ${key}`, test: (r) => mentions(r, words) };
     if (reviews.some(f.test)) themed.push(f);
   }
-  return [...BASE_FILTERS, ...themed.slice(0, 4)];
+  return [...(star ? [starFilter(star)] : []), ...BASE_FILTERS, ...themed.slice(0, 4)];
 }
 
 /** Reviews passing every active filter. */

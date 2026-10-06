@@ -9,7 +9,7 @@ import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
 import { fieldClass } from '../lib/controls';
 import { cn } from '../lib/cn';
-import { applyFilters, buildFilters, chipCount, reviewThemes } from './reviewFilters';
+import { activeStar, applyFilters, buildFilters, chipCount, reviewThemes } from './reviewFilters';
 
 export interface ThemeCount { theme: string; count: number }
 
@@ -110,11 +110,14 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
   const recommendPct = summary.count ? Math.round((recommend / summary.count) * 100) : 0;
 
   const themes = useMemo(() => [...new Set([...(insight?.praised ?? []), ...(insight?.criticized ?? [])].map((t) => t.theme))], [insight]);
-  const filters = useMemo(() => buildFilters(items, themes), [items, themes]);
+  const star = activeStar(active);
+  const filters = useMemo(() => buildFilters(items, themes, star), [items, themes, star]);
   const shown = useMemo(() => applyFilters(items, filters, active), [items, filters, active]);
 
   const toggle = (id: string) => setActive((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
   const focusFilter = (id: string) => { setActive([id]); scrollToId('reviews'); };
+  // a histogram row shows just that star's reviews; picking it again shows them all
+  const pickStar = (n: number) => (star === n ? setActive((a) => a.filter((x) => x !== `star:${n}`)) : focusFilter(`star:${n}`));
 
   const patch = (id: string, change: Partial<Review>) => setItems((list) => list.map((r) => (r.id === id ? { ...r, ...change } : r)));
 
@@ -187,13 +190,24 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
             {summary.count ? <strong className="text-[16px] font-semibold">{recommendPct}% rate it 4★ or higher</strong> : null}
             <ul className="m-0 mt-1 flex list-none flex-col gap-1.5 p-0" aria-label="Rating distribution">
               {summary.bars.map((b) => (
-                <li key={b.star} className="flex items-center gap-2 text-[13px]">
-                  <span className="w-[22px] tabular-nums">{b.star}★</span>
-                  <span aria-hidden className="h-2 flex-1 overflow-hidden rounded-tag bg-surface-4">
-                    <span className="block h-full bg-ink" style={{ width: `${b.pct}%` }} />
-                  </span>
-                  <span className="w-[38px] text-right text-ink-2 tabular-nums">{b.pct}%</span>
-                  <span className="sr-only">{`${b.star} stars: ${b.pct}%`}</span>
+                <li key={b.star}>
+                  <button
+                    type="button"
+                    disabled={!b.count}
+                    aria-pressed={star === b.star}
+                    aria-label={`${b.star} ${b.star === 1 ? 'star' : 'stars'}: ${b.pct}% · show these reviews`}
+                    onClick={() => pickStar(b.star)}
+                    className={cn(
+                      'flex min-h-6 w-full items-center gap-2 rounded-tag text-left text-[13px] text-ink disabled:cursor-default enabled:hover:underline',
+                      star === b.star && 'font-semibold underline',
+                    )}
+                  >
+                    <span className="w-[22px] tabular-nums">{b.star}★</span>
+                    <span aria-hidden className={cn('h-2 flex-1 overflow-hidden rounded-tag bg-surface-4', star === b.star && 'outline outline-1 outline-offset-1 outline-ink')}>
+                      <span className="block h-full bg-ink" style={{ width: `${b.pct}%` }} />
+                    </span>
+                    <span className="w-[38px] text-right text-ink-2 tabular-nums">{b.pct}%</span>
+                  </button>
                 </li>
               ))}
             </ul>
