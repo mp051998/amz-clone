@@ -40,6 +40,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { siteOrigin } from '@/lib/origin';
 import { zoomImage } from '@/lib/product-images';
 import { recentProducts } from '@/lib/recent-products';
+import { bestsellerRank } from '@/lib/bestseller-rank';
 import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
@@ -127,7 +128,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -136,6 +137,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     boughtTogether(p, 2, client).catch(() => []),
     readDeliverTo(store.id),
     recentProducts(client, store.id, { exclude: [p.id] }),
+    p.archived ? Promise.resolve(null) : bestsellerRank(client, p).catch(() => null),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -193,17 +195,21 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     match: tuned ? a.match : undefined,
   }));
 
+  const bestsellersHref = storePath(store, `/bestsellers?c=${encodeURIComponent(p.category)}`);
   const scores = scoresFor(p, insight);
   // the info table leads with its own Brand / Author row; the General group repeats it only without one
   const namesMaker = info.details.some(([k]) => /^(brand|author|manufacturer)$/i.test(k));
+  // with the open group, like Amazon's product details
+  const rankRow = rank ? [{ k: 'Best Sellers Rank', v: <a href={bestsellersHref} className="text-ink underline underline-offset-2">#{num(rank)} in {p.categoryName}</a> }] : [];
   const specs: SpecGroup[] = [
-    { name: 'Product information', open: true, rows: info.details.map(([k, v]) => ({ k, v })) },
+    { name: 'Product information', open: true, rows: [...info.details.map(([k, v]) => ({ k, v })), ...(info.details.length ? rankRow : [])] },
     {
       name: 'General',
       open: !info.details.length,
       rows: [
         ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
+        ...(info.details.length ? [] : rankRow),
         { k: 'Sold by', v: p.seller },
         { k: 'Ships from', v: p.shipsFrom },
         { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
@@ -259,6 +265,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     <span className="text-[13px] text-ink-3">{tuned ? 'for your priorities' : `for typical ${cfg.noun} priorities`}</span>
                   </div>
                 )}
+                {rank === 1 ? (
+                  <a href={bestsellersHref} className="inline-flex items-center gap-1.5 self-start text-[13px] text-ink-2 no-underline hover:text-ink">
+                    <span className="rounded-tag bg-ink px-1.5 py-0.5 text-[12px] font-bold text-on-ink">#1 Best Seller</span>{' '}
+                    <span>in <span className="underline underline-offset-2">{p.categoryName}</span></span>
+                  </a>
+                ) : null}
                 {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
               </div>
 
