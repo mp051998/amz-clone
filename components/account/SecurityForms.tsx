@@ -3,7 +3,7 @@ import { useActionState, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { AccountFormState } from '@/app/actions/account';
 import { Alert } from '../primitives/Alert';
-import { Button } from '../primitives/Button';
+import { Button, buttonClasses } from '../primitives/Button';
 import { Checkbox } from '../primitives/Checkbox';
 import { Input } from '../primitives/Input';
 
@@ -110,6 +110,21 @@ export function PasswordForm({ action, recovering }: { action: Action; recoverin
         />
         <Save>{recovering ? 'Set password' : 'Change password'}</Save>
       </form>
+    </Card>
+  );
+}
+
+/** "Request your data": one JSON file with everything the store keeps about the shopper. */
+export function DownloadDataCard({ href }: { href: string }) {
+  return (
+    <Card id="data" title="Download your data" current="A copy of what we keep about you, from both stores." state={{}}>
+      <p className="m-0 text-[14px] leading-[1.5] text-ink-2">
+        One file (JSON) with your profile, orders, returns, addresses, lists, reviews, questions and answers, gift card balance and
+        Plus membership. It’s made when you ask for it, so it’s always up to date.
+      </p>
+      <a href={href} download className={`${buttonClasses({ variant: 'secondary' })} self-start`}>
+        Download your data
+      </a>
     </Card>
   );
 }

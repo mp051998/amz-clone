@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { AccountFormState } from '@/app/actions/account';
-import { CloseAccountForm } from './SecurityForms';
+import { CloseAccountForm, DownloadDataCard } from './SecurityForms';
 
 afterEach(cleanup);
 
@@ -43,4 +43,12 @@ it('shows what the server said', async () => {
   });
   await waitFor(() => expect(screen.getByText('That isn’t your current password.')).toBeInTheDocument());
   expect(action.mock.calls[0][1].get('confirm')).toBe('yes');
+});
+
+it('offers the data file as a download', () => {
+  render(<DownloadDataCard href="/in/account/data" />);
+  expect(screen.getByRole('heading', { name: 'Download your data' })).toBeInTheDocument();
+  const link = screen.getByRole('link', { name: 'Download your data' });
+  expect(link).toHaveAttribute('href', '/in/account/data');
+  expect(link).toHaveAttribute('download');
 });

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Alert } from '@/components/primitives/Alert';
-import { CloseAccountForm, EmailForm, NameForm, PasswordForm } from '@/components/account/SecurityForms';
+import { CloseAccountForm, DownloadDataCard, EmailForm, NameForm, PasswordForm } from '@/components/account/SecurityForms';
 import { readUser } from '@/lib/auth';
 import { closureCheck, closureMessage, isRecovery, listPhrase } from '@/lib/data/account';
 import { db } from '@/lib/supabase/server';
@@ -41,6 +41,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
         <NameForm action={updateName} name={user.name} />
         <EmailForm action={updateEmail} email={user.email} />
         {recovering ? null : password}
+        <DownloadDataCard href={sp('/account/data')} />
         {closure ? (
           <CloseAccountForm action={closeMyAccount} blocked={closureMessage(closure)} losing={losing} ordersHref={sp('/orders')} />
         ) : null}

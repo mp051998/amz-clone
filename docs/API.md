@@ -56,6 +56,7 @@ Some products have a coupon, a percent off (5–50%). A signed-in shopper applie
 | GET 🔒 | `/me` | | `{user: {id, email, name, createdAt, plus: {since} \| null}}` |
 | PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
 | DELETE 🔒 | `/me` | `{currentPassword}` | `204`. Closes the account for good; its tokens stop working. `409 account_not_closable` while an order is on the way, a return or refund is open, or a checkout is unpaid (cancel unpaid orders first). The profile, addresses, cart, lists, history, coupons, Plus and gift card balance go with it; orders, returns and gift card purchases stay on the store's books without the link to the account |
+| GET 🔒 | `/me/data` | | `{data}`: everything the store keeps about the caller, both stores — `account`, `plus`, `stores.{US,IN}` (`currency`, `orders`, `addresses`, `lists`, `reviews`, `giftCardBalanceMinor`, `balanceHistory`), `returns`, `questions`, `answers`. The web app serves the same file at `/account/data` |
 | GET 🔒 | `/me/plus` | | `{plus: {since} \| null}` |
 | POST 🔒 | `/me/plus` | | `{plus: {since}}`. Joins Plus: a demo membership, never billed. Joining again keeps the first `since` |
 | DELETE 🔒 | `/me/plus` | | `204`. Ends the membership; orders already placed keep their delivery charge |
