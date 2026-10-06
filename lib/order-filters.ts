@@ -1,17 +1,23 @@
 /**
  * Your Orders: search every order, or narrow to a period (last 30 days, past 3 months, a year,
  * everything), ten to a page. Archived orders leave the periods for an "Archived" view of their
- * own, as on Amazon; a search still finds them. A shopper has few enough orders that this runs
- * over their list.
+ * own, as on Amazon; a search still finds them. The "Not yet shipped" and "Cancelled orders" tabs
+ * list every such order whatever its date (archived ones aside). A shopper has few enough orders
+ * that this runs over their list.
  */
+import { orderStage } from './decision/tracking';
 import type { Order } from './types';
 
 export type OrderPeriod = 'last30' | 'months3' | 'all' | 'archived' | `y${number}`;
 
+/** The tab: every order (by period), or those not shipped yet, or the cancelled ones. */
+export type OrderView = 'all' | 'not-shipped' | 'cancelled';
+
 export interface OrderFilter {
-  /** words to find in an order (searches every order, archived too, whatever the period) */
+  /** words to find in an order (searches every order, archived too, whatever the period or tab) */
   q: string;
   period: OrderPeriod;
+  view: OrderView;
   page: number;
 }
 
@@ -26,12 +32,16 @@ function isPeriod(v: string | undefined): v is OrderPeriod {
   return v === 'last30' || v === 'months3' || v === 'all' || v === 'archived' || (!!v && /^y\d{4}$/.test(v));
 }
 
+const isView = (v: string | undefined): v is OrderView => v === 'all' || v === 'not-shipped' || v === 'cancelled';
+
 export function readOrderFilter(sp: SP): OrderFilter {
   const period = one(sp.period);
+  const view = one(sp.view);
   const page = Number.parseInt(one(sp.page) ?? '', 10);
   return {
     q: (one(sp.q) ?? '').trim().slice(0, Q_MAX),
     period: isPeriod(period) ? period : DEFAULT_PERIOD,
+    view: isView(view) ? view : 'all',
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
 }
@@ -68,6 +78,13 @@ function inPeriod(o: Order, period: OrderPeriod, now: Date): boolean {
   return at.getUTCFullYear() === Number(period.slice(1));
 }
 
+/** In a tab: an unpaid checkout or a placed order still being prepared; or a cancelled one. */
+function inView(o: Order, view: Exclude<OrderView, 'all'>, now: Date, timeZone: string): boolean {
+  if (o.archivedAt) return false;
+  if (view === 'cancelled') return o.status === 'cancelled';
+  return o.status === 'awaiting_payment' || (o.status === 'placed' && orderStage(o, now, timeZone) === 'preparing');
+}
+
 /** Every word appears in the order: its number, an item, a seller or who it went to. */
 function matches(o: Order, words: string[]): boolean {
   const text = [o.id, o.shipTo.name, ...o.items.flatMap((it) => [it.title, it.seller])].join(' ').toLowerCase();
@@ -82,9 +99,15 @@ export interface OrderPage {
   pageCount: number;
 }
 
-export function filterOrders(orders: readonly Order[], filter: OrderFilter, now: Date): OrderPage {
+/** `timeZone`: the store's, which places an order's delivery steps (for "Not yet shipped"). */
+export function filterOrders(orders: readonly Order[], filter: OrderFilter, now: Date, timeZone = 'UTC'): OrderPage {
   const words = filter.q.toLowerCase().split(/\s+/).filter(Boolean);
-  const found = words.length ? orders.filter((o) => matches(o, words)) : orders.filter((o) => inPeriod(o, filter.period, now));
+  const { view } = filter;
+  const found = words.length
+    ? orders.filter((o) => matches(o, words))
+    : view !== 'all'
+      ? orders.filter((o) => inView(o, view, now, timeZone))
+      : orders.filter((o) => inPeriod(o, filter.period, now));
   const pageCount = Math.max(1, Math.ceil(found.length / ORDERS_PER_PAGE));
   const page = Math.min(filter.page, pageCount);
   return { items: found.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE), total: found.length, page, pageCount };
@@ -98,8 +121,11 @@ export function periodPhrase(period: OrderPeriod): string {
   return `placed in ${period.slice(1)}`;
 }
 
-/** "2 orders placed in the past 3 months", "1 order matching “mug”" */
+/** "2 orders placed in the past 3 months", "1 order matching “mug”", "3 cancelled orders" */
 export function orderSummary(total: number, filter: OrderFilter): string {
-  const n = `${total} ${total === 1 ? 'order' : 'orders'}`;
-  return filter.q ? `${n} matching “${filter.q}”` : `${n} ${periodPhrase(filter.period)}`;
+  const orders = total === 1 ? 'order' : 'orders';
+  if (filter.q) return `${total} ${orders} matching “${filter.q}”`;
+  if (filter.view === 'not-shipped') return `${total} ${orders} not yet shipped`;
+  if (filter.view === 'cancelled') return `${total} cancelled ${orders}`;
+  return `${total} ${orders} ${periodPhrase(filter.period)}`;
 }

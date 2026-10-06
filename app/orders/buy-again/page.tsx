@@ -34,7 +34,7 @@ export default async function BuyAgainPage() {
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Buy again</h1>
           <span className="text-[15px] text-ink-2">What you&rsquo;ve bought in this store, at today&rsquo;s prices.</span>
         </div>
-        <OrdersTabs current="buy-again" ordersHref={sp('/orders')} buyAgainHref={sp('/orders/buy-again')} />
+        <OrdersTabs current="buy-again" href={sp} />
 
         {items.length === 0 ? (
           <EmptyState title="Nothing to buy again yet" action={<a href={sp('/')} className={buttonClasses({ variant: 'dark' })}>Start shopping</a>}>
