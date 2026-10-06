@@ -152,6 +152,7 @@ export default async function OrderPage({
           rows={[
             { label: 'Items', value: order.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ') },
             { label: 'Deliver to', value: addressLine(order) },
+            ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
             { label: 'Paid with', value: paidWithText(order) },
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },

@@ -6,17 +6,19 @@ import { EmptyState } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { AddressStep } from '@/components/checkout/AddressStep';
+import { DeliverySpeed } from '@/components/checkout/DeliverySpeed';
 import { GiftOption } from '@/components/checkout/GiftOption';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StepCard } from '@/components/checkout/StepCard';
-import { arrivingText, cartEta } from '@/components/orders/format';
+import { arrivingText, lcFirst, longDate, relativeDayName, timeOfDay } from '@/components/orders/format';
 import { submitCheckout } from '@/app/actions/order';
 import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
-import { GIFT_NOTE_MAX } from '@/lib/data/orders';
+import { fastShipFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
+import { deliveryOptions } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
 import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -40,7 +42,8 @@ export default async function CheckoutPage({
   // merged into the account on sign-in.
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/checkout'));
-  const [cart, addresses] = await Promise.all([viewerCart(), listAddresses(await db(), store.id)]);
+  const client = await db();
+  const [cart, addresses, fastFee] = await Promise.all([viewerCart(), listAddresses(client, store.id), fastShipFee(client, store.id)]);
   const { lines, count, totals } = cart;
   const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
 
@@ -69,7 +72,21 @@ export default async function CheckoutPage({
   const blocked = lines.some((l) => !l.inStock);
   const unavailable = lines.some((l) => !l.available);
   const now = new Date();
-  const eta = cartEta(now, store);
+  const options = deliveryOptions(now, store.dates.timeZone);
+  const eta = new Date(options.standard);
+  // faster delivery is offered only while it beats standard (and once the store has a fee for it)
+  const fast = options.fast && fastFee !== null ? { eta: new Date(options.fast), feeMinor: fastFee } : null;
+  const fastWhen = fast ? `${relativeDayName(fast.eta, store, now) ?? longDate(fast.eta, store)} by ${timeOfDay(fast.eta, store)}` : '';
+  const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
+  const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
+  // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast)
+  const bySpeed = (standard: ReactNode, faster: ReactNode) =>
+    fast ? (
+      <>
+        <span className="group-has-[#ship-fast:checked]/co:hidden">{standard}</span>
+        <span className="hidden group-has-[#ship-fast:checked]/co:inline">{faster}</span>
+      </>
+    ) : standard;
   const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
 
   return shell(
@@ -86,7 +103,7 @@ export default async function CheckoutPage({
         </Alert>
       ) : null}
 
-      <form action={submitCheckout} className="flex flex-wrap items-start gap-6">
+      <form action={submitCheckout} className="group/co flex flex-wrap items-start gap-6">
         <input type="hidden" name="schema" value={store.address.schema} />
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} />
@@ -94,9 +111,18 @@ export default async function CheckoutPage({
           <StepCard
             n={3}
             title="Delivery"
-            value={arrivingText(eta, store, now)}
-            sub={totals.shipMinor === 0 ? 'FREE delivery' : `Delivery ${money(totals.shipMinor)} · FREE over ${money(cart.freeShipThresholdMinor)}`}
+            value={bySpeed(arrivingText(eta, store, now), `Arriving ${lcFirst(fastWhen)}`)}
+            sub={fast ? undefined : totals.shipMinor === 0 ? 'FREE delivery' : `Delivery ${money(totals.shipMinor)}${freeOver}`}
           >
+            {fast ? (
+              <DeliverySpeed
+                standard={{ label: 'Standard delivery', sub: `${arrivingText(eta, store, now)} · ${shipText}${freeOver}` }}
+                fast={{
+                  label: relativeDayName(fast.eta, store, now) === 'Today' ? 'Same-Day delivery' : 'One-Day delivery',
+                  sub: `Arriving ${lcFirst(fastWhen)} · ${money(fast.feeMinor)}`,
+                }}
+              />
+            ) : null}
             <GiftOption max={GIFT_NOTE_MAX} />
           </StepCard>
           <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">
@@ -124,7 +150,7 @@ export default async function CheckoutPage({
           <h2 id="summary-h" className="m-0 mb-1 text-[18px] font-semibold">Order summary</h2>
           <dl className="m-0 flex flex-col gap-2.5 text-[15px]">
             <div className="flex justify-between gap-3"><dt>Items</dt><dd className="m-0 tabular-nums">{money(totals.subtotalMinor)}</dd></div>
-            <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor)}</dd></div>
+            <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fast ? money(fast.feeMinor) : null)}</dd></div>
             {store.pricing.taxInclusive ? (
               <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
             ) : (
@@ -132,7 +158,7 @@ export default async function CheckoutPage({
             )}
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-line pt-3">
               <dt className="text-[18px] font-semibold">Total</dt>
-              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{money(totals.totalMinor)}</dd>
+              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{bySpeed(money(totals.totalMinor), fast ? money(totals.subtotalMinor + fast.feeMinor + totals.taxMinor) : null)}</dd>
             </div>
           </dl>
           {blocked ? (

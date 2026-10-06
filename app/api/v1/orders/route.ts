@@ -1,6 +1,6 @@
 import { body, intParam, json, preflight, requireUser, route } from '@/lib/api/http';
 import { DataError } from '@/lib/data/errors';
-import { cancelPendingOrder, isPaymentMethod, listOrders, placeOrder } from '@/lib/data/orders';
+import { cancelPendingOrder, isPaymentMethod, isShipSpeed, listOrders, placeOrder } from '@/lib/data/orders';
 import { startCardCheckout } from '@/lib/data/payments';
 import { storePath } from '@/lib/marketplace';
 import type { AddressFieldsInput } from '@/lib/data/addresses';
@@ -13,7 +13,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode }, gift?: { message? } }
+ * POST /api/v1/orders { paymentMethod, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode }, gift?: { message? }, speed?: 'standard' | 'fast' }
  * Checks out the caller's cart in this store. The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to.
@@ -24,8 +24,9 @@ export const POST = route(async (ctx) => {
   if (!isPaymentMethod(b.paymentMethod)) throw new DataError('payment_method_unavailable');
   const shipping = (b.shipping && typeof b.shipping === 'object' ? b.shipping : {}) as AddressFieldsInput;
   const gift = b.gift && typeof b.gift === 'object' ? { message: (b.gift as { message?: unknown }).message } : b.gift === true ? {} : undefined;
+  if (b.speed !== undefined && !isShipSpeed(b.speed)) throw new DataError('delivery_option_unavailable');
 
-  const order = await placeOrder(ctx.db, ctx.market, { paymentMethod: b.paymentMethod, shipping, gift });
+  const order = await placeOrder(ctx.db, ctx.market, { paymentMethod: b.paymentMethod, shipping, gift, speed: isShipSpeed(b.speed) ? b.speed : undefined });
   if (order.status === 'placed') return json({ order }, { status: 201 });
 
   const origin = ctx.req.nextUrl.origin;

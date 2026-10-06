@@ -5,7 +5,7 @@
  * rows from before the lifecycle migration) the same plan is computed here. There is no
  * carrier feed. Pure — pass `now` for deterministic output.
  */
-import type { Order, OrderStage } from '../types';
+import type { Order, OrderStage, ShipSpeed } from '../types';
 import type { TrackingStep } from './types';
 
 const HOUR = 3_600_000;
@@ -26,8 +26,13 @@ export const TRACKING_PLAN: readonly { label: string; afterHours: number }[] = [
 const OUT_FOR_DELIVERY = { h: 9, m: 0 };
 const DELIVERED = { h: 11, m: 30 };
 
+/** Fast delivery: ships 3 h after the order, then the evening run (out 17:00, delivered 19:30 local). */
+const FAST_SHIP_HOURS = 3;
+const FAST_OUT = { h: 17, m: 0 };
+const FAST_DELIVERED = { h: 19, m: 30 };
+
 type OrderLike = Pick<Order, 'status' | 'createdAt'> &
-  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt'>>;
+  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'shipSpeed'>>;
 
 type Ymd = [year: number, month: number, day: number];
 
@@ -67,10 +72,49 @@ export function deliveryAfter(shipped: number, timeZone: string): { outForDelive
   };
 }
 
-/** Schedule the database saves for an order placed at `placedAt` (ISO). */
-export function plannedSchedule(placedAt: string, timeZone: string): { shippedAt: string; outForDeliveryAt: string; deliveredAt: string } {
-  const shipped = Date.parse(placedAt) + TRACKING_PLAN[2].afterHours * HOUR;
+/**
+ * The evening run for a fast parcel shipped at `shipped`: the first local day whose 17:00 is
+ * ≥ 2 h after shipping, delivered 19:30. Mirrors the database's `private.fast_delivery_after`.
+ */
+export function fastDeliveryAfter(shipped: number, timeZone: string): { outForDelivery: number; delivered: number } {
+  const [y, m, d] = localDay(shipped, timeZone);
+  let k = 0;
+  while (wallTime([y, m, d + k], FAST_OUT.h, FAST_OUT.m, timeZone) < shipped + 2 * HOUR) k++;
+  return {
+    outForDelivery: wallTime([y, m, d + k], FAST_OUT.h, FAST_OUT.m, timeZone),
+    delivered: wallTime([y, m, d + k], FAST_DELIVERED.h, FAST_DELIVERED.m, timeZone),
+  };
+}
+
+/** Ship, out-for-delivery and delivered instants for an order placed at `t0` with this speed. */
+function plan(t0: number, timeZone: string, speed: ShipSpeed = 'standard'): [shipped: number, out: number, delivered: number] {
+  if (speed === 'fast') {
+    const shipped = t0 + FAST_SHIP_HOURS * HOUR;
+    const { outForDelivery, delivered } = fastDeliveryAfter(shipped, timeZone);
+    return [shipped, outForDelivery, delivered];
+  }
+  const shipped = t0 + TRACKING_PLAN[2].afterHours * HOUR;
   const { outForDelivery, delivered } = deliveryAfter(shipped, timeZone);
+  return [shipped, outForDelivery, delivered];
+}
+
+/**
+ * When a cart checked out at `now` would arrive with each speed (ISO). `fast` is null when it
+ * wouldn't beat standard delivery (so it isn't offered); matches `private.fast_delivery_offered`.
+ */
+export function deliveryOptions(now: Date, timeZone: string): { standard: string; fast: string | null } {
+  const standard = plan(now.getTime(), timeZone)[2];
+  const fast = plan(now.getTime(), timeZone, 'fast')[2];
+  return { standard: new Date(standard).toISOString(), fast: fast < standard ? new Date(fast).toISOString() : null };
+}
+
+/** Schedule the database saves for an order placed at `placedAt` (ISO). */
+export function plannedSchedule(
+  placedAt: string,
+  timeZone: string,
+  speed: ShipSpeed = 'standard',
+): { shippedAt: string; outForDeliveryAt: string; deliveredAt: string } {
+  const [shipped, outForDelivery, delivered] = plan(Date.parse(placedAt), timeZone, speed);
   return {
     shippedAt: new Date(shipped).toISOString(),
     outForDeliveryAt: new Date(outForDelivery).toISOString(),
@@ -85,9 +129,8 @@ function stepTimes(order: OrderLike, t0: number, timeZone: string): number[] {
     const [shipped, out, delivered] = saved;
     return [t0, Math.min(t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped), shipped, out, delivered];
   }
-  const shipped = t0 + TRACKING_PLAN[2].afterHours * HOUR;
-  const { outForDelivery, delivered } = deliveryAfter(shipped, timeZone);
-  return [t0, t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped, outForDelivery, delivered];
+  const [shipped, outForDelivery, delivered] = plan(t0, timeZone, order.shipSpeed);
+  return [t0, Math.min(t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped), shipped, outForDelivery, delivered];
 }
 
 function startOf(order: OrderLike, now: Date): number {
@@ -126,7 +169,7 @@ export function trackingSteps(order: OrderLike, now: Date = new Date(), timeZone
     ];
   }
   if (order.status === 'awaiting_payment') {
-    const times = stepTimes({ status: 'placed', createdAt: order.createdAt }, now.getTime(), timeZone);
+    const times = stepTimes({ status: 'placed', createdAt: order.createdAt, shipSpeed: order.shipSpeed }, now.getTime(), timeZone);
     return TRACKING_PLAN.map((s, i) => ({
       label: s.label,
       at: new Date(i === 0 ? t0 : times[i]).toISOString(),

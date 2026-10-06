@@ -168,6 +168,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
               { label: 'Email', value: order.customer.email ? <a href={`mailto:${order.customer.email}`} className="break-all text-ink underline underline-offset-2">{order.customer.email}</a> : '—' },
               { label: 'Deliver to', value: [s.name, s.line1, s.line2, s.landmark, `${s.city}, ${s.state} ${s.postcode}`].filter(Boolean).join(', ') },
               { label: 'Phone', value: s.phone },
+              { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : 'Standard' },
               ...(order.gift ? [{ label: 'Gift note', value: order.gift.message ? <span className="whitespace-pre-line">{order.gift.message}</span> : 'Gift, no note' }] : []),
             ]}
           />

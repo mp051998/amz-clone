@@ -54,7 +54,7 @@ describe('readGiftNote', () => {
   });
 });
 
-describe('placeOrder gift', () => {
+describe('placeOrder gift and speed', () => {
   it('sends the gift arguments only for a gift', async () => {
     const plain = fakeDb();
     const order = await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING });
@@ -73,6 +73,16 @@ describe('placeOrder gift', () => {
     expect(gift.calls[0]).toMatchObject({ p_gift: true });
     expect(gift.calls[0]).not.toHaveProperty('p_gift_message');
     expect(placed.gift).toEqual({});
+  });
+
+  it('sends the speed only for fast delivery', async () => {
+    const plain = fakeDb();
+    await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, speed: 'standard' });
+    expect(plain.calls[0]).not.toHaveProperty('p_speed');
+    const fast = fakeDb({ ...row, ship_speed: 'fast', ship_minor: 999 });
+    const placed = await placeOrder(fast.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, speed: 'fast' });
+    expect(fast.calls[0]).toMatchObject({ p_speed: 'fast' });
+    expect(placed.shipSpeed).toBe('fast');
   });
 
   it('a too-long note fails before the order is placed', async () => {

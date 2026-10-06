@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancellableUntil, deliveryEta, isDelivered, orderStage, plannedSchedule, trackingSteps } from './tracking';
+import { cancellableUntil, deliveryEta, deliveryOptions, isDelivered, orderStage, plannedSchedule, trackingSteps } from './tracking';
 
 const placed = '2026-09-01T00:00:00.000Z';
 const at = (h: number) => new Date(Date.parse(placed) + h * 3_600_000);
@@ -91,5 +91,47 @@ describe('saved schedule', () => {
   it('a cancelled order shows when it was cancelled', () => {
     const s = trackingSteps({ status: 'cancelled', createdAt: placed, placedAt: placed, cancelledAt: at(5).toISOString() }, at(50));
     expect(s[1]).toMatchObject({ label: 'Cancelled', at: at(5).toISOString() });
+  });
+});
+
+describe('fast delivery', () => {
+  const IST = 'Asia/Kolkata';
+
+  it('ships in 3 h and goes out on the evening run: same day by noon, else the next day', () => {
+    // placed 10:00 IST → shipped 13:00 → out 17:00, delivered 19:30 the same day
+    expect(plannedSchedule('2026-10-07T04:30:00.000Z', IST, 'fast')).toEqual({
+      shippedAt: '2026-10-07T07:30:00.000Z',
+      outForDeliveryAt: '2026-10-07T11:30:00.000Z',
+      deliveredAt: '2026-10-07T14:00:00.000Z',
+    });
+    // placed 13:00 IST → shipped 16:00, too late for today's 17:00 run
+    expect(plannedSchedule('2026-10-07T07:30:00.000Z', IST, 'fast').deliveredAt).toBe('2026-10-08T14:00:00.000Z');
+  });
+
+  it('is offered only when it beats standard delivery', () => {
+    // 10:00 IST: today 19:30 vs tomorrow 11:30
+    expect(deliveryOptions(new Date('2026-10-07T04:30:00.000Z'), IST)).toEqual({
+      standard: '2026-10-08T06:00:00.000Z',
+      fast: '2026-10-07T14:00:00.000Z',
+    });
+    // 15:00 IST: tomorrow 19:30 would be later than tomorrow 11:30
+    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({ standard: '2026-10-08T06:00:00.000Z', fast: null });
+    // 21:00 IST: tomorrow 19:30 vs the day after, 11:30
+    expect(deliveryOptions(new Date('2026-10-07T15:30:00.000Z'), IST)).toEqual({
+      standard: '2026-10-09T06:00:00.000Z',
+      fast: '2026-10-08T14:00:00.000Z',
+    });
+  });
+
+  it('an unpaid fast order shows the fast plan', () => {
+    const now = new Date('2026-10-07T04:30:00.000Z');
+    const steps = trackingSteps({ status: 'awaiting_payment', createdAt: now.toISOString(), shipSpeed: 'fast' }, now, IST);
+    expect(steps.map((x) => x.at)).toEqual([
+      '2026-10-07T04:30:00.000Z',
+      '2026-10-07T06:30:00.000Z',
+      '2026-10-07T07:30:00.000Z',
+      '2026-10-07T11:30:00.000Z',
+      '2026-10-07T14:00:00.000Z',
+    ]);
   });
 });
