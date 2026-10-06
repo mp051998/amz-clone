@@ -9,6 +9,7 @@ import { readDeliverTo } from '@/lib/deliver-to-server';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { Header } from './chrome/Header';
 import { Footer, type FooterColumn, type FooterLink } from './chrome/Footer';
+import type { AllMenuSection } from './chrome/AllMenu';
 import { ToastProvider } from './decision/Toast';
 import { CompareProvider, CompareTray } from './decision/Compare';
 
@@ -24,6 +25,17 @@ const STRIP_PROGRAMS = [
   { label: "Today's Deals", path: '/deals' },
   { label: 'New & Trending', path: '/new-releases' },
   { label: 'Bestsellers', path: '/bestsellers' },
+];
+
+/** "All" menu: the store's own pages beyond the departments. */
+const MENU_PROGRAMS = [
+  { label: 'Membership', path: '/prime' },
+  { label: 'Video', path: '/prime-video' },
+  { label: 'Gift cards', path: '/gift-cards' },
+  { label: 'Registry', path: '/registry' },
+  { label: 'Pay', path: '/amazon-pay' },
+  { label: 'Business', path: '/business' },
+  { label: 'Sell with us', path: '/sell' },
 ];
 
 /** Footer columns. `label` → footerDest when `path` is absent (lib/footer-links.ts). */
@@ -76,6 +88,22 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
     ...categories.map((c) => ({ label: c.name, href: storePath(store, `/s?dept=${encodeURIComponent(c.slug)}`) })),
   ];
 
+  const to = (label: string, path: string) => ({ label, href: storePath(store, path) });
+  const menu: AllMenuSection[] = [
+    { heading: 'Trending', links: STRIP_PROGRAMS.map((p) => to(p.label, p.path)) },
+    { heading: 'Shop by department', links: categories.map((c) => to(c.name, `/s?dept=${encodeURIComponent(c.slug)}`)) },
+    { heading: 'Programs & features', links: MENU_PROGRAMS.map((p) => to(p.label, p.path)) },
+    {
+      heading: 'Help & settings',
+      links: [
+        ...(user ? [to('Your account', '/account'), to('Orders', '/orders')] : [to('Sign in', '/signin')]),
+        to('Customer service', '/customer-service'),
+        ...(admin ? [to('Admin · Catalogue', '/admin/products')] : []),
+        key === 'IN' ? { label: 'Shop the United States store (USD)', href: '/' } : { label: 'Shop the India store (INR)', href: '/in' },
+      ],
+    },
+  ];
+
   const resolve = (label: string, destLabel: string): FooterLink => {
     const dest = footerDest(destLabel);
     return 'url' in dest ? { label, href: dest.url, external: true } : { label, href: storePath(store, dest.path) };
@@ -103,6 +131,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
             categories={strip}
             deliverTo={deliverTo}
             defaultQuery={query}
+            menu={{ greeting: user ? `Hello, ${firstName(user)}` : 'Hello, sign in', greetingHref: storePath(store, user ? '/account' : '/signin'), sections: menu }}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>

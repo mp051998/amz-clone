@@ -6,6 +6,7 @@ import { SearchBar } from './SearchBar';
 import { DeliverToPopover, type SavedPlace } from './DeliverToPopover';
 import { deliverLabel, type DeliverTo } from '@/lib/deliver-to';
 import { AccountMenu } from './AccountMenu';
+import { AllMenu, type AllMenuProps } from './AllMenu';
 import { CategoryStrip, type CategoryLink } from './CategoryStrip';
 
 export interface HeaderProps {
@@ -23,6 +24,8 @@ export interface HeaderProps {
   defaultQuery?: string;
   /** where things go (picked, default address or store default) and the saved addresses */
   deliverTo?: { current: DeliverTo | null; addresses: SavedPlace[] };
+  /** the "All" side menu at the start of the category strip */
+  menu?: AllMenuProps;
 }
 
 function CartPill({ href, count, compact = false }: { href: string; count: number; compact?: boolean }) {
@@ -39,7 +42,7 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
 }
 
 /** Sticky white header: desktop row, mobile stack, category strip (design.md §5 Header). Store-aware. */
-export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery, deliverTo }: HeaderProps) {
+export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery, deliverTo, menu }: HeaderProps) {
   const home = storePath(store, '/');
   const action = storePath(store, '/s');
   const current = deliverTo?.current ?? null;
@@ -83,7 +86,7 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
         <DeliverToPopover {...deliver} layout="inline" userName={userName} />
       </div>
 
-      <CategoryStrip links={categories} />
+      <CategoryStrip links={categories} lead={menu ? <AllMenu {...menu} /> : null} />
     </header>
   );
 }
