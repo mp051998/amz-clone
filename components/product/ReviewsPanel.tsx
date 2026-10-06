@@ -1,13 +1,14 @@
 'use client';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { ReviewSort } from '@/lib/data/reviews';
 import type { RatingSummary, Review } from '@/lib/types';
 import { loadMoreReviews, removeReview, reportReview, submitReview, toggleReviewHelpful } from '@/app/actions/review';
 import { Kicker, SourceTag } from '../decision/Badges';
 import { Pill } from '../decision/Pill';
 import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
-import { fieldClass } from '../lib/controls';
+import { fieldClass, selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
 import { activeStar, applyFilters, buildFilters, chipCount, reviewThemes } from './reviewFilters';
 
@@ -80,14 +81,18 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
   const [items, setItems] = useState(initial);
+  const [sort, setSort] = useState<ReviewSort>('top');
   const [active, setActive] = useState<string[]>([]);
   const [notice, setNotice] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName });
   const [error, setError] = useState('');
 
-  // fresh server data after router.refresh() replaces the local list
-  useEffect(() => setItems(initial), [initial]);
+  // fresh server data after router.refresh() replaces the local list (and it comes top-first)
+  useEffect(() => {
+    setItems(initial);
+    setSort('top');
+  }, [initial]);
 
   // "Write a product review" on a delivered order links to #write-review: open the form there
   useEffect(() => {
@@ -160,15 +165,29 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
 
   const onMore = () =>
     startTransition(async () => {
-      const res = await loadMoreReviews(productId, items.length);
+      const res = await loadMoreReviews(productId, items.length, sort);
       if (res.ok) setItems((list) => [...list, ...res.items.filter((r) => !list.some((x) => x.id === r.id))]);
     });
+
+  // re-sorting reloads from the top, as many reviews as were showing (the picker moves at once)
+  const onSort = (next: ReviewSort) => {
+    const prev = sort;
+    setSort(next);
+    startTransition(async () => {
+      const res = await loadMoreReviews(productId, 0, next, Math.max(items.length, 10));
+      if (!res.ok) {
+        setSort(prev);
+        return toast(res.message);
+      }
+      setItems(res.items);
+    });
+  };
 
   const activeLabels = filters.filter((f) => active.includes(f.id)).map((f) => f.label);
   const countText = active.length
     ? `${shown.length} of ${num(items.length)} loaded reviews · ${activeLabels.join(' + ')}`
     : items.length
-      ? `Showing ${num(items.length)} of ${num(total)} written reviews, most helpful first`
+      ? `Showing ${num(items.length)} of ${num(total)} written reviews, ${sort === 'recent' ? 'newest' : 'most helpful'} first`
       : 'No written reviews yet';
 
   const summaryKicker = insight?.source === 'ai'
@@ -238,7 +257,15 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
       <section id="reviews" aria-labelledby="reviews-h" className="flex scroll-mt-[140px] flex-col gap-4" aria-busy={pending}>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="reviews-h" className="m-0 text-[22px] font-semibold">Explore reviews</h2>
-          <span className="text-[14px] text-ink-2" aria-live="polite">{countText}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[14px] text-ink-2" aria-live="polite">{countText}</span>
+            {total > 1 ? (
+              <select aria-label="Sort reviews" value={sort} disabled={pending} onChange={(e) => onSort(e.target.value === 'recent' ? 'recent' : 'top')} className={cn(selectClass, 'h-9')}>
+                <option value="top">Top reviews</option>
+                <option value="recent">Most recent</option>
+              </select>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

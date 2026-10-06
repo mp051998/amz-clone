@@ -34,6 +34,13 @@ describe('reviews', () => {
     expect(counts).toEqual([...counts].sort((a, b) => b - a));
   });
 
+  it('or newest first', async () => {
+    const page = await listReviews(anon(), productId, null, { limit: 8, sort: 'recent' });
+    const times = page.items.map((r) => Date.parse(r.createdAt));
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+    expect(page.total).toBe((await listReviews(anon(), productId, null, { limit: 1 })).total);
+  });
+
   it('marks a review verified only when the author bought the item', async () => {
     const unverified = await upsertReview(browser.db, productId, browser.id, { rating: 2, title: 'Looks fine', body: 'Have not bought it.' });
     expect(unverified.verified).toBe(false);

@@ -41,6 +41,13 @@ const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, he
 const LEGACY_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
 const MISSING_COLUMN = '42703';
 
+/** "Top reviews" (most helpful first, then newest) or "Most recent". */
+export type ReviewSort = 'top' | 'recent';
+
+export function readReviewSort(v: unknown): ReviewSort {
+  return v === 'recent' ? 'recent' : 'top';
+}
+
 export interface ReviewPage {
   items: Review[];
   total: number;
@@ -49,15 +56,15 @@ export interface ReviewPage {
 }
 
 /**
- * Top reviews for a product: most helpful first, then newest. The viewer's own
- * review is pinned to the top, and each item says whether the viewer already
- * voted it helpful / reported it.
+ * A product's reviews: most helpful first, then newest (`top`), or newest first
+ * (`recent`). The viewer's own review is pinned to the top, and each item says
+ * whether the viewer already voted it helpful / reported it.
  */
 export async function listReviews(
   db: Db,
   productId: string,
   viewerId: string | null,
-  opts: { limit?: number; offset?: number } = {},
+  opts: { limit?: number; offset?: number; sort?: ReviewSort } = {},
 ): Promise<ReviewPage> {
   const limit = Math.min(Math.max(opts.limit ?? 10, 1), 50);
   const offset = Math.max(opts.offset ?? 0, 0);
@@ -68,9 +75,11 @@ export async function listReviews(
       .from('reviews')
       .select(moderated ? REVIEW_COLS : LEGACY_COLS, { count: 'exact' })
       .eq('product_id', productId);
-    return (moderated ? q.is('hidden_at', null) : q)
-      .order('helpful_count', { ascending: false })
+    const visible = moderated ? q.is('hidden_at', null) : q;
+    const ordered = opts.sort === 'recent' ? visible : visible.order('helpful_count', { ascending: false });
+    return ordered
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
   };
   let pageRes = await page(true);

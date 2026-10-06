@@ -1,9 +1,13 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+const loads = vi.hoisted(() => ({ calls: [] as unknown[][], items: [] as unknown[] }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 vi.mock('@/app/actions/review', () => ({
-  loadMoreReviews: async () => ({ ok: true, items: [] }),
+  loadMoreReviews: async (...args: unknown[]) => {
+    loads.calls.push(args);
+    return { ok: true, items: loads.items, total: loads.items.length };
+  },
   removeReview: async () => ({ ok: true }),
   reportReview: async () => ({ ok: true }),
   submitReview: async () => ({ ok: true }),
@@ -29,6 +33,8 @@ const props = (over: Partial<ReviewsPanelProps> = {}): ReviewsPanelProps => ({
 
 const scrolled = vi.fn();
 beforeEach(() => {
+  loads.calls = [];
+  loads.items = [];
   scrolled.mockClear();
   Element.prototype.scrollIntoView = scrolled;
   window.history.replaceState(null, '', '/product/p1');
@@ -105,4 +111,29 @@ it('signed-out shoppers still get the sign-in link, not a form', () => {
   render(<ReviewsPanel {...props({ signedIn: false })} />);
   expect(form()).toBeNull();
   expect(screen.getByRole('link', { name: 'Sign in to write a review' })).toBeInTheDocument();
+});
+
+it('sorts reviews by most recent, reloading as many as were showing', async () => {
+  const review = (id: string, title: string, createdAt: string, helpful: number) => ({
+    id, author: 'A', initial: 'A', rating: 4, title, body: 'Body', createdAt,
+    verified: true, helpful, mine: false, votedHelpful: false, reported: false,
+  });
+  const top = [review('a', 'Most helpful', '2026-01-01T00:00:00Z', 9), review('b', 'Newest', '2026-09-01T00:00:00Z', 0)];
+  render(<ReviewsPanel {...props({ initial: top, total: 2, summary: { rating: 4, count: 2, bars: [] } as unknown as ReviewsPanelProps['summary'] })} />);
+  const titles = () => screen.queryAllByRole('article').map((a) => a.querySelector('strong')!.textContent);
+  expect(screen.getByText(/most helpful first/)).toBeInTheDocument();
+
+  loads.items = [top[1], top[0]];
+  await act(async () => {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sort reviews' }), { target: { value: 'recent' } });
+  });
+  expect(loads.calls).toEqual([['p1', 0, 'recent', 10]]);
+  expect(titles()).toEqual(['Newest', 'Most helpful']);
+  expect(screen.getByText(/newest first/)).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: 'Sort reviews' })).toHaveValue('recent');
+});
+
+it('no sort control for a single review', () => {
+  render(<ReviewsPanel {...props({ total: 1 })} />);
+  expect(screen.queryByRole('combobox', { name: 'Sort reviews' })).toBeNull();
 });

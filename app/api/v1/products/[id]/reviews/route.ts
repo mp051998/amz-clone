@@ -1,14 +1,15 @@
 import { body, intParam, json, preflight, requireUser, route } from '@/lib/api/http';
 import { getProduct } from '@/lib/data/catalog';
 import { DataError } from '@/lib/data/errors';
-import { listReviews, upsertReview } from '@/lib/data/reviews';
+import { listReviews, readReviewSort, upsertReview } from '@/lib/data/reviews';
 
-/** GET /api/v1/products/:id/reviews?limit=10&offset=0 — most helpful first; the caller's own review pinned. */
+/** GET /api/v1/products/:id/reviews?limit=10&offset=0&sort=top|recent — most helpful (or newest) first; the caller's own review pinned. */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const sp = ctx.req.nextUrl.searchParams;
   const page = await listReviews(ctx.db, id, ctx.user?.id ?? null, {
     limit: intParam(sp.get('limit'), 10, 1, 50),
     offset: intParam(sp.get('offset'), 0, 0, 100_000),
+    sort: readReviewSort(sp.get('sort')),
   });
   return json(page);
 });

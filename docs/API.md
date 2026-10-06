@@ -81,7 +81,7 @@ Postgres as that user, so RLS decides what each caller can see.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/products/:id/reviews?limit=10&offset=0` | | `{items: Review[], total, mine}`. Sorted most helpful first, then newest. With auth, your own review is pinned to the top of page 1. |
+| GET | `/products/:id/reviews?limit=10&offset=0&sort=top` | | `{items: Review[], total, mine}`. `sort=top` (default): most helpful first, then newest. `sort=recent`: newest first. With auth, your own review is pinned to the top of page 1. |
 | POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body}` | `201 {review}`. Creates or replaces your one review of the product. The DB sets `author`, `verified` (true when you have a placed order containing it) and keeps the product's rating rollup current. |
 | DELETE 🔒 | `/reviews/:id` | | `204`. Only works on your own review (`404` otherwise). |
 | POST 🔒 | `/reviews/:id/helpful` | | Toggle. Returns `{reviewId, helpful, helpfulCount}`. Returns `409 own_review` on your own review. |
