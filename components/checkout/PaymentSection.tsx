@@ -15,6 +15,17 @@ export interface PaymentSectionProps {
   stripeCard?: boolean;
   /** step number (default 2). */
   n?: number;
+  /** the shopper's gift card balance in this store, for the balance methods (giftcard, amazonpay). */
+  balance?: BalanceInfo;
+}
+
+export interface BalanceInfo {
+  /** formatted balance, e.g. "$100.00" */
+  text: string;
+  /** the balance doesn't cover the order total */
+  short: boolean;
+  /** where to redeem a gift card */
+  redeemHref: string;
 }
 
 const LABEL: Record<string, string> = {
@@ -30,7 +41,7 @@ const LABEL: Record<string, string> = {
 function subFor(m: string, stripeCard: boolean): string {
   switch (m) {
     case 'card': return stripeCard ? "You'll pay on Stripe's secure page next" : 'Demo card — nothing is charged';
-    case 'giftcard': return 'Use a gift card or claim code';
+    case 'giftcard': return 'Pay from your gift card balance';
     case 'upi': return 'Instant — approve in your UPI app';
     case 'netbanking': return 'Pay from your bank account';
     case 'cod': return 'Cash, UPI or card when it arrives';
@@ -46,7 +57,7 @@ const BANKS = ['HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank', 'K
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
  * form while the list is collapsed); the selected method's demo fields show under the list.
  */
-export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2 }: PaymentSectionProps) {
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance }: PaymentSectionProps) {
   const [selected, setSelected] = useState(methods[0] ?? 'card');
   const [open, setOpen] = useState(false);
   const listId = 'checkout-payment-options';
@@ -78,7 +89,7 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
             : 'Demo only — no real payment is processed. Any values work.'}
         </p>
       </div>
-      <div className="sm:pl-[42px]">{selected === 'card' && stripeCard ? stripeCardNotice() : fields(selected, curSymbol, defaultName)}</div>
+      <div className="sm:pl-[42px]">{selected === 'card' && stripeCard ? stripeCardNotice() : fields(selected, curSymbol, defaultName, balance)}</div>
     </StepCard>
   );
 }
@@ -97,7 +108,7 @@ function stripeCardNotice() {
 
 const note = 'm-0 text-[13px] text-ink-2';
 
-function fields(method: string, curSymbol: string, defaultName: string) {
+function fields(method: string, curSymbol: string, defaultName: string, balance?: BalanceInfo) {
   switch (method) {
     case 'card':
       return (
@@ -109,12 +120,8 @@ function fields(method: string, curSymbol: string, defaultName: string) {
         </div>
       );
     case 'giftcard':
-      return (
-        <div className="grid max-w-[420px] grid-cols-1 gap-2">
-          <Input name="giftCard" label="Gift card / claim code" placeholder="XXXX-XXXXXX-XXXX" defaultValue="DEMO-GIFT12-CARD" />
-          <p className={note}>Available balance: <b className="text-ink">{curSymbol}0.00</b> — for this demo the order is placed without a charge.</p>
-        </div>
-      );
+    case 'amazonpay':
+      return balanceFields(balance);
     case 'upi':
       return (
         <div className="grid max-w-[420px] grid-cols-1 gap-2">
@@ -155,13 +162,27 @@ function fields(method: string, curSymbol: string, defaultName: string) {
           <p className={`sm:col-span-2 ${note}`}>Interest and processing fees apply as per your bank. (Demo — no EMI is created.)</p>
         </div>
       );
-    case 'amazonpay':
-      return (
-        <p className={`max-w-[420px] rounded-input bg-surface-2 p-3 ${note}`}>
-          Wallet balance: <b className="text-ink">{curSymbol}0.00</b> — for this demo the order is placed without a charge.
-        </p>
-      );
     default:
       return null;
   }
+}
+
+/** The store balance pays the whole order: show what's there and where to top it up. */
+function balanceFields(balance: BalanceInfo | undefined) {
+  const link = 'font-semibold text-ink underline underline-offset-2 hover:text-accent-ink';
+  if (!balance) {
+    return <p className={`max-w-[420px] rounded-input bg-surface-2 p-3 ${note}`}>The order total is taken from your balance when you place the order.</p>;
+  }
+  return (
+    <div className={`flex max-w-[420px] flex-col gap-1 rounded-input p-3 ${balance.short ? 'bg-warn-bg' : 'bg-surface-2'}`}>
+      <p className={note}>Available balance: <b className="text-ink tabular-nums">{balance.text}</b></p>
+      {balance.short ? (
+        <p className={note}>
+          That doesn&apos;t cover this order. <a href={balance.redeemHref} className={link}>Redeem a gift card</a> or choose another payment method.
+        </p>
+      ) : (
+        <p className={note}>The order total is taken from your balance when you place the order.</p>
+      )}
+    </div>
+  );
 }

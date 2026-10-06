@@ -68,6 +68,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"balance_entries": {
+                  Row: {
+                    "amount_minor": number,"created_at": string,"gift_card_code": string | null,"id": number,"kind": string,"market_id": string,"order_id": string | null,"return_id": string | null,"user_id": string
+                  }
+                  Insert: {
+                    "amount_minor": number,"created_at"?: string,"gift_card_code"?: string | null,"id"?: never,"kind": string,"market_id": string,"order_id"?: string | null,"return_id"?: string | null,"user_id": string
+                  }
+                  Update: {
+                    "amount_minor"?: number,"created_at"?: string,"gift_card_code"?: string | null,"id"?: never,"kind"?: string,"market_id"?: string,"order_id"?: string | null,"return_id"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"cart_items": {
                   Row: {
                     "added_at": string,"cart_id": string,"product_id": string,"qty": number
@@ -181,6 +194,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"gift_cards": {
+                  Row: {
+                    "amount_minor": number,"code": string,"created_at": string,"issued_to": string | null,"market_id": string,"redeemed_at": string | null,"redeemed_by": string | null
+                  }
+                  Insert: {
+                    "amount_minor": number,"code": string,"created_at"?: string,"issued_to"?: string | null,"market_id": string,"redeemed_at"?: string | null,"redeemed_by"?: string | null
+                  }
+                  Update: {
+                    "amount_minor"?: number,"code"?: string,"created_at"?: string,"issued_to"?: string | null,"market_id"?: string,"redeemed_at"?: string | null,"redeemed_by"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"market_categories": {
                   Row: {
                     "category_slug": string,"market_id": string,"position": number
@@ -208,13 +234,13 @@ isOneToOne: false
                   ]
                 },"markets": {
                   Row: {
-                    "currency": string,"fast_ship_fee_minor": number,"free_ship_threshold_minor": number,"id": string,"max_line_qty": number,"payment_methods": (string)[],"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string
+                    "currency": string,"demo_gift_card_minor": number,"fast_ship_fee_minor": number,"free_ship_threshold_minor": number,"id": string,"max_line_qty": number,"payment_methods": (string)[],"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string
                   }
                   Insert: {
-                    "currency": string,"fast_ship_fee_minor"?: number,"free_ship_threshold_minor": number,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"return_days"?: number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string
+                    "currency": string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"free_ship_threshold_minor": number,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"return_days"?: number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string
                   }
                   Update: {
-                    "currency"?: string,"fast_ship_fee_minor"?: number,"free_ship_threshold_minor"?: number,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"return_days"?: number,"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string
+                    "currency"?: string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"free_ship_threshold_minor"?: number,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"return_days"?: number,"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string
                   }
                   Relationships: [
                     
@@ -394,6 +420,19 @@ isOneToOne: false
       referencedRelation: "returns"
       referencedColumns: ["id"]
     }
+                  ]
+                },"store_balances": {
+                  Row: {
+                    "balance_minor": number,"market_id": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "balance_minor"?: number,"market_id": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "balance_minor"?: number,"market_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"returns": {
                   Row: {
@@ -590,6 +629,9 @@ isOneToOne: false
               "archived": number,"category_slug": string,"market_id": string,"products": number
             }[]
                            },
+"claim_demo_gift_card":
+{ Args: { "p_market": string }; Returns: Json
+                           },
 "confirm_order_payment":
 { Args: { "p_amount_minor": number,"p_currency": string,"p_order_id": string,"p_payment_label": string,"p_session_id": string }; Returns: Json
                            },
@@ -636,6 +678,9 @@ isOneToOne: false
                            },
 "record_return_refund":
 { Args: { "p_refund_id": string | null,"p_return_id": string,"p_status": string }; Returns: undefined
+                           },
+"redeem_gift_card":
+{ Args: { "p_code": string,"p_market": string }; Returns: Json
                            },
 "release_checkout_session":
 { Args: { "p_session_id": string }; Returns: string
