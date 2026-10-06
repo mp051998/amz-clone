@@ -5,9 +5,12 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { claimDemoGiftCard, redeemGiftCard } from '@/lib/data/balance';
 import { DataError } from '@/lib/data/errors';
+import { startGiftCardPurchase } from '@/lib/data/gift-card-purchases';
+import { startGiftCardCheckout } from '@/lib/data/payments';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { siteOrigin } from '@/lib/origin';
 
 const PAGE = '/gift-cards';
 
@@ -46,4 +49,42 @@ export async function claimDemoGiftCardAction(): Promise<void> {
   await claimDemoGiftCard(await db(), store.id);
   revalidatePath(PAGE);
   redirect(storePath(store, `${PAGE}?claimed=1#balance`));
+}
+
+export interface BuyState {
+  error?: string;
+  /** which field the error is about: amount, recipient or message */
+  field?: string;
+}
+
+/**
+ * Buy a gift card: record the purchase, then hand off to Stripe hosted Checkout for exactly its
+ * amount. The code is issued once Stripe reports the session paid (/gift-cards/success, webhook).
+ */
+export async function buyGiftCardAction(_prev: BuyState, formData: FormData): Promise<BuyState> {
+  const store = await signedIn();
+  const sp = (path: string) => storePath(store, path);
+  let url: string;
+  try {
+    const client = await db();
+    const purchase = await startGiftCardPurchase(client, store.id, {
+      amountMinor: Number(formData.get('amountMinor')),
+      recipientName: formData.get('recipientName'),
+      message: formData.get('message'),
+    });
+    const origin = await siteOrigin();
+    url = await startGiftCardCheckout(
+      purchase,
+      { successUrl: `${origin}${sp(`${PAGE}/success`)}`, cancelUrl: `${origin}${sp(`${PAGE}?canceled=1#buy`)}` },
+      'Store gift card',
+    );
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    if (err.status >= 500 && err.code !== 'payments_unavailable') {
+      console.error('[gift-cards] buy', err.code, err.detail ?? '');
+      return { error: 'Something went wrong. Please try again.' };
+    }
+    return { error: err.message, field: err.code === 'invalid_input' ? err.detail : undefined };
+  }
+  redirect(url);
 }

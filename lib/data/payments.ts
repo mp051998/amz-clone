@@ -4,6 +4,7 @@ import { stripe } from '../stripe';
 import { createAdminClient } from '../supabase/admin';
 import type { Order } from '../types';
 import { DataError, unwrap } from './errors';
+import { toPurchase, type GiftCardPurchase, type PurchaseRow } from './gift-card-purchases';
 import { toOrder } from './map';
 import { refundOrder } from './refunds';
 
@@ -151,4 +152,73 @@ export async function confirmCheckoutSession(sessionId: string): Promise<Order> 
 /** Webhook: an unpaid session lapsed — release the order's reserved stock. */
 export async function releaseSession(sessionId: string): Promise<string | null> {
   return unwrap(await createAdminClient().rpc('release_checkout_session', { p_session_id: sessionId }));
+}
+
+/** Gift card sessions are told apart from order sessions by their metadata. */
+export function isGiftCardSession(session: Pick<Stripe.Checkout.Session, 'metadata'>): boolean {
+  return session.metadata?.kind === 'gift_card';
+}
+
+/** Create the Stripe Checkout Session for a gift card purchase awaiting payment; returns its URL. */
+export async function startGiftCardCheckout(purchase: GiftCardPurchase, urls: CheckoutUrls, label: string): Promise<string> {
+  const s = requireStripe();
+  if (purchase.status !== 'awaiting_payment') throw new DataError('purchase_not_found');
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await s.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: purchase.currency.toLowerCase(),
+            unit_amount: purchase.amountMinor,
+            product_data: { name: purchase.recipientName ? `${label} for ${purchase.recipientName}` : label },
+          },
+        },
+      ],
+      // gift cards are paid by card only, never from the store balance
+      payment_method_types: ['card'],
+      client_reference_id: purchase.id,
+      metadata: { kind: 'gift_card', purchaseId: purchase.id, market: purchase.market },
+      payment_intent_data: { metadata: { giftCardPurchaseId: purchase.id } },
+      success_url: `${urls.successUrl}${urls.successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: urls.cancelUrl,
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+    });
+  } catch (err) {
+    console.error('[stripe] gift card session create failed', err instanceof Error ? err.message : err);
+    throw new DataError('payments_unavailable');
+  }
+  if (!session.url) throw new DataError('payments_unavailable');
+  unwrap(await createAdminClient().rpc('attach_gift_card_session', { p_purchase: purchase.id, p_session_id: session.id }));
+  return session.url;
+}
+
+/** Issue the gift card for a session Stripe reports as paid. Idempotent. */
+export async function confirmGiftCardSession(session: Stripe.Checkout.Session): Promise<GiftCardPurchase> {
+  if (session.payment_status !== 'paid') throw new DataError('payment_incomplete');
+  const row = unwrap(
+    await createAdminClient().rpc('confirm_gift_card_purchase', {
+      p_session_id: session.id,
+      p_amount_minor: session.amount_total ?? -1,
+      p_currency: session.currency ?? '',
+      p_payment_intent: paymentIntentId(session) ?? undefined,
+    }),
+  ) as unknown as PurchaseRow;
+  return toPurchase(row);
+}
+
+/** Return trip from Stripe for a gift card: fetch the session server-side and confirm it. */
+export async function confirmGiftCardCheckout(sessionId: string): Promise<GiftCardPurchase> {
+  const s = requireStripe();
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await s.checkout.sessions.retrieve(sessionId);
+  } catch (err) {
+    console.error('[stripe] session retrieve failed', err instanceof Error ? err.message : err);
+    throw new DataError('purchase_not_found');
+  }
+  if (!isGiftCardSession(session)) throw new DataError('purchase_not_found');
+  return confirmGiftCardSession(session);
 }

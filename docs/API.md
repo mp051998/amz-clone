@@ -42,6 +42,8 @@ Plus members (see `/me/plus`) get standard delivery free on every order, whateve
 
 Paying with the store balance (`giftcard` in the US, `amazonpay` in India) takes the order total from the shopper's gift card balance in that store when the order is placed. It fails with `409 insufficient_balance` when the balance doesn't cover it, and the cart is kept. Redeem gift card codes into the balance with `/me/balance/redeem`; each account can get one demo gift card per store (US $100, India ₹5,000). Refunds of balance orders (a cancel, or a received return) go back to the balance.
 
+Gift cards can also be bought, by card only: `POST /me/gift-cards` records the purchase and returns a Stripe Checkout URL for exactly its amount (whole currency units, US $1–$2,000, India ₹10–₹10,000). Once Stripe reports the session paid (the `/gift-cards/success` return trip or the webhook, both re-reading the session from Stripe), a service-role call checks the amount and currency and issues a new code. The buyer sees it in `GET /me/gift-cards` and can give it away or redeem it themselves. No email is sent.
+
 Some products have a coupon, a percent off (5–50%). A signed-in shopper applies it with `POST /products/:id/coupon`; while it's applied, the percent comes off every unit of that product in their cart and orders in that store, rounded to the minor unit per unit. A coupon isn't used up by an order: it stays applied until the shopper removes it. Delivery's free threshold and the tax are worked out on the subtotal after coupons. Guest carts never get coupon discounts.
 
 ## Auth
@@ -59,6 +61,10 @@ Some products have a coupon, a percent off (5–50%). A signed-in shopper applie
 | GET 🔒 | `/me/balance` | | `{balanceMinor, history: [{id, amountMinor, kind: gift_card \| order \| refund, orderId, giftCardCode, at}]}`, the caller's gift card balance in this store and its latest 50 changes (newest first) |
 | POST 🔒 | `/me/balance/redeem` | `{code}` | `{amountMinor, balanceMinor}`. Case, spaces and dashes in the code don't matter. `404 gift_card_not_found`, `409 gift_card_redeemed`, `422 gift_card_other_store` (`detail` is its store) |
 | POST 🔒 | `/me/balance/demo-card` | | `{giftCard: {code, amountMinor, redeemed}}`. The caller's demo gift card for this store, issued on the first call; it isn't redeemed until you redeem the code (anyone signed in can) |
+| GET 🔒 | `/me/gift-cards?limit=20` | | `{items: GiftCardPurchase[]}`: the gift cards the caller bought in this store and paid for, newest first |
+| POST 🔒 | `/me/gift-cards` | `{amountMinor, recipientName?, message?}` | `201 {purchase, checkoutUrl}`. `purchase.status` is `awaiting_payment` until Stripe reports it paid; then it has its `code`. `422 invalid_input` with `detail` `amount` (not a whole amount within the store's limits), `recipient` (over 60 characters) or `message` (over 240); `503 payments_unavailable` without Stripe |
+
+`GiftCardPurchase` is `{id, market, amountMinor, currency, recipientName, message, status: awaiting_payment | paid, code, redeemed, createdAt, paidAt}`.
 
 Token pair: `{tokenType: "bearer", accessToken, refreshToken, expiresAt, expiresIn, user: {id, email}}`.
 
@@ -217,6 +223,7 @@ The customer never tells us they paid. Stripe does:
 - It returns `503` when the secret is unset and `400` for a bad signature.
 - Final domain outcomes (e.g. `payment_incomplete` for a forged "paid" event) are
   acknowledged with `200 {received, outcome}` so Stripe stops retrying.
+- A gift card purchase's session (`metadata.kind: "gift_card"`) issues its code when paid; expiring, it has nothing to release.
 - `refund.created`, `refund.updated` and `refund.failed` settle a return's refund
   (matched by the refund's `metadata.returnId`) or a cancelled order's (by
   `metadata.orderId`, else its PaymentIntent). Enable these events on the Stripe
@@ -376,7 +383,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `question_not_found`, `answer_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `not_found` |
 | 405 | wrong method on a known path |
 | 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
@@ -412,7 +419,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-five migrations live in `supabase/migrations/`:
+Twenty-six migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -441,10 +448,11 @@ Twenty-five migrations live in `supabase/migrations/`:
 | gift card balance | `markets.demo_gift_card_minor`; `gift_cards`, `store_balances` and `balance_entries` (owner read only); `claim_demo_gift_card()` and `redeem_gift_card()`; triggers that take a balance order's total when it's placed (`insufficient_balance`) and credit its refunds back, only for orders that were charged |
 | coupons | `coupons` (one per product, 5–50% off; everyone reads, admins write) and `coupon_clips` (owner read only); `clip_coupon()` and `unclip_coupon()`; `orders.discount_minor` and `order_items.unit_discount_minor`, with `orders_total_adds_up` taking the discount off; `cart_json()`, `place_order()` and `request_return()` price applied coupons per unit |
 | product Q&A | `product_questions` and `product_answers` (everyone reads) and `answer_votes` (owner read only); `ask_question()`, `answer_question()`, `delete_question()`, `delete_answer()` and `toggle_answer_helpful()` set the author, the verified mark and the counters |
+| gift card purchases | `gift_cards.purchased_by`; `gift_card_purchases` (owner read only); `start_gift_card_purchase()`, `my_gift_card_purchases()`, and the service-role `attach_gift_card_session()` and `confirm_gift_card_purchase()`, which checks the amount and currency and issues the code |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
-- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund`, `record_return_refund`, `mark_sold_out` and `email_in_use` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
+- **Service-role-only functions.** `confirm_order_payment`, `attach_checkout_session`, `release_checkout_session`, `record_payment_intent`, `record_refund`, `record_return_refund`, `mark_sold_out`, `attach_gift_card_session`, `confirm_gift_card_purchase` and `email_in_use` are called by the server with `SUPABASE_SERVICE_ROLE_KEY`.
 - **Guest carts.** They are only reachable through the `cart_*` functions with their token. `purge_stale_guest_carts()` deletes guest carts that have been idle for 30 days. It is service-role only, so schedule it with pg_cron or call it from a cron job.
 
 Tests: `npm run test:db` runs `test/integration/*` against the local stack. It covers:
