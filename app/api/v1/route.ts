@@ -31,6 +31,7 @@ export function GET(): Response {
       'POST   /me/gift-cards',
       'GET    /me/reviews',
       'GET    /me/questions',
+      'GET    /me/transactions',
       'GET    /categories',
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
       'GET    /suggest?q=',
