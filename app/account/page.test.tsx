@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   orders: 2,
   recent: [] as string[],
   paused: false,
+  plus: null as { since: string } | null,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -22,6 +23,7 @@ vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ countOrders: async () => state.orders }));
 vi.mock('@/lib/data/addresses', () => ({ listAddresses: async () => [] }));
 vi.mock('@/lib/data/collections', () => ({ listCollections: async () => [] }));
+vi.mock('@/lib/data/plus', () => ({ plusMembership: async () => state.plus }));
 vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
 vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, historyPaused: async () => state.paused }));
 vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
@@ -37,6 +39,7 @@ beforeEach(() => {
   state.orders = 2;
   state.recent = [];
   state.paused = false;
+  state.plus = null;
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -67,4 +70,14 @@ it('says when there is nothing yet, or history is paused (India store paths)', a
 it('sends the signed-out to sign in', async () => {
   state.user = null;
   await expect(AccountPage()).rejects.toThrow('REDIRECT /signin?next=/account');
+});
+
+it('shows the Plus membership, joined or not', async () => {
+  render(await AccountPage());
+  expect(tile('Plus membership')).toHaveAttribute('href', '/prime');
+  expect(within(tile('Plus membership')).getByText('Not a member')).toBeInTheDocument();
+  cleanup();
+  state.plus = { since: '2026-10-01T10:00:00Z' };
+  render(await AccountPage());
+  expect(within(tile('Plus membership')).getByText('Member · FREE delivery')).toBeInTheDocument();
 });

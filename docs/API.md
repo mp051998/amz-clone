@@ -31,11 +31,14 @@ Base URL: `https://<host>/api/v1` (local: `http://localhost:3000/api/v1`).
 | Currency | USD | INR |
 | Tax | 8% added at checkout | prices include GST |
 | Shipping | $5.99, free from $35 | ₹40, free from ₹499 |
+| Faster delivery | $9.99 | ₹99 |
 | Payment methods | `card`, `giftcard` | `upi`, `card`, `netbanking`, `cod`, `emi`, `amazonpay` |
 | Returns | 30 days after delivery | 10 days after delivery |
 | Address | US ZIP, 2-letter state | 6-digit pincode, `line2` (area) required, optional `landmark`, `addressType: home|office` |
 
 Max 30 units per cart line. Quantities are also capped at available stock.
+
+Plus members (see `/me/plus`) get standard delivery free on every order, whatever the total, and faster delivery free too. The cart and order totals already reflect this for a signed-in member.
 
 ## Auth
 
@@ -44,8 +47,11 @@ Max 30 units per cart line. Quantities are also capped at available stock.
 | POST | `/auth/signup` | `{email, password, name?}` | `201` token pair. The account is active at once: this demo store doesn't verify email addresses |
 | POST | `/auth/token` | `{email, password}` | `200` token pair |
 | POST | `/auth/refresh` | `{refreshToken}` | `200` new token pair |
-| GET 🔒 | `/me` | | `{user: {id, email, name, createdAt}}` |
+| GET 🔒 | `/me` | | `{user: {id, email, name, createdAt, plus: {since} \| null}}` |
 | PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
+| GET 🔒 | `/me/plus` | | `{plus: {since} \| null}` |
+| POST 🔒 | `/me/plus` | | `{plus: {since}}`. Joins Plus: a demo membership, never billed. Joining again keeps the first `since` |
+| DELETE 🔒 | `/me/plus` | | `204`. Ends the membership; orders already placed keep their delivery charge |
 
 Token pair: `{tokenType: "bearer", accessToken, refreshToken, expiresAt, expiresIn, user: {id, email}}`.
 
@@ -127,7 +133,7 @@ How `POST /orders` works:
 - In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price and seller and computes the totals.
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
-- **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge and is never free.
+- **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
 - **Gifts:** send `gift: {message?}` (or `gift: true`) to mark the order as a gift. The note is trimmed and can be up to 240 characters (`422 invalid_input` beyond that); a blank one means no note.
 
 `Order` has these fields:
@@ -382,7 +388,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Nineteen migrations live in `supabase/migrations/`:
+Twenty-two migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -405,6 +411,9 @@ Nineteen migrations live in `supabase/migrations/`:
 | folded variants | `variant_group`, `variant_axis` and `variant_label` on the `catalog_products` and `catalog_products_all` views; `search_catalog()` adds `groups` (matches with each variant group counted once) and counts brand facets the same way |
 | search suggestions | `search_suggest()`: completions, departments and products for the header search box (`/suggest`) |
 | bought together | `bought_together()`: the products most often in the same placed orders as a product, in the same store and in stock, other options of its variant group left out. A pair only counts once two different shoppers have bought it, so no one's order shows through (`/products/:id/bought-together`) |
+| gift orders | `orders.gift` and `gift_message` (up to 240 characters, only on a gift); `place_order()` takes `p_gift` and `p_gift_message` |
+| delivery speed | `markets.fast_ship_fee_minor`; `orders.ship_speed` (`standard` or `fast`), the fast schedule in the order trigger, and `place_order()`'s `p_speed`, refused with `delivery_option_unavailable` when faster delivery isn't offered |
+| Plus membership | `plus_members` (owner read only); `join_plus()` and `leave_plus()`; `order_totals()` (now security definer) and `place_order()` make standard and faster delivery free for members |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

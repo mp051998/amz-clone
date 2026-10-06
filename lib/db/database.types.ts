@@ -344,6 +344,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"plus_members": {
+                  Row: {
+                    "joined_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "joined_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "joined_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"profiles": {
                   Row: {
                     "created_at": string,"display_name": string,"id": string,"updated_at": string
@@ -585,6 +598,12 @@ isOneToOne: false
                            },
 "is_admin":
 { Args: never; Returns: boolean
+                           },
+"join_plus":
+{ Args: never; Returns: Json
+                           },
+"leave_plus":
+{ Args: never; Returns: undefined
                            },
 "mark_sold_out":
 { Args: { "p_order_id": string }; Returns: undefined

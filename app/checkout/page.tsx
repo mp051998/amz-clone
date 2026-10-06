@@ -18,6 +18,7 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
 import { fastShipFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
+import { plusMembership } from '@/lib/data/plus';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
 import { viewerCart } from '@/lib/storefront';
@@ -43,7 +44,12 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/checkout'));
   const client = await db();
-  const [cart, addresses, fastFee] = await Promise.all([viewerCart(), listAddresses(client, store.id), fastShipFee(client, store.id)]);
+  const [cart, addresses, fastFee, plus] = await Promise.all([
+    viewerCart(),
+    listAddresses(client, store.id),
+    fastShipFee(client, store.id),
+    plusMembership(client),
+  ]);
   const { lines, count, totals } = cart;
   const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
 
@@ -74,8 +80,10 @@ export default async function CheckoutPage({
   const now = new Date();
   const options = deliveryOptions(now, store.dates.timeZone);
   const eta = new Date(options.standard);
-  // faster delivery is offered only while it beats standard (and once the store has a fee for it)
-  const fast = options.fast && fastFee !== null ? { eta: new Date(options.fast), feeMinor: fastFee } : null;
+  // faster delivery is offered only while it beats standard (and once the store has a fee for it);
+  // Plus members get it free, as place_order charges them
+  const fast = options.fast && fastFee !== null ? { eta: new Date(options.fast), feeMinor: plus ? 0 : fastFee } : null;
+  const fastFeeText = fast ? (fast.feeMinor === 0 ? 'FREE' : money(fast.feeMinor)) : '';
   const fastWhen = fast ? byTimeText(fast.eta, store, now) : '';
   const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
   const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
@@ -112,14 +120,14 @@ export default async function CheckoutPage({
             n={3}
             title="Delivery"
             value={bySpeed(arrivingText(eta, store, now), `Arriving ${lcFirst(fastWhen)}`)}
-            sub={fast ? undefined : totals.shipMinor === 0 ? 'FREE delivery' : `Delivery ${money(totals.shipMinor)}${freeOver}`}
+            sub={fast ? undefined : totals.shipMinor === 0 ? (plus ? 'FREE delivery with Plus' : 'FREE delivery') : `Delivery ${money(totals.shipMinor)}${freeOver}`}
           >
             {fast ? (
               <DeliverySpeed
                 standard={{ label: 'Standard delivery', sub: `${arrivingText(eta, store, now)} · ${shipText}${freeOver}` }}
                 fast={{
                   label: relativeDayName(fast.eta, store, now) === 'Today' ? 'Same-Day delivery' : 'One-Day delivery',
-                  sub: `Arriving ${lcFirst(fastWhen)} · ${money(fast.feeMinor)}`,
+                  sub: `Arriving ${lcFirst(fastWhen)} · ${fastFeeText}`,
                 }}
               />
             ) : null}
@@ -150,7 +158,7 @@ export default async function CheckoutPage({
           <h2 id="summary-h" className="m-0 mb-1 text-[18px] font-semibold">Order summary</h2>
           <dl className="m-0 flex flex-col gap-2.5 text-[15px]">
             <div className="flex justify-between gap-3"><dt>Items</dt><dd className="m-0 tabular-nums">{money(totals.subtotalMinor)}</dd></div>
-            <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fast ? money(fast.feeMinor) : null)}</dd></div>
+            <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
             {store.pricing.taxInclusive ? (
               <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
             ) : (
