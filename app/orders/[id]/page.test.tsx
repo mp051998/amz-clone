@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -16,7 +16,13 @@ vi.mock('@/lib/marketplace-server', () => ({ getMarketplace: async () => amazon 
 vi.mock('@/lib/auth', () => ({ readUser: async () => ({ id: 'u1', email: 'a@b.test' }), firstName: () => 'Asha' }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ getOrder: async () => state.order }));
-vi.mock('@/lib/data/catalog', () => ({ getProducts: async () => [] }));
+vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US' })) }));
+vi.mock('@/lib/decision/server', () => ({
+  accessoriesFor: async (bought: { id: string }[]) => {
+    state.paired.push(bought.map((p) => p.id));
+    return state.pairs;
+  },
+}));
 vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, returns: [] }), canStartReturn: () => false }));
 vi.mock('@/app/actions/order', () => ({ cancelMyOrder: async () => {} }));
 vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {} }));
@@ -51,6 +57,8 @@ async function show() {
 afterEach(cleanup);
 beforeEach(() => {
   state.order = order();
+  state.pairs = [];
+  state.paired = [];
 });
 
 it('offers a review for each item once the order is delivered', async () => {
@@ -67,4 +75,19 @@ it('not before it arrives, nor for a cancelled order', async () => {
   state.order = order({ status: 'cancelled', deliveredAt: undefined });
   await show();
   expect(screen.queryByRole('link', { name: /Write a product review/ })).toBeNull();
+});
+
+it('the thank-you page offers add-ons for what was just ordered', async () => {
+  state.pairs = [{ product: { id: 'f', title: 'Kettle Descaler Filter', image: '', priceMinor: 799, curBase: 'USD' }, reason: 'Goes with your Kettle · under $10' }];
+  render(await OrderPage({ params: Promise.resolve({ id: 'ORD-9' }), searchParams: Promise.resolve({ placed: '1' }) }));
+  expect(screen.getByRole('heading', { name: 'Order placed, thanks Asha.' })).toBeInTheDocument();
+  const row = screen.getByRole('region', { name: 'Goes with your order' });
+  expect(row).toHaveTextContent('Goes with your Kettle · under $10');
+  expect(screen.getByRole('button', { name: 'Add Kettle Descaler Filter to cart' })).toBeInTheDocument();
+  expect(state.paired).toEqual([['k 1', 'm']]);
+});
+
+it('no add-ons row when nothing pairs', async () => {
+  render(await OrderPage({ params: Promise.resolve({ id: 'ORD-9' }), searchParams: Promise.resolve({ placed: '1' }) }));
+  expect(screen.queryByRole('region', { name: 'Goes with your order' })).toBeNull();
 });

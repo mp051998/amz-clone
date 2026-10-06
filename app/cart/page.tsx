@@ -6,9 +6,10 @@ import { Alert } from '@/components/primitives/Alert';
 import { CartQty } from '@/components/cart/CartQty';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
 import { SavedForLater } from '@/components/cart/SavedForLater';
+import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { cartEta, longDate, relativeDayName } from '@/components/orders/format';
-import { addToCart, removeItem } from '@/app/actions/cart';
+import { removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listCollections } from '@/lib/data/collections';
@@ -214,39 +215,7 @@ export default async function CartPage() {
               </section>
             ) : null}
 
-            {accessories.length ? (
-              <section className="flex flex-col gap-2.5" aria-labelledby="setup-h">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 id="setup-h" className="m-0 text-[20px] font-semibold">Complete your setup</h2>
-                  <span className="text-[13px] text-ink-3">Only items that pair with your cart</span>
-                </div>
-                <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 p-0">
-                  {accessories.map((a) => (
-                    <li key={a.product.id} className="flex items-center gap-3 rounded-card border border-line bg-surface p-3.5">
-                      <a href={sp(`/product/${a.product.id}`)} className="w-[60px] flex-none" tabIndex={-1} aria-hidden>
-                        <ProductFrame src={a.product.image} alt="" aspect="1/1" />
-                      </a>
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <a href={sp(`/product/${a.product.id}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{shortTitle(a.product.title, 6)}</a>
-                        <span className="text-[13px] text-ink-2">{a.reason}</span>
-                        <strong className="text-[15px] tabular-nums">{formatMoney(a.product.priceMinor, a.product.curBase)}</strong>
-                      </div>
-                      <form action={addToCart} className="flex-none">
-                        <input type="hidden" name="id" value={a.product.id} />
-                        <input type="hidden" name="qty" value="1" />
-                        <button
-                          type="submit"
-                          aria-label={`Add ${a.product.title} to cart`}
-                          className="min-h-11 rounded-pill border border-ink bg-surface px-3.5 text-[14px] font-semibold text-ink transition-colors hover:bg-surface-2"
-                        >
-                          Add
-                        </button>
-                      </form>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
+            <PairsWith items={accessories} store={store} id="setup-h" title="Complete your setup" note="Only items that pair with your cart" />
           </div>
 
           <aside className="flex flex-[1_1_300px] flex-col gap-3 rounded-card border border-line bg-surface p-[18px] md:sticky md:top-[128px]" aria-label="Order summary">

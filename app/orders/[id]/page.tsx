@@ -10,6 +10,7 @@ import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '
 import { cancelMyOrder } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
+import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
 import { messageFor } from '@/lib/data/errors';
@@ -18,9 +19,11 @@ import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
 import { getProducts } from '@/lib/data/catalog';
 import { availabilityOf } from '@/lib/buy-again';
+import { accessoriesFor, type Accessory } from '@/lib/decision/server';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import type { Db } from '@/lib/db/client';
 import type { Order } from '@/lib/types';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
@@ -31,6 +34,16 @@ const JUST_PLACED_MS = 10 * 60_000;
 function addressLine(o: Order): string {
   const s = o.shipTo;
   return [s.name, s.line1, s.line2, `${s.city} ${s.postcode}`].filter(Boolean).join(', ');
+}
+
+/** Add-ons for what was just ordered (the thank-you page's "goes with your order" row); never an error. */
+async function pairsFor(client: Db, o: Order): Promise<Accessory[]> {
+  try {
+    const bought = await getProducts(client, o.items.map((i) => i.productId));
+    return await accessoriesFor(bought.filter((p) => p.market === o.market), 4, client);
+  } catch {
+    return [];
+  }
 }
 
 /** What cancelling does with the money, for the confirm step. */
@@ -71,6 +84,7 @@ export default async function OrderPage({
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
 
   if (confirming) {
+    const pairs = await pairsFor(client, order);
     return (
       <AppShell>
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5 px-[clamp(16px,3vw,24px)] pb-[120px] pt-14">
@@ -89,6 +103,7 @@ export default async function OrderPage({
             <a href={sp(`/orders/${order.id}?placed=0`)} className={buttonClasses({ variant: 'primary', size: 'lg' })}>Track order</a>
             <a href={sp('/')} className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Continue shopping</a>
           </div>
+          <PairsWith items={pairs} store={store} id="pairs-h" title="Goes with your order" note="Adds to your cart, not this order" />
         </div>
       </AppShell>
     );
