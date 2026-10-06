@@ -36,7 +36,7 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
     <a
       href={href}
       aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`}
-      className={`flex flex-none items-center gap-2 rounded-pill border border-line text-[14px] font-semibold text-ink no-underline hover:border-ink hover:text-ink ${compact ? 'min-h-11 gap-1.5 px-3' : 'min-h-10 px-3.5'}`}
+      className={`flex flex-none items-center rounded-pill border border-line text-[14px] font-semibold text-ink no-underline hover:border-ink hover:text-ink ${compact ? 'min-h-11 gap-1.5 px-3' : 'min-h-10 gap-2 px-3.5'}`}
     >
       Cart
       <span aria-hidden className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-accent text-on-accent px-1.5 text-[12px] tabular-nums">{count}</span>
@@ -78,10 +78,11 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
 
       {/* mobile */}
       <div className="flex flex-col gap-2.5 px-4 pb-3 pt-2.5 md:hidden">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <a href={home} aria-label={`${store.name} demo store home`} className="no-underline"><Wordmark size="sm" /></a>
           <div className="flex-1" />
-          <a href={savedHref} className={navLink}>Saved</a>
+          {/* under 360px the row can't fit all four; Saved stays in the All menu */}
+          <a href={savedHref} className={`${navLink} max-[360px]:hidden`}>Saved</a>
           <a href={ordersHref} className={navLink}>Orders</a>
           <CartPill href={cartHref} count={cartCount} compact />
         </div>
