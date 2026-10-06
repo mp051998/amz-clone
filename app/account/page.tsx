@@ -9,6 +9,7 @@ import { countOrders } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
 import { listCollections, priceDrops } from '@/lib/data/collections';
 import { plusMembership } from '@/lib/data/plus';
+import { awaitingReview } from '@/lib/data/reviews';
 import { storeBalance } from '@/lib/data/balance';
 import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
@@ -27,7 +28,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus, balance] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -36,6 +37,7 @@ export default async function AccountPage() {
     historyPaused(),
     plusMembership(client),
     storeBalance(client, store.id),
+    awaitingReview(client, store.id, user.id).catch(() => []),
   ]);
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
   const drops = priceDrops(collections.flatMap((c) => c.items)).length;
@@ -60,6 +62,7 @@ export default async function AccountPage() {
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
     { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
+    { title: 'Your reviews', meta: toReview.length ? `${plural(toReview.length, 'item')} to review` : 'All caught up', desc: 'Review what you’ve received, and edit or delete reviews you’ve written.', href: '/account/reviews' },
     // the device's history spans both stores, so no count here: the page shows this store's share
     { title: 'Browsing history', meta: paused ? 'Paused' : recent.length ? 'On this device' : 'Nothing viewed yet', desc: 'Products you looked at recently. Pause or clear it any time.', href: '/history' },
     { title: 'Customer service', meta: 'Help', desc: 'Returns, refunds, delivery problems and order changes.', href: '/customer-service' },

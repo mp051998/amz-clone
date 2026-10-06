@@ -63,6 +63,7 @@ Some products have a coupon, a percent off (5–50%). A signed-in shopper applie
 | POST 🔒 | `/me/balance/demo-card` | | `{giftCard: {code, amountMinor, redeemed}}`. The caller's demo gift card for this store, issued on the first call; it isn't redeemed until you redeem the code (anyone signed in can) |
 | GET 🔒 | `/me/gift-cards?limit=20` | | `{items: GiftCardPurchase[]}`: the gift cards the caller bought in this store and paid for, newest first |
 | POST 🔒 | `/me/gift-cards` | `{amountMinor, recipientName?, message?}` | `201 {purchase, checkoutUrl}`. `purchase.status` is `awaiting_payment` until Stripe reports it paid; then it has its `code`. `422 invalid_input` with `detail` `amount` (not a whole amount within the store's limits), `recipient` (over 60 characters) or `message` (over 240); `503 payments_unavailable` without Stripe |
+| GET 🔒 | `/me/reviews` | | `{reviews: [{review: Review, product: Product}], awaiting: [{product: Product, orderId, deliveredAt}]}`. `reviews`: the caller's reviews in this store, newest first (up to 100; hidden ones included, with `hidden: true`). `awaiting`: products from the caller's delivered orders in this store that they haven't reviewed yet, most recently delivered first; archived products are left out |
 
 `GiftCardPurchase` is `{id, market, amountMinor, currency, recipientName, message, status: awaiting_payment | paid, code, redeemed, createdAt, paidAt}`.
 

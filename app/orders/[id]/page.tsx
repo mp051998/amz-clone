@@ -18,6 +18,7 @@ import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
 import { getProducts } from '@/lib/data/catalog';
+import { reviewedProductIds } from '@/lib/data/reviews';
 import { availabilityOf } from '@/lib/buy-again';
 import { accessoriesFor, type Accessory } from '@/lib/decision/server';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -82,9 +83,14 @@ export default async function OrderPage({
   const countText = `${view.itemCount} ${view.itemCount === 1 ? 'item' : 'items'}`;
   const placedAt = Date.parse(order.placedAt ?? order.createdAt);
   const confirming = order.status === 'placed' && (placed === '1' || now.getTime() - placedAt < JUST_PLACED_MS) && placed !== '0';
-  const [returns, current] = confirming
-    ? [null, []]
-    : await Promise.all([getOrderReturns(client, order.id), getProducts(client, order.items.map((i) => i.productId), { includeArchived: true }).catch(() => [])]);
+  const productIds = order.items.map((i) => i.productId);
+  const [returns, current, reviewed] = confirming
+    ? [null, [], new Set<string>()]
+    : await Promise.all([
+        getOrderReturns(client, order.id),
+        getProducts(client, productIds, { includeArchived: true }).catch(() => []),
+        view.delivered ? reviewedProductIds(client, user.id, productIds).catch(() => new Set<string>()) : new Set<string>(),
+      ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
 
@@ -217,10 +223,16 @@ export default async function OrderPage({
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
                 <span className="text-[13px] text-ink-3">Qty {it.qty} · Sold by {it.seller}</span>
                 {it.unitDiscountMinor ? <span className="text-[13px] font-semibold text-good-strong">Coupon −{money(it.unitDiscountMinor * it.qty)}</span> : null}
-                {order.deliveredAt && order.status !== 'cancelled' ? (
-                  <a href={sp(`/product/${encodeURIComponent(it.productId)}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Write a product review: ${it.title}`}>
-                    Write a product review
-                  </a>
+                {view.delivered ? (
+                  reviewed.has(it.productId) ? (
+                    <a href={sp(`/product/${encodeURIComponent(it.productId)}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Edit your review: ${it.title}`}>
+                      Edit your review
+                    </a>
+                  ) : (
+                    <a href={sp(`/product/${encodeURIComponent(it.productId)}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Write a product review: ${it.title}`}>
+                      Write a product review
+                    </a>
+                  )
                 ) : null}
               </div>
               <div className="flex flex-none flex-col items-end gap-1.5">
