@@ -42,6 +42,8 @@ Plus members (see `/me/plus`) get standard delivery free on every order, whateve
 
 Paying with the store balance (`giftcard` in the US, `amazonpay` in India) takes the order total from the shopper's gift card balance in that store when the order is placed. It fails with `409 insufficient_balance` when the balance doesn't cover it, and the cart is kept. Redeem gift card codes into the balance with `/me/balance/redeem`; each account can get one demo gift card per store (US $100, India ₹5,000). Refunds of balance orders (a cancel, or a received return) go back to the balance.
 
+Some products have a coupon, a percent off (5–50%). A signed-in shopper applies it with `POST /products/:id/coupon`; while it's applied, the percent comes off every unit of that product in their cart and orders in that store, rounded to the minor unit per unit. A coupon isn't used up by an order: it stays applied until the shopper removes it. Delivery's free threshold and the tax are worked out on the subtotal after coupons. Guest carts never get coupon discounts.
+
 ## Auth
 
 | Method | Path | Body | Returns |
@@ -75,7 +77,9 @@ Postgres as that user, so RLS decides what each caller can see.
 | GET | `/categories` | `{market, categories: [{slug, name}]}` in the store's nav order |
 | GET | `/products` | Search and browse. Query params: `q` (full text, prefix-matched), `dept` (category slug), `brand=a,b`, `rating=1..5` (minimum), `deal=1`, `sort=featured\|price-asc\|price-desc\|review\|newest`, `page`. Returns `{market, query, total, groups, page, pageSize: 16, pageCount, brands: [{name, count}], items: Product[]}`. Items and `total` are per product, so each option of a variant group is its own item (see `variant`); `groups` counts the matches with a group's options once, as the storefront shows them, and brand counts do the same. Brand facets cover the query+department scope, before the brand/rating/deal filters. |
 | GET | `/suggest?q=` | Search-as-you-type for the search box. The last word counts as a prefix. Returns `{market, q, total, terms: [{text, count}], departments: [{slug, name, count}], products: [{id, title, image}]}`. `terms` holds up to 4 completions of the last word, taken from matching titles and brands, most common first, each as a whole query (`sony he` → `sony headphones`). `departments` holds the 2 departments with the most matches for the top completion. `products` holds the 4 best-reviewed matches. Counts and products count a variant group once. Input with fewer than two letters or digits returns everything empty. |
-| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null), `details`, the "Product information" table as `[label, value]` pairs, most important first, `gallery` (more image URLs after `image`, in order) and `variants`: null, or `{group, axis, label, options: [{id, label, image, priceMinor, stock, current}]}` when other products of this store share its variant group (e.g. `axis: "Color"`, `label: "Black"`). Options are in label order; archived ones are left out, except the product itself. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. |
+| GET | `/products/:id` | `{product, ratings: {rating, count, bars: [{star, count, pct}]}}`. Here `product` also has `description` (string or null), `details`, the "Product information" table as `[label, value]` pairs, most important first, `gallery` (more image URLs after `image`, in order) and `variants`: null, or `{group, axis, label, options: [{id, label, image, priceMinor, stock, current}]}` when other products of this store share its variant group (e.g. `axis: "Color"`, `label: "Black"`). Options are in label order; archived ones are left out, except the product itself. Returns `404 product_not_found` if the product doesn't exist in this store. An archived product still loads, with `archived: true`. The response also has `coupon`: null, or `{percentOff, clipped}` (`clipped` is whether the caller has applied it, always false signed out); null for an archived product. |
+| POST 🔒 | `/products/:id/coupon` | Apply the product's coupon for the caller. Idempotent. Returns `{coupon: {percentOff, clipped: true}}`, or `404 coupon_not_found` when the product has no coupon or is archived. |
+| DELETE 🔒 | `/products/:id/coupon` | `204`. Stop applying it. |
 | GET | `/products/:id/bought-together` | `{items: [{product, reason, source}]}`: up to 2 products to buy with this one for the product page's "Frequently bought together". `source: orders` items are bought together in placed orders by at least two shoppers; when there are fewer, `source: rules` accessories fill in. Empty for a sold-out or archived product. Returns `404 product_not_found` if the product doesn't exist in this store. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
@@ -108,8 +112,8 @@ Postgres as that user, so RLS decides what each caller can see.
 
 Every cart response is `{cart}`, where `Cart` has these fields:
 - Store: `market, currency, freeShipThresholdMinor`
-- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock, available}]`. `available` is false for an archived product. Such a line can only be removed, and `inStock` is false for it too.
-- Totals: `{subtotalMinor, shipMinor, taxMinor, totalMinor}`
+- Lines: `count, lines: [{product, qty, lineTotalMinor, inStock, available, coupon, discountMinor}]`. `available` is false for an archived product. Such a line can only be removed, and `inStock` is false for it too. `coupon` is null or `{percentOff, clipped}`; `discountMinor` is what the applied coupon takes off the line (`lineTotalMinor` is before it).
+- Totals: `{subtotalMinor, discountMinor, shipMinor, taxMinor, totalMinor}`, where `totalMinor = subtotalMinor - discountMinor + shipMinor + taxMinor`
 
 Prices and totals are computed by the database on every read.
 
@@ -135,7 +139,7 @@ Prices and totals are computed by the database on every read.
 There is no guest checkout. Orders belong to an account, so every route here needs a signed-in user (`401 not_authenticated`), and so does `place_order()` in the database. A guest's cart carries over: sign in, then `POST /cart/merge`.
 
 How `POST /orders` works:
-- In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price and seller and computes the totals.
+- In one transaction, it validates the address for the store, locks the products and reserves stock (`409 insufficient_stock`). A cart holding an archived product fails with `409 product_unavailable` (`detail` is its id) until that line is removed. It then snapshots each line's title, price, seller and coupon discount and computes the totals. An order's `totals` carry `discountMinor`, and each item `unitDiscountMinor` when a coupon applied; a return refunds what was paid for an item, after its coupon.
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 - **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
@@ -357,7 +361,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `not_found` |
 | 405 | wrong method on a known path |
 | 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
@@ -393,7 +397,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-three migrations live in `supabase/migrations/`:
+Twenty-four migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -420,6 +424,7 @@ Twenty-three migrations live in `supabase/migrations/`:
 | delivery speed | `markets.fast_ship_fee_minor`; `orders.ship_speed` (`standard` or `fast`), the fast schedule in the order trigger, and `place_order()`'s `p_speed`, refused with `delivery_option_unavailable` when faster delivery isn't offered |
 | Plus membership | `plus_members` (owner read only); `join_plus()` and `leave_plus()`; `order_totals()` (now security definer) and `place_order()` make standard and faster delivery free for members |
 | gift card balance | `markets.demo_gift_card_minor`; `gift_cards`, `store_balances` and `balance_entries` (owner read only); `claim_demo_gift_card()` and `redeem_gift_card()`; triggers that take a balance order's total when it's placed (`insufficient_balance`) and credit its refunds back, only for orders that were charged |
+| coupons | `coupons` (one per product, 5–50% off; everyone reads, admins write) and `coupon_clips` (owner read only); `clip_coupon()` and `unclip_coupon()`; `orders.discount_minor` and `order_items.unit_discount_minor`, with `orders_total_adds_up` taking the discount off; `cart_json()`, `place_order()` and `request_return()` price applied coupons per unit |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

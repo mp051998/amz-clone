@@ -88,6 +88,7 @@ export default async function CheckoutPage({
   const fastFeeText = fast ? (fast.feeMinor === 0 ? 'FREE' : money(fast.feeMinor)) : '';
   const fastWhen = fast ? byTimeText(fast.eta, store, now) : '';
   const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
+  const discount = totals.discountMinor ?? 0;
   const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
   // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast)
   const bySpeed = (standard: ReactNode, faster: ReactNode) =>
@@ -147,6 +148,7 @@ export default async function CheckoutPage({
                   <span className="min-w-0">
                     {l.product.title}
                     <span className="text-ink-3"> × {l.qty}</span>
+                    {l.discountMinor ? <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor)}</span> : null}
                     {!l.available ? (
                       <span className="block text-[13px] font-semibold text-warn">⚠ No longer available</span>
                     ) : !l.inStock ? (
@@ -164,6 +166,9 @@ export default async function CheckoutPage({
           <h2 id="summary-h" className="m-0 mb-1 text-[18px] font-semibold">Order summary</h2>
           <dl className="m-0 flex flex-col gap-2.5 text-[15px]">
             <div className="flex justify-between gap-3"><dt>Items</dt><dd className="m-0 tabular-nums">{money(totals.subtotalMinor)}</dd></div>
+            {discount > 0 ? (
+              <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 tabular-nums">−{money(discount)}</dd></div>
+            ) : null}
             <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
             {store.pricing.taxInclusive ? (
               <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
@@ -172,7 +177,7 @@ export default async function CheckoutPage({
             )}
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-line pt-3">
               <dt className="text-[18px] font-semibold">Total</dt>
-              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{bySpeed(money(totals.totalMinor), fast ? money(totals.subtotalMinor + fast.feeMinor + totals.taxMinor) : null)}</dd>
+              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{bySpeed(money(totals.totalMinor), fast ? money(totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor) : null)}</dd>
             </div>
           </dl>
           {blocked ? (

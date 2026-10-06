@@ -5,6 +5,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { Alert } from '@/components/primitives/Alert';
 import { CartQty } from '@/components/cart/CartQty';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
+import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { SavedForLater } from '@/components/cart/SavedForLater';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
@@ -127,7 +128,9 @@ export default async function CartPage() {
   const [swap, accessories, plus] = await Promise.all([saving(lines), setup(lines), user ? db().then(plusMembership) : null]);
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
-  const toFree = cart.freeShipThresholdMinor - totals.subtotalMinor;
+  const discount = totals.discountMinor ?? 0;
+  // the free-delivery threshold goes by what's paid for the items, after coupons
+  const toFree = cart.freeShipThresholdMinor - (totals.subtotalMinor - discount);
 
   return (
     <AppShell>
@@ -165,6 +168,18 @@ export default async function CartPage() {
                             {l.qty > 1 ? <span className="text-ink-3"> · {money(p.priceMinor)} each</span> : null}
                           </span>
                         )}
+                        {l.available && l.coupon ? (
+                          <CouponToggle
+                            productId={p.id}
+                            percentOff={l.coupon.percentOff}
+                            clipped={l.coupon.clipped}
+                            signedIn={!!user}
+                            market={store.id}
+                            next="/cart"
+                            compact
+                          />
+                        ) : null}
+                        {l.discountMinor ? <span className="text-[13px] font-semibold text-good-strong">You save {money(l.discountMinor)} with the coupon</span> : null}
                         {drop > 0 ? (
                           <span className="self-start rounded-chip bg-good-bg px-2 py-1 text-[14px] font-semibold text-good-strong">
                             ↓ Price dropped {money(drop)} since you saved it
@@ -225,6 +240,9 @@ export default async function CartPage() {
             ) : null}
             <dl className="m-0 flex flex-col gap-2 text-[15px]">
               <div className="flex justify-between gap-3"><dt>Subtotal ({count} {count === 1 ? 'item' : 'items'})</dt><dd className="m-0 font-bold tabular-nums">{money(totals.subtotalMinor)}</dd></div>
+              {discount > 0 ? (
+                <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 font-bold tabular-nums">−{money(discount)}</dd></div>
+              ) : null}
               <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 font-bold tabular-nums">{freeShip ? 'FREE' : money(totals.shipMinor)}</dd></div>
               {store.pricing.taxInclusive ? (
                 <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>

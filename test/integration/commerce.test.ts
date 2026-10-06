@@ -105,6 +105,8 @@ describe('checkout', () => {
     const { data } = await anon().rpc('order_totals', { p_market: 'US', p_subtotal: p.price_minor * 3 });
     expect(order.totals).toEqual({
       subtotalMinor: data![0].subtotal_minor,
+      // nothing clipped
+      discountMinor: 0,
       shipMinor: data![0].ship_minor,
       taxMinor: data![0].tax_minor,
       totalMinor: data![0].total_minor,

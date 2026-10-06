@@ -132,13 +132,16 @@ export default async function AdminOrderPage({ params, searchParams }: {
                 <span className="w-14 flex-none" aria-hidden><ProductFrame src={it.image} alt="" aspect="1/1" /></span>
                 <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                   <a href={to(`/admin/products/${encodeURIComponent(it.productId)}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline hover:underline">{it.title}</a>
-                  <span className="text-[13px] text-ink-3">{money(it.unitPriceMinor)} × {it.qty} · Sold by {it.seller}</span>
+                  <span className="text-[13px] text-ink-3">{money(it.unitPriceMinor)} × {it.qty} · Sold by {it.seller}{it.unitDiscountMinor ? ` · coupon −${money(it.unitDiscountMinor * it.qty)}` : ''}</span>
                 </div>
                 <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
               </div>
             ))}
             <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">
               <div className="flex justify-between"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(order.totals.subtotalMinor)}</dd></div>
+              {order.totals.discountMinor ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.discountMinor)}</dd></div>
+              ) : null}
               <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
               <div className="flex justify-between"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(order.totals.taxMinor)}</dd></div>
               <div className="flex justify-between font-bold"><dt>Total</dt><dd className="m-0 tabular-nums">{money(order.totals.totalMinor)}</dd></div>
