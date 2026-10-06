@@ -11,6 +11,7 @@ const SIGNED_IN_LINKS = [
   { label: 'Buy again', href: '/orders/buy-again' },
   { label: 'Browsing history', href: '/history' },
   { label: 'Account', href: '/account' },
+  { label: 'Plus membership', href: '/prime' },
   { label: 'Addresses', href: '/account/addresses' },
 ];
 

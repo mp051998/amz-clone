@@ -13,6 +13,7 @@ import { removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listCollections } from '@/lib/data/collections';
+import { plusMembership } from '@/lib/data/plus';
 import { accessoriesFor, alternativesFor, type Accessory, type Alternative } from '@/lib/decision/server';
 import { shortTitle } from '@/lib/decision/verdict';
 import { recentProducts } from '@/lib/recent-products';
@@ -123,7 +124,7 @@ export default async function CartPage() {
   const freeShip = totals.shipMinor === 0;
   const blocked = lines.some((l) => !l.inStock);
   const saved = savedPrices(lists);
-  const [swap, accessories] = await Promise.all([saving(lines), setup(lines)]);
+  const [swap, accessories, plus] = await Promise.all([saving(lines), setup(lines), user ? db().then(plusMembership) : null]);
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
   const toFree = cart.freeShipThresholdMinor - totals.subtotalMinor;
@@ -235,8 +236,13 @@ export default async function CartPage() {
                 <dd className="m-0 text-[22px] font-bold tracking-[-0.01em] tabular-nums">{money(totals.totalMinor)}</dd>
               </div>
             </dl>
-            {!freeShip && toFree > 0 ? (
-              <span className="text-[13px] text-ink-2">Add {money(toFree)} more for FREE delivery.</span>
+            {plus ? (
+              <span className="text-[13px] text-ink-2">Delivery is FREE with your Plus membership.</span>
+            ) : !freeShip && toFree > 0 ? (
+              <span className="text-[13px] text-ink-2">
+                Add {money(toFree)} more for FREE delivery, or{' '}
+                <a href={sp('/prime')} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">get it on every order with Plus</a>.
+              </span>
             ) : null}
             {blocked ? (
               <Alert tone="warning">

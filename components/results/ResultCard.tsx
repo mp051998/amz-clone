@@ -30,18 +30,25 @@ export interface ResultCardProps {
   priority?: boolean;
   /** the product's variant group (other colours, sizes), when it has one. */
   variants?: VariantSummary;
+  /** the standard delivery day ("Tomorrow, October 8") and whether the shopper is a Plus member. */
+  delivery?: ResultDelivery;
 }
 
-/** Store-aware delivery promise from the store's free-delivery threshold. */
-export function deliveryLine(store: Store, priceMinor: number, stock: number): string {
+export interface ResultDelivery {
+  day: string;
+  member?: boolean;
+}
+
+/** Store-aware delivery promise: free over the store's threshold, and always for Plus members. */
+export function deliveryLine(store: Store, priceMinor: number, stock: number, delivery: ResultDelivery = { day: 'tomorrow' }): string {
   if (stock <= 0) return 'Currently unavailable';
   const threshold = store.delivery.freeThresholdMinor;
-  if (priceMinor >= threshold) return 'FREE delivery tomorrow';
-  return `Delivery tomorrow · FREE over ${formatMoney(threshold, store.currency.code)}`;
+  if (delivery.member || priceMinor >= threshold) return `FREE delivery ${delivery.day}`;
+  return `Delivery ${delivery.day} · FREE over ${formatMoney(threshold, store.currency.code)}`;
 }
 
 /** Ranked search result card (prototype Search screen; design.md §5 Why it's here). */
-export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants }: ResultCardProps) {
+export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery }: ResultCardProps) {
   const p = r.product;
   const cur = store.currency.code;
   const href = storePath(store, `/product/${p.id}`);
@@ -75,7 +82,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
       </div>
       <span className="text-[13px] text-ink-2">
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
-        {deliveryLine(store, price, p.stock)}
+        {deliveryLine(store, price, p.stock, delivery)}
       </span>
       {r.why.length || r.warn ? (
         <div className="flex flex-col gap-1.5 border-t border-line-2 pt-3">
