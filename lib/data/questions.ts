@@ -157,6 +157,16 @@ export async function listQuestions(
   return { items: rows.map((r) => toQuestion(r, viewerId, byQuestion.get(r.id))), total: res.count ?? rows.length };
 }
 
+/** How many of a product's questions have at least one answer (0 on any error: it's a link label). */
+export async function countAnsweredQuestions(db: Db, productId: string): Promise<number> {
+  const res = await db
+    .from('product_questions')
+    .select('id', { count: 'exact', head: true })
+    .eq('product_id', productId)
+    .gt('answer_count', 0);
+  return res.error ? 0 : (res.count ?? 0);
+}
+
 /**
  * Ids of a product's questions whose text, or one of whose answers, contains `q` (so a search
  * finds what was said in reply). Null when the tables aren't there yet.

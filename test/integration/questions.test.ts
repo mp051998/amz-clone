@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addToCart } from '@/lib/data/cart';
 import { placeOrder } from '@/lib/data/orders';
 import { DataError } from '@/lib/data/errors';
-import { answerQuestion, askQuestion, deleteAnswer, deleteQuestion, listQuestions, toggleAnswerHelpful } from '@/lib/data/questions';
+import { answerQuestion, askQuestion, countAnsweredQuestions, deleteAnswer, deleteQuestion, listQuestions, toggleAnswerHelpful } from '@/lib/data/questions';
 import { admin, anon, deleteUser, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
 
 const code = async (p: Promise<unknown>) => {
@@ -89,6 +89,12 @@ describe('product questions & answers', () => {
     expect((await listQuestions(anon(), productId, null, { q: 'COLOURS' })).items.map((x) => x.body)).toEqual(['What colours does it come in?']);
     expect((await listQuestions(anon(), productId, null, { q: 'room to spare' })).items.map((x) => x.body)).toEqual(['Does it fit in a carry-on bag?']);
     expect((await listQuestions(anon(), productId, null, { q: '100%_' })).total).toBe(0);
+  });
+
+  it('counts only the questions that have an answer', async () => {
+    // two questions so far, one of them answered
+    expect((await listQuestions(anon(), productId, null)).total).toBe(2);
+    expect(await countAnsweredQuestions(anon(), productId)).toBe(1);
   });
 
   it('only the author (or an admin) deletes; deleting an answer drops the count', async () => {
