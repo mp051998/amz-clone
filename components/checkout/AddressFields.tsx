@@ -1,4 +1,5 @@
 import { Input } from '../primitives/Input';
+import { addressChecks } from '@/lib/address-patterns';
 import type { Address } from '@/lib/types';
 
 /**
@@ -11,18 +12,19 @@ import type { Address } from '@/lib/types';
 export function AddressFields({ isIN, address }: { isIN: boolean; address?: Partial<Address> }) {
   const a = address ?? {};
   const kind = a.kind ?? 'home';
+  const check = addressChecks(isIN);
 
   if (isIN) {
     return (
       <div className="grid max-w-[600px] grid-cols-1 gap-3.5 sm:grid-cols-2">
-        <Input name="fullName" label="Full name" required defaultValue={a.name ?? ''} placeholder="Enter full name" />
-        <Input name="phone" label="Mobile number" inputMode="numeric" required defaultValue={a.phone ?? ''} placeholder="10-digit mobile number" />
-        <div className="sm:col-span-2"><Input name="line1" label="Flat, House no., Building, Company" required defaultValue={a.line1 ?? ''} placeholder="e.g. 12, Prestige Residency" /></div>
-        <div className="sm:col-span-2"><Input name="line2" label="Area, Street, Sector, Village" required defaultValue={a.line2 ?? ''} placeholder="e.g. Koramangala 4th Block" /></div>
+        <Input name="fullName" {...check.fullName} label="Full name" required defaultValue={a.name ?? ''} placeholder="Enter full name" />
+        <Input name="phone" {...check.phone} label="Mobile number" inputMode="numeric" required defaultValue={a.phone ?? ''} placeholder="10-digit mobile number" />
+        <div className="sm:col-span-2"><Input name="line1" {...check.line1} label="Flat, House no., Building, Company" required defaultValue={a.line1 ?? ''} placeholder="e.g. 12, Prestige Residency" /></div>
+        <div className="sm:col-span-2"><Input name="line2" {...check.line2} label="Area, Street, Sector, Village" required defaultValue={a.line2 ?? ''} placeholder="e.g. Koramangala 4th Block" /></div>
         <div className="sm:col-span-2"><Input name="landmark" label="Landmark (optional)" defaultValue={a.landmark ?? ''} placeholder="e.g. near Forum Mall" /></div>
-        <Input name="city" label="Town/City" required defaultValue={a.city ?? ''} placeholder="e.g. Bengaluru" />
-        <Input name="state" label="State" required defaultValue={a.state ?? ''} placeholder="e.g. Karnataka" />
-        <Input name="postcode" label="Pincode" inputMode="numeric" required defaultValue={a.zip ?? ''} placeholder="6-digit pincode" />
+        <Input name="city" {...check.city} label="Town/City" required defaultValue={a.city ?? ''} placeholder="e.g. Bengaluru" />
+        <Input name="state" {...check.state} label="State" required defaultValue={a.state ?? ''} placeholder="e.g. Karnataka" />
+        <Input name="postcode" {...check.postcode} label="Pincode" inputMode="numeric" required defaultValue={a.zip ?? ''} placeholder="6-digit pincode" />
         <fieldset className="m-0 border-0 p-0 sm:col-span-2">
           <legend className="mb-1.5 text-[14px] font-semibold text-ink">Address type</legend>
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-[14px]">
@@ -36,13 +38,13 @@ export function AddressFields({ isIN, address }: { isIN: boolean; address?: Part
 
   return (
     <div className="grid max-w-[600px] grid-cols-1 gap-3.5 sm:grid-cols-2">
-      <Input name="fullName" label="Full name" required defaultValue={a.name ?? ''} placeholder="Enter full name" />
-      <Input name="phone" label="Phone number" inputMode="numeric" required defaultValue={a.phone ?? ''} placeholder="10-digit phone number" />
-      <div className="sm:col-span-2"><Input name="line1" label="Address" required defaultValue={a.line1 ?? ''} placeholder="Street address" /></div>
-      <div className="sm:col-span-2"><Input name="line2" label="Apt, suite, etc. (optional)" defaultValue={a.line2 ?? ''} /></div>
-      <Input name="city" label="City" required defaultValue={a.city ?? ''} placeholder="e.g. Seattle" />
-      <Input name="state" label="State" required defaultValue={a.state ?? ''} placeholder="e.g. WA" />
-      <Input name="postcode" label="ZIP Code" inputMode="numeric" required defaultValue={a.zip ?? ''} placeholder="5-digit ZIP" />
+      <Input name="fullName" {...check.fullName} label="Full name" required defaultValue={a.name ?? ''} placeholder="Enter full name" />
+      <Input name="phone" {...check.phone} label="Phone number" inputMode="numeric" required defaultValue={a.phone ?? ''} placeholder="10-digit phone number" />
+      <div className="sm:col-span-2"><Input name="line1" {...check.line1} label="Address" required defaultValue={a.line1 ?? ''} placeholder="Street address" /></div>
+      <div className="sm:col-span-2"><Input name="line2" {...check.line2} label="Apt, suite, etc. (optional)" defaultValue={a.line2 ?? ''} /></div>
+      <Input name="city" {...check.city} label="City" required defaultValue={a.city ?? ''} placeholder="e.g. Seattle" />
+      <Input name="state" {...check.state} label="State" required defaultValue={a.state ?? ''} placeholder="e.g. WA" />
+      <Input name="postcode" {...check.postcode} label="ZIP Code" inputMode="numeric" required defaultValue={a.zip ?? ''} placeholder="5-digit ZIP" />
     </div>
   );
 }
