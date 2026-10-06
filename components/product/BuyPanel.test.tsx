@@ -38,3 +38,9 @@ it('leaves the faster line out when checkout would not offer it', () => {
   expect(screen.queryByText(/Or fastest/)).toBeNull();
   expect(screen.queryByText(/Delivering/)).toBeNull();
 });
+
+it('marks the faster option FREE for a Plus member', () => {
+  show({ headline: 'FREE delivery with your membership', fastest: 'Today by 7:30 PM', fastFree: true });
+  expect(screen.getByText('FREE delivery with your membership')).toBeInTheDocument();
+  expect(screen.getByText(/fastest delivery/)).toHaveTextContent('Or FREE fastest delivery Today by 7:30 PM');
+});

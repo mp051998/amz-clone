@@ -1,12 +1,18 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { Page, PageHead, Section, InfoCard, TextLink, DemoNote, PlusBadge, cardGrid } from '@/components/brand/Page';
 import { Kicker, TopPickBadge } from '@/components/decision/Badges';
 import { CheckList } from '@/components/decision/CheckList';
 import { buttonClasses } from '@/components/primitives/Button';
 import { cn } from '@/components/lib/cn';
+import { Alert } from '@/components/primitives/Alert';
+import { JoinPlusButton, LeavePlusButton } from '@/components/prime/PlusMembership';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { readUser } from '@/lib/auth';
+import { db } from '@/lib/supabase/server';
+import { plusMembership } from '@/lib/data/plus';
 
 export const metadata: Metadata = { title: 'Plus membership · Store' };
 
@@ -21,18 +27,34 @@ interface Plan {
 interface Benefit {
   title: string;
   body: string;
-  href: string;
+  /** where the card leads; benefits that only sell the membership drop it once signed in */
+  href: string | null;
   cta: string;
 }
 
-export default async function PlusPage() {
-  const store = await getMarketplace();
+export default async function PlusPage({ searchParams }: { searchParams: Promise<{ joined?: string; left?: string }> }) {
+  const [store, user, sp] = await Promise.all([getMarketplace(), readUser(), searchParams]);
+  const plus = user ? await plusMembership(await db()) : null;
   const isIN = store.id === 'IN';
   const sym = store.currency.symbol;
 
-  const joinHref = storePath(store, '/signin?new=1');
+  // signed out, joining starts with an account; signed in, the join buttons join at once
+  const joinHref = user ? null : storePath(store, '/signin?new=1&next=/prime');
   const dealsHref = storePath(store, '/deals');
   const videoHref = storePath(store, '/prime-video');
+
+  const memberSince = plus
+    ? new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone }).format(new Date(plus.since))
+    : '';
+  /** A join call to action: sign up first when signed out, join at once when signed in. */
+  const join = (label: string, opts: { variant?: 'primary' | 'secondary'; size?: 'lg'; block?: boolean } = {}) =>
+    joinHref ? (
+      <a href={joinHref} className={buttonClasses({ variant: opts.variant ?? 'primary', size: opts.size, block: opts.block })}>{label}</a>
+    ) : (
+      <JoinPlusButton label={label} variant={opts.variant ?? 'primary'} size={opts.size} block={opts.block} />
+    );
+  const joinText = (children: ReactNode) =>
+    joinHref ? <a href={joinHref} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">{children}</a> : <strong className="font-semibold text-ink">{children}</strong>;
 
   const heroPrice = isIN
     ? `${sym}299/month, ${sym}599 for 3 months, or ${sym}1,499/year`
@@ -53,8 +75,8 @@ export default async function PlusPage() {
     {
       title: 'Fast, free delivery',
       body: isIN
-        ? 'Free fast delivery on millions of items, with same-day delivery in select cities.'
-        : 'Free one-day and same-day delivery on millions of eligible items, with no order minimum.',
+        ? 'FREE delivery on every order, with no minimum, and FREE same-day or one-day delivery whenever checkout offers it.'
+        : 'FREE delivery on every order with no minimum, plus FREE same-day and one-day delivery whenever checkout offers it.',
       href: dealsHref,
       cta: 'Shop eligible items',
     },
@@ -94,19 +116,37 @@ export default async function PlusPage() {
   return (
     <AppShell>
       <Page>
+        {sp.joined && plus ? <Alert tone="success">Welcome to Plus. FREE delivery and FREE faster delivery are on for your next orders.</Alert> : null}
+        {sp.left && !plus ? <Alert tone="info">Your Plus membership has ended. Orders you&apos;ve placed keep their delivery; new ones are charged as usual.</Alert> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)]">
           <PageHead
             kicker="Delivery · video · member deals"
             title={<span className="inline-flex flex-wrap items-center gap-3"><PlusBadge className="px-2 py-0.5 text-[clamp(16px,2vw,20px)]" /> membership</span>}
             actions={
-              <>
-                <a href={joinHref} className={buttonClasses({ variant: 'primary', size: 'lg' })}>Join Plus</a>
-                <a href="#plans" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Compare plans</a>
-              </>
+              plus ? (
+                <>
+                  <a href={dealsHref} className={buttonClasses({ variant: 'primary', size: 'lg' })}>Shop today&apos;s deals</a>
+                  <LeavePlusButton />
+                </>
+              ) : (
+                <>
+                  {join('Join Plus', { size: 'lg' })}
+                  <a href="#plans" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Compare plans</a>
+                </>
+              )
             }
           >
-            <p className="m-0">Fast, free delivery, entertainment and member-only savings — one membership. Worth it if you order more than a couple of times a month.</p>
-            <p className="m-0 mt-2 text-[14px] text-ink-3">{heroPrice} · Cancel anytime.</p>
+            {plus ? (
+              <>
+                <p className="m-0">You&apos;re a Plus member since {memberSince}. FREE delivery on every order and FREE faster delivery are on, in both stores.</p>
+                <p className="m-0 mt-2 text-[14px] text-ink-3">Nothing is billed in this demo store. End the membership any time.</p>
+              </>
+            ) : (
+              <>
+                <p className="m-0">Fast, free delivery, entertainment and member-only savings — one membership. Worth it if you order more than a couple of times a month.</p>
+                <p className="m-0 mt-2 text-[14px] text-ink-3">{heroPrice} · Cancel anytime.</p>
+              </>
+            )}
           </PageHead>
 
           <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
@@ -116,7 +156,11 @@ export default async function PlusPage() {
               good={['Fast, free delivery', 'Plus Video included', 'Ad-free music', 'Member-only deals']}
             />
             <p className="m-0 border-t border-line-2 pt-3 text-[14px] text-ink-2">
-              From <strong className="text-[18px] font-bold text-ink tabular-nums">{plans[0].price}</strong>{plans[0].per}
+              {plus ? (
+                <>Member since <strong className="font-semibold text-ink">{memberSince}</strong></>
+              ) : (
+                <>From <strong className="text-[18px] font-bold text-ink tabular-nums">{plans[0].price}</strong>{plans[0].per}</>
+              )}
             </p>
           </div>
         </div>
@@ -124,46 +168,46 @@ export default async function PlusPage() {
         <Section title="What's included" note="One membership, benefits across shopping and entertainment">
           <div className={cardGrid}>
             {benefits.map((b) => (
-              <InfoCard key={b.title} title={b.title} footer={<TextLink href={b.href}>{b.cta}</TextLink>}>
+              <InfoCard key={b.title} title={b.title} footer={b.href ? <TextLink href={b.href}>{b.cta}</TextLink> : undefined}>
                 {b.body}
               </InfoCard>
             ))}
           </div>
         </Section>
 
-        <Section id="plans" title="Choose a plan" note="Every plan includes every benefit">
-          <div className={cn('grid gap-3.5', isIN ? 'md:grid-cols-3' : 'md:max-w-[760px] md:grid-cols-2')}>
-            {plans.map((p) => (
-              <div
-                key={p.name}
-                className={cn(
-                  'flex flex-col gap-2 rounded-card bg-surface p-[18px]',
-                  p.best ? 'border-[1.5px] border-ink' : 'border border-line',
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <Kicker>{p.name}</Kicker>
-                  {p.best ? <TopPickBadge>Best value</TopPickBadge> : null}
+        {plus ? null : (
+          <Section id="plans" title="Choose a plan" note="Every plan includes every benefit">
+            <div className={cn('grid gap-3.5', isIN ? 'md:grid-cols-3' : 'md:max-w-[760px] md:grid-cols-2')}>
+              {plans.map((p) => (
+                <div
+                  key={p.name}
+                  className={cn(
+                    'flex flex-col gap-2 rounded-card bg-surface p-[18px]',
+                    p.best ? 'border-[1.5px] border-ink' : 'border border-line',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <Kicker>{p.name}</Kicker>
+                    {p.best ? <TopPickBadge>Best value</TopPickBadge> : null}
+                  </div>
+                  <p className="m-0 flex items-baseline gap-1">
+                    <span className="text-[32px] font-bold leading-none tracking-[-0.01em] text-ink tabular-nums">{p.price}</span>
+                    <span className="text-[15px] text-ink-2">{p.per}</span>
+                  </p>
+                  <p className="m-0 flex-1 text-[14px] text-ink-2">{p.note}</p>
+                  <div className="mt-2 flex">{join(`Choose ${p.name.toLowerCase()}`, { variant: p.best ? 'primary' : 'secondary', block: true })}</div>
                 </div>
-                <p className="m-0 flex items-baseline gap-1">
-                  <span className="text-[32px] font-bold leading-none tracking-[-0.01em] text-ink tabular-nums">{p.price}</span>
-                  <span className="text-[15px] text-ink-2">{p.per}</span>
-                </p>
-                <p className="m-0 flex-1 text-[14px] text-ink-2">{p.note}</p>
-                <a href={joinHref} className={cn('mt-2', buttonClasses({ variant: p.best ? 'primary' : 'secondary', block: true }))}>
-                  Choose {p.name.toLowerCase()}
-                </a>
-              </div>
-            ))}
-          </div>
-          <p className="m-0 text-[14px] text-ink-2">
-            {isIN ? (
-              <>Want something lighter? <a href={joinHref} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">Plus Lite is {sym}799/year</a> with delivery benefits only.</>
-            ) : (
-              <>At college? <a href={joinHref} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">Plus Student is half price</a> at {sym}7.49/month or {sym}69/year.</>
-            )}
-          </p>
-        </Section>
+              ))}
+            </div>
+            <p className="m-0 text-[14px] text-ink-2">
+              {isIN ? (
+                <>Want something lighter? {joinText(<>Plus Lite is {sym}799/year</>)} with delivery benefits only.</>
+              ) : (
+                <>At college? {joinText('Plus Student is half price')} at {sym}7.49/month or {sym}69/year.</>
+              )}
+            </p>
+          </Section>
+        )}
 
         <section className="flex flex-col items-start gap-4 rounded-panel bg-ink px-5 py-6 text-on-ink sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div className="flex max-w-[680px] flex-col gap-2">
@@ -176,14 +220,17 @@ export default async function PlusPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <a href={joinHref} className={buttonClasses({ variant: 'primary' })}>Join Plus</a>
+            {plus ? null : join('Join Plus')}
             <a href={dealsHref} className="inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-on-ink underline underline-offset-2 hover:text-accent-soft">
               Today&apos;s deals →
             </a>
           </div>
         </section>
 
-        <DemoNote>Plus is a demo membership in an unofficial portfolio store. Joining creates a test account only; nothing is billed and no benefits are delivered.</DemoNote>
+        <DemoNote>
+          Plus is a demo membership in an unofficial portfolio store and nothing is billed. Members really get FREE delivery and FREE
+          faster delivery on their orders here; the video, music, reading and games benefits are illustrations only.
+        </DemoNote>
       </Page>
     </AppShell>
   );

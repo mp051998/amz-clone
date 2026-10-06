@@ -45,6 +45,7 @@ import { bestsellerRank } from '@/lib/bestseller-rank';
 import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
+import { plusMembership } from '@/lib/data/plus';
 import type { Product } from '@/lib/types';
 
 type SP = Record<string, string | string[] | undefined>;
@@ -129,7 +130,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank] = await Promise.all([
+  const [insight, reviews, alts, saved, info, bundle, deliverTo, recent, rank, plus] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -139,6 +140,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     readDeliverTo(store.id),
     recentProducts(client, store.id, { exclude: [p.id] }),
     p.archived ? Promise.resolve(null) : bestsellerRank(client, p).catch(() => null),
+    user ? plusMembership(client) : Promise.resolve(null),
   ]);
 
   const ranked = rankOne(p, insight, weights);
@@ -172,9 +174,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const options = deliveryOptions(now, store.dates.timeZone);
   const delivery = {
     member: store.membership.name,
-    headline: priceMinor >= threshold ? 'FREE delivery' : `FREE delivery on orders over ${formatMoney(threshold, cur)}`,
+    // members get standard and faster delivery free on every order
+    headline: plus ? 'FREE delivery with your membership' : priceMinor >= threshold ? 'FREE delivery' : `FREE delivery on orders over ${formatMoney(threshold, cur)}`,
     promise: dayLabel(new Date(options.standard), store, now),
     fastest: options.fast ? byTimeText(new Date(options.fast), store, now) : undefined,
+    fastFree: plus != null,
     orderWithin: options.fastBy ? orderWithinText(now, new Date(options.fastBy)) ?? undefined : undefined,
     to: deliverTo.current ? `to ${deliverLabel(deliverTo.current)}` : undefined,
   };

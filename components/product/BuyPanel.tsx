@@ -30,6 +30,8 @@ export interface BuyPanelProps {
     promise: string;
     /** faster delivery ("Today by 7:30 PM"), when checkout offers it */
     fastest?: string;
+    /** the faster option is free (Plus members) */
+    fastFree?: boolean;
     /** "Order within 2 hrs 13 mins": how long the faster option lasts */
     orderWithin?: string;
     /** "to Bengaluru 560001": the shopper's delivery location, when there is one */
@@ -90,7 +92,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
         <strong className="text-[18px] font-semibold">{delivery.promise}</strong>
         {delivery.fastest ? (
           <span className="text-[13px] text-ink-2">
-            Or fastest delivery <strong className="font-semibold text-ink">{delivery.fastest}</strong>
+            Or {delivery.fastFree ? 'FREE ' : ''}fastest delivery <strong className="font-semibold text-ink">{delivery.fastest}</strong>
             {delivery.orderWithin ? <>. <span className="font-semibold text-good">{delivery.orderWithin}</span></> : null}
           </span>
         ) : null}

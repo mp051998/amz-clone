@@ -3,10 +3,14 @@ import { changeEmail, changePassword, renameAccount, validEmail, validName, vali
 import { DataError, unwrap } from '@/lib/data/errors';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tokenBody } from '@/lib/api/auth';
+import { plusMembership } from '@/lib/data/plus';
 
 async function me(ctx: ApiContext, id: string, email: string | null) {
-  const profile = unwrap(await ctx.db.from('profiles').select('display_name, created_at').eq('id', id).maybeSingle());
-  return { id, email, name: profile?.display_name ?? null, createdAt: profile?.created_at ?? null };
+  const [profile, plus] = await Promise.all([
+    ctx.db.from('profiles').select('display_name, created_at').eq('id', id).maybeSingle().then(unwrap),
+    plusMembership(ctx.db),
+  ]);
+  return { id, email, name: profile?.display_name ?? null, createdAt: profile?.created_at ?? null, plus };
 }
 
 /** GET /api/v1/me — the authenticated caller and their profile. */

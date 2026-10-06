@@ -8,6 +8,7 @@ import { db } from '@/lib/supabase/server';
 import { countOrders } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
 import { listCollections } from '@/lib/data/collections';
+import { plusMembership } from '@/lib/data/plus';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -24,13 +25,14 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
     viewerCart(),
     readRecentIds(),
     historyPaused(),
+    plusMembership(client),
   ]);
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
   const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
@@ -39,6 +41,12 @@ export default async function AccountPage() {
     { title: 'Orders', meta: orderCount ? plural(orderCount, 'order') : 'No orders yet', desc: 'Track deliveries and see what you bought.', href: '/orders' },
     { title: 'Collections', meta: saved ? `${plural(saved, 'saved item')} · ${plural(collections.length, 'list')}` : 'Nothing saved yet', desc: 'Saved products with prices tracked since you saved them.', href: '/collections' },
     { title: 'Addresses', meta: addresses.length ? `${plural(addresses.length, 'address', 'addresses')}${defaultAddr ? ` · default ${defaultAddr.city}` : ''}` : 'None saved', desc: 'Where your orders go. Pick one at checkout.', href: '/account/addresses' },
+    {
+      title: 'Plus membership',
+      meta: plus ? 'Member · FREE delivery' : 'Not a member',
+      desc: plus ? 'FREE delivery on every order and FREE faster delivery. End it any time.' : 'FREE delivery on every order, with no minimum. Free in this demo.',
+      href: '/prime',
+    },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
     { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
