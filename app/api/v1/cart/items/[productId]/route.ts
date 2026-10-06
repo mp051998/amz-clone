@@ -1,14 +1,22 @@
 import { body, json, preflight, route } from '@/lib/api/http';
 import { cartToken } from '@/lib/api/cart';
-import { setCartQty } from '@/lib/data/cart';
+import { selectCartLines, setCartQty } from '@/lib/data/cart';
 import { DataError } from '@/lib/data/errors';
 
-/** PATCH /api/v1/cart/items/:productId { qty } — set the quantity; 0 removes the line. */
+/**
+ * PATCH /api/v1/cart/items/:productId { qty?, selected? } — set the quantity (0 removes the line)
+ * and/or tick or untick the line for checkout. At least one of the two.
+ */
 export const PATCH = route<{ productId: string }>(async (ctx, { productId }) => {
-  const qty = Number((await body(ctx.req)).qty);
-  if (!Number.isInteger(qty) || qty < 0) throw new DataError('invalid_input', 'qty', 'qty must be a non-negative integer.');
+  const b = await body(ctx.req);
+  const qty = b.qty === undefined ? undefined : Number(b.qty);
+  if (qty !== undefined && (!Number.isInteger(qty) || qty < 0)) throw new DataError('invalid_input', 'qty', 'qty must be a non-negative integer.');
+  if (b.selected !== undefined && typeof b.selected !== 'boolean') throw new DataError('invalid_input', 'selected', 'selected must be true or false.');
+  if (qty === undefined && b.selected === undefined) throw new DataError('invalid_input', 'qty', 'Send qty, selected or both.');
   const { token, minted } = cartToken(ctx, true);
-  const cart = await setCartQty(ctx.db, ctx.market, productId, qty, token);
+  let cart = qty === undefined ? null : await setCartQty(ctx.db, ctx.market, productId, qty, token);
+  // a line that qty 0 just removed has nothing left to tick
+  if (typeof b.selected === 'boolean' && qty !== 0) cart = await selectCartLines(ctx.db, ctx.market, productId, b.selected, token);
   return json({ cart, ...(minted ? { cartToken: token } : {}) }, { cartToken: token });
 });
 

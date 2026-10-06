@@ -60,13 +60,18 @@ export interface CartLine {
   inStock: boolean;
   /** false when the product was archived: it must be removed before checkout. */
   available: boolean;
+  /** ticked for checkout; unticked lines stay in the cart, outside the subtotal. */
+  selected: boolean;
 }
 
 export interface Cart {
   market: Market;
   currency: CurrencyCode;
   lines: CartLine[];
+  /** every item in the cart (the header badge) */
   count: number;
+  /** the items the subtotal and checkout cover (the ticked lines) */
+  selectedCount: number;
   totals: OrderTotals;
   freeShipThresholdMinor: number;
 }

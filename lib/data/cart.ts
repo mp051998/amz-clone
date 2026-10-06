@@ -49,6 +49,20 @@ export async function setCartQty(db: Db, market: Market, productId: string, qty:
   );
 }
 
+/** Tick or untick a line for checkout, or every line when `productId` is null. */
+export async function selectCartLines(db: Db, market: Market, productId: string | null, selected: boolean, guestToken?: string | null): Promise<Cart> {
+  return toCart(
+    unwrap(
+      await db.rpc('cart_select', {
+        p_market: market,
+        p_selected: selected,
+        p_product_id: productId ?? undefined,
+        p_guest_token: guestToken ?? undefined,
+      }),
+    ),
+  );
+}
+
 export async function clearCart(db: Db, market: Market, guestToken?: string | null): Promise<Cart> {
   return toCart(unwrap(await db.rpc('cart_clear', { p_market: market, p_guest_token: guestToken ?? undefined })));
 }

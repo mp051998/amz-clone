@@ -83,13 +83,13 @@ isOneToOne: false
                   ]
                 },"cart_items": {
                   Row: {
-                    "added_at": string,"cart_id": string,"product_id": string,"qty": number
+                    "added_at": string,"cart_id": string,"product_id": string,"qty": number,"selected": boolean
                   }
                   Insert: {
-                    "added_at"?: string,"cart_id": string,"product_id": string,"qty": number
+                    "added_at"?: string,"cart_id": string,"product_id": string,"qty": number,"selected"?: boolean
                   }
                   Update: {
-                    "added_at"?: string,"cart_id"?: string,"product_id"?: string,"qty"?: number
+                    "added_at"?: string,"cart_id"?: string,"product_id"?: string,"qty"?: number,"selected"?: boolean
                   }
                   Relationships: [
                     {
@@ -714,6 +714,9 @@ isOneToOne: false
                            },
 "cart_merge_guest":
 { Args: { "p_guest_token": string }; Returns: number
+                           },
+"cart_select":
+{ Args: { "p_guest_token"?: string,"p_market": string,"p_product_id"?: string,"p_selected": boolean }; Returns: Json
                            },
 "cart_set_qty":
 { Args: { "p_guest_token"?: string,"p_market": string,"p_mode"?: string,"p_product_id": string,"p_qty": number }; Returns: Json
