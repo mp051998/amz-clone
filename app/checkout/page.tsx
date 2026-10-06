@@ -89,13 +89,22 @@ export default async function CheckoutPage({
       </EmptyState>,
     );
   }
-  const { lines, count, totals } = cart;
+  // checkout covers the ticked lines; unticked ones stay in the cart (Buy Now's one line is ticked)
+  const lines = cart.lines.filter((l) => l.selected);
+  const { selectedCount: count, totals } = cart;
   const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
 
-  if (lines.length === 0) {
+  if (cart.lines.length === 0) {
     return shell(
       <EmptyState title="Your cart is empty" action={<a href={sp('/s')} className={buttonClasses({ variant: 'dark' })}>Find something</a>}>
         Add items to your cart before checking out.
+      </EmptyState>,
+    );
+  }
+  if (lines.length === 0) {
+    return shell(
+      <EmptyState title="No items selected" action={<a href={sp('/cart')} className={buttonClasses({ variant: 'dark' })}>Back to cart</a>}>
+        Tick the items in your cart that you want to check out.
       </EmptyState>,
     );
   }

@@ -4,6 +4,7 @@ import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Alert } from '@/components/primitives/Alert';
 import { CartQty } from '@/components/cart/CartQty';
+import { CartSelect, CartSelectAll } from '@/components/cart/CartSelect';
 import { cartNotice } from '@/components/cart/notice';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
@@ -75,7 +76,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const money = (minor: number) => formatMoney(minor, cur);
   const sp = (path: string) => storePath(store, path);
   const [cart, user] = await Promise.all([viewerCart(), readUser()]);
-  const { lines, count, totals } = cart;
+  const { lines, selectedCount: count, totals } = cart;
   const [lists, recent] = await Promise.all([
     user ? savedLists(store.id) : Promise.resolve([]),
     recentProducts(await db(), store.id, { exclude: lines.map((l) => l.product.id) }),
@@ -127,7 +128,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const eta = cartEta(now, store);
   const etaText = relativeDayName(eta, store, now)?.toLowerCase() ?? `on ${longDate(eta, store)}`;
   const freeShip = totals.shipMinor === 0;
-  const blocked = lines.some((l) => !l.inStock);
+  // only ticked lines are ordered, so an unticked line can't hold up checkout
+  const blocked = lines.some((l) => l.selected && !l.inStock);
+  const allSelected = lines.every((l) => l.selected);
   const saved = savedPrices(lists);
   const [swap, accessories, plus] = await Promise.all([saving(lines), setup(lines), user ? db().then(plusMembership) : null]);
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
@@ -145,7 +148,10 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
         <div className="flex flex-wrap items-start gap-6">
           <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-[22px]">
             <section className="flex flex-col gap-2.5" aria-labelledby="items-h">
-              <h2 id="items-h" className="m-0 text-[20px] font-semibold">Your items</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="items-h" className="m-0 text-[20px] font-semibold">Your items</h2>
+                <CartSelectAll allSelected={allSelected} />
+              </div>
               <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">
                 {lines.map((l) => {
                   const p = l.product;
@@ -153,6 +159,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                   const drop = dropFor(l);
                   return (
                     <li key={p.id} className="flex flex-wrap gap-3.5 border-t border-line-2 p-4 first:border-t-0">
+                      <CartSelect id={p.id} selected={l.selected} name={p.title} />
                       <a href={href} className={`w-[88px] flex-none${l.available ? '' : ' opacity-50'}`} tabIndex={-1} aria-hidden>
                         <ProductFrame src={p.image} alt="" aspect="1/1" />
                       </a>
@@ -267,9 +274,11 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                 <a href={sp('/prime')} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">get it on every order with Plus</a>.
               </span>
             ) : null}
-            {blocked ? (
+            {count === 0 ? (
+              <Alert tone="info">No items selected. Tick the items you want to check out.</Alert>
+            ) : blocked ? (
               <Alert tone="warning">
-                {lines.some((l) => !l.available)
+                {lines.some((l) => l.selected && !l.available)
                   ? 'Some items are no longer available. Remove them to check out.'
                   : 'Some items no longer have enough stock. Update them to check out.'}
               </Alert>

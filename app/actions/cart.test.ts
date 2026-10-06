@@ -16,10 +16,11 @@ vi.mock('@/lib/data/cart', () => {
   return {
     addToCart: async (_db: unknown, _m: string, id: string) => run('add', id),
     setCartQty: async (_db: unknown, _m: string, id: string, qty: number) => run(`set x${qty}`, id),
+    selectCartLines: async (_db: unknown, _m: string, id: string | null, on: boolean) => run(on ? 'tick' : 'untick', id ?? 'all'),
   };
 });
 
-const { addBundle, buyNow, removeItem, updateQty } = await import('./cart');
+const { addBundle, buyNow, removeItem, selectItems, updateQty } = await import('./cart');
 
 const form = (entries: [string, string][]) => {
   const f = new FormData();
@@ -62,4 +63,13 @@ it('Buy Now opens checkout for just that product, without touching the cart', as
   await expect(buyNow(form([['id', 'k1']]))).rejects.toThrow(/^REDIRECT \/in\/checkout\?buy=k1&qty=1$/);
   await expect(buyNow(form([]))).rejects.toThrow(/^REDIRECT \/in\/cart$/);
   expect(state.calls).toEqual([]);
+});
+
+it('ticks or unticks one line, or every line when no product is named', async () => {
+  await selectItems(form([['id', 'p1'], ['selected', '0']]));
+  await selectItems(form([['id', 'p1'], ['selected', '1']]));
+  await selectItems(form([['selected', '0']]));
+  expect(state.calls).toEqual(['untick p1', 'tick p1', 'untick all']);
+  state.fails.gone = 'not_in_cart';
+  await expect(selectItems(form([['id', 'gone'], ['selected', '1']]))).rejects.toThrow('REDIRECT /in/cart?error=not_in_cart');
 });

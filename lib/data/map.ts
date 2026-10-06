@@ -42,6 +42,7 @@ interface CartJson {
   currency: CurrencyCode;
   free_ship_threshold_minor: number;
   count: number;
+  selected_count?: number;
   lines: {
     product: Partial<ProductRow>;
     qty: number;
@@ -50,6 +51,7 @@ interface CartJson {
     available?: boolean;
     coupon?: { percent_off: number; clipped: boolean } | null;
     discount_minor?: number;
+    selected?: boolean;
   }[];
   totals: { subtotal_minor: number; discount_minor?: number; ship_minor: number; tax_minor: number; total_minor: number };
 }
@@ -62,6 +64,8 @@ export function toCart(json: unknown): Cart {
     currency: c.currency,
     freeShipThresholdMinor: c.free_ship_threshold_minor,
     count: c.count,
+    // absent before cart lines could be unticked: every line counted
+    selectedCount: c.selected_count ?? c.count,
     lines: c.lines.map((l) => ({
       product: toProduct(l.product),
       qty: l.qty,
@@ -72,6 +76,7 @@ export function toCart(json: unknown): Cart {
       // absent before the coupons migration
       ...(l.coupon ? { coupon: { percentOff: l.coupon.percent_off, clipped: l.coupon.clipped } } : {}),
       discountMinor: l.discount_minor ?? 0,
+      selected: l.selected ?? true,
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
