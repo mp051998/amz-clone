@@ -269,11 +269,13 @@ Saved products, per store. Two system lists are created on first use: `consideri
 | POST | `/collections/:id/share` | | `{token, sharedAt, url}`. Turns on a link anyone can open (`/lists/<token>`). The same link while it's on. |
 | DELETE | `/collections/:id/share` | | `204`. The link stops working; sharing again makes a new one. |
 
-**Shared lists** (no sign-in). Anyone with the link reads the list's name, the sharer's first name and its products, never the note, the saved prices or whose account it is.
+**Shared lists** (no sign-in). Anyone with the link reads the list's name, the sharer's first name and its products, never the note, the saved prices or whose account it is. Marking an item bought needs sign-in.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/lists/:token` | | `{list: {token, name, kind, market, ownerName, sharedAt, mine, collectionId, products}}`. Newest first; archived products are left out. `mine` (and `collectionId`) only for the sharer. `404 collection_not_found` when the link is off or wrong. |
+| GET | `/lists/:token` | | `{list: {token, name, kind, market, ownerName, sharedAt, mine, collectionId, products, bought}}`. Still-to-buy products first, then bought ones, newest first within each; archived products are left out. `mine` (and `collectionId`) only for the sharer. `bought` maps product ids to `you` (you marked it) or `someone` (another gift giver did); always `{}` for the sharer, so marks don't spoil the surprise. `404 collection_not_found` when the link is off or wrong. |
+| POST 🔒 | `/lists/:token/items/:productId/bought` | | `204`. Marks the item bought by you (here or elsewhere; it isn't tied to an order) so other gift givers don't buy it twice. Again is a no-op. `409 gift_already_bought` when another giver marked it first; `409 own_list` on your own list; `404 item_not_found` when it isn't on the list. |
+| DELETE 🔒 | `/lists/:token/items/:productId/bought` | | `204`. Undoes your mark; another giver's mark stays. |
 
 ## AI layer
 
@@ -441,7 +443,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Twenty-eight migrations live in `supabase/migrations/`:
+Twenty-nine migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -473,6 +475,7 @@ Twenty-eight migrations live in `supabase/migrations/`:
 | gift card purchases | `gift_cards.purchased_by`; `gift_card_purchases` (owner read only); `start_gift_card_purchase()`, `my_gift_card_purchases()`, and the service-role `attach_gift_card_session()` and `confirm_gift_card_purchase()`, which checks the amount and currency and issues the code |
 | shared lists | `collections.share_token` / `shared_at`; `share_collection()` and `unshare_collection()` (owner), and `shared_collection()` for anyone with the link |
 | moving list items | `move_collection_item()` (owner): moves a product between two of the caller's lists and keeps its saved price and date |
+| shared list gifts | `collection_gifts` (no policies: read through `shared_collection()`, which now returns each item's `bought` for everyone but the owner, and written through `mark_shared_gift()`); one giver per item, and the mark goes with the item when it's removed or moved |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

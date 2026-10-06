@@ -144,6 +144,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"collection_gifts": {
+                  Row: {
+                    "collection_id": string,"created_at": string,"product_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "collection_id": string,"created_at"?: string,"product_id": string,"user_id": string
+                  }
+                  Update: {
+                    "collection_id"?: string,"created_at"?: string,"product_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"collection_items": {
                   Row: {
                     "added_at": string,"collection_id": string,"product_id": string,"saved_price_minor": number
@@ -822,6 +835,9 @@ isOneToOne: false
                            },
 "move_collection_item":
 { Args: { "p_from": string; "p_to": string; "p_product": string }; Returns: undefined
+                           },
+"mark_shared_gift":
+{ Args: { "p_token": string; "p_product": string; "p_bought": boolean }; Returns: undefined
                            }
           }
           Enums: {
