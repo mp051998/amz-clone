@@ -151,8 +151,9 @@ Prices and totals are computed by the database on every read.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}, gift?: {message?}, speed?: standard \| fast}` | Checks out your cart in this store. See the details after this table. |
+| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?}, gift?: {message?}, speed?: standard \| fast, buyNow?: {productId, qty = 1}}` | Checks out your cart in this store, or with `buyNow` just that product. See the details after this table. |
 | GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
+| GET | `/orders/buy-now?productId=&qty=1` | | `{quote: Cart}`: what Buy Now would order, just that product at `qty` (1 up to the store's line limit), priced like a cart holding only it (coupon, delivery, tax). `404 product_not_found` if it isn't in this store. |
 | GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
 | POST | `/orders/:id/pay` | | Finish paying an `awaiting_payment` card order: `{checkoutUrl}`, its Stripe Checkout page (the same one while it's open, so there's never a second payable page; a new one once it has lapsed), or `{order}` when Stripe reports it paid after all. `409 order_not_pending` for any other order, `503 payments_unavailable` without Stripe. |
@@ -165,6 +166,7 @@ How `POST /orders` works:
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the cart is emptied.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 - **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
+- **Buy Now:** send `buyNow: {productId, qty}` to order just that product (`qty` 1 up to the store's line limit) instead of the cart. The cart isn't needed and is left as it is, whatever the payment method; `404 product_not_found` if the product isn't in this store. A card order's cancel page returns to that product's checkout.
 - **Gifts:** send `gift: {message?}` (or `gift: true`) to mark the order as a gift. The note is trimmed and can be up to 240 characters (`422 invalid_input` beyond that); a blank one means no note.
 
 `Order` has these fields:
@@ -444,7 +446,7 @@ curl -X POST "$API/orders" -H "Authorization: Bearer $TOKEN" -H 'content-type: a
 
 ## Data model
 
-Thirty migrations live in `supabase/migrations/`:
+Thirty-one migrations live in `supabase/migrations/`:
 
 | Migration | Contents |
 | --- | --- |
@@ -478,6 +480,7 @@ Thirty migrations live in `supabase/migrations/`:
 | moving list items | `move_collection_item()` (owner): moves a product between two of the caller's lists and keeps its saved price and date |
 | shared list gifts | `collection_gifts` (no policies: read through `shared_collection()`, which now returns each item's `bought` for everyone but the owner, and written through `mark_shared_gift()`); one giver per item, and the mark goes with the item when it's removed or moved |
 | verified after delivery | `private.has_received()`: review `verified` (in `reviews_before_write`) and answer `verified` (in `answer_question()`) need an order containing the product to have been delivered, not just placed; existing marks without one were cleared |
+| buy now | `place_order(p_buy)` orders just one product and leaves the cart alone; `orders.from_cart` keeps `confirm_order_payment()` from taking a Buy Now order's items out of the cart; `buy_now_quote()` prices the line, and `cart_json()` now shares `private.checkout_json()` with it |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

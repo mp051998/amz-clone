@@ -14,6 +14,11 @@ export async function getCart(db: Db, market: Market, guestToken?: string | null
   return toCart(unwrap(await db.rpc('cart_get', { p_market: market, p_guest_token: guestToken ?? undefined })));
 }
 
+/** Buy Now's checkout summary: just this product at `qty` (1..the store's line limit), priced like a cart of it. */
+export async function buyNowQuote(db: Db, market: Market, productId: string, qty: number): Promise<Cart> {
+  return toCart(unwrap(await db.rpc('buy_now_quote', { p_market: market, p_product: productId, p_qty: qty })));
+}
+
 /** Increment a line (creates the cart on first add). Capped at stock and the per-line max. */
 export async function addToCart(db: Db, market: Market, productId: string, qty: number, guestToken?: string | null): Promise<Cart> {
   return toCart(

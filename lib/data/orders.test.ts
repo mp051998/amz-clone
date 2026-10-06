@@ -86,6 +86,15 @@ describe('placeOrder gift and speed', () => {
     expect(placed.shipSpeed).toBe('fast');
   });
 
+  it('sends Buy Now’s product only for Buy Now', async () => {
+    const plain = fakeDb();
+    await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING });
+    expect(plain.calls[0]).not.toHaveProperty('p_buy');
+    const buy = fakeDb();
+    await placeOrder(buy.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, buyNow: { productId: 'k1', qty: 2 } });
+    expect(buy.calls[0]).toMatchObject({ p_buy: { product_id: 'k1', qty: 2 } });
+  });
+
   it('a too-long note fails before the order is placed', async () => {
     const gift = fakeDb();
     await expect(placeOrder(gift.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, gift: { message: 'x'.repeat(241) } })).rejects.toMatchObject({

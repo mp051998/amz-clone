@@ -19,7 +19,7 @@ vi.mock('@/lib/data/cart', () => {
   };
 });
 
-const { addBundle, removeItem, updateQty } = await import('./cart');
+const { addBundle, buyNow, removeItem, updateQty } = await import('./cart');
 
 const form = (entries: [string, string][]) => {
   const f = new FormData();
@@ -55,4 +55,11 @@ it('a bundle that fully went in, or not at all', async () => {
   await expect(addBundle(form([['id', 'a'], ['id', 'b'], ['from', 'a']]))).rejects.toThrow(/^REDIRECT \/in\/cart$/);
   state.fails = { a: 'out_of_stock', b: 'out_of_stock' };
   await expect(addBundle(form([['id', 'a'], ['id', 'b'], ['from', 'a']]))).rejects.toThrow('REDIRECT /in/product/a?error=out_of_stock');
+});
+
+it('Buy Now opens checkout for just that product, without touching the cart', async () => {
+  await expect(buyNow(form([['id', 'k 1'], ['qty', '2']]))).rejects.toThrow(/^REDIRECT \/in\/checkout\?buy=k\+1&qty=2$/);
+  await expect(buyNow(form([['id', 'k1']]))).rejects.toThrow(/^REDIRECT \/in\/checkout\?buy=k1&qty=1$/);
+  await expect(buyNow(form([]))).rejects.toThrow(/^REDIRECT \/in\/cart$/);
+  expect(state.calls).toEqual([]);
 });

@@ -7,6 +7,7 @@ import { ensureGuestToken, getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import * as cart from '@/lib/data/cart';
 import { DataError } from '@/lib/data/errors';
+import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
 
 function qtyOf(formData: FormData, fallback = 1): number {
   const n = Number(formData.get('qty'));
@@ -19,7 +20,7 @@ async function scope() {
   return { client, market, token: user ? null : await ensureGuestToken() };
 }
 
-async function add(formData: FormData, then: '/cart' | '/checkout'): Promise<void> {
+export async function addToCart(formData: FormData): Promise<void> {
   const { client, market, token } = await scope();
   const id = String(formData.get('id') ?? '');
   let code: string | null = null;
@@ -31,15 +32,14 @@ async function add(formData: FormData, then: '/cart' | '/checkout'): Promise<voi
   }
   revalidatePath('/', 'layout');
   if (code) redirect(storePath({ id: market }, `/product/${encodeURIComponent(id)}?error=${code}`));
-  redirect(storePath({ id: market }, then));
+  redirect(storePath({ id: market }, '/cart'));
 }
 
-export async function addToCart(formData: FormData): Promise<void> {
-  await add(formData, '/cart');
-}
-
+/** Buy Now: checkout for just this product at the picked quantity; the cart is left as it is. */
 export async function buyNow(formData: FormData): Promise<void> {
-  await add(formData, '/checkout');
+  const market = await getMarket();
+  const buy = readBuyNow(formData.get('id'), formData.get('qty'));
+  redirect(storePath({ id: market }, buy ? `/checkout?${buyNowQuery(buy)}` : '/cart'));
 }
 
 /** Most a "Frequently bought together" bundle holds: the product and two more (a "use server" file exports only actions). */

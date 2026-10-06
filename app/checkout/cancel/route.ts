@@ -4,11 +4,14 @@ import { db } from '@/lib/supabase/server';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { cancelPendingOrder } from '@/lib/data/orders';
+import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
 
-/** Back from Stripe without paying: cancel the pending order (releases stock), keep the cart. */
+/** Back from Stripe without paying: cancel the pending order (releases stock), keep the cart. Buy Now returns to its own checkout. */
 export async function GET(req: NextRequest): Promise<Response> {
   const market = await getMarket();
-  const orderId = req.nextUrl.searchParams.get('order');
+  const q = req.nextUrl.searchParams;
+  const orderId = q.get('order');
   if (orderId) await cancelPendingOrder(await db(), orderId).catch(() => undefined);
-  redirect(storePath({ id: market }, '/checkout?canceled=1'));
+  const buy = readBuyNow(q.get('buy'), q.get('qty'));
+  redirect(storePath({ id: market }, `/checkout?canceled=1${buy ? `&${buyNowQuery(buy)}` : ''}`));
 }
