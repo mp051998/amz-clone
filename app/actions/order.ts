@@ -42,6 +42,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         postcode: formData.get('postcode'),
         addressType: formData.get('addressType'),
       },
+      gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage') } : undefined,
     });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;

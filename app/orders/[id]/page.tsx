@@ -36,6 +36,11 @@ function addressLine(o: Order): string {
   return [s.name, s.line1, s.line2, `${s.city} ${s.postcode}`].filter(Boolean).join(', ');
 }
 
+/** The gift row: the note as written (line breaks kept), or that there is none. */
+function giftText(gift: NonNullable<Order['gift']>) {
+  return gift.message ? <span className="whitespace-pre-line">“{gift.message}”</span> : 'Yes, no message';
+}
+
 /** Add-ons for what was just ordered (the thank-you page's "goes with your order" row); never an error. */
 async function pairsFor(client: Db, o: Order): Promise<Accessory[]> {
   try {
@@ -147,6 +152,7 @@ export default async function OrderPage({
           rows={[
             { label: 'Items', value: order.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ') },
             { label: 'Deliver to', value: addressLine(order) },
+            ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
             { label: 'Paid with', value: paidWithText(order) },
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}

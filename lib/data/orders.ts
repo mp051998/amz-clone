@@ -11,9 +11,22 @@ export function isPaymentMethod(v: unknown): v is PaymentMethod {
   return typeof v === 'string' && (PAYMENT_METHODS as readonly string[]).includes(v);
 }
 
+export const GIFT_NOTE_MAX = 240;
+
 export interface PlaceOrderInput {
   paymentMethod: PaymentMethod;
   shipping: AddressFieldsInput;
+  /** mark the order as a gift, with an optional note for the recipient */
+  gift?: { message?: unknown };
+}
+
+/** A gift note as typed: trimmed, blank is none. Longer than GIFT_NOTE_MAX is refused (invalid_input). */
+export function readGiftNote(v: unknown): string | undefined {
+  const note = typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim() : '';
+  if (note.length > GIFT_NOTE_MAX) {
+    throw new DataError('invalid_input', 'gift.message', `Gift messages can be up to ${GIFT_NOTE_MAX} characters.`);
+  }
+  return note || undefined;
 }
 
 /**
@@ -23,6 +36,7 @@ export interface PlaceOrderInput {
  */
 export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput): Promise<Order> {
   const a = parseAddress(market, input.shipping);
+  const note = input.gift ? readGiftNote(input.gift.message) : undefined;
   const json = unwrap(
     await db.rpc('place_order', {
       p_market: market,
@@ -37,6 +51,8 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
         state: a.state,
         postcode: a.postcode,
       },
+      // sent only for gifts, so ordinary checkouts don't depend on the gift migration
+      ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}) } : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);

@@ -155,6 +155,8 @@ export interface Order {
   cancelReason?: CancelReason;
   /** set once a paid (or cash on delivery) order is cancelled. */
   refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string };
+  /** a gift order, with the note for the recipient when there is one. */
+  gift?: { message?: string };
 }
 
 /**
