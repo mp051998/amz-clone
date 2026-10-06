@@ -1,7 +1,17 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+import { product } from '@/test/fixtures/decision';
 import type { Db } from '../db/client';
 import { DataError } from './errors';
-import { askQuestion, containsPattern, countAnsweredQuestions, listQuestions } from './questions';
+import { askQuestion, containsPattern, countAnsweredQuestions, listMyAnswers, listMyQuestions, listQuestions } from './questions';
+
+const catalog = vi.hoisted(() => ({ asked: [] as unknown[] }));
+vi.mock('./catalog', () => ({
+  // p-gone is no longer in the catalog
+  getProducts: async (_db: unknown, ids: string[], opts: unknown) => {
+    catalog.asked.push([ids, opts]);
+    return ids.filter((id) => id !== 'p-gone').map((id) => product({ id, title: `Product ${id}` }));
+  },
+}));
 
 type Reply = { data: unknown; error: unknown; count?: number | null };
 
@@ -119,4 +129,39 @@ it('checks the question length before asking', async () => {
   const q = await askQuestion(db, 'p1', 'u1', '  Is it loud at night?  ');
   expect(rpcs).toEqual([['ask_question', { p_product: 'p1', p_body: 'Is it loud at night?' }]]);
   expect(q).toMatchObject({ id: 'q9', mine: true, answerCount: 0, answers: [] });
+});
+
+it("lists the caller's questions in this store with their products", async () => {
+  catalog.asked = [];
+  const { db, calls } = fakeDb({
+    product_questions: [{ data: [question('q1', { user_id: 'u1' }), question('q2', { user_id: 'u1', product_id: 'p-gone' })], error: null }],
+  });
+  const mine = await listMyQuestions(db, 'IN', 'u1');
+  expect(mine.map((m) => [m.question.id, m.question.mine, m.product.title])).toEqual([['q1', true, 'Product p1']]);
+  expect(calls[0].ops).toEqual(
+    expect.arrayContaining([
+      ['eq', ['user_id', 'u1']],
+      ['eq', ['products.market_id', 'IN']],
+      ['order', ['created_at', { ascending: false }]],
+    ]),
+  );
+  expect(catalog.asked).toEqual([[['p1', 'p-gone'], { includeArchived: true }]]);
+});
+
+it("lists the caller's answers with the question each one answers", async () => {
+  const { db, calls } = fakeDb({
+    product_answers: [
+      {
+        data: [
+          { ...answer('a1', 'q1', { user_id: 'u1' }), product_questions: { id: 'q1', body: 'Does it fold flat?', product_id: 'p1' } },
+          { ...answer('a2', 'q2', { user_id: 'u1' }), product_questions: { id: 'q2', body: 'Is it loud?', product_id: 'p-gone' } },
+        ],
+        error: null,
+      },
+    ],
+  });
+  const mine = await listMyAnswers(db, 'US', 'u1');
+  expect(mine).toHaveLength(1);
+  expect(mine[0]).toMatchObject({ answer: { id: 'a1', mine: true, helpful: 2 }, question: { id: 'q1', body: 'Does it fold flat?' }, product: { id: 'p1' } });
+  expect(calls[0].ops).toEqual(expect.arrayContaining([['eq', ['product_questions.products.market_id', 'US']]]));
 });

@@ -30,6 +30,7 @@ export function GET(): Response {
       'GET    /me/gift-cards?limit=',
       'POST   /me/gift-cards',
       'GET    /me/reviews',
+      'GET    /me/questions',
       'GET    /categories',
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
       'GET    /suggest?q=',

@@ -1,5 +1,7 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Db } from '../db/client';
+import type { Market, Product } from '../types';
+import { getProducts } from './catalog';
 import { DataError, fromPostgrest, unwrap } from './errors';
 
 /**
@@ -213,6 +215,59 @@ export async function answerQuestion(db: Db, questionId: string, viewerId: strin
   const res = await db.rpc('answer_question', { p_question: questionId, p_body: text });
   const row = written(res, 'You’ve already answered this question.') as AnswerRow;
   return toAnswer(row, viewerId);
+}
+
+/** One of the caller's questions, with its product. */
+export interface MyQuestion {
+  question: Question;
+  product: Product;
+}
+
+/** One of the caller's answers, with the question it answers and that question's product. */
+export interface MyAnswer {
+  answer: Answer;
+  question: { id: string; body: string };
+  product: Product;
+}
+
+const productsById = async (db: Db, ids: string[]) =>
+  new Map((await getProducts(db, [...new Set(ids)], { includeArchived: true })).map((p) => [p.id, p]));
+
+/** The questions the caller asked in this store, newest first (up to 100). */
+export async function listMyQuestions(db: Db, market: Market, userId: string): Promise<MyQuestion[]> {
+  const rows = unwrap(
+    await db
+      .from('product_questions')
+      .select(`${Q_COLS}, products!inner(market_id)`)
+      .eq('user_id', userId)
+      .eq('products.market_id', market)
+      .order('created_at', { ascending: false })
+      .limit(100),
+  ) as unknown as QuestionRow[];
+  const products = await productsById(db, rows.map((r) => r.product_id));
+  return rows.flatMap((r) => {
+    const product = products.get(r.product_id);
+    return product ? [{ question: toQuestion(r, userId), product }] : [];
+  });
+}
+
+/** The answers the caller gave in this store, newest first (up to 100). */
+export async function listMyAnswers(db: Db, market: Market, userId: string): Promise<MyAnswer[]> {
+  const rows = unwrap(
+    await db
+      .from('product_answers')
+      .select(`${A_COLS}, product_questions!inner(id, body, product_id, products!inner(market_id))`)
+      .eq('user_id', userId)
+      .eq('product_questions.products.market_id', market)
+      .order('created_at', { ascending: false })
+      .limit(100),
+  ) as unknown as (AnswerRow & { product_questions: { id: string; body: string; product_id: string } })[];
+  const products = await productsById(db, rows.map((r) => r.product_questions.product_id));
+  return rows.flatMap((r) => {
+    const product = products.get(r.product_questions.product_id);
+    const { id, body } = r.product_questions;
+    return product ? [{ answer: toAnswer(r, userId), question: { id, body }, product }] : [];
+  });
 }
 
 export async function deleteQuestion(db: Db, questionId: string): Promise<void> {
