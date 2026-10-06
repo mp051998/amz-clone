@@ -12,3 +12,8 @@ export async function getMarketplace(): Promise<PublicMarketplace> {
   const country = (await headers()).get('x-amz-country');
   return country === 'IN' ? amazonIn : amazon;
 }
+
+/** The page being shown, as an in-store path with its query (`/in` already stripped). Stamped by `proxy.ts`. */
+export async function currentPath(): Promise<string | null> {
+  return (await headers()).get('x-amz-path');
+}

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import type { Store } from '../lib/store';
-import { storePath } from '@/lib/marketplace';
+import { signInPath, storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
 import { buttonClasses } from '../primitives/Button';
 
@@ -19,10 +19,22 @@ const SIGNED_IN_LINKS = [
 
 /**
  * "Hello, Monish / Account & Collections" (design.md §5 Header). The trigger is a real link
- * (→ /collections, or /signin when signed out); on hover/focus a small menu adds Orders, Account
- * and Sign out.
+ * (→ /collections, or sign-in when signed out); on hover/focus a small menu adds Orders, Account
+ * and Sign out. The sign-in links come back to the page being viewed.
  */
-export function AccountMenu({ store, userName, isAdmin = false }: { store: Store; userName?: string; isAdmin?: boolean }) {
+export function AccountMenu({
+  store,
+  userName,
+  isAdmin = false,
+  signInHref = signInPath(store),
+  createAccountHref = signInPath(store, null, { create: true }),
+}: {
+  store: Store;
+  userName?: string;
+  isAdmin?: boolean;
+  signInHref?: string;
+  createAccountHref?: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,7 +55,7 @@ export function AccountMenu({ store, userName, isAdmin = false }: { store: Store
   return (
     <div ref={ref} className="relative flex-none" onMouseEnter={openNow} onMouseLeave={closeSoon} onFocus={openNow} onBlur={closeSoon}>
       <a
-        href={to(userName ? '/collections' : '/signin')}
+        href={userName ? to('/collections') : signInHref}
         aria-haspopup="menu"
         aria-expanded={open}
         className="block rounded-chip p-1 leading-[1.25] text-ink no-underline hover:bg-surface-2 hover:text-ink"
@@ -69,9 +81,9 @@ export function AccountMenu({ store, userName, isAdmin = false }: { store: Store
               </>
             ) : (
               <div className="flex flex-col gap-2">
-                <a href={to('/signin')} className={buttonClasses({ variant: 'primary', size: 'md', block: true })}>Sign in</a>
+                <a href={signInHref} className={buttonClasses({ variant: 'primary', size: 'md', block: true })}>Sign in</a>
                 <p className="m-0 text-center text-[13px] text-ink-3">
-                  New here? <a href={to('/signin?new=1')} className="text-ink underline underline-offset-2">Create an account</a>
+                  New here? <a href={createAccountHref} className="text-ink underline underline-offset-2">Create an account</a>
                 </p>
                 <p className="m-0 border-t border-line-2 pt-2 text-[13px] text-ink-3">Sign in to save products into collections and track their prices.</p>
               </div>

@@ -15,3 +15,13 @@ export function storePath(store: Pick<PublicMarketplace, 'id'>, path: string): s
   if (path === '/') return '/in';
   return path.startsWith('/') ? `/in${path}` : path;
 }
+
+/**
+ * The store's sign-in page, coming back to `here` (an in-store path, query included) after.
+ * Home and the sign-in pages themselves need no return trip. `create` opens it on "Create account".
+ */
+export function signInPath(store: Pick<PublicMarketplace, 'id'>, here?: string | null, { create = false } = {}): string {
+  const back = here && here !== '/' && !/^\/(signin|auth)(\/|\?|$)/.test(here) ? here : null;
+  const qs = [create ? 'new=1' : null, back ? `next=${encodeURIComponent(back)}` : null].filter(Boolean).join('&');
+  return storePath(store, qs ? `/signin?${qs}` : '/signin');
+}
