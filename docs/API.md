@@ -158,6 +158,7 @@ Prices and totals are computed by the database on every read.
 | GET | `/orders/buy-now?productId=&qty=1` | | `{quote: Cart}`: what Buy Now would order, just that product at `qty` (1 up to the store's line limit), priced like a cart holding only it (coupon, delivery, tax). `404 product_not_found` if it isn't in this store. |
 | GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
 | GET | `/orders/:id` | | Any of your orders, in any status. `404` for someone else's order. |
+| PATCH | `/orders/:id` | `{archived: boolean}` | `{order}`. Archive an order (it gets `archivedAt`) or bring it back. Archived orders stay in `GET /orders`; the site lists them under *Archived* instead of the periods, and a search still finds them. `409 order_not_archivable` for an `awaiting_payment` order. Archiving changes nothing else: the order still ships and can be cancelled or returned. |
 | POST | `/orders/:id/pay` | | Finish paying an `awaiting_payment` card order: `{checkoutUrl}`, its Stripe Checkout page (the same one while it's open, so there's never a second payable page; a new one once it has lapsed), or `{order}` when Stripe reports it paid after all. `409 order_not_pending` for any other order, `503 payments_unavailable` without Stripe. |
 | POST | `/orders/:id/cancel` | | `{order}`. An `awaiting_payment` card order is abandoned: the reserved stock is released, its Stripe page is closed and the cart is kept. A placed order can be cancelled until it ships (`409 order_not_cancellable` after that): the stock goes back and the payment is refunded (see `refund`). |
 
@@ -179,6 +180,7 @@ How `POST /orders` works:
 - Payment: `paymentMethod, paymentLabel`
 - Money: `totals`
 - Delivery: `shipTo`, `shipSpeed?: fast` (absent means standard), and `gift?: {message?}` for a gift order
+- `archivedAt?`: when you archived it (absent while it isn't)
 - Lines: `items: [{productId, title, image, seller, unitPriceMinor, qty}]`
 - Timestamps: `createdAt, placedAt?, cancelledAt?`
 - Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
@@ -418,7 +420,7 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
 | 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_in_cart`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
+| 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
@@ -489,6 +491,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | buy now | `place_order(p_buy)` orders just one product and leaves the cart alone; `orders.from_cart` keeps `confirm_order_payment()` from taking a Buy Now order's items out of the cart; `buy_now_quote()` prices the line, and `cart_json()` now shares `private.checkout_json()` with it |
 | cart selection | `cart_items.selected`; `cart_select()` ticks one line or all of them; `private.checkout_json()` lists every line but prices the ticked ones (`selected_count`); `place_order()` orders the ticked lines and removes only those from the cart; adding a product ticks it again |
 | delivery instructions | `addresses.instructions` and `orders.ship_instructions` (up to 250 characters); `place_order()` copies `shipping.instructions` onto the order |
+| archived orders | `orders.archived_at`; `archive_my_order()` (owner) archives an order or brings it back; an unpaid card checkout can't be archived |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

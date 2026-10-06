@@ -160,5 +160,7 @@ export function toOrder(row: OrderWithItems): Order {
     // absent on rows read before the gift migration lands
     ...(row.gift ? { gift: row.gift_message ? { message: row.gift_message } : {} } : {}),
     ...(row.ship_speed === 'fast' ? { shipSpeed: 'fast' as const } : {}),
+    // absent on rows read before the archive migration lands
+    ...(row.archived_at ? { archivedAt: row.archived_at } : {}),
   };
 }

@@ -1,13 +1,15 @@
 /**
  * Your Orders: search every order, or narrow to a period (last 30 days, past 3 months, a year,
- * everything), ten to a page. A shopper has few enough orders that this runs over their list.
+ * everything), ten to a page. Archived orders leave the periods for an "Archived" view of their
+ * own, as on Amazon; a search still finds them. A shopper has few enough orders that this runs
+ * over their list.
  */
 import type { Order } from './types';
 
-export type OrderPeriod = 'last30' | 'months3' | 'all' | `y${number}`;
+export type OrderPeriod = 'last30' | 'months3' | 'all' | 'archived' | `y${number}`;
 
 export interface OrderFilter {
-  /** words to find in an order (searches every order, whatever the period) */
+  /** words to find in an order (searches every order, archived too, whatever the period) */
   q: string;
   period: OrderPeriod;
   page: number;
@@ -21,7 +23,7 @@ type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 function isPeriod(v: string | undefined): v is OrderPeriod {
-  return v === 'last30' || v === 'months3' || v === 'all' || (!!v && /^y\d{4}$/.test(v));
+  return v === 'last30' || v === 'months3' || v === 'all' || v === 'archived' || (!!v && /^y\d{4}$/.test(v));
 }
 
 export function readOrderFilter(sp: SP): OrderFilter {
@@ -36,18 +38,26 @@ export function readOrderFilter(sp: SP): OrderFilter {
 
 const placed = (o: Order) => new Date(o.placedAt ?? o.createdAt);
 
-/** The periods to pick from: the recent windows, each year with an order (and this one), then everything. */
-export function periodOptions(orders: readonly Order[], now: Date): { value: OrderPeriod; label: string }[] {
-  const years = new Set([now.getUTCFullYear(), ...orders.map((o) => placed(o).getUTCFullYear())]);
+/**
+ * The periods to pick from: the recent windows, each year with an order (and this one), then
+ * everything; and "Archived" while there are archived orders (or it's the view being shown).
+ */
+export function periodOptions(orders: readonly Order[], now: Date, current?: OrderPeriod): { value: OrderPeriod; label: string }[] {
+  const listed = orders.filter((o) => !o.archivedAt);
+  const years = new Set([now.getUTCFullYear(), ...listed.map((o) => placed(o).getUTCFullYear())]);
   return [
     { value: 'last30', label: 'Last 30 days' },
     { value: 'months3', label: 'Past 3 months' },
     ...[...years].sort((a, b) => b - a).map((y) => ({ value: `y${y}` as OrderPeriod, label: String(y) })),
     { value: 'all', label: 'All' },
+    ...(current === 'archived' || listed.length < orders.length ? [{ value: 'archived' as const, label: 'Archived' }] : []),
   ];
 }
 
-function inPeriod(at: Date, period: OrderPeriod, now: Date): boolean {
+/** In the view: an archived order is only in "Archived", the others only in the periods. */
+function inPeriod(o: Order, period: OrderPeriod, now: Date): boolean {
+  if (period === 'archived' || o.archivedAt) return period === 'archived' && !!o.archivedAt;
+  const at = placed(o);
   if (period === 'all') return true;
   if (period === 'last30') return at.getTime() >= now.getTime() - 30 * 86_400_000;
   if (period === 'months3') {
@@ -74,7 +84,7 @@ export interface OrderPage {
 
 export function filterOrders(orders: readonly Order[], filter: OrderFilter, now: Date): OrderPage {
   const words = filter.q.toLowerCase().split(/\s+/).filter(Boolean);
-  const found = words.length ? orders.filter((o) => matches(o, words)) : orders.filter((o) => inPeriod(placed(o), filter.period, now));
+  const found = words.length ? orders.filter((o) => matches(o, words)) : orders.filter((o) => inPeriod(o, filter.period, now));
   const pageCount = Math.max(1, Math.ceil(found.length / ORDERS_PER_PAGE));
   const page = Math.min(filter.page, pageCount);
   return { items: found.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE), total: found.length, page, pageCount };
@@ -82,6 +92,7 @@ export function filterOrders(orders: readonly Order[], filter: OrderFilter, now:
 
 export function periodPhrase(period: OrderPeriod): string {
   if (period === 'all') return 'in all';
+  if (period === 'archived') return 'archived';
   if (period === 'last30') return 'placed in the last 30 days';
   if (period === 'months3') return 'placed in the past 3 months';
   return `placed in ${period.slice(1)}`;
