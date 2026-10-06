@@ -123,6 +123,8 @@ export type ListOrder =
 
 export interface ListOptions {
   category?: string;
+  /** only this seller's products */
+  seller?: string;
   dealsOnly?: boolean;
   order?: ListOrder;
   limit?: number;
@@ -134,6 +136,7 @@ export interface ListOptions {
 export async function listProducts(db: Db, market: Market, opts: ListOptions = {}): Promise<Product[]> {
   let q = db.from('catalog_products').select('*').eq('market_id', market);
   if (opts.category) q = q.eq('category_slug', opts.category);
+  if (opts.seller) q = q.eq('seller', opts.seller);
   if (opts.dealsOnly) q = q.eq('deal', true).not('deal_pct', 'is', null);
   if (opts.excludeId) q = q.neq('id', opts.excludeId);
   switch (opts.order ?? 'position') {

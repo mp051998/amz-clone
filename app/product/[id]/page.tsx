@@ -231,7 +231,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         ...(info.details.length ? [] : rankRow),
         {
           k: 'Sold by',
-          v: sellerRating ? <>{p.seller} <span className="text-ink-2">· {ratingText(sellerRating)}</span></> : p.seller,
+          v: (
+            <>
+              <a href={storePath(store, `/seller?name=${encodeURIComponent(p.seller)}`)} className="text-ink underline underline-offset-2">{p.seller}</a>
+              {sellerRating ? <span className="text-ink-2"> · {ratingText(sellerRating)}</span> : null}
+            </>
+          ),
         },
         { k: 'Ships from', v: p.shipsFrom },
         { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },

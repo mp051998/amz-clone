@@ -83,7 +83,7 @@ export function SellerFeedbackSection({ rows, openUntil }: { rows: SellerRow[]; 
     <section id="seller-feedback" className="overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="seller-feedback-h">
       <div className="flex flex-col gap-0.5 px-[18px] pb-1 pt-4">
         <h2 id="seller-feedback-h" className="m-0 text-[16px] font-semibold">Seller feedback</h2>
-        {openUntil ? <p className="m-0 text-[13px] text-ink-3">Rate the seller until {openUntil}. Other shoppers see the rating, not your name.</p> : null}
+        {openUntil ? <p className="m-0 text-[13px] text-ink-3">Rate the seller until {openUntil}. Your rating and comment show on the seller’s page, without your name.</p> : null}
       </div>
       {rows.map(({ seller, feedback, rate, remove }, i) => {
         const notes = feedback

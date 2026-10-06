@@ -293,7 +293,10 @@ export default async function OrderPage({
               </a>
               <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
-                <span className="text-[13px] text-ink-3">Qty {it.qty} · Sold by {it.seller}</span>
+                <span className="text-[13px] text-ink-3">
+                  Qty {it.qty} · Sold by{' '}
+                  <a href={sp(`/seller?name=${encodeURIComponent(it.seller)}`)} className="text-ink-3 underline underline-offset-2">{it.seller}</a>
+                </span>
                 {it.unitDiscountMinor ? <span className="text-[13px] font-semibold text-good-strong">Coupon −{money(it.unitDiscountMinor * it.qty)}</span> : null}
                 {view.delivered ? (
                   reviewed.has(it.productId) ? (
