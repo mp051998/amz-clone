@@ -4,7 +4,8 @@ import { refreshSession } from './lib/supabase/proxy-session';
 /**
  * India store lives under the /in path prefix (stands in for a separate regional
  * domain). Rewrite /in/* onto the existing routes and stamp `x-amz-country: IN`
- * so one set of pages serves both stores.
+ * so one set of pages serves both stores. `x-amz-path` carries the in-store path being viewed
+ * (query included) so sign-in links can bring the shopper back to it.
  *
  * Also refreshes the Supabase auth session so logins persist across navigation.
  *
@@ -21,10 +22,12 @@ export async function proxy(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = pathname.slice(3) || '/'; // /in/product/x → /product/x, /in → /
     requestHeaders.set('x-amz-country', 'IN');
+    requestHeaders.set('x-amz-path', url.pathname + url.search);
     res = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   } else {
     // never trust a client-sent store header
     requestHeaders.delete('x-amz-country');
+    requestHeaders.set('x-amz-path', pathname + req.nextUrl.search);
     res = NextResponse.next({ request: { headers: requestHeaders } });
   }
 

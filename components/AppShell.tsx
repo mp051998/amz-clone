@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { readIsAdmin, readUser, firstName } from '@/lib/auth';
 import { storeCategories, viewerCart } from '@/lib/storefront';
-import { getMarketplace } from '@/lib/marketplace-server';
-import { storePath } from '@/lib/marketplace';
+import { currentPath, getMarketplace } from '@/lib/marketplace-server';
+import { signInPath, storePath } from '@/lib/marketplace';
 import { footerDest } from '@/lib/footer-links';
 import { readTheme } from '@/lib/theme-server';
 import { readDeliverTo } from '@/lib/deliver-to-server';
@@ -81,7 +81,9 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  */
 export async function AppShell({ children, cartCount, query }: AppShellProps) {
   const store = await getMarketplace();
-  const [cart, user, categories, admin, deliverTo] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id)]);
+  const [cart, user, categories, admin, deliverTo, here] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id), currentPath()]);
+  // signing in from the header comes back to this page
+  const signIn = { signInHref: signInPath(store, here), createAccountHref: signInPath(store, here, { create: true }) };
   const count = cartCount ?? cart.count;
   const key = store.id === 'IN' ? 'IN' : 'US';
 
@@ -98,7 +100,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
     {
       heading: 'Help & settings',
       links: [
-        ...(user ? [to('Your account', '/account'), to('Orders', '/orders')] : [to('Sign in', '/signin')]),
+        ...(user ? [to('Your account', '/account'), to('Orders', '/orders')] : [{ label: 'Sign in', href: signIn.signInHref }]),
         to('Customer service', '/customer-service'),
         ...(admin ? [to('Admin · Catalogue', '/admin/products')] : []),
         key === 'IN' ? { label: 'Shop the United States store (USD)', href: '/' } : { label: 'Shop the India store (INR)', href: '/in' },
@@ -132,8 +134,9 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
             isAdmin={admin}
             categories={strip}
             deliverTo={deliverTo}
+            {...signIn}
             defaultQuery={query}
-            menu={{ greeting: user ? `Hello, ${firstName(user)}` : 'Hello, sign in', greetingHref: storePath(store, user ? '/account' : '/signin'), sections: menu }}
+            menu={{ greeting: user ? `Hello, ${firstName(user)}` : 'Hello, sign in', greetingHref: user ? storePath(store, '/account') : signIn.signInHref, sections: menu }}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>

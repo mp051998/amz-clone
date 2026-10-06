@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Store } from '../lib/store';
-import { storePath } from '@/lib/marketplace';
+import { signInPath, storePath } from '@/lib/marketplace';
 import { Wordmark } from './Wordmark';
 import { SearchBar } from './SearchBar';
 import { DeliverToPopover, type SavedPlace } from './DeliverToPopover';
@@ -26,6 +26,9 @@ export interface HeaderProps {
   deliverTo?: { current: DeliverTo | null; addresses: SavedPlace[] };
   /** the "All" side menu at the start of the category strip */
   menu?: AllMenuProps;
+  /** sign-in / create-account links that come back to the page being viewed (store-prefixed) */
+  signInHref?: string;
+  createAccountHref?: string;
 }
 
 function CartPill({ href, count, compact = false }: { href: string; count: number; compact?: boolean }) {
@@ -42,7 +45,7 @@ function CartPill({ href, count, compact = false }: { href: string; count: numbe
 }
 
 /** Sticky white header: desktop row, mobile stack, category strip (design.md §5 Header). Store-aware. */
-export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery, deliverTo, menu }: HeaderProps) {
+export function Header({ store, cartCount = 0, userName, isAdmin = false, categories = [], regionSlot, defaultQuery, deliverTo, menu, signInHref = signInPath(store), createAccountHref = signInPath(store, null, { create: true }) }: HeaderProps) {
   const home = storePath(store, '/');
   const action = storePath(store, '/s');
   const current = deliverTo?.current ?? null;
@@ -52,10 +55,10 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
     locationText: current ? deliverLabel(current) : 'Update location',
     current,
     addresses: deliverTo?.addresses ?? [],
-    signInHref: storePath(store, '/signin'),
+    signInHref,
     addressesHref: storePath(store, '/account/addresses'),
   };
-  const savedHref = storePath(store, userName ? '/collections' : '/signin');
+  const savedHref = userName ? storePath(store, '/collections') : signInPath(store, '/collections');
   const ordersHref = storePath(store, '/orders');
   const cartHref = storePath(store, '/cart');
   const navLink = 'flex min-h-11 flex-none items-center rounded-chip px-2 text-[14px] font-semibold text-ink no-underline hover:bg-surface-2 hover:text-ink';
@@ -68,7 +71,7 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
         <DeliverToPopover {...deliver} />
         <SearchBar key={defaultQuery} actionPath={action} market={store.id} defaultQuery={defaultQuery} />
         {regionSlot ? <div className="hidden lg:block">{regionSlot}</div> : null}
-        <AccountMenu store={store} userName={userName} isAdmin={isAdmin} />
+        <AccountMenu store={store} userName={userName} isAdmin={isAdmin} signInHref={signInHref} createAccountHref={createAccountHref} />
         <a href={ordersHref} className={navLink}>Orders</a>
         <CartPill href={cartHref} count={cartCount} />
       </div>
