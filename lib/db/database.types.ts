@@ -531,6 +531,44 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"support_cases": {
+                  Row: {
+                    "closed_at": string | null,"created_at": string,"customer_name": string,"id": string,"market_id": string,"order_id": string | null,"status": string,"subject": string,"topic": string,"updated_at": string,"user_id": string | null
+                  }
+                  Insert: {
+                    "closed_at"?: string | null,"created_at"?: string,"customer_name": string,"id"?: string,"market_id": string,"order_id"?: string | null,"status"?: string,"subject": string,"topic": string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "closed_at"?: string | null,"created_at"?: string,"customer_name"?: string,"id"?: string,"market_id"?: string,"order_id"?: string | null,"status"?: string,"subject"?: string,"topic"?: string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "support_cases_order_id_fkey"
+      columns: ["order_id"]
+      isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"support_messages": {
+                  Row: {
+                    "author": string,"body": string,"case_id": string,"created_at": string,"id": string,"user_id": string | null
+                  }
+                  Insert: {
+                    "author": string,"body": string,"case_id": string,"created_at"?: string,"id"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "author"?: string,"body"?: string,"case_id"?: string,"created_at"?: string,"id"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "support_messages_case_id_fkey"
+      columns: ["case_id"]
+      isOneToOne: false
+      referencedRelation: "support_cases"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"store_balances": {
                   Row: {
                     "balance_minor": number,"market_id": string,"updated_at": string,"user_id": string
@@ -860,6 +898,15 @@ isOneToOne: false
                            },
 "leave_seller_feedback":
 { Args: { "p_as_described"?: boolean,"p_comment"?: string,"p_on_time"?: boolean,"p_order_id": string,"p_rating": number,"p_seller": string }; Returns: Json
+                           },
+"open_support_case":
+{ Args: { "p_body": string,"p_market": string,"p_order"?: string,"p_subject": string,"p_topic": string }; Returns: Json
+                           },
+"reply_support_case":
+{ Args: { "p_body": string,"p_case": string }; Returns: Json
+                           },
+"close_support_case":
+{ Args: { "p_case": string }; Returns: Json
                            },
 "seller_profile":
 { Args: { "p_market": string,"p_seller": string }; Returns: Json

@@ -78,6 +78,16 @@ describe('exportMyData', () => {
         created_at: '2026-10-03T00:00:00Z', updated_at: '2026-10-03T00:00:00Z',
       },
     ],
+    support_cases: [
+      {
+        id: 'c1', market_id: 'IN', topic: 'delivery', subject: 'Where is my parcel?', status: 'answered', order_id: 'ORD-1',
+        created_at: '2026-10-04T00:00:00Z', updated_at: '2026-10-05T00:00:00Z', closed_at: null,
+        support_messages: [
+          { author: 'agent', body: 'It ships tomorrow.', created_at: '2026-10-05T00:00:00Z' },
+          { author: 'customer', body: 'It has not arrived yet.', created_at: '2026-10-04T00:00:00Z' },
+        ],
+      },
+    ],
   };
   const filters: [string, string, unknown][] = [];
   const db = {
@@ -127,6 +137,16 @@ describe('exportMyData', () => {
         createdAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z',
       },
     ]);
+    expect(data.supportCases).toEqual([
+      {
+        id: 'c1', store: 'IN', topic: 'delivery', subject: 'Where is my parcel?', status: 'answered', orderId: 'ORD-1',
+        createdAt: '2026-10-04T00:00:00Z', updatedAt: '2026-10-05T00:00:00Z', closedAt: null,
+        messages: [
+          { from: 'customer', body: 'It has not arrived yet.', createdAt: '2026-10-04T00:00:00Z' },
+          { from: 'agent', body: 'It ships tomorrow.', createdAt: '2026-10-05T00:00:00Z' },
+        ],
+      },
+    ]);
     expect(parts.listMyReviews).toHaveBeenCalledWith(db, 'US', 'u1');
     expect(parts.listMyReviews).toHaveBeenCalledWith(db, 'IN', 'u1');
     expect(parts.balanceHistory).toHaveBeenCalledWith(db, 'US', 1000);
@@ -138,6 +158,7 @@ describe('exportMyData', () => {
         ['product_questions', 'user_id', 'u1'],
         ['product_answers', 'user_id', 'u1'],
         ['seller_feedback', 'user_id', 'u1'],
+        ['support_cases', 'user_id', 'u1'],
       ]),
     );
   });

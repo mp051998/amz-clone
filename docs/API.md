@@ -56,7 +56,7 @@ Some products have a coupon, a percent off (5–50%). A signed-in shopper applie
 | GET 🔒 | `/me` | | `{user: {id, email, name, createdAt, plus: {since} \| null}}` |
 | PATCH 🔒 | `/me` | `{name?, email?, newPassword?, currentPassword?}` | `{user}`, plus `session` (a new token pair) when the password changed |
 | DELETE 🔒 | `/me` | `{currentPassword}` | `204`. Closes the account for good; its tokens stop working. `409 account_not_closable` while an order is on the way, a return or refund is open, or a checkout is unpaid (cancel unpaid orders first). The profile, addresses, cart, lists, history, coupons, Plus and gift card balance go with it; orders, returns and gift card purchases stay on the store's books without the link to the account |
-| GET 🔒 | `/me/data` | | `{data}`: everything the store keeps about the caller, both stores — `account`, `plus`, `stores.{US,IN}` (`currency`, `orders`, `addresses`, `lists`, `reviews`, `giftCardBalanceMinor`, `balanceHistory`), `returns`, `questions`, `answers`, `sellerFeedback`. The web app serves the same file at `/account/data` |
+| GET 🔒 | `/me/data` | | `{data}`: everything the store keeps about the caller, both stores — `account`, `plus`, `stores.{US,IN}` (`currency`, `orders`, `addresses`, `lists`, `reviews`, `giftCardBalanceMinor`, `balanceHistory`), `returns`, `questions`, `answers`, `sellerFeedback`, `supportCases` (each with its `messages`, oldest first). The web app serves the same file at `/account/data` |
 | GET 🔒 | `/me/plus` | | `{plus: {since} \| null}` |
 | POST 🔒 | `/me/plus` | | `{plus: {since}}`. Joins Plus: a demo membership, never billed. Joining again keeps the first `since` |
 | DELETE 🔒 | `/me/plus` | | `204`. Ends the membership; orders already placed keep their delivery charge |
@@ -251,6 +251,22 @@ A payment that arrives after the order's reserved stock was released and sold
 (`409 stock_released`) leaves the order cancelled (`cancelReason: sold_out`) and
 refunds the card in full.
 
+## Customer service 🔒
+
+"Contact us": a shopper opens a case in a store, optionally about one of their orders, and the
+store's admins answer in the same thread until either side closes it. A case is `open` (waiting on
+the store), `answered` (the store replied last) or `closed` (read only).
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/me/support` | | `{cases: Case[]}`: yours in this store, waiting or answered first, then closed; latest activity first (up to 100). The web app lists them at `/customer-service/cases` |
+| POST | `/me/support` | `{topic, subject, body, orderId?}` | `201 {case}`. `topic`: `order`, `delivery`, `return`, `payment`, `account` or `other`. `subject` 3–120 characters on one line, `body` 10–2000 (`422 invalid_input`, `detail` = field). `orderId` must be one of your orders in this store (`404 order_not_found`). Up to 5 cases open or answered per store (`409 too_many_cases`). The web app's form is `/customer-service/contact` (`?order=` picks the order) |
+| GET | `/me/support/:id` | | `{case: Case & {messages: Message[]}}`, messages oldest first. Someone else's case is `404 case_not_found` |
+| POST | `/me/support/:id/messages` | `{body}` | `201 {message}`. 2–2000 characters. The case goes back to `open`. A closed case is `409 case_closed` |
+| POST | `/me/support/:id/close` | | `{case}`. Closing it twice is fine |
+
+`Case` is `{id, topic, subject, status, orderId, customer, createdAt, updatedAt, closedAt}` (`customer` is the shopper's profile name); `Message` is `{id, from: "customer" | "agent", body, createdAt}`.
+
 ## Addresses 🔒
 
 Five per store. The first address becomes the default. There is always exactly
@@ -409,6 +425,19 @@ Shoppers' questions about this store's products, with their answers.
 
 Another store's question is `404 question_not_found`, and its answers `404 answer_not_found`.
 
+### Support
+
+Shoppers' "Contact us" cases in this store (see [Customer service](#customer-service-)).
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/support?view=&page=` | | `{cases: [Case & {last: Message \| null, messageCount}], total, page, pageSize, counts: {waiting, answered, closed}}`. 25 a page. `view`: `waiting` (the default: status `open`, longest waiting first), `answered` or `closed` (latest first) |
+| GET | `/admin/support/:id` | | `{case: Case & {messages: Message[]}}` |
+| POST | `/admin/support/:id/messages` | `{body}` | `201 {message}`. Answers as the store (`from: "agent"`); the case moves to `answered`. `409 case_closed` once closed |
+| POST | `/admin/support/:id/close` | | `{case}` |
+
+Another store's case is `404 case_not_found`.
+
 **Making someone an admin.** Admins are rows in `public.admins`, managed only with SQL or the service role:
 
 ```bash
@@ -416,7 +445,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews` and `/admin/questions` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews`, `/admin/questions` and `/admin/support` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
 
 ## Errors
 
@@ -426,9 +455,9 @@ The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admi
 | 401 | `not_authenticated` |
 | 402 | `payment_incomplete` |
 | 403 | `forbidden` (the operation is not granted to your role, e.g. a guest calling a signed-in-only function, or a non-admin calling `/admin`) |
-| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `item_not_found`, `not_in_cart`, `not_found` |
+| 404 | `product_not_found`, `order_not_found`, `return_not_found`, `review_not_found`, `address_not_found`, `collection_not_found`, `category_not_found`, `gift_card_not_found`, `coupon_not_found`, `purchase_not_found`, `question_not_found`, `answer_not_found`, `case_not_found`, `item_not_found`, `not_in_cart`, `not_found` |
 | 405 | wrong method on a known path |
-| 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_editable`, `feedback_not_open`, `account_not_closable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed` |
+| 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_editable`, `feedback_not_open`, `account_not_closable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed`, `case_closed`, `too_many_cases` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
@@ -505,6 +534,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | seller feedback | `seller_feedback` (one per order and seller; the owner reads and deletes their own); `leave_seller_feedback()` (owner) rates a seller in a delivered order for 90 days; `seller_ratings()` (public) gives each seller's 12-month count, average and 4–5 star count |
 | seller profile | `seller_profile()` (public) gives a seller's ratings over 30 days, 90 days, 12 months and in all, the 12-month star counts and the latest comments; null for a seller with nothing listed and no ratings in the store |
 | search price | `search_catalog()` takes `p_min_price` and `p_max_price` (minor units) and keeps products priced within them; brand facets still cover the whole query+department scope |
+| support cases | `support_cases` and `support_messages`; shoppers read their own (admins all) and write only through `open_support_case()`, `reply_support_case()` and `close_support_case()`, which set the status (`open` / `answered` / `closed`) and cap open cases at 5 per shopper per store |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
