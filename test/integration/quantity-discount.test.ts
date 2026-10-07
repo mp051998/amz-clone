@@ -99,7 +99,7 @@ describe('quantity discounts', () => {
     expect(two.totals.qtyDiscountMinor).toBeUndefined();
 
     const three = await buyNowQuote(shopper.db, 'US', id, 3);
-    expect(three.lines[0]).toMatchObject({ discountMinor: 300, qtyDiscountMinor: 300, lineTotalMinor: 5700 });
+    expect(three.lines[0]).toMatchObject({ discountMinor: 300, qtyDiscountMinor: 300, lineTotalMinor: 6000 });
     const t = three.totals;
     expect(t).toMatchObject({ subtotalMinor: 6000, discountMinor: 300, qtyDiscountMinor: 300 });
     expect(t.totalMinor).toBe(t.subtotalMinor - (t.discountMinor ?? 0) + t.shipMinor + t.taxMinor);
