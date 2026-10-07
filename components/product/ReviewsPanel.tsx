@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ReviewSort } from '@/lib/data/reviews';
+import type { ReviewFacets, ReviewFilter, ReviewSort, ReviewStars } from '@/lib/data/reviews';
 import type { RatingSummary, Review } from '@/lib/types';
 import { loadMoreReviews, removeReview, reportReview, submitReview, toggleReviewHelpful } from '@/app/actions/review';
 import { Kicker, SourceTag } from '../decision/Badges';
@@ -10,7 +10,7 @@ import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
 import { fieldClass, selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
-import { activeStar, applyFilters, buildFilters, chipCount, reviewThemes } from './reviewFilters';
+import { applyFilters, buildFilters, chipCount, facetCount, REVIEW_PAGE, reviewThemes, serverLabels, starsLabel, toggleStars } from './reviewFilters';
 
 export interface ThemeCount { theme: string; count: number }
 
@@ -20,6 +20,8 @@ export interface ReviewsPanelProps {
   initial: Review[];
   total: number;
   mine: Review | null;
+  /** written reviews per star (all / verified), for the filter chips' counts */
+  facets: ReviewFacets;
   signedIn: boolean;
   defaultName: string;
   signinHref: string;
@@ -73,26 +75,34 @@ function scrollToId(id: string) {
 /**
  * "What buyers actually think" + "Explore reviews" (prototype Product detail). Rating summary with
  * an ink histogram, praised/criticized themes with counts, the review summary (AI or rules, labelled),
- * then filter chips over the loaded reviews and review cards. Every write (review, helpful, report,
- * delete) goes through the server actions in app/actions/review.ts.
+ * then filter chips and review cards. Star and verified-purchase filters reload from the database
+ * (so they cover every review, with exact counts); theme chips narrow the loaded reviews. Every
+ * write (review, helpful, report, delete) goes through the server actions in app/actions/review.ts.
  */
-export function ReviewsPanel({ productId, summary, initial, total, mine, signedIn, defaultName, signinHref, locale, timeZone, insight, aiPending }: ReviewsPanelProps) {
+export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, locale, timeZone, insight, aiPending }: ReviewsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
   const [items, setItems] = useState(initial);
   const [sort, setSort] = useState<ReviewSort>('top');
+  // stars / verified, asked of the database; `count` is how many reviews match it
+  const [filter, setFilter] = useState<ReviewFilter>({});
+  const [count, setCount] = useState(total);
+  // theme chips on, over the loaded reviews
   const [active, setActive] = useState<string[]>([]);
   const [notice, setNotice] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName });
   const [error, setError] = useState('');
 
-  // fresh server data after router.refresh() replaces the local list (and it comes top-first)
+  // fresh server data after router.refresh() replaces the local list (and it comes top-first, unfiltered)
   useEffect(() => {
     setItems(initial);
     setSort('top');
-  }, [initial]);
+    setFilter({});
+    setCount(total);
+    setActive([]);
+  }, [initial, total]);
 
   // "Write a product review" on a delivered order links to #write-review: open the form there
   useEffect(() => {
@@ -115,14 +125,55 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
   const recommendPct = summary.count ? Math.round((recommend / summary.count) * 100) : 0;
 
   const themes = useMemo(() => [...new Set([...(insight?.praised ?? []), ...(insight?.criticized ?? [])].map((t) => t.theme))], [insight]);
-  const star = activeStar(active);
-  const filters = useMemo(() => buildFilters(items, themes, star), [items, themes, star]);
-  const shown = useMemo(() => applyFilters(items, filters, active), [items, filters, active]);
+  const star = typeof filter.stars === 'number' ? filter.stars : null;
+  const filtered = Boolean(filter.stars || filter.verified);
+  const filters = useMemo(() => buildFilters(items, themes), [items, themes]);
+  // a theme chip that no loaded review mentions any more drops out of the active set
+  const on = useMemo(() => active.filter((id) => filters.some((f) => f.id === id)), [active, filters]);
+  const shown = useMemo(() => applyFilters(items, filters, on), [items, filters, on]);
+  // the viewer's hidden review is pinned but not counted
+  const loaded = items.filter((r) => !r.hidden).length;
 
   const toggle = (id: string) => setActive((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
-  const focusFilter = (id: string) => { setActive([id]); scrollToId('reviews'); };
+
+  // a new filter or order reloads from the top (the picker moves at once, and moves back on failure)
+  const reload = (next: ReviewFilter, nextSort: ReviewSort = sort, limit = REVIEW_PAGE) => {
+    const prev = { filter, sort };
+    setFilter(next);
+    setSort(nextSort);
+    startTransition(async () => {
+      const res = await loadMoreReviews(productId, 0, nextSort, limit, next);
+      if (!res.ok) {
+        setFilter(prev.filter);
+        setSort(prev.sort);
+        return toast(res.message);
+      }
+      setItems(res.items);
+      setCount(res.total);
+    });
+  };
+  const pickStars = (stars: ReviewStars) => reload(toggleStars(filter, stars));
+  const toggleVerified = () => {
+    const { verified, ...rest } = filter;
+    reload(verified ? rest : { ...rest, verified: true });
+  };
+  const clearAll = () => {
+    setActive([]);
+    if (filtered) reload({});
+  };
+  // "Read supporting reviews" / "Show critical reviews": just those, in view
+  const focusStars = (stars: ReviewStars) => {
+    setActive([]);
+    if (filter.stars !== stars || filter.verified) reload({ stars });
+    scrollToId('reviews');
+  };
   // a histogram row shows just that star's reviews; picking it again shows them all
-  const pickStar = (n: number) => (star === n ? setActive((a) => a.filter((x) => x !== `star:${n}`)) : focusFilter(`star:${n}`));
+  const pickStar = (n: ReviewStars) => {
+    if (star === n) return pickStars(n);
+    setActive([]);
+    reload({ ...filter, stars: n });
+    scrollToId('reviews');
+  };
 
   const patch = (id: string, change: Partial<Review>) => setItems((list) => list.map((r) => (r.id === id ? { ...r, ...change } : r)));
 
@@ -163,32 +214,30 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
       toast('Reported. Thanks for letting us know.');
     });
 
+  // the next page starts after the reviews in their natural order (the pinned own review isn't one;
+  // if it was passed already, the overlap of one is dropped)
   const onMore = () =>
     startTransition(async () => {
-      const res = await loadMoreReviews(productId, items.length, sort);
-      if (res.ok) setItems((list) => [...list, ...res.items.filter((r) => !list.some((x) => x.id === r.id))]);
+      const res = await loadMoreReviews(productId, items.filter((r) => !r.mine).length, sort, 10, filter);
+      if (!res.ok) return toast(res.message);
+      setItems((list) => [...list, ...res.items.filter((r) => !list.some((x) => x.id === r.id))]);
+      setCount(res.total);
     });
 
-  // re-sorting reloads from the top, as many reviews as were showing (the picker moves at once)
-  const onSort = (next: ReviewSort) => {
-    const prev = sort;
-    setSort(next);
-    startTransition(async () => {
-      const res = await loadMoreReviews(productId, 0, next, Math.max(items.length, 10));
-      if (!res.ok) {
-        setSort(prev);
-        return toast(res.message);
-      }
-      setItems(res.items);
-    });
-  };
+  // re-sorting reloads from the top, as many reviews as were showing
+  const onSort = (next: ReviewSort) => reload(filter, next, Math.max(items.length, 10));
 
-  const activeLabels = filters.filter((f) => active.includes(f.id)).map((f) => f.label);
-  const countText = active.length
-    ? `${shown.length} of ${num(items.length)} loaded reviews · ${activeLabels.join(' + ')}`
-    : items.length
-      ? `Showing ${num(items.length)} of ${num(total)} written reviews, ${sort === 'recent' ? 'newest' : 'most helpful'} first`
-      : 'No written reviews yet';
+  const labels = [...serverLabels(filter), ...filters.filter((f) => on.includes(f.id)).map((f) => f.label)];
+  const order = sort === 'recent' ? 'newest' : 'most helpful';
+  const countText = on.length
+    ? `${shown.length} of ${num(items.length)} loaded reviews · ${labels.join(' + ')}`
+    : filtered
+      ? `Showing ${num(loaded)} of ${num(count)} ${count === 1 ? 'review' : 'reviews'} · ${labels.join(' + ')}, ${order} first`
+      : items.length
+        ? `Showing ${num(loaded)} of ${num(count)} written reviews, ${order} first`
+        : 'No written reviews yet';
+  const written = facetCount(facets, {});
+  const chip = (n: number) => <span className="font-mono text-[12px] opacity-75">{num(n)}</span>;
 
   const summaryKicker = insight?.source === 'ai'
     ? `AI summary · from ${num(summary.count)} reviews`
@@ -212,10 +261,10 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
                 <li key={b.star}>
                   <button
                     type="button"
-                    disabled={!b.count}
+                    disabled={!facetCount(facets, { stars: b.star as ReviewStars })}
                     aria-pressed={star === b.star}
                     aria-label={`${b.star} ${b.star === 1 ? 'star' : 'stars'}: ${b.pct}% · show these reviews`}
-                    onClick={() => pickStar(b.star)}
+                    onClick={() => pickStar(b.star as ReviewStars)}
                     className={cn(
                       'flex min-h-6 w-full items-center gap-2 rounded-tag text-left text-[13px] text-ink disabled:cursor-default enabled:hover:underline',
                       star === b.star && 'font-semibold underline',
@@ -247,8 +296,8 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
             </p>
             {aiPending ? <p className="m-0 text-[13px] text-ink-3">An AI summary of the written reviews is being prepared — refresh in a moment.</p> : null}
             <div className="mt-auto flex flex-wrap gap-2">
-              <Button variant="dark" onClick={() => focusFilter('positive')}>Read supporting reviews →</Button>
-              <Button variant="secondary" onClick={() => focusFilter('critical')}>Show critical reviews</Button>
+              <Button variant="dark" onClick={() => focusStars('positive')}>Read supporting reviews →</Button>
+              <Button variant="secondary" onClick={() => focusStars('critical')}>Show critical reviews</Button>
             </div>
           </div>
         </div>
@@ -269,14 +318,27 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {items.length ? (
+          {written || items.length ? (
             <>
-              <Pill selected={!active.length} onClick={() => setActive([])}>
-                All <span className="font-mono text-[12px] opacity-75">{items.length}</span>
+              <Pill selected={!on.length && !filtered} onClick={clearAll}>
+                All {chip(written)}
+              </Pill>
+              {star ? (
+                <Pill selected onClick={() => pickStars(star)}>
+                  {starsLabel(star)} {chip(facetCount(facets, filter))}
+                </Pill>
+              ) : null}
+              {(['positive', 'critical'] as const).map((s) => (
+                <Pill key={s} selected={filter.stars === s} onClick={() => pickStars(s)}>
+                  {starsLabel(s)} {chip(facetCount(facets, { ...filter, stars: s }))}
+                </Pill>
+              ))}
+              <Pill selected={Boolean(filter.verified)} onClick={toggleVerified}>
+                Verified purchase {chip(facetCount(facets, { ...filter, verified: true }))}
               </Pill>
               {filters.map((f) => (
-                <Pill key={f.id} selected={active.includes(f.id)} onClick={() => toggle(f.id)}>
-                  {f.label} <span className="font-mono text-[12px] opacity-75">{chipCount(items, filters, active, f.id)}</span>
+                <Pill key={f.id} selected={on.includes(f.id)} onClick={() => toggle(f.id)}>
+                  {f.label} {chip(chipCount(items, filters, on, f.id))}
                 </Pill>
               ))}
             </>
@@ -377,10 +439,10 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
               </article>
             ))}
           </div>
-        ) : items.length ? (
+        ) : items.length || filtered ? (
           <div className="rounded-card border border-dashed border-line-3 bg-surface p-[22px] text-[15px]">
             No reviews match every filter.{' '}
-            <button type="button" onClick={() => setActive([])} className="text-[15px] underline underline-offset-2">Clear filters</button>
+            <button type="button" onClick={clearAll} className="text-[15px] underline underline-offset-2">Clear filters</button>
           </div>
         ) : (
           <div className="rounded-card border border-dashed border-line-3 bg-surface p-[22px] text-[15px] text-ink-2">
@@ -388,9 +450,9 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, signedI
           </div>
         )}
 
-        {items.length < total ? (
+        {loaded < count ? (
           <Button variant="secondary" className="self-start" loading={pending} onClick={onMore}>
-            Load more reviews ({num(total - items.length)} more)
+            Load more reviews ({num(count - loaded)} more)
           </Button>
         ) : null}
       </section>

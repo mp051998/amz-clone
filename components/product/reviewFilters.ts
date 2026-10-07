@@ -1,8 +1,13 @@
+import type { ReviewFacets, ReviewFilter as ServerFilter, ReviewStars } from '@/lib/data/reviews';
 import type { Review } from '@/lib/types';
 
+/** Reviews loaded at a time: the first page, and again after a filter changes. */
+export const REVIEW_PAGE = 30;
+
 /**
- * Client-side review filters for "Explore reviews" (prototype RF): fixed chips plus theme chips
- * derived from the insight's praised/criticized themes. Pure — unit-testable.
+ * "Explore reviews" filters (prototype RF). Stars and verified purchase are asked of the
+ * database, so they cover every review; the theme chips ("Mentions battery") come from the
+ * insight's praised/criticized themes and match the loaded reviews' text here. Pure — unit-testable.
  */
 export interface ReviewFilter {
   id: string;
@@ -37,25 +42,32 @@ export function mentions(r: Review, words: string[]): boolean {
   return words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text));
 }
 
-export const BASE_FILTERS: ReviewFilter[] = [
-  { id: 'positive', label: 'Positive', test: (r) => r.rating >= 4 },
-  { id: 'critical', label: 'Critical', test: (r) => r.rating <= 3 },
-  { id: 'verified', label: 'Verified purchase', test: (r) => r.verified },
-];
-
-/** "5 star": picked from the rating histogram, shown as a chip only while it is on. */
-export function starFilter(star: number): ReviewFilter {
-  return { id: `star:${star}`, label: `${star} star`, test: (r) => r.rating === star };
+/** How many reviews a database filter would list, from the product's facets. */
+export function facetCount(facets: ReviewFacets, f: ServerFilter): number {
+  const [lo, hi] = f.stars === 'positive' ? [4, 5] : f.stars === 'critical' ? [1, 3] : f.stars ? [f.stars, f.stars] : [1, 5];
+  let n = 0;
+  for (let star = lo; star <= hi; star++) n += facets[star as 1 | 2 | 3 | 4 | 5][f.verified ? 'verified' : 'all'];
+  return n;
 }
 
-/** The star picked in the histogram, if any (`star:4` → 4). */
-export function activeStar(active: string[]): number | null {
-  const id = active.find((a) => /^star:[1-5]$/.test(a));
-  return id ? Number(id.slice(5)) : null;
+/** A star filter's chip label: "Positive", "Critical" or "5 star". */
+export function starsLabel(stars: ReviewStars): string {
+  return stars === 'positive' ? 'Positive' : stars === 'critical' ? 'Critical' : `${stars} star`;
 }
 
-/** Fixed filters + one chip per theme that at least one loaded review mentions (+ the picked star first). */
-export function buildFilters(reviews: Review[], themes: string[], star: number | null = null): ReviewFilter[] {
+/** The labels of the database filters that are on, in chip order. */
+export function serverLabels(f: ServerFilter): string[] {
+  return [...(f.stars ? [starsLabel(f.stars)] : []), ...(f.verified ? ['Verified purchase'] : [])];
+}
+
+/** Picking a star chip again turns it off; another star replaces it. */
+export function toggleStars(f: ServerFilter, stars: ReviewStars): ServerFilter {
+  const { stars: current, ...rest } = f;
+  return current === stars ? rest : { ...rest, stars };
+}
+
+/** Up to four theme chips, one per theme that at least one loaded review mentions. */
+export function buildFilters(reviews: Review[], themes: string[]): ReviewFilter[] {
   const seen = new Set<string>();
   const themed: ReviewFilter[] = [];
   for (const t of themes) {
@@ -66,7 +78,7 @@ export function buildFilters(reviews: Review[], themes: string[], star: number |
     const f: ReviewFilter = { id: `theme:${key}`, label: `Mentions ${key}`, test: (r) => mentions(r, words) };
     if (reviews.some(f.test)) themed.push(f);
   }
-  return [...(star ? [starFilter(star)] : []), ...BASE_FILTERS, ...themed.slice(0, 4)];
+  return themed.slice(0, 4);
 }
 
 /** Reviews passing every active filter. */

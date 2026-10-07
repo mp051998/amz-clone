@@ -49,6 +49,67 @@ export function readReviewSort(v: unknown): ReviewSort {
   return v === 'recent' ? 'recent' : 'top';
 }
 
+/** Which written reviews to list: one star, `positive` (4–5★) or `critical` (1–3★); verified purchases only. */
+export type ReviewStars = 1 | 2 | 3 | 4 | 5 | 'positive' | 'critical';
+
+export interface ReviewFilter {
+  stars?: ReviewStars;
+  verified?: boolean;
+}
+
+/** `?stars=` (1–5, positive, critical) and `?verified=` (1 / true) into a filter; anything else is ignored. */
+export function readReviewFilter(stars: unknown, verified: unknown): ReviewFilter {
+  const out: ReviewFilter = {};
+  const s = typeof stars === 'string' ? stars.trim().toLowerCase() : stars;
+  if (s === 'positive' || s === 'critical') out.stars = s;
+  else if (typeof s === 'number' || typeof s === 'string') {
+    const n = Number(s);
+    if (Number.isInteger(n) && n >= 1 && n <= 5) out.stars = n as ReviewStars;
+  }
+  if (verified === true || verified === '1' || verified === 'true') out.verified = true;
+  return out;
+}
+
+const starRange = (stars: ReviewStars): [number, number] =>
+  stars === 'positive' ? [4, 5] : stars === 'critical' ? [1, 3] : [stars, stars];
+
+/** Whether a review passes a filter. */
+export function matchesReviewFilter(r: { rating: number; verified: boolean }, f: ReviewFilter): boolean {
+  if (f.verified && !r.verified) return false;
+  if (!f.stars) return true;
+  const [lo, hi] = starRange(f.stars);
+  return r.rating >= lo && r.rating <= hi;
+}
+
+/**
+ * How many written, visible reviews a product has per star, all and verified only, so filter
+ * chips can show exact counts without loading every review (see `facetCount` in
+ * components/product/reviewFilters.ts).
+ */
+export type ReviewFacets = Record<1 | 2 | 3 | 4 | 5, { all: number; verified: number }>;
+
+export function emptyReviewFacets(): ReviewFacets {
+  return { 1: { all: 0, verified: 0 }, 2: { all: 0, verified: 0 }, 3: { all: 0, verified: 0 }, 4: { all: 0, verified: 0 }, 5: { all: 0, verified: 0 } };
+}
+
+/** A product's review facets (hidden reviews left out, as in the listing). */
+export async function reviewFacets(db: Db, productId: string): Promise<ReviewFacets> {
+  const read = (moderated: boolean) => {
+    const q = db.from('reviews').select('rating, verified').eq('product_id', productId);
+    return (moderated ? q.is('hidden_at', null) : q).range(0, 9999);
+  };
+  let res = await read(true);
+  if (res.error?.code === MISSING_COLUMN) res = await read(false);
+  const facets = emptyReviewFacets();
+  for (const r of (unwrap(res) ?? []) as { rating: number; verified: boolean }[]) {
+    const bucket = facets[r.rating as 1 | 2 | 3 | 4 | 5];
+    if (!bucket) continue;
+    bucket.all += 1;
+    if (r.verified) bucket.verified += 1;
+  }
+  return facets;
+}
+
 export interface ReviewPage {
   items: Review[];
   total: number;
@@ -58,17 +119,19 @@ export interface ReviewPage {
 
 /**
  * A product's reviews: most helpful first, then newest (`top`), or newest first
- * (`recent`). The viewer's own review is pinned to the top, and each item says
- * whether the viewer already voted it helpful / reported it.
+ * (`recent`), optionally only some stars and/or verified purchases (`total` counts
+ * the filtered set). The viewer's own review is pinned to the top when it passes the
+ * filter, and each item says whether the viewer already voted it helpful / reported it.
  */
 export async function listReviews(
   db: Db,
   productId: string,
   viewerId: string | null,
-  opts: { limit?: number; offset?: number; sort?: ReviewSort } = {},
+  opts: { limit?: number; offset?: number; sort?: ReviewSort; filter?: ReviewFilter } = {},
 ): Promise<ReviewPage> {
   const limit = Math.min(Math.max(opts.limit ?? 10, 1), 50);
   const offset = Math.max(opts.offset ?? 0, 0);
+  const filter = opts.filter ?? {};
   // hidden reviews stay out of the listing for everyone (admins included: they use the queue);
   // the author still gets their own below, marked hidden
   const page = (moderated: boolean) => {
@@ -76,7 +139,12 @@ export async function listReviews(
       .from('reviews')
       .select(moderated ? REVIEW_COLS : LEGACY_COLS, { count: 'exact' })
       .eq('product_id', productId);
-    const visible = moderated ? q.is('hidden_at', null) : q;
+    let visible = moderated ? q.is('hidden_at', null) : q;
+    if (filter.stars) {
+      const [lo, hi] = starRange(filter.stars);
+      visible = lo === hi ? visible.eq('rating', lo) : visible.gte('rating', lo).lte('rating', hi);
+    }
+    if (filter.verified) visible = visible.eq('verified', true);
     const ordered = opts.sort === 'recent' ? visible : visible.order('helpful_count', { ascending: false });
     return ordered
       .order('created_at', { ascending: false })
@@ -108,9 +176,10 @@ export async function listReviews(
     }
   }
 
-  // the viewer's own review is pinned to page one and skipped at its natural spot
-  const rest = rows.filter((r) => r.id !== own?.id);
-  const ordered = own && offset === 0 ? [own, ...rest] : rest;
+  // the viewer's own review is pinned to page one (when it passes the filter) and skipped at its natural spot
+  const pinned = own && matchesReviewFilter(own, filter) ? own : null;
+  const rest = rows.filter((r) => r.id !== pinned?.id);
+  const ordered = pinned && offset === 0 ? [pinned, ...rest] : rest;
   const mine = own ? toReview(own, viewerId, voted, reported) : null;
   return { items: ordered.map((r) => toReview(r, viewerId, voted, reported)), total, mine };
 }

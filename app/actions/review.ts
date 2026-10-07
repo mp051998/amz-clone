@@ -59,11 +59,25 @@ export async function reportReview(reviewId: string, reason?: string): Promise<A
   });
 }
 
-/** The next reviews in `sort` order from `offset` (`limit` lets a re-sort reload as many as were showing). */
-export async function loadMoreReviews(productId: string, offset: number, sort: reviews.ReviewSort = 'top', limit = 10): Promise<ActionResult<{ items: Review[]; total: number }>> {
+/**
+ * The next reviews in `sort` order from `offset`, passing `filter` (`limit` lets a re-sort or a new
+ * filter reload as many as it needs). `total` counts the filtered reviews.
+ */
+export async function loadMoreReviews(
+  productId: string,
+  offset: number,
+  sort: reviews.ReviewSort = 'top',
+  limit = 10,
+  filter: reviews.ReviewFilter = {},
+): Promise<ActionResult<{ items: Review[]; total: number }>> {
   return run(async () => {
     const user = await readUser();
-    const page = await reviews.listReviews(await db(), productId, user?.id ?? null, { offset, limit, sort: reviews.readReviewSort(sort) });
+    const page = await reviews.listReviews(await db(), productId, user?.id ?? null, {
+      offset,
+      limit,
+      sort: reviews.readReviewSort(sort),
+      filter: reviews.readReviewFilter(filter?.stars, filter?.verified),
+    });
     return { items: page.items, total: page.total };
   });
 }
