@@ -55,6 +55,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage'), wrap: formData.get('giftWrap') === 'on' } : undefined,
       speed: formData.get('shipSpeed') === 'fast' ? 'fast' : undefined,
       buyNow,
+      emiMonths: method === 'emi' ? Number(formData.get('emiTenure')) || undefined : undefined,
     });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;

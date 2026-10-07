@@ -165,6 +165,19 @@ describe('placeOrder gift and speed', () => {
     expect(buy.calls[0]).toMatchObject({ p_buy: { product_id: 'k1', qty: 2 } });
   });
 
+  it('sends the EMI tenure only for EMI, and checks it first', async () => {
+    const card = fakeDb();
+    await placeOrder(card.db, 'US', { paymentMethod: 'upi', shipping: SHIPPING, emiMonths: 6 });
+    expect(card.calls[0]).not.toHaveProperty('p_emi_months');
+    const emi = fakeDb({ ...row, payment_method: 'emi', payment_label: 'EMI · 6 months', emi_months: 6 });
+    const placed = await placeOrder(emi.db, 'US', { paymentMethod: 'emi', shipping: SHIPPING, emiMonths: 6 });
+    expect(emi.calls[0]).toMatchObject({ p_payment_method: 'emi', p_emi_months: 6 });
+    expect(placed).toMatchObject({ paymentLabel: 'EMI · 6 months', emiMonths: 6 });
+    const bad = fakeDb();
+    await expect(placeOrder(bad.db, 'US', { paymentMethod: 'emi', shipping: SHIPPING, emiMonths: 24 })).rejects.toMatchObject({ code: 'invalid_input', detail: 'emiMonths' });
+    expect(bad.calls).toHaveLength(0);
+  });
+
   it('a too-long note fails before the order is placed', async () => {
     const gift = fakeDb();
     await expect(placeOrder(gift.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, gift: { message: 'x'.repeat(241) } })).rejects.toMatchObject({

@@ -33,6 +33,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import type { Db } from '@/lib/db/client';
 import type { Address, Order } from '@/lib/types';
 import { protectionPlanName } from '@/lib/protection';
+import { emiText } from '@/lib/emi';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -228,6 +229,7 @@ export default async function OrderPage({
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
             { label: 'Paid with', value: paidWithText(order) },
+            ...(order.emiMonths ? [{ label: 'EMI', value: emiText(order.totals.totalMinor, order.emiMonths, money) }] : []),
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}
         />

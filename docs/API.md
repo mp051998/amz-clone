@@ -166,7 +166,7 @@ Prices and totals are computed by the database on every read.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| POST | `/orders` | `{paymentMethod, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?, instructions?}, gift?: {message?, wrap?}, speed?: standard \| fast, buyNow?: {productId, qty = 1, protection?}}` | Checks out your cart in this store, or with `buyNow` just that product. See the details after this table. |
+| POST | `/orders` | `{paymentMethod, emiMonths?, shipping: {fullName, phone, line1, line2?, landmark?, city, state, postcode, addressType?, instructions?}, gift?: {message?, wrap?}, speed?: standard \| fast, buyNow?: {productId, qty = 1, protection?}}` | Checks out your cart in this store, or with `buyNow` just that product. See the details after this table. |
 | GET | `/orders?limit=50` | | Orders placed (or charged) in this store, newest first. Cancelled ones stay listed; abandoned card checkouts don't. |
 | GET | `/orders/buy-now?productId=&qty=1&protection=1` | | `{quote: Cart}`: what Buy Now would order, just that product at `qty` (1 up to the store's line limit), priced like a cart holding only it (coupon, delivery, tax, and its protection plan with `protection=1`). `404 product_not_found` if it isn't in this store. |
 | GET | `/orders/buy-again?limit=60` | | Buy again: each product from your placed orders in this store once (cancelled and unpaid orders don't count), with `{productId, title, image, lastBoughtAt, lastOrderId, orders, availability, product}`. `availability` is `available`, `sold_out` or `gone` (archived or no longer in the catalog, when `product` is null and `title` and `image` are as bought). Available products come first, then sold out, then gone, each newest first. Reads your latest 100 orders. |
@@ -185,6 +185,7 @@ How `POST /orders` works:
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 - **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
 - **Protection plans:** each cart line with its plan on (or `buyNow.protection: true`) buys the store's plan per unit with the item: the item has `protectionMinor` (per unit) and the order `totals.protectionMinor`, untaxed and outside free delivery. A line whose product is no longer covered goes without. Cancelling an item before it ships refunds its plan, and so does returning it for a refund (a replacement keeps the plan).
+- **EMI** (India): `paymentMethod: "emi"` is for orders of ₹3,000 or more (`markets.emi_min_minor`); below that, and in the US store, the order fails with `422 emi_unavailable` (US: `payment_method_unavailable`). `emiMonths` is 3, 6, 9 or 12 (3 when left out; `422 invalid_input`, `detail` `emiMonths`, otherwise) and is ignored for other methods. The order keeps it as `emiMonths`, and `paymentLabel` reads `EMI · 6 months`.
 - **Buy Now:** send `buyNow: {productId, qty}` to order just that product (`qty` 1 up to the store's line limit) instead of the cart. The cart isn't needed and is left as it is, whatever the payment method; `404 product_not_found` if the product isn't in this store. A card order's cancel page returns to that product's checkout.
 - **Gifts:** send `gift: {message?}` (or `gift: true`) to mark the order as a gift. The note is trimmed and can be up to 240 characters (`422 invalid_input` beyond that); a blank one means no note. Add `wrap: true` to gift-wrap every item at the store's fee per item (US $3.99, India ₹30): it's `totals.wrapMinor`, untaxed and outside free delivery, and the order shows `gift.wrapped: true`. `422 invalid_input` (`detail` `gift_wrap`) for wrap without a gift.
 - **Delivery instructions:** `shipping.instructions` (up to 250 characters) goes on the order as `shipTo.instructions`. It's copied like the rest of the address, so editing a saved address later doesn't change orders already placed.
@@ -192,7 +193,7 @@ How `POST /orders` works:
 `Order` has these fields:
 - Identity: `id` (`114-…` US / `402-…` IN), `market, currency`
 - Status: `status: placed | awaiting_payment | cancelled`
-- Payment: `paymentMethod, paymentLabel`
+- Payment: `paymentMethod, paymentLabel`, and `emiMonths?` for an EMI order
 - Money: `totals`
 - Delivery: `shipTo`, `shipSpeed?: fast` (absent means standard), and `gift?: {message?, wrapped?}` for a gift order
 - `archivedAt?`: when you archived it (absent while it isn't)
@@ -492,7 +493,7 @@ The web UI is at `/admin` (an overview of what needs doing), `/admin/products`, 
 | 405 | wrong method on a known path |
 | 409 | `order_not_cancellable`, `order_not_archivable`, `order_not_editable`, `order_address_locked`, `feedback_not_open`, `account_not_closable`, `order_not_open`, `return_not_allowed`, `return_not_open`, `mixed_categories`, `product_has_orders`, `product_unavailable`, `category_in_use`, `category_exists`, `cart_empty`, `nothing_selected`, `out_of_stock`, `insufficient_stock`, `address_limit`, `collection_limit`, `collection_item_limit`, `own_review`, `own_answer`, `duplicate`, `order_not_pending`, `amount_mismatch`, `session_mismatch`, `stock_released`, `not_a_card_order`, `insufficient_balance`, `gift_card_redeemed`, `case_closed`, `too_many_cases` |
 | 415 | `unsupported_media_type` |
-| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
+| 422 | `invalid_input`, `invalid_shipping_address`, `invalid_postcode`, `invalid_category`, `payment_method_unavailable`, `emi_unavailable`, `delivery_option_unavailable`, `gift_card_other_store` |
 | 502 | `refund_failed` |
 | 503 | `payments_unavailable` |
 
