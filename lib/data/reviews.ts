@@ -53,16 +53,19 @@ export function readReviewSort(v: unknown): ReviewSort {
   return v === 'recent' ? 'recent' : 'top';
 }
 
-/** Which written reviews to list: one star, `positive` (4–5★) or `critical` (1–3★); verified purchases only. */
+/** Which written reviews to list: one star, `positive` (4–5★) or `critical` (1–3★); verified purchases only; with photos only. */
 export type ReviewStars = 1 | 2 | 3 | 4 | 5 | 'positive' | 'critical';
 
 export interface ReviewFilter {
   stars?: ReviewStars;
   verified?: boolean;
+  photos?: boolean;
 }
 
-/** `?stars=` (1–5, positive, critical) and `?verified=` (1 / true) into a filter; anything else is ignored. */
-export function readReviewFilter(stars: unknown, verified: unknown): ReviewFilter {
+const on = (v: unknown) => v === true || v === '1' || v === 'true';
+
+/** `?stars=` (1–5, positive, critical), `?verified=` and `?photos=` (1 / true) into a filter; anything else is ignored. */
+export function readReviewFilter(stars: unknown, verified: unknown, photos?: unknown): ReviewFilter {
   const out: ReviewFilter = {};
   const s = typeof stars === 'string' ? stars.trim().toLowerCase() : stars;
   if (s === 'positive' || s === 'critical') out.stars = s;
@@ -70,7 +73,8 @@ export function readReviewFilter(stars: unknown, verified: unknown): ReviewFilte
     const n = Number(s);
     if (Number.isInteger(n) && n >= 1 && n <= 5) out.stars = n as ReviewStars;
   }
-  if (verified === true || verified === '1' || verified === 'true') out.verified = true;
+  if (on(verified)) out.verified = true;
+  if (on(photos)) out.photos = true;
   return out;
 }
 
@@ -78,38 +82,44 @@ const starRange = (stars: ReviewStars): [number, number] =>
   stars === 'positive' ? [4, 5] : stars === 'critical' ? [1, 3] : [stars, stars];
 
 /** Whether a review passes a filter. */
-export function matchesReviewFilter(r: { rating: number; verified: boolean }, f: ReviewFilter): boolean {
+export function matchesReviewFilter(r: { rating: number; verified: boolean; photos?: unknown[] }, f: ReviewFilter): boolean {
   if (f.verified && !r.verified) return false;
+  if (f.photos && !r.photos?.length) return false;
   if (!f.stars) return true;
   const [lo, hi] = starRange(f.stars);
   return r.rating >= lo && r.rating <= hi;
 }
 
 /**
- * How many written, visible reviews a product has per star, all and verified only, so filter
- * chips can show exact counts without loading every review (see `facetCount` in
- * components/product/reviewFilters.ts).
+ * How many written, visible reviews a product has per star: all, verified only, with photos, and
+ * verified with photos, so filter chips can show exact counts without loading every review (see
+ * `facetCount` in components/product/reviewFilters.ts).
  */
-export type ReviewFacets = Record<1 | 2 | 3 | 4 | 5, { all: number; verified: number }>;
+export type ReviewFacet = { all: number; verified: number; photos?: number; verifiedPhotos?: number };
+export type ReviewFacets = Record<1 | 2 | 3 | 4 | 5, ReviewFacet>;
 
 export function emptyReviewFacets(): ReviewFacets {
-  return { 1: { all: 0, verified: 0 }, 2: { all: 0, verified: 0 }, 3: { all: 0, verified: 0 }, 4: { all: 0, verified: 0 }, 5: { all: 0, verified: 0 } };
+  const zero = (): ReviewFacet => ({ all: 0, verified: 0, photos: 0, verifiedPhotos: 0 });
+  return { 1: zero(), 2: zero(), 3: zero(), 4: zero(), 5: zero() };
 }
 
 /** A product's review facets (hidden reviews left out, as in the listing). */
 export async function reviewFacets(db: Db, productId: string): Promise<ReviewFacets> {
   const read = (moderated: boolean) => {
-    const q = db.from('reviews').select('rating, verified').eq('product_id', productId);
+    const q = db.from('reviews').select(moderated ? 'rating, verified, photos' : 'rating, verified').eq('product_id', productId);
     return (moderated ? q.is('hidden_at', null) : q).range(0, 9999);
   };
   let res = await read(true);
   if (res.error?.code === MISSING_COLUMN) res = await read(false);
   const facets = emptyReviewFacets();
-  for (const r of (unwrap(res) ?? []) as { rating: number; verified: boolean }[]) {
+  for (const r of (unwrap(res) ?? []) as unknown as { rating: number; verified: boolean; photos?: string[] }[]) {
     const bucket = facets[r.rating as 1 | 2 | 3 | 4 | 5];
     if (!bucket) continue;
+    const photos = Boolean(r.photos?.length);
     bucket.all += 1;
     if (r.verified) bucket.verified += 1;
+    if (photos) bucket.photos = (bucket.photos ?? 0) + 1;
+    if (photos && r.verified) bucket.verifiedPhotos = (bucket.verifiedPhotos ?? 0) + 1;
   }
   return facets;
 }
@@ -149,6 +159,7 @@ export async function listReviews(
       visible = lo === hi ? visible.eq('rating', lo) : visible.gte('rating', lo).lte('rating', hi);
     }
     if (filter.verified) visible = visible.eq('verified', true);
+    if (filter.photos && moderated) visible = visible.filter('photos', 'neq', '{}');
     const ordered = opts.sort === 'recent' ? visible : visible.order('helpful_count', { ascending: false });
     return ordered
       .order('created_at', { ascending: false })

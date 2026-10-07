@@ -130,7 +130,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
 
   const themes = useMemo(() => [...new Set([...(insight?.praised ?? []), ...(insight?.criticized ?? [])].map((t) => t.theme))], [insight]);
   const star = typeof filter.stars === 'number' ? filter.stars : null;
-  const filtered = Boolean(filter.stars || filter.verified);
+  const filtered = Boolean(filter.stars || filter.verified || filter.photos);
   const filters = useMemo(() => buildFilters(items, themes), [items, themes]);
   // a theme chip that no loaded review mentions any more drops out of the active set
   const on = useMemo(() => active.filter((id) => filters.some((f) => f.id === id)), [active, filters]);
@@ -161,6 +161,10 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     const { verified, ...rest } = filter;
     reload(verified ? rest : { ...rest, verified: true });
   };
+  const togglePhotos = () => {
+    const { photos, ...rest } = filter;
+    reload(photos ? rest : { ...rest, photos: true });
+  };
   const clearAll = () => {
     setActive([]);
     if (filtered) reload({});
@@ -168,7 +172,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
   // "Read supporting reviews" / "Show critical reviews": just those, in view
   const focusStars = (stars: ReviewStars) => {
     setActive([]);
-    if (filter.stars !== stars || filter.verified) reload({ stars });
+    if (filter.stars !== stars || filter.verified || filter.photos) reload({ stars });
     scrollToId('reviews');
   };
   // a histogram row shows just that star's reviews; picking it again shows them all
@@ -342,6 +346,11 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
               <Pill selected={Boolean(filter.verified)} onClick={toggleVerified}>
                 Verified purchase {chip(facetCount(facets, { ...filter, verified: true }))}
               </Pill>
+              {filter.photos || facetCount(facets, { photos: true }) ? (
+                <Pill selected={Boolean(filter.photos)} onClick={togglePhotos}>
+                  With photos {chip(facetCount(facets, { ...filter, photos: true }))}
+                </Pill>
+              ) : null}
               {filters.map((f) => (
                 <Pill key={f.id} selected={on.includes(f.id)} onClick={() => toggle(f.id)}>
                   {f.label} {chip(chipCount(items, filters, on, f.id))}

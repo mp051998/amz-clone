@@ -5,9 +5,9 @@ import { customerImages } from '@/lib/data/review-photos';
 import { listReviews, readReviewFilter, readReviewSort, upsertReview } from '@/lib/data/reviews';
 
 /**
- * GET /api/v1/products/:id/reviews?limit=10&offset=0&sort=top|recent&stars=&verified= — most helpful
+ * GET /api/v1/products/:id/reviews?limit=10&offset=0&sort=top|recent&stars=&verified=&photos= — most helpful
  * (or newest) first; the caller's own review pinned. stars: 1–5, positive (4–5★) or critical
- * (1–3★); verified=1 keeps verified purchases. `total` counts the filtered reviews. `images`: the
+ * (1–3★); verified=1 keeps verified purchases, photos=1 reviews with photos. `total` counts the filtered reviews. `images`: the
  * newest photos from its reviews.
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
@@ -17,7 +17,7 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
       limit: intParam(sp.get('limit'), 10, 1, 50),
       offset: intParam(sp.get('offset'), 0, 0, 100_000),
       sort: readReviewSort(sp.get('sort')),
-      filter: readReviewFilter(sp.get('stars'), sp.get('verified')),
+      filter: readReviewFilter(sp.get('stars'), sp.get('verified'), sp.get('photos')),
     }),
     customerImages(ctx.db, id),
   ]);
