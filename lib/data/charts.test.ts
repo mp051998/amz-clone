@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { mostWishedFor } from './catalog';
+import { giftIdeas, mostWishedFor } from './catalog';
 
 const row = (id: string, group: string | null = null) => ({ id, market_id: 'US', title: id, category_slug: 'kitchen', price_minor: 1000, variant_group: group, variant_axis: group ? 'Color' : null, variant_label: group ? id : null });
 
 /** A client whose ranking RPC answers `ranking`, with `listed` as the bestsellers and every row readable by id. */
-function fakeDb(ranking: { data: string[] | null; error: { code: string; message: string } | null }, listed: ReturnType<typeof row>[], all = listed) {
+function fakeDb(ranking: { data: string[] | null; error: { code: string; message: string } | null }, listed: ReturnType<typeof row>[], all = listed, calls: string[] = []) {
   const query = () => {
     let ids: string[] | null = null;
     const q = {
@@ -20,7 +20,7 @@ function fakeDb(ranking: { data: string[] | null; error: { code: string; message
     };
     return q;
   };
-  return { rpc: async () => ranking, from: query } as unknown as Db;
+  return { rpc: async (name: string) => (calls.push(name), ranking), from: query } as unknown as Db;
 }
 
 describe('mostWishedFor', () => {
@@ -35,5 +35,15 @@ describe('mostWishedFor', () => {
   it('the bestsellers stand in until the ranking is deployed', async () => {
     const chart = await mostWishedFor(fakeDb({ data: null, error: { code: 'PGRST202', message: 'not found' } }, [row('p1'), row('p2')]), 'US');
     expect(chart.map((p) => p.id)).toEqual(['p1', 'p2']);
+  });
+});
+
+describe('giftIdeas', () => {
+  it('ranks by the gift ranking, then fills with bestsellers', async () => {
+    const calls: string[] = [];
+    const listed = [row('p1'), row('g1')];
+    const chart = await giftIdeas(fakeDb({ data: ['g1'], error: null }, listed, listed, calls), 'US', { limit: 3 });
+    expect(calls).toEqual(['gift_ideas']);
+    expect(chart.map((p) => p.id)).toEqual(['g1', 'p1']);
   });
 });

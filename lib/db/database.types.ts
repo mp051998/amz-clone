@@ -904,6 +904,9 @@ isOneToOne: false
 "email_in_use":
 { Args: { "p_email": string }; Returns: boolean
                            },
+"gift_ideas":
+{ Args: { "p_category"?: string,"p_limit"?: number,"p_market": string }; Returns: (string)[]
+                           },
 "is_admin":
 { Args: never; Returns: boolean
                            },

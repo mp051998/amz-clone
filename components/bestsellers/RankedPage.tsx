@@ -29,9 +29,10 @@ export const CHARTS = [
   { path: '/bestsellers', label: 'Bestsellers' },
   { path: '/new-releases', label: 'New & trending' },
   { path: '/most-wished-for', label: 'Most wished for' },
+  { path: '/gift-ideas', label: 'Gift ideas' },
 ] as const;
 
-/** Shared layout for the charts (Bestsellers, New & trending, Most wished for): kicker + title, chart tabs, department pills, card grid. */
+/** Shared layout for the charts (Bestsellers, New & trending, Most wished for, Gift ideas): kicker + title, chart tabs, department pills, card grid. */
 export function RankedPage({ store, basePath, kicker, title, lede, categories, active, items, saved, ranked, tag }: RankedPageProps) {
   const activeName = active ? categories.find((x) => x.slug === active)?.name ?? active : undefined;
   return (

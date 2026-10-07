@@ -162,15 +162,30 @@ export async function listProducts(db: Db, market: Market, opts: ListOptions = {
  * counted once), then the bestsellers to fill the page. Whose lists stay private; the database
  * hands out only the ranking.
  */
-export async function mostWishedFor(db: Db, market: Market, opts: { category?: string; limit?: number } = {}): Promise<Product[]> {
+export function mostWishedFor(db: Db, market: Market, opts: ChartOptions = {}): Promise<Product[]> {
+  return rankedChart(db, 'most_wished_for', market, opts);
+}
+
+/**
+ * "Gift Ideas": the products shoppers give most lately (ranked in the database from gift orders and
+ * items bought off shared lists), then the bestsellers.
+ */
+export function giftIdeas(db: Db, market: Market, opts: ChartOptions = {}): Promise<Product[]> {
+  return rankedChart(db, 'gift_ideas', market, opts);
+}
+
+type ChartOptions = { category?: string; limit?: number };
+
+/** A chart ranked by `rpc` (product ids, best first), filled up with the bestsellers it doesn't repeat. */
+async function rankedChart(db: Db, rpc: 'most_wished_for' | 'gift_ideas', market: Market, opts: ChartOptions): Promise<Product[]> {
   const limit = opts.limit ?? 40;
-  const res = await db.rpc('most_wished_for', { p_market: market, p_limit: limit, ...(opts.category ? { p_category: opts.category } : {}) });
+  const res = await db.rpc(rpc, { p_market: market, p_limit: limit, ...(opts.category ? { p_category: opts.category } : {}) });
   // PGRST202: the ranking isn't deployed yet; the bestsellers stand in
-  const wished = foldVariants(res.error?.code === 'PGRST202' ? [] : await getProducts(db, unwrap(res) ?? []));
-  if (wished.length >= limit) return wished.slice(0, limit);
+  const ranked = foldVariants(res.error?.code === 'PGRST202' ? [] : await getProducts(db, unwrap(res) ?? []));
+  if (ranked.length >= limit) return ranked.slice(0, limit);
   // a variant group shows once, at its best-placed option
   const rest = await listProducts(db, market, { category: opts.category, order: 'popular', limit: limit * 2 });
-  return foldVariants([...wished, ...rest]).slice(0, limit);
+  return foldVariants([...ranked, ...rest]).slice(0, limit);
 }
 
 /** Variant groups of a store as listing cards show them, options in label order. */
