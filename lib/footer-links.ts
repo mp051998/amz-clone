@@ -57,7 +57,7 @@ const FOOTER_LINKS: Record<string, FooterDest> = {
   'Returns Centre': { path: '/orders' },
   'Returns & Replacements': { path: '/customer-service' },
   'Shipping Rates & Policies': { path: '/customer-service' },
-  'Recalls and Product Safety Alerts': { path: '/customer-service' },
+  'Recalls and Product Safety Alerts': { path: '/recalls' },
   '100% Purchase Protection': { path: '/customer-service' },
   'Manage Your Content and Devices': { path: '/account' },
   'Amazon App Download': { path: '/' },

@@ -26,6 +26,7 @@ import { getOrder } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
 import { getProducts } from '@/lib/data/catalog';
 import { reviewedProductIds } from '@/lib/data/reviews';
+import { recallsFor, type Recall } from '@/lib/data/recalls';
 import { feedbackOpen, feedbackOpenUntil, orderFeedback, orderSellers, type SellerFeedback } from '@/lib/data/seller-feedback';
 import { availabilityOf } from '@/lib/buy-again';
 import { accessoriesFor, type Accessory } from '@/lib/decision/server';
@@ -118,8 +119,8 @@ export default async function OrderPage({
   const stage = orderStage(order, now, store.dates.timeZone);
   const addressOpen = stage === 'preparing';
   const instructionsOpen = stage === 'preparing' || stage === 'shipped';
-  const [returns, current, reviewed, sellerFeedback, saved, deliveryFeedback] = confirming
-    ? [null, [], new Set<string>(), noFeedback, [], null]
+  const [returns, current, reviewed, sellerFeedback, saved, deliveryFeedback, recalled] = confirming
+    ? [null, [], new Set<string>(), noFeedback, [], null, new Map<string, Recall>()]
     : await Promise.all([
         getOrderReturns(client, order.id),
         getProducts(client, productIds, { includeArchived: true }).catch(() => []),
@@ -127,6 +128,7 @@ export default async function OrderPage({
         feedbackUntil ? orderFeedback(client, order.id).catch(() => noFeedback) : noFeedback,
         addressOpen ? listAddresses(client, store.id).catch((): Address[] => []) : [],
         deliveryUntil ? deliveryFeedbackFor(client, order.id).catch((): DeliveryFeedback | null => null) : null,
+        order.status === 'placed' ? recallsFor(client, productIds).catch(() => new Map<string, Recall>()) : new Map<string, Recall>(),
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
   const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
@@ -237,6 +239,13 @@ export default async function OrderPage({
           <Alert tone="success">Your delivery feedback is removed.</Alert>
         ) : order.archivedAt ? (
           <Alert tone="info">This order is archived, so it isn’t in your order list. Unarchive it to bring it back.</Alert>
+        ) : null}
+        {recalled.size ? (
+          <Alert tone="error">
+            {recalled.size === 1 ? 'An item in this order has been recalled' : `${recalled.size} items in this order have been recalled`} for safety:{' '}
+            <strong className="font-semibold">{[...recalled.values()].map((r) => r.title).join(', ')}</strong>.{' '}
+            <a href={sp('/recalls')} className="text-ink underline underline-offset-2">See what to do</a>
+          </Alert>
         ) : null}
 
         <EtaPanel kicker={view.kicker} headline={view.headline} window={view.window} />
@@ -435,6 +444,11 @@ export default async function OrderPage({
               <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
                 {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
+                {recalled.has(it.productId) ? (
+                  <a href={sp(`/recalls#recall-${encodeURIComponent(it.productId)}`)} className="self-start text-[13px] font-semibold text-bad underline underline-offset-2">
+                    Recalled · See what to do
+                  </a>
+                ) : null}
                 <span className="text-[13px] text-ink-3">
                   Qty {it.qty} · Sold by{' '}
                   <a href={sp(`/seller?name=${encodeURIComponent(it.seller)}`)} className="text-ink-3 underline underline-offset-2">{it.seller}</a>

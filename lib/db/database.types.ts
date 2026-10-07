@@ -702,6 +702,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"product_recalls": {
+                  Row: {
+                    "hazard": string,"issued_at": string,"issued_by": string | null,"product_id": string,"remedy": string,"updated_at": string
+                  }
+                  Insert: {
+                    "hazard": string,"issued_at"?: string,"issued_by"?: string | null,"product_id": string,"remedy": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "hazard"?: string,"issued_at"?: string,"issued_by"?: string | null,"product_id"?: string,"remedy"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "product_recalls_product_id_fkey"
+      columns: ["product_id"]
+      isOneToOne: true
+      referencedRelation: "products"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"stripe_customers": {
                   Row: {
                     "created_at": string,"customer_id": string,"user_id": string
@@ -1138,6 +1157,9 @@ isOneToOne: false
                            },
 "close_support_case":
 { Args: { "p_case": string }; Returns: Json
+                           },
+"recall_product":
+{ Args: { "p_hazard": string,"p_product": string,"p_remedy": string }; Returns: Json
                            },
 "report_product":
 { Args: { "p_details"?: string,"p_product": string,"p_reason": string }; Returns: Json

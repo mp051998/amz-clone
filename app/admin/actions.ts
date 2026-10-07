@@ -14,6 +14,7 @@ import {
   type ProductFieldErrors,
 } from '@/lib/data/admin-catalog';
 import { DataError } from '@/lib/data/errors';
+import { recallProduct } from '@/lib/data/recalls';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { parseDetailLines } from '@/lib/product-details';
@@ -172,4 +173,24 @@ export async function archiveProduct(id: string, archived: boolean, from: 'edit'
   if (from === 'edit') redirect(`${edit}?done=${done}`);
   const tab = from === 'archived' ? 'status=archived&' : '';
   redirect(storePath(store, `/admin/products?${tab}done=${done}&id=${encodeURIComponent(id)}`));
+}
+
+/**
+ * Recall a product from its admin page: the hazard and what shoppers should do. Takes it off sale
+ * for good; recalling it again rewrites the text.
+ */
+export async function recallProductAction(id: string, formData: FormData): Promise<void> {
+  const store = await getMarketplace();
+  const { client, error } = await adminClient();
+  const edit = storePath(store, `/admin/products/${encodeURIComponent(id)}`);
+  if (error) redirect(`${edit}?error=forbidden`);
+  let updated = false;
+  try {
+    ({ updated } = await recallProduct(client, id, { hazard: formData.get('hazard'), remedy: formData.get('remedy') }));
+  } catch (err) {
+    if (err instanceof DataError) redirect(`${edit}?error=${err.code}#recall`);
+    throw err;
+  }
+  revalidatePath('/', 'layout');
+  redirect(`${edit}?done=${updated ? 'recall_updated' : 'recalled'}#recall`);
 }
