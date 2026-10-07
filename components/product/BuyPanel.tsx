@@ -11,6 +11,7 @@ import type { ListChoice } from '@/lib/data/collections';
 import { AddToList } from '../collections/AddToList';
 import { CompareToggle } from '../decision/Compare';
 import { SaveButton } from '../decision/SaveButton';
+import { SizeChart } from './SizeChart';
 import { useToast } from '../decision/Toast';
 import { limitNote } from '@/lib/purchase-limits';
 
@@ -188,6 +189,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
                   </label>
                 ))}
               </div>
+              <SizeChart sizes={sizes} title={name} selected={size} />
             </fieldset>
           ) : null}
           <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">

@@ -104,8 +104,16 @@ it('asks for a size before Add to Cart or Buy Now, then both take it', async () 
   await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, false, 'M'));
 });
 
+it('has a size chart for sizes it knows, the size picked highlighted', () => {
+  show({}, { sizes: ['S', 'M', 'L'] });
+  expect(screen.getByText('Size Chart')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('radio', { name: 'L' }));
+  expect(screen.getByRole('row', { current: true })).toHaveTextContent(/^L/);
+});
+
 it('has no size to pick for a product without sizes', () => {
   show();
   expect(screen.queryByText(/^Size:/)).toBeNull();
   expect(screen.queryByRole('radio')).toBeNull();
+  expect(screen.queryByText('Size Chart')).toBeNull();
 });
