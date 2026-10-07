@@ -25,6 +25,7 @@ it('links the charts to each other, in the same department, marking the one show
   const charts = within(screen.getByRole('navigation', { name: 'Charts' }));
   expect(charts.getByRole('link', { name: 'Bestsellers' })).toHaveAttribute('href', '/bestsellers?c=kitchen');
   expect(charts.getByRole('link', { name: 'New & trending' })).toHaveAttribute('href', '/new-releases?c=kitchen');
+  expect(charts.getByRole('link', { name: 'Gift ideas' })).toHaveAttribute('href', '/gift-ideas?c=kitchen');
   const here = charts.getByRole('link', { name: 'Most wished for' });
   expect(here).toHaveAttribute('aria-current', 'page');
   expect(charts.getByRole('link', { name: 'Bestsellers' })).not.toHaveAttribute('aria-current');
