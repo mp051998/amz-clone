@@ -58,6 +58,8 @@ import { myOpenReport } from '@/lib/data/product-reports';
 import type { Product } from '@/lib/types';
 import { protectionOffer } from '@/lib/data/cart';
 import { protectionPlanName } from '@/lib/protection';
+import { emiPlans } from '@/lib/emi';
+import { EmiOffer } from '@/components/product/EmiOffer';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -325,6 +327,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 <div className="flex flex-col gap-1 border-t border-line pt-4">
                   <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
                   {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+                  <EmiOffer plans={emiPlans(store.id, priceMinor)} currency={cur} />
                   {coupon ? (
                     <CouponToggle
                       productId={p.id}

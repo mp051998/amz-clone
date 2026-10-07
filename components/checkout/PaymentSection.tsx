@@ -17,6 +17,8 @@ export interface PaymentSectionProps {
   n?: number;
   /** the shopper's gift card balance in this store, for the balance methods (giftcard, amazonpay). */
   balance?: BalanceInfo;
+  /** EMI plans for the order total, each tenure with its monthly payment ("₹5,000 a month · No Cost EMI") */
+  emi?: { months: number; text: string }[];
 }
 
 export interface BalanceInfo {
@@ -57,7 +59,7 @@ const BANKS = ['HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank', 'K
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
  * form while the list is collapsed); the selected method's demo fields show under the list.
  */
-export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance }: PaymentSectionProps) {
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi }: PaymentSectionProps) {
   const [selected, setSelected] = useState(methods[0] ?? 'card');
   const [open, setOpen] = useState(false);
   const listId = 'checkout-payment-options';
@@ -89,7 +91,7 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
             : 'Demo only — no real payment is processed. Any values work.'}
         </p>
       </div>
-      <div className="sm:pl-[42px]">{selected === 'card' && stripeCard ? stripeCardNotice() : fields(selected, curSymbol, defaultName, balance)}</div>
+      <div className="sm:pl-[42px]">{selected === 'card' && stripeCard ? stripeCardNotice() : fields(selected, curSymbol, defaultName, balance, emi)}</div>
     </StepCard>
   );
 }
@@ -108,7 +110,7 @@ function stripeCardNotice() {
 
 const note = 'm-0 text-[13px] text-ink-2';
 
-function fields(method: string, curSymbol: string, defaultName: string, balance?: BalanceInfo) {
+function fields(method: string, curSymbol: string, defaultName: string, balance?: BalanceInfo, emi?: PaymentSectionProps['emi']) {
   switch (method) {
     case 'card':
       return (
@@ -156,10 +158,15 @@ function fields(method: string, curSymbol: string, defaultName: string, balance?
           <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-ink">
             Tenure
             <select name="emiTenure" defaultValue="3" className={`w-full font-normal ${selectClass}`}>
-              {['3', '6', '9', '12'].map((t) => (<option key={t} value={t}>{t} months</option>))}
+              {emi?.length
+                ? emi.map((t) => (<option key={t.months} value={t.months}>{t.months} months · {t.text}</option>))
+                : ['3', '6', '9', '12'].map((t) => (<option key={t} value={t}>{t} months</option>))}
             </select>
           </label>
-          <p className={`sm:col-span-2 ${note}`}>Interest and processing fees apply as per your bank. (Demo — no EMI is created.)</p>
+          <p className={`sm:col-span-2 ${note}`}>
+            {emi?.length ? 'No Cost EMI takes the bank’s interest off as a discount; longer plans carry it. ' : 'Interest and processing fees apply as per your bank. '}
+            (Demo — no EMI is created.)
+          </p>
         </div>
       );
     default:
