@@ -32,6 +32,7 @@ export function GET(): Response {
       'GET    /me/reviews',
       'GET    /me/questions',
       'GET    /me/transactions',
+      'GET    /me/messages',
       'GET    /me/support',
       'POST   /me/support',
       'GET    /me/support/:id',
