@@ -183,3 +183,14 @@ it('counts as new what came in after the shopper last looked, and everything the
   expect(isNewMessage({ at: '2026-10-01T00:00:00Z' }, seen)).toBe(false);
   expect(isNewMessage({ at: '2026-10-01T00:00:00Z' }, null)).toBe(true);
 });
+
+it('a missing package reported is news only once refunded, as a refund', () => {
+  const o = order('D', '2026-10-01T00:00:00Z', schedule('2026-10-01T12:00:00Z', '2026-10-03T20:00:00Z', '2026-10-04T09:00:00Z'));
+  const returns = [
+    ret({ id: 'm1', receivedAt: '2026-10-05T10:00:00Z', refundStatus: 'succeeded', refundedAt: '2026-10-05T10:00:00Z', refundMinor: 2500, missing: true }),
+    ret({ id: 'm2', receivedAt: '2026-10-05T11:00:00Z', refundStatus: 'pending', refundMinor: 2500, missing: true }),
+  ];
+  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW).filter((m) => !['shipped', 'out_for_delivery', 'delivered'].includes(m.kind));
+  expect(inbox.map((m) => [m.key, m.kind])).toEqual([['return_refunded:m1', 'refunded']]);
+  expect(inbox[0]).toMatchObject({ amountMinor: 2500, href: '/orders/D?placed=0' });
+});

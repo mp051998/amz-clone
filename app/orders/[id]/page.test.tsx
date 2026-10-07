@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0 }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -30,7 +30,11 @@ vi.mock('@/lib/decision/server', () => ({
     return state.pairs;
   },
 }));
-vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, replaceable: {}, returns: [] }), canStartReturn: () => false }));
+vi.mock('@/lib/data/returns', async (original) => ({
+  ...(await original<typeof import('@/lib/data/returns')>()),
+  getOrderReturns: async () => ({ delivered: true, returnable: {}, replaceable: {}, returns: state.returns }),
+  canStartReturn: () => false,
+}));
 vi.mock('@/app/actions/order', () => ({
   archiveMyOrder: async () => {},
   cancelMyOrder: async () => {},
@@ -44,7 +48,7 @@ vi.mock('@/lib/data/seller-feedback', async (original) => ({
   ...(await original<typeof import('@/lib/data/seller-feedback')>()),
   orderFeedback: async () => new Map(state.feedback),
 }));
-vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {} }));
+vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {}, reportMissing: async () => {} }));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
 import OrderPage from './page';
@@ -82,6 +86,7 @@ beforeEach(() => {
   state.feedback = [];
   state.addresses = [];
   state.addressReads = 0;
+  state.returns = [];
 });
 
 it('offers a review for each item once the order is delivered', async () => {
@@ -459,4 +464,36 @@ it('items can be cancelled one by one until it ships, and cancelled ones are lis
   expect(cancelled).toHaveTextContent('Refund of $9.72 to Visa ending 4242 · issued September 1.');
   expect(cancelled).toHaveTextContent('Includes $0.72 tax.');
   expect(screen.getByRole('heading', { name: '1 item' })).toBeInTheDocument();
+});
+
+it('a delivered order that never turned up can be reported for 30 days, until something is returned', async () => {
+  const day = 86_400_000;
+  const delivered = new Date(Date.now() - 2 * day).toISOString();
+  state.order = order({ deliveredAt: delivered });
+  await show();
+  const section = screen.getByRole('region', { name: 'Package didn’t arrive?' });
+  expect(section).toHaveTextContent(/Report it by .+ and we’ll refund \$30\.00 to Visa ending 4242\./);
+  expect(screen.getByRole('button', { name: 'Report it missing' })).toBeInTheDocument();
+  cleanup();
+  state.order = order({ deliveredAt: new Date(Date.now() - 31 * day).toISOString() });
+  await show();
+  expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
+  cleanup();
+  state.order = order({ deliveredAt: delivered, paymentMethod: 'cod', paymentLabel: 'Cash on Delivery' });
+  await show();
+  expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
+});
+
+it('once reported, says it was refunded instead', async () => {
+  const delivered = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  state.order = order({ deliveredAt: delivered });
+  state.returns = [{
+    id: 'r1', orderId: 'ORD-9', status: 'received', reason: 'not_received', resolution: 'refund',
+    items: [{ productId: 'm', title: 'Mug', image: '', unitPriceMinor: 2000, qty: 1 }],
+    itemsMinor: 3000, taxMinor: 0, shipMinor: 0, refundMinor: 3000, dropoffCode: 'AB12-CD34', dropoffBy: delivered,
+    createdAt: delivered, receivedAt: delivered, refund: { status: 'succeeded', refundedAt: delivered },
+  }];
+  await show({ return: 'missing' });
+  expect(screen.getByText('Sorry your order didn’t arrive. We’ve refunded it, as shown below.')).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
 });

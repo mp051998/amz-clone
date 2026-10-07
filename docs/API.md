@@ -216,17 +216,19 @@ For a store-fault reason the shopper can ask for a replacement instead of a refu
 | GET | `/orders/:id/seller-feedback` | | `{feedback: [SellerFeedback]}`: the caller's ratings of the order's sellers, each `{orderId, seller, rating, arrivedOnTime, asDescribed, comment, createdAt, updatedAt}`. `404` for someone else's order. |
 | PUT | `/orders/:id/seller-feedback` | `{seller, rating: 1–5, arrivedOnTime?: boolean \| null, asDescribed?: boolean \| null, comment?}` | `{feedback}`. Rates a seller in the order, or changes the rating: once the order is delivered, for 90 days; `409 feedback_not_open` before or after. `422 invalid_input` with `detail` `seller` (not in this order), `rating` or `comment` (≤ 500 chars). Product pages show each seller's rating over the last 12 months (average and share of 4–5 star ratings), never who left it. |
 | DELETE | `/orders/:id/seller-feedback` | `{seller}` | `204`. Removes the caller's rating; `404 not_found` when there's none. |
+| POST | `/orders/:id/not-received` | | `201 {return}`. "Package didn't arrive": the order was marked delivered but never turned up. Everything paid for it is refunded at once, as a `received` return with reason `not_received` that covers every item left in the order (nothing is sent back). `409 return_not_allowed` with `detail` `not_delivered` (not marked delivered yet), `window_closed` (more than 30 days after), `returned` (something from it has been returned or reported already) or `cash_on_delivery` (only paid when the package is). `404` for someone else's order. |
 | POST | `/returns/:id/cancel` | | `{return}`. Only while `requested` (`409 return_not_open` after), and a replacement only until it ships (`409 replacement_shipped` after); cancelling one puts its stock back. |
 
-`reason` is one of `no_longer_needed`, `bought_by_mistake`, `better_price`, `damaged`, `defective`, `wrong_item`, `missing_parts`, `not_as_described`. The last five are the store's fault.
+`reason` is one of `no_longer_needed`, `bought_by_mistake`, `better_price`, `damaged`, `defective`, `wrong_item`, `missing_parts`, `not_as_described`. The last five are the store's fault. A missing-package report has reason `not_received`; it can't be asked for with `POST /orders/:id/returns`, and it doesn't count towards a product's `frequentlyReturned`.
 
 The refund is priced when the return starts:
 - `itemsMinor`: the returned units at the prices paid.
 - `taxMinor`: the items' share of the order's tax (US). The return that brings the order to fully returned gets whatever tax is left, so the shares add up to the tax charged.
 - `shipMinor`: the items' share of the delivery charge, but only for store-fault reasons.
 - `protectionMinor?`: the returned units' protection plans. Returning an item cancels its plan, so the plan is refunded with it (absent without one).
-- `refundMinor = itemsMinor + taxMinor + shipMinor + protectionMinor`.
-- A replacement is all zeros.
+- `wrapMinor?`: gift wrap, refunded only when the package didn't arrive.
+- `refundMinor = itemsMinor + taxMinor + shipMinor + protectionMinor + wrapMinor`.
+- A replacement is all zeros. A missing package refunds the whole order: what's left of `totals` after any cancelled items.
 
 `Return` has these fields:
 - `id, orderId, status: requested | received | rejected | cancelled, reason, comment?`

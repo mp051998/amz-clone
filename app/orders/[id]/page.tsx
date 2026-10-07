@@ -8,13 +8,13 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateSeller, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
-import { cancelMyReturn } from '@/app/actions/returns';
+import { cancelMyReturn, reportMissing } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
-import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
+import { canStartReturn, getOrderReturns, reportMissingUntil } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
 import { orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
@@ -125,6 +125,8 @@ export default async function OrderPage({
   const nowById = new Map(current.map((p) => [p.id, p]));
   const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
+  const missingUntil = reportMissingUntil(order, returns, now);
+  const reportedMissing = returns?.returns.some((r) => r.reason === 'not_received' && r.status !== 'cancelled') ?? false;
 
   if (confirming) {
     const pairs = await pairsFor(client, order);
@@ -193,6 +195,8 @@ export default async function OrderPage({
           <Alert tone="success">Your replacement is on its way. Drop the original items off with the code below.</Alert>
         ) : returned === 'cancelled' ? (
           <Alert tone="success">Your return is cancelled.</Alert>
+        ) : returned === 'missing' && reportedMissing ? (
+          <Alert tone="success">Sorry your order didn’t arrive. We’ve refunded it, as shown below.</Alert>
         ) : archived === '1' && order.archivedAt ? (
           <Alert tone="success">
             Order archived. It’s no longer in your order list; find it under{' '}
@@ -324,17 +328,39 @@ export default async function OrderPage({
           </section>
         ) : null}
 
+        {missingUntil ? (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-labelledby="missing-h">
+            <div className="flex max-w-[640px] flex-col gap-0.5">
+              <h2 id="missing-h" className="m-0 text-[16px] font-semibold">Package didn’t arrive?</h2>
+              <p className="m-0 text-[14px] text-ink-2">
+                If it says delivered but you can’t find it, look around your door and ask anyone nearby who might have taken it in.
+                Still missing? Report it by {longDate(missingUntil, store)} and we’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}.
+              </p>
+            </div>
+            <ConfirmAction
+              action={reportMissing.bind(null, order.id)}
+              label="Report it missing"
+              prompt={<>Report this order as not arrived? We’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}, and you won’t be able to return anything from it.</>}
+              confirmLabel="Yes, it didn’t arrive"
+              pendingLabel="Reporting…"
+              cancelLabel="Keep looking"
+            />
+          </section>
+        ) : null}
+
         {returns && returnBy ? (
           <section className="flex flex-col gap-3" aria-labelledby="returns-h">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4">
               <div className="flex flex-col gap-0.5">
                 <h2 id="returns-h" className="m-0 text-[16px] font-semibold">Returns</h2>
                 <p className="m-0 text-[14px] text-ink-2">
-                  {canStartReturn(returns, now)
-                    ? `Eligible for return until ${longDate(returnBy, store)}.`
-                    : returnBy.getTime() < now.getTime()
-                      ? `The return window closed on ${longDate(returnBy, store)}.`
-                      : 'Every item in this order is being returned.'}
+                  {reportedMissing
+                    ? 'You told us this order didn’t arrive.'
+                    : canStartReturn(returns, now)
+                      ? `Eligible for return until ${longDate(returnBy, store)}.`
+                      : returnBy.getTime() < now.getTime()
+                        ? `The return window closed on ${longDate(returnBy, store)}.`
+                        : 'Every item in this order is being returned.'}
                 </p>
               </div>
               {canStartReturn(returns, now) ? (

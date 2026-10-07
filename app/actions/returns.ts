@@ -7,6 +7,7 @@ import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { DataError } from '@/lib/data/errors';
 import { cancelReturn, requestReturn } from '@/lib/data/returns';
+import { reportNotReceived } from '@/lib/data/not-received';
 import type { OrderReturn } from '@/lib/types';
 
 const ORDER_ID = /^\d{3}-\d{7}-\d{7}$/;
@@ -65,4 +66,22 @@ export async function cancelMyReturn(orderId: string, returnId: string): Promise
   }
   revalidatePath('/', 'layout');
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'return=cancelled'}`));
+}
+
+/** "Package didn't arrive" on an order page (bound to the order id, checked): the whole order is refunded. */
+export async function reportMissing(orderId: string): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let code: string | null = null;
+  try {
+    await reportNotReceived(await db(), orderId);
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    code = err.code;
+  }
+  revalidatePath('/', 'layout');
+  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'return=missing'}`));
 }

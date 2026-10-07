@@ -98,7 +98,9 @@ export type ReturnReason =
   | 'defective'
   | 'wrong_item'
   | 'missing_parts'
-  | 'not_as_described';
+  | 'not_as_described'
+  /** a "Package didn't arrive" claim: the whole order, refunded at once with nothing sent back */
+  | 'not_received';
 
 /** refund: money back once the items arrive; replacement: the same items again, sent now at no charge. */
 export type ReturnResolution = 'refund' | 'replacement';
@@ -128,6 +130,8 @@ export interface OrderReturn {
   shipMinor: number;
   /** the returned units' protection plans, cancelled with them (absent without any) */
   protectionMinor?: number;
+  /** gift wrap, refunded only when the package didn't arrive (absent otherwise) */
+  wrapMinor?: number;
   refundMinor: number;
   /** set once the store has received the items */
   refund?: { status: 'pending' | 'succeeded' | 'failed'; refundedAt?: string };

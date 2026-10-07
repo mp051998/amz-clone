@@ -49,3 +49,15 @@ it('a cancelled replacement was never sent', () => {
   card({ ...swap, status: 'cancelled', cancelledAt: '2026-10-07T18:00:00Z' }, '2026-10-07T19:00:00Z');
   expect(screen.getByText(/You cancelled this replacement.+Nothing was sent\./)).toBeTruthy();
 });
+
+it('a missing package was refunded without anything coming back', () => {
+  const missing: OrderReturn = { ...swap, status: 'received', reason: 'not_received', resolution: 'refund', replacement: undefined, itemsMinor: 2000, taxMinor: 160, refundMinor: 2160, receivedAt: '2026-10-07T17:00:00Z' };
+  card({ ...missing, refund: { status: 'pending' } }, '2026-10-07T18:00:00Z');
+  expect(screen.getByText(/^Reported .+ · Package didn’t arrive$/)).toBeTruthy();
+  expect(screen.getByText('The refund of $21.60 to Visa ending 4242 is on its way.')).toBeTruthy();
+  expect(screen.queryByText(/We received your return/)).toBeNull();
+  cleanup();
+  card({ ...missing, refund: { status: 'succeeded', refundedAt: '2026-10-07T17:00:00Z' } }, '2026-10-07T18:00:00Z');
+  expect(screen.getByText('Refunded')).toBeTruthy();
+  expect(screen.getByText(/\$21\.60 refunded to Visa ending 4242 on/)).toBeTruthy();
+});
