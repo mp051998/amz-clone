@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { BackInStock, PriceDrop } from '@/lib/data/collections';
+import type { BuyAgainItem } from '@/lib/buy-again';
 import type { HomeDeal, HomePick } from '@/lib/home-content';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -7,6 +8,7 @@ import { toStoreMinor } from '@/lib/fx';
 import type { Product } from '@/lib/types';
 import type { Store } from '../lib/store';
 import { ProductFrame } from '../decision/ProductFrame';
+import { BuyAgainButton } from '../orders/BuyAgainButton';
 
 /** Section wrapper: 22px title + optional meta on the right (design.md §3 Section title). */
 export function HomeSection({ title, meta, link, children, id }: { title: string; meta?: string; link?: { href: string; label: string }; children: ReactNode; id: string }) {
@@ -191,6 +193,32 @@ export function SavedBackGrid({ items, store }: { items: BackInStock[]; store: S
           </a>
         </li>
       ))}
+    </ul>
+  );
+}
+
+/** "Buy again": things you've ordered that are in stock now, one click back into the cart. */
+export function BuyAgainGrid({ items, store }: { items: (BuyAgainItem & { product: Product })[]; store: Store }) {
+  return (
+    <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-4">
+      {items.map(({ product: p, orders }) => {
+        const href = storePath(store, `/product/${p.id}`);
+        return (
+          <li key={p.id} className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-3">
+            <a href={href} tabIndex={-1} aria-hidden className="block">
+              <ProductFrame src={p.image} alt="" aspect="1/1" label="product" />
+            </a>
+            <a href={href} className="line-clamp-2 text-[14px] font-semibold leading-snug text-ink no-underline hover:underline">{p.title}</a>
+            <span className="flex flex-wrap items-baseline gap-2">
+              <strong className="text-[16px] tabular-nums">{money(p, store)}</strong>
+              {orders > 1 ? <span className="text-[12px] text-ink-3">Bought {orders} times</span> : null}
+            </span>
+            <div className="mt-auto flex">
+              <BuyAgainButton productId={p.id} title={p.title} label="Add to cart" block />
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }

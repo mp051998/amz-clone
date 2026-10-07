@@ -1,10 +1,12 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { amazon } from '../../lib/amazon';
 import { amazonIn } from '../../lib/marketplace-in';
 import { endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
 import type { Product } from '../../lib/types';
-import { ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid } from './HomeSections';
+import { BuyAgainGrid, ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid } from './HomeSections';
+
+vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
 afterEach(cleanup);
 
@@ -101,3 +103,14 @@ it('shows saved products back in stock, striking the saved price only when it’
   expect(lamp.querySelector('s')).toBeNull();
 });
 
+
+it('buy again cards link to the product at today’s price, say how often it was bought, and add one to the cart', () => {
+  const p = product({ id: 'in-y', market: 'IN', curBase: 'INR', priceMinor: 49900 });
+  const item = { productId: 'in-y', title: 'Old title', image: '/x.jpg', lastBoughtAt: '2026-09-01T10:00:00Z', lastOrderId: '402-1', orders: 3, product: p, availability: 'available' as const };
+  render(<BuyAgainGrid items={[item]} store={amazonIn} />);
+  expect(screen.getByRole('link', { name: /Wireless headphones/ })).toHaveAttribute('href', '/in/product/in-y');
+  expect(screen.getByText('₹499')).toBeInTheDocument();
+  expect(screen.getByText('Bought 3 times')).toBeInTheDocument();
+  const form = screen.getByRole('button', { name: 'Add to cart: Wireless headphones with active noise cancellation' }).closest('form')!;
+  expect(within(form).getByDisplayValue('in-y')).toHaveAttribute('name', 'id');
+});
