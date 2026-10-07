@@ -251,7 +251,7 @@ export default async function CheckoutPage({
                     {l.product.title}
                     {buy ? (
                       <span className="block">
-                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={l.product.stock} name={l.product.title} protection={buy.protection} />
+                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={l.product.stock} name={l.product.title} protection={buy.protection} promo={promo?.code ?? promoTried?.code} />
                       </span>
                     ) : (
                       <span className="text-ink-3"> × {l.qty}</span>

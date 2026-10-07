@@ -33,3 +33,8 @@ it('stops at the stock on hand, and comes straight back down to it when over', (
   expect(step('Increase')).toHaveAttribute('aria-disabled', 'true');
   expect(step('Decrease')).toHaveAttribute('href', '/in/checkout?buy=in-kettle&qty=3');
 });
+
+it('keeps an applied promotion code on as the quantity steps', () => {
+  render(<BuyNowQty checkoutHref="/checkout" productId="k1" qty={2} stock={50} name="Kettle" promo="SAVE10" />);
+  expect(screen.getByRole('link', { name: 'Increase quantity Kettle' })).toHaveAttribute('href', '/checkout?buy=k1&qty=3&promo=SAVE10');
+});
