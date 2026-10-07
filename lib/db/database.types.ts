@@ -582,6 +582,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"product_reports": {
+                  Row: {
+                    "created_at": string,"details": string | null,"id": string,"product_id": string,"reason": string,"reporter_name": string,"resolution_note": string | null,"resolved_at": string | null,"resolved_by": string | null,"status": string,"updated_at": string,"user_id": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"details"?: string | null,"id"?: string,"product_id": string,"reason": string,"reporter_name": string,"resolution_note"?: string | null,"resolved_at"?: string | null,"resolved_by"?: string | null,"status"?: string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"details"?: string | null,"id"?: string,"product_id"?: string,"reason"?: string,"reporter_name"?: string,"resolution_note"?: string | null,"resolved_at"?: string | null,"resolved_by"?: string | null,"status"?: string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "product_reports_product_id_fkey"
+      columns: ["product_id"]
+      isOneToOne: false
+      referencedRelation: "products"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"store_balances": {
                   Row: {
                     "balance_minor": number,"market_id": string,"updated_at": string,"user_id": string
@@ -932,6 +951,12 @@ isOneToOne: false
                            },
 "close_support_case":
 { Args: { "p_case": string }; Returns: Json
+                           },
+"report_product":
+{ Args: { "p_details"?: string,"p_product": string,"p_reason": string }; Returns: Json
+                           },
+"resolve_product_report":
+{ Args: { "p_note"?: string,"p_report": string,"p_status": string }; Returns: Json
                            },
 "seller_profile":
 { Args: { "p_market": string,"p_seller": string }; Returns: Json

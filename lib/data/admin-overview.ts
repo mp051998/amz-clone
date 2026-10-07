@@ -6,6 +6,7 @@ import { listAdminOrders } from './admin-orders';
 import { listQuestionQueue } from './admin-questions';
 import { listAdminReturns } from './admin-returns';
 import { listReviewQueue } from './admin-reviews';
+import { listProductReportQueue } from './product-reports';
 import { listCaseQueue } from './support';
 
 /**
@@ -23,6 +24,8 @@ export interface AdminOverview {
   /** reviews with open reports */
   reportedReviews: number;
   unansweredQuestions: number;
+  /** open reports on the store's products */
+  productReports: number;
   support: {
     waiting: number;
     /** when the longest-waiting case last changed (the shopper wrote), if any wait */
@@ -32,11 +35,12 @@ export interface AdminOverview {
 }
 
 export async function adminOverview(db: Db, market: Market): Promise<AdminOverview> {
-  const [orders, returns, reviews, questions, support, stock] = await Promise.all([
+  const [orders, returns, reviews, questions, reports, support, stock] = await Promise.all([
     listAdminOrders(db, market, { filter: 'preparing' }),
     listAdminReturns(db, market, { filter: 'open' }),
     listReviewQueue(db, market, { view: 'reported' }),
     listQuestionQueue(db, market, { view: 'unanswered' }),
+    listProductReportQueue(db, market, { view: 'open' }),
     listCaseQueue(db, market, { view: 'waiting' }),
     countAdminStock(db, market),
   ]);
@@ -45,12 +49,13 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
     returns: { open: returns.counts.open, refundIssues: returns.counts.refund_issues },
     reportedReviews: reviews.counts.reported,
     unansweredQuestions: questions.counts.unanswered,
+    productReports: reports.counts.open,
     support: { waiting: support.counts.waiting, oldestWaiting: support.cases[0]?.updatedAt ?? null },
     stock,
   };
 }
 
-/** How many things on the overview want an admin now (refunds, returns, reviews, questions, cases, orders to ship). */
+/** How many things on the overview want an admin now (refunds, returns, reviews, questions, product reports, cases, orders to ship). */
 export function attentionCount(o: AdminOverview): number {
-  return o.orders.toShip + o.orders.refundIssues + o.returns.open + o.returns.refundIssues + o.reportedReviews + o.unansweredQuestions + o.support.waiting;
+  return o.orders.toShip + o.orders.refundIssues + o.returns.open + o.returns.refundIssues + o.reportedReviews + o.unansweredQuestions + o.productReports + o.support.waiting;
 }

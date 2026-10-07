@@ -130,6 +130,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | --- | --- | --- | --- |
 | GET | `/products/:id/questions?q=&limit=10&offset=0` | | `{items: Question[], total}`: most answered first, then newest, each with all its answers (most helpful first, then oldest). `q` (up to 100 characters, matched literally, any case) keeps questions whose text, or one of whose answers, contains it. |
 | POST 🔒 | `/products/:id/questions` | `{body}` | `201 {question}`. 10–300 characters (`422 invalid_input`, `detail: "body"`). Asking the same question twice is `409 duplicate`; an archived product is `409 product_unavailable`. |
+| POST 🔒 | `/products/:id/report` | `{reason, details?}` | Report an issue with the product. `reason`: `wrong_info`, `pricing`, `counterfeit`, `safety`, `offensive` or `other`; `details` up to 1000 characters, at least 10 for `other` (`422 invalid_input`, `detail: "reason"` / `"details"`). `201 {report, updated: false}`; while your report on that product is open, sending again rewrites it: `200 {report, updated: true}`. `report`: `{id, productId, reason, details, status, createdAt, updatedAt, resolvedAt, resolutionNote}`. Up to 20 open reports per shopper (`409 too_many_reports`). |
 | DELETE 🔒 | `/questions/:id` | | `204`. Deletes your question and its answers (an admin can delete any); `404 question_not_found` otherwise. |
 | POST 🔒 | `/questions/:id/answers` | `{body}` | `201 {answer}`. 2–1000 characters, one answer per shopper per question (`409 duplicate`, `detail: "answer"`). The DB sets `author` and `verified` (true when an order of yours containing the product has been delivered). |
 | DELETE 🔒 | `/answers/:id` | | `204`. Your own answer (an admin, any); `404 answer_not_found` otherwise. |
@@ -345,7 +346,7 @@ Catalog and order management for store admins. You must be signed in **and** lis
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/overview` | | `{overview: {orders: {toShip, inTransit, refundIssues}, returns: {open, refundIssues}, reportedReviews, unansweredQuestions, support: {waiting, oldestWaiting}, stock: {out, low}}}`: what needs doing in this store, each count the same as its own queue's tab. `support.oldestWaiting` is when the longest-waiting case last changed (`null` if none wait); `stock.low` counts products on sale with 1–5 left. The web app shows it at `/admin` |
+| GET | `/admin/overview` | | `{overview: {orders: {toShip, inTransit, refundIssues}, returns: {open, refundIssues}, reportedReviews, unansweredQuestions, productReports, support: {waiting, oldestWaiting}, stock: {out, low}}}`: what needs doing in this store, each count the same as its own queue's tab. `support.oldestWaiting` is when the longest-waiting case last changed (`null` if none wait); `stock.low` counts products on sale with 1–5 left. The web app shows it at `/admin` |
 
 ### Products
 
@@ -434,6 +435,15 @@ Shoppers' questions about this store's products, with their answers.
 
 Another store's question is `404 question_not_found`, and its answers `404 answer_not_found`.
 
+### Product reports
+
+Shoppers' "Report an issue with this product" reports on this store's products.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/product-reports?view=&page=` | | `{reports: [Report & {reporter, productTitle, productArchived}], total, page, pageSize, counts: {open, closed, all}}`. 25 a page. `view`: `open` (the default, oldest first), `closed` (resolved or dismissed) or `all` (latest first) |
+| POST | `/admin/product-reports/:id` | `{status, note?}` | `{report}`. `status`: `resolved` (the listing was fixed) or `dismissed`; `note` up to 500 characters. `409 report_closed` once closed; another store's report is `404 report_not_found` |
+
 ### Support
 
 Shoppers' "Contact us" cases in this store (see [Customer service](#customer-service-)).
@@ -454,7 +464,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin` (an overview of what needs doing), `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews`, `/admin/questions` and `/admin/support` (plus `/in/admin/…` for India). Admins also get an **Admin · Overview** link in the account menu.
+The web UI is at `/admin` (an overview of what needs doing), `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews`, `/admin/questions`, `/admin/product-reports` and `/admin/support` (plus `/in/admin/…` for India). Admins also get an **Admin · Overview** link in the account menu.
 
 ## Errors
 
@@ -549,6 +559,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | saved stock | `collection_items.saved_in_stock`: whether the product was in stock when saved, stamped by the insert trigger with the saved price and kept by `move_collection_item()` |
 | inbox seen | `inbox_reads`: when each shopper last read their messages, per store (theirs to read). `mark_inbox_seen()` records a visit and never moves it back |
 | review photos | `reviews.photos` (up to 5 storage paths) and the public `review-photos` bucket: shoppers upload to and delete from their own folder only, admins can delete any. A trigger (`reviews_photos_check`) lets a shopper's review list only files in their folder, no repeats. `admin_review_queue()` returns `photos`, and `admin_moderate_review()` returns them on delete so the app clears the files |
+| product reports | `product_reports`: shoppers' reports on a product (reason, optional details), theirs to read (admins all). `report_product()` files one, or rewrites the caller's open one on that product, up to 20 open per shopper; `resolve_product_report()` (admins) resolves or dismisses an open one with an optional note |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
