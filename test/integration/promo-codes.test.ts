@@ -64,8 +64,9 @@ describe('checkout quotes', () => {
     expect(await err(CODES.old)).toEqual({ code: 'promo_expired' });
     expect(await err(CODES.min, a, 2)).toEqual({ code: 'promo_min_spend', detail: String(a.price_minor * 3) });
     expect(await err(CODES.cat, b)).toEqual({ code: 'promo_not_eligible' });
-    // the other store doesn't have it
-    expect((await checkoutQuote(shopper.db, 'IN', CODES.all, buyNow(a))).promoError).toEqual({ code: 'promo_invalid' });
+    // the other store doesn't have it (IN offset 101 is this file's)
+    const inProduct = await pickProduct('IN', 101);
+    expect((await checkoutQuote(shopper.db, 'IN', CODES.all, { productId: inProduct.id, qty: 1 })).promoError).toEqual({ code: 'promo_invalid' });
 
     const q = await checkoutQuote(shopper.db, 'US', CODES.old, buyNow(a));
     expect(q.cart.promo).toBeUndefined();
