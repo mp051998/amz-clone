@@ -107,14 +107,18 @@ it('shows the gift card balance in this store', async () => {
   expect(within(tile('Gift card balance')).getByText('$125.50')).toBeInTheDocument();
 });
 
-it('counts saved items, lists and price drops', async () => {
-  const item = (id: string, savedPriceMinor: number) => ({ product: product({ id, priceMinor: 8000 }), savedPriceMinor, addedAt: '2026-10-01T00:00:00Z' });
+it('counts saved items, lists, things back in stock and price drops', async () => {
+  const item = (id: string, savedPriceMinor: number, savedInStock = true) => ({ product: product({ id, priceMinor: 8000 }), savedPriceMinor, savedInStock, addedAt: '2026-10-01T00:00:00Z' });
   state.collections = [
     { id: 'c', name: "Things I'm Considering", note: '', kind: 'considering', createdAt: '', items: [item('p1', 9999), item('p2', 8000)] },
     { id: 'w', name: 'Wedding', note: '', kind: 'custom', createdAt: '', items: [item('p1', 8500)] },
   ];
   render(await AccountPage());
   expect(within(tile('Collections')).getByText('3 saved items · 2 lists · 1 price drop')).toBeInTheDocument();
+  cleanup();
+  state.collections = [{ id: 'c', name: "Things I'm Considering", note: '', kind: 'considering', createdAt: '', items: [item('p1', 9999), item('p2', 8000, false)] }];
+  render(await AccountPage());
+  expect(within(tile('Collections')).getByText('2 saved items · 1 list · 1 back in stock · 1 price drop')).toBeInTheDocument();
 });
 
 it('links to your Q&A and transactions', async () => {

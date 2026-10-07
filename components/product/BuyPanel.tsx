@@ -119,7 +119,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
       </div>
 
       {!available ? (
-        <p className="m-0 rounded-input bg-surface-4 px-3 py-2.5 text-[15px] font-semibold text-ink-2">Out of stock — save it to hear when the price moves.</p>
+        <p className="m-0 rounded-input bg-surface-4 px-3 py-2.5 text-[15px] font-semibold text-ink-2">Out of stock — save it and we’ll flag it on your lists when it’s back.</p>
       ) : stock <= LOW_STOCK ? (
         <p className="m-0 text-[14px] font-semibold text-warn-strong">Only {stock} left in stock — order soon.</p>
       ) : (

@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { SearchBar } from '@/components/chrome/SearchBar';
-import { ContinueRow, DealGrid, HomeSection, PickGrid, SavedDropGrid } from '@/components/home/HomeSections';
+import { ContinueRow, DealGrid, HomeSection, PickGrid, SavedBackGrid, SavedDropGrid } from '@/components/home/HomeSections';
 import { Kicker } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
 import { QuizButton } from '@/components/quiz/QuizDialog';
-import { savedPriceDrops } from '@/lib/data/collections';
+import { savedUpdates, type SavedUpdates } from '@/lib/data/collections';
 import { exampleQueries, getDecisionHome, greetingFor } from '@/lib/home-content';
 import { readRecentIds } from '@/lib/recent';
 import { firstName, readUser } from '@/lib/auth';
@@ -25,9 +25,10 @@ export default async function Home() {
   const store = await getMarketplace();
   const [client, user, recentIds, categories] = await Promise.all([db(), readUser(), readRecentIds(), storeCategories()]);
   const now = new Date();
-  const [home, drops] = await Promise.all([
+  const none: SavedUpdates = { back: [], drops: [] };
+  const [home, { back, drops }] = await Promise.all([
     getDecisionHome(client, store, recentIds, now),
-    user ? savedPriceDrops(client, store.id, 4).catch(() => []) : Promise.resolve([]),
+    user ? savedUpdates(client, store.id, 4).catch(() => none) : Promise.resolve(none),
   ]);
   const greeting = user ? `${greetingFor(now, store.dates.timeZone)}, ${firstName(user)}` : 'Welcome';
   const searchHref = storePath(store, '/s');
@@ -70,6 +71,12 @@ export default async function Home() {
         {home.recent.length ? (
           <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits" link={{ href: storePath(store, '/history'), label: 'See history' }}>
             <ContinueRow products={home.recent} store={store} />
+          </HomeSection>
+        ) : null}
+
+        {back.length ? (
+          <HomeSection id="home-back" title="Back in stock on things you saved" meta="Sold out when you saved them" link={{ href: storePath(store, '/collections'), label: 'See your lists' }}>
+            <SavedBackGrid items={back} store={store} />
           </HomeSection>
         ) : null}
 
