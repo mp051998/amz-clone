@@ -338,11 +338,17 @@ Configuration (`.env.local` / Vercel):
 
 Catalog and order management for store admins. You must be signed in **and** listed in `public.admins`; anyone else gets `403 forbidden`. The database checks the same rule on every write (RLS on `products`, `categories`, `market_categories`, `product_insights` and the `product-images` bucket; `is_admin()` inside the order functions), so going around these routes doesn't help. Products are per store (`?market=` / `X-Market`), and a product never moves between stores.
 
+### Overview
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| GET | `/admin/overview` | | `{overview: {orders: {toShip, inTransit, refundIssues}, returns: {open, refundIssues}, reportedReviews, unansweredQuestions, support: {waiting, oldestWaiting}, stock: {out, low}}}`: what needs doing in this store, each count the same as its own queue's tab. `support.oldestWaiting` is when the longest-waiting case last changed (`null` if none wait); `stock.low` counts products on sale with 1–5 left. The web app shows it at `/admin` |
+
 ### Products
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/products?status=&q=&category=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt, archivedAt}], total, page, pageCount}`. Products on sale, or with `status=archived` the archived ones. Most recently changed first. `q` matches the title, or an exact id. |
+| GET | `/admin/products?status=&q=&category=&stock=&page=&pageSize=25` | | `{items: [{id, title, brand, image, category, categoryName, priceMinor, listMinor, deal, stock, updatedAt, archivedAt}], total, page, pageCount}`. Products on sale, or with `status=archived` the archived ones. Most recently changed first. `q` matches the title, or an exact id. `stock=out` keeps those with none left, `stock=low` those with 1–5. |
 | POST | `/admin/products` | `ProductInput` | `201 {product}`. The id is generated (`n…`, or `in-n…` in India) and the product goes last in catalog order. |
 | GET | `/admin/products/:id` | | `{product}`: every editable field plus `id, market, createdAt, updatedAt, archivedAt`. |
 | PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
@@ -445,7 +451,7 @@ npm run admin:grant -- shopper@example.com            # uses .env.local
 npm run admin:grant -- shopper@example.com --revoke
 ```
 
-The web UI is at `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews`, `/admin/questions` and `/admin/support` (plus `/in/admin/…` for India). Admins also get an **Admin · Catalogue** link in the account menu.
+The web UI is at `/admin` (an overview of what needs doing), `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/returns`, `/admin/reviews`, `/admin/questions` and `/admin/support` (plus `/in/admin/…` for India). Admins also get an **Admin · Overview** link in the account menu.
 
 ## Errors
 

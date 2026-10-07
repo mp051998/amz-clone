@@ -13,6 +13,7 @@ import { cn } from '@/components/lib/cn';
 const STORE_LABEL = { US: 'United States store', IN: 'India store' } as const;
 
 const SECTIONS = [
+  { path: '/admin', label: 'Overview' },
   { path: '/admin/products', label: 'Products' },
   { path: '/admin/categories', label: 'Categories' },
   { path: '/admin/orders', label: 'Orders' },
@@ -38,7 +39,8 @@ export function AdminFrame({ store, title, actions, lede, children, path }: {
       <div className={cn(pageX, 'flex flex-col gap-6 pb-16 pt-5')}>
         <nav aria-label="Admin" className="flex gap-5 overflow-x-auto border-b border-line text-[15px]">
           {SECTIONS.map((sec) => {
-            const current = path.startsWith(sec.path);
+            // the overview is /admin itself; every other section owns the paths under it
+            const current = sec.path === '/admin' ? path === '/admin' : path.startsWith(sec.path);
             return (
               <a
                 key={sec.path}

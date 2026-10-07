@@ -4,7 +4,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { EmptyState } from '@/components/decision/Badges';
 import { fieldClass, selectClass } from '@/components/lib/controls';
 import { cn } from '@/components/lib/cn';
-import { countAdminProducts, getAdminProduct, listAdminProducts, productStatus } from '@/lib/data/admin-catalog';
+import { countAdminProducts, getAdminProduct, listAdminProducts, LOW_STOCK, productStatus, stockFilter } from '@/lib/data/admin-catalog';
 import { listCategories } from '@/lib/data/catalog';
 import { formatMoney } from '@/lib/marketplaces';
 import { storePath } from '@/lib/marketplace';
@@ -23,7 +23,7 @@ const one = (sp: SP, k: string) => {
 
 /**
  * /admin/products (and /in/admin/products): the store's products on sale (or, `?status=archived`,
- * taken off sale), searchable, newest changes first.
+ * taken off sale), searchable, newest changes first. `?stock=out|low` keeps those out of or low on stock.
  */
 export default async function AdminProductsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -32,13 +32,14 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
 
   const q = one(sp, 'q').trim();
   const category = one(sp, 'category');
+  const stock = stockFilter(one(sp, 'stock'));
   const status = productStatus(one(sp, 'status'));
   const archivedTab = status === 'archived';
   const page = Math.max(1, Number.parseInt(one(sp, 'page'), 10) || 1);
   const client = await db();
   const [categories, result, counts, touched] = await Promise.all([
     listCategories(client, store.id),
-    listAdminProducts(client, store.id, { q, category: category || undefined, status, page }),
+    listAdminProducts(client, store.id, { q, category: category || undefined, status, stock, page }),
     countAdminProducts(client, store.id),
     one(sp, 'id') ? getAdminProduct(client, one(sp, 'id')) : Promise.resolve(null),
   ]);
@@ -50,6 +51,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     if (tab === 'archived') out.set('status', 'archived');
     if (q) out.set('q', q);
     if (category) out.set('category', category);
+    if (stock) out.set('stock', stock);
     if (n > 1) out.set('page', String(n));
     const qs = out.toString();
     return to(`/admin/products${qs ? `?${qs}` : ''}`);
@@ -99,8 +101,16 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
             {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
           </select>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="admin-stock" className="text-[14px] font-semibold">Stock</label>
+          <select id="admin-stock" name="stock" defaultValue={stock ?? ''} className={selectClass}>
+            <option value="">Any stock</option>
+            <option value="out">Out of stock</option>
+            <option value="low">Low (1–{LOW_STOCK} left)</option>
+          </select>
+        </div>
         <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'md' })}>Filter</button>
-        {q || category ? <a href={to(archivedTab ? '/admin/products?status=archived' : '/admin/products')} className={buttonClasses({ variant: 'link' })}>Clear</a> : null}
+        {q || category || stock ? <a href={to(archivedTab ? '/admin/products?status=archived' : '/admin/products')} className={buttonClasses({ variant: 'link' })}>Clear</a> : null}
       </form>
 
       {result.items.length ? (
@@ -137,7 +147,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                     {p.listMinor ? <span className="block text-[12px] text-ink-3 line-through">{money(p.listMinor)}</span> : null}
                     {p.deal ? <span className="block text-[12px] text-good-strong">On deals</span> : null}
                   </td>
-                  <td className={cn('whitespace-nowrap px-4 py-3 text-right tabular-nums', p.stock === 0 && 'text-bad', p.stock > 0 && p.stock <= 5 && 'text-warn')}>
+                  <td className={cn('whitespace-nowrap px-4 py-3 text-right tabular-nums', p.stock === 0 && 'text-bad', p.stock > 0 && p.stock <= LOW_STOCK && 'text-warn')}>
                     {p.stock === 0 ? 'Out of stock' : p.stock.toLocaleString('en-US')}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
