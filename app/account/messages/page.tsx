@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState } from '@/components/decision';
+import { StatusChip } from '@/components/orders/Tracking';
 import { buttonClasses } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
-import { INBOX_DAYS, listInbox, type InboxKind, type InboxMessage } from '@/lib/data/inbox';
+import { INBOX_DAYS, inboxSeenAt, isNewMessage, listInbox, markInboxSeen, type InboxKind, type InboxMessage } from '@/lib/data/inbox';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -53,14 +54,18 @@ function note(m: InboxMessage, money: (minor: number) => string): string {
 
 /**
  * /account/messages: what's happened lately with the shopper's orders, returns, support cases and
- * questions in this store, newest first and grouped by day, as on Amazon's Message Center.
+ * questions in this store, newest first and grouped by day, as on Amazon's Message Center. What came
+ * in since their last visit is marked new, and opening the page marks it all seen.
  */
 export default async function MessagesPage() {
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account/messages'));
-  const list = await listInbox(await db(), store.id, user.id, new Date(), store.dates.timeZone);
+  const client = await db();
+  const [list, seenAt] = await Promise.all([listInbox(client, store.id, user.id, new Date(), store.dates.timeZone), inboxSeenAt(client, store.id)]);
+  await markInboxSeen(client, store.id);
+  const fresh = list.filter((m) => isNewMessage(m, seenAt)).length;
   const money = (minor: number) => formatMoney(minor, store.currency.code);
   const day = new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone });
   const time = new Intl.DateTimeFormat(store.locale.default, { hour: 'numeric', minute: '2-digit', timeZone: store.dates.timeZone });
@@ -81,6 +86,7 @@ export default async function MessagesPage() {
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your messages</h1>
           <span className="text-[15px] text-ink-2">
             Updates on your orders, returns, support cases and questions in this store from the last {INBOX_DAYS} days.
+            {fresh ? ` ${fresh} new since you last looked.` : ''}
           </span>
         </div>
 
@@ -97,7 +103,13 @@ export default async function MessagesPage() {
               {d.items.map((m) => (
                 <li key={m.key} className="flex flex-col gap-0.5 border-t border-line-2 px-4 py-3.5 first:border-t-0">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                    <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' ? 'text-bad' : ''}`}>{HEAD[m.kind]}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' ? 'text-bad' : ''}`}>
+                        {HEAD[m.kind]}
+                        {isNewMessage(m, seenAt) ? <span className="sr-only"> (new)</span> : null}
+                      </span>
+                      {isNewMessage(m, seenAt) ? <span aria-hidden><StatusChip label="New" tone="dark" /></span> : null}
+                    </span>
                     <time dateTime={m.at} className="text-[13px] text-ink-3 tabular-nums">{time.format(new Date(m.at))}</time>
                   </div>
                   <a href={sp(m.href)} className="line-clamp-2 text-[15px] text-ink underline underline-offset-2">

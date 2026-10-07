@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import type { Order } from '../types';
-import { buildInbox, INBOX_LIMIT, orderSubject, type InboxAnswer, type InboxReply, type InboxReturn } from './inbox';
+import { buildInbox, INBOX_LIMIT, isNewMessage, orderSubject, type InboxAnswer, type InboxReply, type InboxReturn } from './inbox';
 
 vi.mock('./orders', () => ({ listOrders: async () => [] }));
 
@@ -113,4 +113,12 @@ it('keeps the latest ones when there are too many', () => {
   expect(inbox).toHaveLength(INBOX_LIMIT);
   expect(inbox[0].key).toBe('support_reply:m0');
   expect(inbox.at(-1)!.key).toBe(`support_reply:m${INBOX_LIMIT - 1}`);
+});
+
+it('counts as new what came in after the shopper last looked, and everything the first time', () => {
+  const seen = '2026-10-05T10:00:00Z';
+  expect(isNewMessage({ at: '2026-10-05T10:00:01Z' }, seen)).toBe(true);
+  expect(isNewMessage({ at: '2026-10-05T10:00:00Z' }, seen)).toBe(false);
+  expect(isNewMessage({ at: '2026-10-01T00:00:00Z' }, seen)).toBe(false);
+  expect(isNewMessage({ at: '2026-10-01T00:00:00Z' }, null)).toBe(true);
 });

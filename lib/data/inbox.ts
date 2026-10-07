@@ -13,7 +13,8 @@ import { listOrders } from './orders';
  * - the store's replies on support cases
  * - other shoppers' answers to the shopper's questions
  *
- * Only things that have happened, from the last 90 days.
+ * Only things that have happened, from the last 90 days. What came in since the shopper last opened
+ * the page in that store is new (`inbox_reads`).
  */
 
 export const INBOX_DAYS = 90;
@@ -240,6 +241,23 @@ async function inboxAnswers(db: Db, market: Market, userId: string, since: strin
     if (!q || a.user_id === userId) return [];
     return [{ id: a.id, productId: q.product_id, question: q.body, author: a.author_name, body: a.body, at: a.created_at }];
   });
+}
+
+/** When the caller last opened their messages in this store; null if never (everything is new). */
+export async function inboxSeenAt(db: Db, market: Market): Promise<string | null> {
+  const { data, error } = await db.from('inbox_reads').select('seen_at').eq('market_id', market).maybeSingle();
+  return error || !data ? null : data.seen_at;
+}
+
+/** Record that the caller has opened their messages in this store. */
+export async function markInboxSeen(db: Db, market: Market): Promise<void> {
+  const { error } = await db.rpc('mark_inbox_seen', { p_market: market });
+  if (error) console.error('[inbox] mark seen failed', market, error.message);
+}
+
+/** Whether a message came in after the shopper last looked. */
+export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null): boolean {
+  return !seenAt || Date.parse(m.at) > Date.parse(seenAt);
 }
 
 /** The caller's messages in a store, newest first. */

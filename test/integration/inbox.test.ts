@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { receiveReturn } from '@/lib/data/admin-returns';
-import { listInbox } from '@/lib/data/inbox';
+import { inboxSeenAt, listInbox, markInboxSeen } from '@/lib/data/inbox';
 import { cancelOrder, placeOrder } from '@/lib/data/orders';
 import { answerQuestion, askQuestion } from '@/lib/data/questions';
 import { requestReturn } from '@/lib/data/returns';
 import { openCase, replyToCase } from '@/lib/data/support';
-import { admin, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, type TestUser } from './helpers';
+import { admin, anon, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, type TestUser } from './helpers';
 
 describe('your messages', () => {
   let shopper: TestUser;
@@ -76,5 +76,40 @@ describe('your messages', () => {
     // nobody else's, and nothing from the other store
     expect(await inbox(other)).toEqual([]);
     expect(await inbox(shopper, 'US')).toEqual([]);
+  });
+
+  it('remembers when the shopper last read them, per store', async () => {
+    expect(await inboxSeenAt(shopper.db, 'IN')).toBeNull();
+    const before = Date.now();
+    await markInboxSeen(shopper.db, 'IN');
+    const first = await inboxSeenAt(shopper.db, 'IN');
+    expect(first).not.toBeNull();
+    expect(Date.parse(first!)).toBeGreaterThanOrEqual(before - 60_000);
+
+    // reading again moves it on, never back
+    await markInboxSeen(shopper.db, 'IN');
+    const second = await inboxSeenAt(shopper.db, 'IN');
+    expect(Date.parse(second!)).toBeGreaterThanOrEqual(Date.parse(first!));
+
+    // the other store and other shoppers are untouched
+    expect(await inboxSeenAt(shopper.db, 'US')).toBeNull();
+    expect(await inboxSeenAt(other.db, 'IN')).toBeNull();
+
+    const bad = await shopper.db.rpc('mark_inbox_seen', { p_market: 'XX' });
+    expect(bad.error?.message).toBe('invalid_input');
+  });
+
+  it('only the function writes it, and only for the signed-in', async () => {
+    const insert = await other.db.from('inbox_reads').insert({ user_id: other.id, market_id: 'IN', seen_at: '2999-01-01T00:00:00Z' });
+    expect(insert.error).not.toBeNull();
+    await markInboxSeen(other.db, 'US');
+    const update = await other.db.from('inbox_reads').update({ seen_at: '2999-01-01T00:00:00Z' }).eq('user_id', other.id);
+    expect(update.error).not.toBeNull();
+    expect(Date.parse((await inboxSeenAt(other.db, 'US'))!)).toBeLessThan(Date.parse('2999-01-01T00:00:00Z'));
+
+    const call = await anon().rpc('mark_inbox_seen', { p_market: 'IN' });
+    expect(call.error).not.toBeNull();
+    const read = await anon().from('inbox_reads').select('seen_at');
+    expect(read.data ?? []).toEqual([]);
   });
 });

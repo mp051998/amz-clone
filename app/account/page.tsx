@@ -12,6 +12,7 @@ import { plusMembership } from '@/lib/data/plus';
 import { awaitingReview } from '@/lib/data/reviews';
 import { storeBalance } from '@/lib/data/balance';
 import { unreadCaseIds } from '@/lib/data/support';
+import { inboxSeenAt, isNewMessage, listInbox } from '@/lib/data/inbox';
 import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
@@ -29,7 +30,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -40,7 +41,10 @@ export default async function AccountPage() {
     storeBalance(client, store.id),
     awaitingReview(client, store.id, user.id).catch(() => []),
     unreadCaseIds(client, store.id),
+    listInbox(client, store.id, user.id, new Date(), store.dates.timeZone).catch(() => []),
+    inboxSeenAt(client, store.id),
   ]);
+  const newMessages = inbox.filter((m) => isNewMessage(m, seenAt)).length;
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
   const savedItems = collections.flatMap((c) => c.items);
   const drops = priceDrops(savedItems).length;
@@ -63,7 +67,7 @@ export default async function AccountPage() {
       desc: 'Redeem gift cards and pay with your balance at checkout.',
       href: '/gift-cards#balance',
     },
-    { title: 'Your messages', meta: 'Order and return updates', desc: 'Shipping and delivery updates, refunds, our replies and answers to your questions.', href: '/account/messages' },
+    { title: 'Your messages', meta: newMessages ? `${newMessages} new` : 'Order and return updates', desc: 'Shipping and delivery updates, refunds, our replies and answers to your questions.', href: '/account/messages' },
     { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns and gift cards.', href: '/account/transactions' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, download your data, or close your account.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
