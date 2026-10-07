@@ -11,6 +11,7 @@ const STATUS: Record<string, number> = {
   address_not_found: 404,
   collection_not_found: 404,
   category_not_found: 404,
+  chart_not_found: 404,
   gift_card_not_found: 404,
   coupon_not_found: 404,
   purchase_not_found: 404,

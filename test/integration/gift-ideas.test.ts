@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setCartQty } from '@/lib/data/cart';
 import { giftIdeas } from '@/lib/data/catalog';
@@ -60,5 +61,29 @@ describe('gift ideas', () => {
     expect(chart.every((p) => p.category === category)).toBe(true);
     expect(new Set(chart.map((p) => p.id)).size).toBe(chart.length);
     expect(chart.length).toBeGreaterThan(1);
+  });
+
+  it('serves every chart at /charts/:chart', async () => {
+    const { GET } = await import('@/app/api/v1/charts/[chart]/route');
+    // a bearer token: the cookie client needs a Next request scope
+    const token = (await a.db.auth.getSession()).data.session!.access_token;
+    const call = (chart: string, query = '') =>
+      GET(new NextRequest(`http://localhost/api/v1/charts/${chart}?market=US${query}`, { headers: { authorization: `Bearer ${token}` } }), {
+        params: Promise.resolve({ chart }),
+      });
+    const res = await call('gift-ideas', `&dept=${category}&limit=5`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { chart: string; dept: string; items: { id: string }[] };
+    expect(body).toMatchObject({ chart: 'gift-ideas', dept: category });
+    expect(body.items[0].id).toBe(y.id);
+    expect(body.items.length).toBeLessThanOrEqual(5);
+    for (const chart of ['bestsellers', 'new-releases', 'most-wished-for']) {
+      const r = await call(chart, '&limit=3');
+      expect(r.status).toBe(200);
+      expect(((await r.json()) as { items: unknown[] }).items).toHaveLength(3);
+    }
+    expect((await call('movers-and-shakers')).status).toBe(404);
+    expect((await call('bestsellers', '&dept=no-such-department')).status).toBe(404);
+    expect((await call('bestsellers', '&limit=0')).status).toBe(422);
   });
 });

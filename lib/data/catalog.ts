@@ -176,6 +176,29 @@ export function giftIdeas(db: Db, market: Market, opts: ChartOptions = {}): Prom
 
 type ChartOptions = { category?: string; limit?: number };
 
+/** The store's charts, by the path each lives at (`/bestsellers`, …). */
+export const CHART_KINDS = ['bestsellers', 'new-releases', 'most-wished-for', 'gift-ideas'] as const;
+export type ChartKind = (typeof CHART_KINDS)[number];
+
+export function isChartKind(v: string): v is ChartKind {
+  return (CHART_KINDS as readonly string[]).includes(v);
+}
+
+/** One of the store's charts, top `limit` (40) first, in a department or across the store. */
+export function chart(db: Db, market: Market, kind: ChartKind, opts: ChartOptions = {}): Promise<Product[]> {
+  const limit = opts.limit ?? 40;
+  switch (kind) {
+    case 'bestsellers':
+      return listProducts(db, market, { category: opts.category, order: 'popular', limit });
+    case 'new-releases':
+      return listProducts(db, market, { category: opts.category, order: 'fresh', limit });
+    case 'most-wished-for':
+      return mostWishedFor(db, market, { ...opts, limit });
+    case 'gift-ideas':
+      return giftIdeas(db, market, { ...opts, limit });
+  }
+}
+
 /** A chart ranked by `rpc` (product ids, best first), filled up with the bestsellers it doesn't repeat. */
 async function rankedChart(db: Db, rpc: 'most_wished_for' | 'gift_ideas', market: Market, opts: ChartOptions): Promise<Product[]> {
   const limit = opts.limit ?? 40;
