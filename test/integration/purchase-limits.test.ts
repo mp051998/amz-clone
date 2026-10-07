@@ -46,7 +46,8 @@ describe('purchase limits', () => {
   it('show on the product, and only for the signed-in shopper’s own orders', async () => {
     const { data } = await anon().from('catalog_products').select('id, max_per_customer').in('id', [limited, open]);
     expect(Object.fromEntries((data ?? []).map((r) => [r.id, r.max_per_customer]))).toEqual({ [limited]: 2, [open]: null });
-    expect(await codeOf(anon().rpc('purchase_allowance', { p_market: 'US', p_product_ids: [limited] }).then(unwrap))).toBe('not_authenticated:');
+    // signed out there's no allowance to ask for
+    expect(await codeOf(anon().rpc('purchase_allowance', { p_market: 'US', p_product_ids: [limited] }).then(unwrap))).toMatch(/^forbidden:/);
 
     const fresh = await purchaseAllowance(shopper.db, 'US', [limited, open]);
     expect([...fresh.keys()]).toEqual([limited]);
