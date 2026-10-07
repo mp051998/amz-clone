@@ -72,7 +72,7 @@ describe('reporting a package that didn’t arrive', () => {
 
 describe('sending a missing package again', () => {
   let item: { id: string };
-  const buyIn = (qty = 1) => placeOrder(buyer.db, 'IN', { paymentMethod: 'giftcard', shipping: IN_SHIPPING, buyNow: { productId: item.id, qty } });
+  const buyIn = (qty = 1) => placeOrder(buyer.db, 'IN', { paymentMethod: 'amazonpay', shipping: IN_SHIPPING, buyNow: { productId: item.id, qty } });
 
   beforeAll(async () => {
     // high in the pool: running it out of stock below can't move another test's product
