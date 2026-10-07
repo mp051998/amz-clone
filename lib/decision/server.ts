@@ -55,6 +55,15 @@ async function client(c?: Db): Promise<Db> {
 
 type CandidateQuery = Omit<SearchQuery, 'page'>;
 
+/** The catalog order to pull candidates in, so a sort sees the whole catalog's cheapest, best rated or newest, not those of the featured few. */
+const CANDIDATE_SORT: Record<RankSort, SearchQuery['sort']> = {
+  match: 'featured',
+  'price-asc': 'price-asc',
+  'price-desc': 'price-desc',
+  rating: 'review',
+  newest: 'newest',
+};
+
 /** The catalog search behind a ranked search, at any price. */
 function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
   return {
@@ -64,7 +73,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     rating: f.rating,
     deal: f.deal || undefined,
     includeOutOfStock: f.includeOutOfStock || undefined,
-    sort: 'featured',
+    sort: CANDIDATE_SORT[f.sort ?? 'match'],
   };
 }
 
@@ -85,7 +94,8 @@ async function searchCandidates(c: Db, market: Market, base: CandidateQuery): Pr
 /**
  * Ranked search. Pulls up to 48 candidates via `searchCatalog` (keywords,
  * category, facet filters and the price range: `filters.minPrice` up to
- * `budgetMinor`; in stock unless `filters.includeOutOfStock`); when keywords match nothing inside a detected category, at any
+ * `budgetMinor`; in stock unless `filters.includeOutOfStock`), in the catalog
+ * order of the sort (featured for 'match', cheapest first for 'price-asc', …); when keywords match nothing inside a detected category, at any
  * price, falls back to that category's popular products. Candidates are then
  * ranked against `weights` (`filters.sort`, default 'match').
  */

@@ -201,6 +201,26 @@ describe('decision server helpers', () => {
     expect(none.pricedOut).toBe(true);
   });
 
+  it('rankedSearch sorts look across the whole catalog, not just the featured candidates', async () => {
+    const db = anon();
+    const all = await searchCatalog(db, 'US', { sort: 'featured', page: 1 });
+    expect(all.total).toBeGreaterThan(48); // more matches than candidates
+    const q = parseQuery('US', '', await listCategories(db, 'US'));
+    const [cheapest, dearest, newest] = await Promise.all([
+      searchCatalog(db, 'US', { sort: 'price-asc', page: 1 }),
+      searchCatalog(db, 'US', { sort: 'price-desc', page: 1 }),
+      searchCatalog(db, 'US', { sort: 'newest', page: 1 }),
+    ]);
+    const low = await rankedSearch('US', q, null, null, { sort: 'price-asc' }, db);
+    expect(low.items[0].product.priceMinor).toBe(cheapest.items[0].priceMinor);
+    const high = await rankedSearch('US', q, null, null, { sort: 'price-desc' }, db);
+    expect(high.items[0].product.priceMinor).toBe(dearest.items[0].priceMinor);
+    const fresh = await rankedSearch('US', q, null, null, { sort: 'newest' }, db);
+    // one card per variant group, so compare groups
+    const card = (p: { id: string; variant?: { group: string } }) => p.variant?.group ?? p.id;
+    expect(card(fresh.items[0].product)).toBe(card(newest.items[0]));
+  });
+
   it('alternativesFor and accessoriesFor return same-store suggestions', async () => {
     const db = anon();
     const { id } = await pickProduct('US', 5);
