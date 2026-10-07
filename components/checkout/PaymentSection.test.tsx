@@ -27,3 +27,17 @@ it('without a readable balance, it doesn’t invent one', () => {
   expect(screen.queryByText(/Available balance/)).toBeNull();
   expect(screen.getByText(/taken from your balance/)).toBeInTheDocument();
 });
+
+it('prices each EMI tenure for the order', () => {
+  const emi = [
+    { months: 3, text: '₹5,000 a month · No Cost EMI' },
+    { months: 12, text: '₹1,361 a month · ₹1,333 interest' },
+  ];
+  render(<PaymentSection {...base} curSymbol="₹" methods={['emi']} emi={emi} />);
+  const tenure = screen.getByRole('combobox', { name: 'Tenure' });
+  expect([...tenure.querySelectorAll('option')].map((o) => [o.value, o.textContent])).toEqual([
+    ['3', '3 months · ₹5,000 a month · No Cost EMI'],
+    ['12', '12 months · ₹1,361 a month · ₹1,333 interest'],
+  ]);
+  expect(screen.getByText(/No Cost EMI takes the bank’s interest off/)).toBeInTheDocument();
+});

@@ -31,6 +31,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { protectionPlanName } from '@/lib/protection';
+import { EMI_MIN_MINOR, emiPlans } from '@/lib/emi';
 
 export const metadata: Metadata = { title: 'Checkout · Store' };
 
@@ -145,7 +146,14 @@ export default async function CheckoutPage({
     ) : plain;
   const planMinor = totals.protectionMinor ?? 0;
   const fastTotal = fast ? totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor + planMinor : 0;
-  const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
+  // EMI from the store's minimum order (₹3,000), priced on the standard total
+  const emi = emiPlans(store.id, totals.totalMinor).map((p) => ({
+    months: p.months,
+    text: `${money(p.monthlyMinor)} a month · ${p.noCost ? 'No Cost EMI' : `${money(p.interestMinor)} interest`}`,
+  }));
+  const methods = store.payments
+    .map((pm) => pm.method)
+    .filter((m) => (m !== 'card' || stripeConfigured) && (m !== 'emi' || totals.totalMinor >= EMI_MIN_MINOR));
   // balance methods pay the whole order from the gift card balance (null before balances exist)
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
     ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance') }
@@ -188,7 +196,7 @@ export default async function CheckoutPage({
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} />
-          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} />
           <StepCard
             n={3}
             title="Delivery"

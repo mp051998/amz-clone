@@ -5,12 +5,14 @@ import { couponFor } from '@/lib/data/coupons';
 import { DataError } from '@/lib/data/errors';
 import { frequentlyReturned } from '@/lib/data/return-signal';
 import { protectionPlanName } from '@/lib/protection';
+import { emiPlans } from '@/lib/emi';
 
 /**
  * GET /api/v1/products/:id — product detail (with live stock, description and spec rows), its rating
  * histogram, its coupon (`{percentOff, clipped}` or null; `clipped` is false signed out), and
  * `frequentlyReturned` (`{reason}` when it often comes back, else null), and the store's
- * `protection` plan for it (`{name, unitMinor}` or null).
+ * `protection` plan for it (`{name, unitMinor}` or null), and its card EMI plans (`emi`, India from
+ * ₹3,000, else empty).
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const product = await getProduct(ctx.db, id, { includeArchived: true });
@@ -23,7 +25,8 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
     product.archived ? null : protectionOffer(ctx.db, id),
   ]);
   const protection = plan ? { name: protectionPlanName(product.market), unitMinor: plan } : null;
-  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns, protection });
+  const emi = product.archived ? [] : emiPlans(product.market, product.priceMinor);
+  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns, protection, emi });
 });
 
 export const OPTIONS = preflight;
