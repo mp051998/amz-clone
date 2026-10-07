@@ -56,6 +56,7 @@ export function toReturn(json: unknown): OrderReturn {
     itemsMinor: Number(r.items_minor ?? 0),
     taxMinor: Number(r.tax_minor ?? 0),
     shipMinor: Number(r.ship_minor ?? 0),
+    ...(Number(r.protection_minor ?? 0) ? { protectionMinor: Number(r.protection_minor) } : {}),
     refundMinor: Number(r.refund_minor ?? 0),
     refund: refund ? { status: refund, refundedAt: str(r.refunded_at) } : undefined,
     dropoffCode: String(r.dropoff_code ?? ''),

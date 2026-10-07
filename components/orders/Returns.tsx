@@ -61,10 +61,15 @@ export function itemsText(r: OrderReturn): string {
   return r.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ');
 }
 
-/** "Items $20.00 · tax $1.60 · delivery $5.99" (parts that are zero are left out). */
+/** "Items $20.00 · tax $1.60 · delivery $5.99 · protection plan $7.99" (parts that are zero are left out). */
 export function refundBreakdown(r: OrderReturn, currency: CurrencyCode): string {
   const m = (n: number) => formatMoney(n, currency);
-  return [`Items ${m(r.itemsMinor)}`, r.taxMinor ? `tax ${m(r.taxMinor)}` : '', r.shipMinor ? `delivery ${m(r.shipMinor)}` : '']
+  return [
+    `Items ${m(r.itemsMinor)}`,
+    r.taxMinor ? `tax ${m(r.taxMinor)}` : '',
+    r.shipMinor ? `delivery ${m(r.shipMinor)}` : '',
+    r.protectionMinor ? `protection plan ${m(r.protectionMinor)}` : '',
+  ]
     .filter(Boolean)
     .join(' · ');
 }
