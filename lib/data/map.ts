@@ -136,6 +136,8 @@ function toCancellation(row: CancellationWithItems): OrderCancellation {
     items: toOrderItems(row.items ?? row.order_cancelled_items ?? []),
     itemsMinor: row.items_minor,
     taxMinor: row.tax_minor,
+    // absent on rows read before the gift wrap migration lands
+    ...(row.wrap_minor ? { wrapMinor: row.wrap_minor } : {}),
     refund: { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor, refundedAt: opt(row.refunded_at) },
     createdAt: row.created_at,
   };
@@ -161,6 +163,8 @@ export function toOrder(row: OrderWithItems): Order {
       discountMinor: row.discount_minor ?? 0,
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
+      // absent on rows read before the gift wrap migration lands
+      ...(row.wrap_minor ? { wrapMinor: row.wrap_minor } : {}),
       totalMinor: row.total_minor,
     },
     shipTo: {
@@ -187,7 +191,7 @@ export function toOrder(row: OrderWithItems): Order {
       ? { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor ?? row.total_minor, refundedAt: opt(row.refunded_at) }
       : undefined,
     // absent on rows read before the gift migration lands
-    ...(row.gift ? { gift: row.gift_message ? { message: row.gift_message } : {} } : {}),
+    ...(row.gift ? { gift: { ...(row.gift_message ? { message: row.gift_message } : {}), ...(row.gift_wrap ? { wrapped: true } : {}) } } : {}),
     ...(row.ship_speed === 'fast' ? { shipSpeed: 'fast' as const } : {}),
     // absent on rows read before the archive migration lands
     ...(row.archived_at ? { archivedAt: row.archived_at } : {}),

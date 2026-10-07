@@ -45,6 +45,8 @@ export interface OrderTotals {
   discountMinor?: number;
   shipMinor: number;
   taxMinor: number;
+  /** gift wrap, per unit wrapped (absent or 0 without it) */
+  wrapMinor?: number;
   totalMinor: number;
 }
 
@@ -152,6 +154,8 @@ export interface OrderCancellation {
   itemsMinor: number;
   /** the tax that no longer applies */
   taxMinor: number;
+  /** the cancelled units' gift wrap (absent without it) */
+  wrapMinor?: number;
   refund: { status: RefundStatus; amountMinor: number; refundedAt?: string };
   createdAt: string;
 }
@@ -196,8 +200,8 @@ export interface Order {
   refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string };
   /** items cancelled before it shipped while the rest kept coming, oldest first (absent with none). */
   cancellations?: OrderCancellation[];
-  /** a gift order, with the note for the recipient when there is one. */
-  gift?: { message?: string };
+  /** a gift order, with the note for the recipient when there is one, and whether it's gift-wrapped. */
+  gift?: { message?: string; wrapped?: boolean };
   /** delivery speed chosen at checkout (absent means standard). */
   shipSpeed?: ShipSpeed;
 }

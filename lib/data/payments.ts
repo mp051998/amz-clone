@@ -58,6 +58,9 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
   if (order.totals.shipMinor > 0) {
     lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.shipMinor, product_data: { name: order.shipSpeed === 'fast' ? 'Faster delivery' : 'Shipping' } } });
   }
+  if (order.totals.wrapMinor) {
+    lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.wrapMinor, product_data: { name: 'Gift wrap' } } });
+  }
   if (order.totals.taxMinor > 0) {
     lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.taxMinor, product_data: { name: 'Estimated tax' } } });
   }

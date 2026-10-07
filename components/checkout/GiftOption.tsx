@@ -4,9 +4,14 @@ import { Checkbox } from '../primitives/Checkbox';
 import { fieldClass } from '../lib/controls';
 import { cn } from '../lib/cn';
 
-/** "This order contains a gift" with an optional note for the recipient (checkout Delivery step). */
-export function GiftOption({ max }: { max: number }) {
+/**
+ * "This order contains a gift" with an optional note for the recipient (checkout Delivery step),
+ * and gift wrap when the store offers it (`wrapFee`, the per-item price as shown). The wrap box has
+ * id `gift-wrap` so the order summary can follow it with CSS alone.
+ */
+export function GiftOption({ max, wrapFee }: { max: number; wrapFee?: string }) {
   const [gift, setGift] = useState(false);
+  const [wrap, setWrap] = useState(false);
   const [note, setNote] = useState('');
   const noteId = useId();
   return (
@@ -29,6 +34,15 @@ export function GiftOption({ max }: { max: number }) {
           <span id={`${noteId}-hint`} className="text-[13px] text-ink-3">
             {max - note.length} characters left · We pack the note with the gift.
           </span>
+          {wrapFee ? (
+            <Checkbox
+              id="gift-wrap"
+              name="giftWrap"
+              label={`Gift-wrap the items (${wrapFee} per item)`}
+              checked={wrap}
+              onChange={(e) => setWrap(e.target.checked)}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

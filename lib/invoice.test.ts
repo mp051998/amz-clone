@@ -50,7 +50,12 @@ describe('buildInvoice', () => {
       { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0 },
       { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0 },
     ]);
-    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, shipMinor: 599, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
+    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, shipMinor: 599, wrapMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
+  });
+
+  it('carries the gift wrap', () => {
+    const inv = buildInvoice(order({ totals: { subtotalMinor: 5000, shipMinor: 599, taxMinor: 400, wrapMinor: 1197, totalMinor: 7196 } }))!;
+    expect(inv).toMatchObject({ wrapMinor: 1197, totalMinor: 7196, netMinor: 7196 });
   });
 
   it('shows what a coupon took off each line and the order', () => {

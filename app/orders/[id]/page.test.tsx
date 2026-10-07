@@ -136,6 +136,36 @@ it('a gift order shows its note', async () => {
   expect(screen.getByText('Gift', { selector: 'dt' }).nextElementSibling).toHaveTextContent('Yes, no message');
 });
 
+it('a gift-wrapped order says so, with the wrap in its totals and in a cancellation’s refund', async () => {
+  state.order = order({
+    gift: { wrapped: true },
+    totals: { subtotalMinor: 2000, shipMinor: 0, taxMinor: 160, wrapMinor: 399, totalMinor: 2559 },
+  });
+  await show();
+  expect(screen.getByText('Gift', { selector: 'dt' }).nextElementSibling).toHaveTextContent('Gift-wrapped, no message');
+  expect(screen.getByText('Gift wrap', { selector: 'dt' }).nextElementSibling).toHaveTextContent('$3.99');
+  cleanup();
+  state.order = order({
+    gift: { message: 'Enjoy', wrapped: true },
+    totals: { subtotalMinor: 2000, shipMinor: 0, taxMinor: 0, wrapMinor: 399, totalMinor: 2399 },
+    items: [order().items[1]],
+    cancellations: [
+      {
+        id: 'c1',
+        items: [order().items[0]],
+        itemsMinor: 1000,
+        taxMinor: 80,
+        wrapMinor: 399,
+        refund: { status: 'succeeded', amountMinor: 1479, refundedAt: '2026-09-01T11:00:00Z' },
+        createdAt: '2026-09-01T11:00:00Z',
+      },
+    ],
+  });
+  await show();
+  expect(screen.getByText('Gift', { selector: 'dt' }).nextElementSibling).toHaveTextContent('“Enjoy”Gift-wrapped');
+  expect(screen.getByRole('article', { name: 'Cancelled items' })).toHaveTextContent('Includes $0.80 tax and $3.99 gift wrap.');
+});
+
 it('links a gift receipt for the order, and for each item of a several-item order', async () => {
   await show();
   expect(screen.getByRole('link', { name: 'Gift receipt' })).toHaveAttribute('href', '/orders/ORD-9/gift-receipt');

@@ -52,7 +52,14 @@ function sameAddress(a: Address, s: Order['shipTo']): boolean {
 
 /** The gift row: the note as written (line breaks kept), or that there is none. */
 function giftText(gift: NonNullable<Order['gift']>) {
-  return gift.message ? <span className="whitespace-pre-line">“{gift.message}”</span> : 'Yes, no message';
+  const wrapped = gift.wrapped ? 'Gift-wrapped' : null;
+  if (!gift.message) return wrapped ? `${wrapped}, no message` : 'Yes, no message';
+  return (
+    <>
+      <span className="whitespace-pre-line">“{gift.message}”</span>
+      {wrapped ? <span className="block text-ink-3">{wrapped}</span> : null}
+    </>
+  );
 }
 
 /** Add-ons for what was just ordered (the thank-you page's "goes with your order" row); never an error. */
@@ -403,6 +410,9 @@ export default async function OrderPage({
               <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.discountMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
+            {order.totals.wrapMinor ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(order.totals.wrapMinor)}</dd></div>
+            ) : null}
             {order.totals.taxMinor > 0 ? (
               <div className="flex justify-between"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(order.totals.taxMinor)}</dd></div>
             ) : (

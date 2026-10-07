@@ -29,6 +29,8 @@ export interface Invoice {
   /** what coupons took off the items */
   discountMinor: number;
   shipMinor: number;
+  /** gift wrap (0 without it) */
+  wrapMinor: number;
   taxMinor: number;
   totalMinor: number;
   /** false when nothing was ever taken: a cancelled pay-on-delivery order, or no payment at all */
@@ -82,6 +84,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     subtotalMinor: order.totals.subtotalMinor,
     discountMinor: order.totals.discountMinor ?? 0,
     shipMinor: order.totals.shipMinor,
+    wrapMinor: order.totals.wrapMinor ?? 0,
     taxMinor: order.totals.taxMinor,
     totalMinor: order.totals.totalMinor,
     charged,
