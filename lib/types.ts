@@ -221,6 +221,14 @@ export interface Review {
   reported: boolean;
   /** hidden from shoppers (reports or an admin); only its author sees it, on their own review. */
   hidden?: boolean;
+  /** up to 5, in the author's order */
+  photos: ReviewPhoto[];
+}
+
+/** A photo on a review: its storage path (what a review lists) and public URL. */
+export interface ReviewPhoto {
+  path: string;
+  url: string;
 }
 
 export interface RatingBar {

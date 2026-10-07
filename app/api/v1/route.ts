@@ -33,6 +33,7 @@ export function GET(): Response {
       'GET    /me/questions',
       'GET    /me/transactions',
       'GET    /me/messages',
+      'POST   /me/review-photos',
       'GET    /me/support',
       'POST   /me/support',
       'GET    /me/support/:id',

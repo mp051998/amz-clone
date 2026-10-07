@@ -45,7 +45,7 @@ const review = (over: Partial<Review> = {}): Review => ({
   helpful: 3,
   mine: true,
   votedHelpful: false,
-  reported: false,
+  reported: false, photos: [],
   ...over,
 });
 

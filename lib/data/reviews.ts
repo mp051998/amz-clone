@@ -1,7 +1,9 @@
 import type { Db } from '../db/client';
 import type { Market, Product, Review } from '../types';
+import { REVIEW_PHOTO_MAX, reviewPhoto } from '../review-photos';
 import { getProducts } from './catalog';
 import { DataError, unwrap } from './errors';
+import { removeReviewPhotos } from './review-photos';
 
 export const REVIEW_REPORT_REASONS = ['spam', 'offensive', 'off_topic', 'other'] as const;
 export type ReviewReportReason = (typeof REVIEW_REPORT_REASONS)[number];
@@ -17,6 +19,7 @@ interface ReviewRow {
   helpful_count: number;
   created_at: string;
   hidden_at?: string | null;
+  photos?: string[];
 }
 
 function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, reported: Set<string>): Review {
@@ -34,10 +37,11 @@ function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, r
     votedHelpful: voted.has(row.id),
     reported: reported.has(row.id),
     ...(row.hidden_at ? { hidden: true } : {}),
+    photos: (row.photos ?? []).map(reviewPhoto),
   };
 }
 
-const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at, hidden_at';
+const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at, hidden_at, photos';
 // until the moderation migration lands (a deploy can go out first): no hidden_at yet
 const LEGACY_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
 const MISSING_COLUMN = '42703';
@@ -189,6 +193,17 @@ export interface ReviewInput {
   title?: unknown;
   body?: unknown;
   authorName?: unknown;
+  /** photo paths from uploadReviewPhoto, in order; left out keeps the ones it has */
+  photos?: unknown;
+}
+
+function parsePhotos(v: unknown, userId: string): string[] | undefined {
+  if (v === undefined || v === null) return undefined;
+  const bad = () => new DataError('invalid_input', 'photos', `Add up to ${REVIEW_PHOTO_MAX} of your own photos.`);
+  if (!Array.isArray(v) || v.length > REVIEW_PHOTO_MAX) throw bad();
+  const paths = v.map((p) => (typeof p === 'string' ? p.trim() : ''));
+  if (paths.some((p) => !p.startsWith(`${userId}/`)) || new Set(paths).size !== paths.length) throw bad();
+  return paths;
 }
 
 function parseReview(input: ReviewInput) {
@@ -210,15 +225,22 @@ function parseReview(input: ReviewInput) {
  */
 export async function upsertReview(db: Db, productId: string, userId: string, input: ReviewInput): Promise<Review> {
   const r = parseReview(input);
+  const photos = parsePhotos(input.photos, userId);
   const existing = unwrap(
-    await db.from('reviews').select('id').eq('product_id', productId).eq('user_id', userId).maybeSingle(),
+    await db.from('reviews').select('id, photos').eq('product_id', productId).eq('user_id', userId).maybeSingle(),
   );
-  const cols = LEGACY_COLS;
+  const cols = REVIEW_COLS;
   const row = existing
     ? unwrap(
         await db
           .from('reviews')
-          .update({ rating: r.rating, title: r.title, body: r.body, ...(r.authorName ? { author_name: r.authorName } : {}) })
+          .update({
+            rating: r.rating,
+            title: r.title,
+            body: r.body,
+            ...(r.authorName ? { author_name: r.authorName } : {}),
+            ...(photos ? { photos } : {}),
+          })
           .eq('id', existing.id)
           .select(cols)
           .single(),
@@ -227,16 +249,18 @@ export async function upsertReview(db: Db, productId: string, userId: string, in
         await db
           .from('reviews')
           // author_name is required by the table; the trigger fills the profile name when blank
-          .insert({ product_id: productId, rating: r.rating, title: r.title, body: r.body, author_name: r.authorName || ' ' })
+          .insert({ product_id: productId, rating: r.rating, title: r.title, body: r.body, author_name: r.authorName || ' ', photos: photos ?? [] })
           .select(cols)
           .single(),
       );
-  return toReview(row as ReviewRow, userId, new Set(), new Set());
+  if (existing && photos) await removeReviewPhotos(db, existing.photos.filter((p) => !photos.includes(p)));
+  return toReview(row as unknown as ReviewRow, userId, new Set(), new Set());
 }
 
 export async function deleteReview(db: Db, reviewId: string): Promise<void> {
-  const deleted = unwrap(await db.from('reviews').delete().eq('id', reviewId).select('id'));
+  const deleted = unwrap(await db.from('reviews').delete().eq('id', reviewId).select('id, photos'));
   if (!deleted.length) throw new DataError('review_not_found');
+  await removeReviewPhotos(db, deleted.flatMap((r) => r.photos));
 }
 
 export interface HelpfulState {

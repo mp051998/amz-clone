@@ -4,7 +4,7 @@ import { applyFilters, buildFilters, chipCount, facetCount, reviewThemes, server
 
 const r = (id: string, rating: number, body: string, verified = true): Review => ({
   id, author: 'A', initial: 'A', rating, title: '', body, createdAt: '2026-09-01T00:00:00Z',
-  verified, helpful: 0, mine: false, votedHelpful: false, reported: false,
+  verified, helpful: 0, mine: false, votedHelpful: false, reported: false, photos: [],
 });
 
 const reviews = [
