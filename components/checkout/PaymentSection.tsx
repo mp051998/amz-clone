@@ -28,6 +28,8 @@ export interface BalanceInfo {
   short: boolean;
   /** where to redeem a gift card */
   redeemHref: string;
+  /** where to reload the balance by card (absent: card payments aren't set up) */
+  reloadHref?: string;
 }
 
 const LABEL: Record<string, string> = {
@@ -185,7 +187,8 @@ function balanceFields(balance: BalanceInfo | undefined) {
       <p className={note}>Available balance: <b className="text-ink tabular-nums">{balance.text}</b></p>
       {balance.short ? (
         <p className={note}>
-          That doesn&apos;t cover this order. <a href={balance.redeemHref} className={link}>Redeem a gift card</a> or choose another payment method.
+          That doesn&apos;t cover this order. <a href={balance.redeemHref} className={link}>Redeem a gift card</a>
+          {balance.reloadHref ? <>, <a href={balance.reloadHref} className={link}>add money to your balance</a>,</> : null} or choose another payment method.
         </p>
       ) : (
         <p className={note}>The order total is taken from your balance when you place the order.</p>

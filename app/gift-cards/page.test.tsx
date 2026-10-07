@@ -36,7 +36,7 @@ vi.mock('@/lib/stripe', () => ({
     return state.stripe;
   },
 }));
-vi.mock('@/app/actions/gift-cards', () => ({ redeemGiftCardAction: async () => ({}), claimDemoGiftCardAction: async () => {}, buyGiftCardAction: async () => ({}) }));
+vi.mock('@/app/actions/gift-cards', () => ({ redeemGiftCardAction: async () => ({}), claimDemoGiftCardAction: async () => {}, buyGiftCardAction: async () => ({}), reloadBalanceAction: async () => ({}) }));
 
 import GiftCardsPage from './page';
 
@@ -57,7 +57,7 @@ beforeEach(() => {
 
 const purchase = (over: Partial<GiftCardPurchase> = {}): GiftCardPurchase => ({
   id: 'p1', market: 'US', amountMinor: 5000, currency: 'USD', recipientName: 'Ravi', message: 'Happy birthday!', status: 'paid',
-  code: 'ZZZZ-YYYYYY-XXXX', redeemed: false, createdAt: '2026-10-05T10:00:00Z', paidAt: '2026-10-05T10:01:00Z', ...over,
+  code: 'ZZZZ-YYYYYY-XXXX', redeemed: false, reload: false, createdAt: '2026-10-05T10:00:00Z', paidAt: '2026-10-05T10:01:00Z', ...over,
 });
 
 it('signed out, buying starts with signing in and comes back to the form', async () => {
@@ -162,4 +162,44 @@ it('signed in, an unreadable balance says so instead of asking to sign in', asyn
   await page();
   expect(screen.getByText(/can’t be shown right now/)).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Sign in to redeem' })).toBeNull();
+});
+
+it('signed in, reloads the balance by card; a paid reload says so and isn’t listed as a gift card', async () => {
+  state.user = asha;
+  state.balance = 10000;
+  state.purchases = [purchase({ id: 'r1', reload: true, recipientName: null, message: null, code: null, amountMinor: 10000 })];
+  const { container } = await page({ reloaded: 'r1' });
+  const balance = container.querySelector('#balance') as HTMLElement;
+  expect(balance).toHaveTextContent('$100 added to your balance.');
+  expect(screen.getByRole('heading', { name: 'Reload your balance' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reload $50' })).toBeEnabled();
+  expect(container.querySelector('#reload')).not.toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Gift cards you bought' })).toBeNull();
+});
+
+it('a canceled reload says so by the balance, not the gift cards', async () => {
+  state.user = asha;
+  state.balance = 0;
+  const { container } = await page({ canceled: '1', for: 'reload' });
+  expect((container.querySelector('#balance') as HTMLElement).textContent).toMatch(/Payment canceled/);
+  expect((container.querySelector('#buy') as HTMLElement).textContent).not.toMatch(/Payment canceled/);
+});
+
+it('India adds money to the balance, and shows it in the activity', async () => {
+  state.store = amazonIn;
+  state.user = asha;
+  state.balance = 100_000;
+  state.history = [{ id: 9, amountMinor: 100_000, kind: 'reload', orderId: null, giftCardCode: null, at: '2026-10-05T10:00:00Z' }];
+  await page();
+  expect(screen.getByRole('heading', { name: 'Add money to your balance' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Add ₹1,000' })).toBeEnabled();
+  expect(screen.getByText('Money added by card')).toBeInTheDocument();
+});
+
+it('without card payments, there’s no reloading', async () => {
+  state.user = asha;
+  state.balance = 0;
+  state.stripe = false;
+  const { container } = await page();
+  expect(container.querySelector('#reload')).toBeNull();
 });

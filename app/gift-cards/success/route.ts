@@ -5,27 +5,33 @@ import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { confirmGiftCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
+import type { GiftCardPurchase } from '@/lib/data/gift-card-purchases';
 
 /**
- * Stripe Checkout return trip for a gift card. Only the session id is taken from the URL: the
- * session is fetched from Stripe server-side, and the service-role confirm checks the amount and
- * currency before issuing the code. Safe to hit twice (a refresh, or the webhook getting there first).
+ * Stripe Checkout return trip for a gift card or a balance reload (`for=reload`). Only the session
+ * id is taken from the URL: the session is fetched from Stripe server-side, and the service-role
+ * confirm checks the amount and currency before issuing the code or crediting the balance. Safe to
+ * hit twice (a refresh, or the webhook getting there first).
  */
 export async function GET(req: NextRequest): Promise<Response> {
   const market = await getMarket();
   const sp = (path: string) => storePath({ id: market }, path);
+  const reload = req.nextUrl.searchParams.get('for') === 'reload';
+  const failed = (code: string) => sp(reload ? `/gift-cards?error=${code}&for=reload#balance` : `/gift-cards?error=${code}#buy`);
   const sessionId = req.nextUrl.searchParams.get('session_id');
-  if (!sessionId) redirect(sp('/gift-cards?error=payment_incomplete#buy'));
+  if (!sessionId) redirect(failed('payment_incomplete'));
 
-  let purchaseId: string | null = null;
+  let purchase: GiftCardPurchase | null = null;
   let code = 'internal';
   try {
-    purchaseId = (await confirmGiftCardCheckout(sessionId)).id;
+    purchase = await confirmGiftCardCheckout(sessionId);
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
     console.error('[gift-cards] confirm failed', err.code, err.detail ?? '');
     code = err.code;
   }
-  if (purchaseId) revalidatePath('/gift-cards');
-  redirect(purchaseId ? sp(`/gift-cards?bought=${encodeURIComponent(purchaseId)}#purchases`) : sp(`/gift-cards?error=${code}#buy`));
+  if (!purchase) redirect(failed(code));
+  revalidatePath('/', 'layout');
+  const id = encodeURIComponent(purchase.id);
+  redirect(sp(purchase.reload ? `/gift-cards?reloaded=${id}#balance` : `/gift-cards?bought=${id}#purchases`));
 }

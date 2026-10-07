@@ -3,11 +3,11 @@ import { listGiftCardPurchases, startGiftCardPurchase } from '@/lib/data/gift-ca
 import { startGiftCardCheckout } from '@/lib/data/payments';
 import { storePath } from '@/lib/marketplace';
 
-/** GET /api/v1/me/gift-cards?limit=20 — gift cards the caller bought in this store (paid ones), newest first, with codes. */
+/** GET /api/v1/me/gift-cards?limit=20 — gift cards the caller bought in this store (paid ones), newest first, with codes. Balance reloads aren't gift cards: see /me/balance. */
 export const GET = route(async (ctx) => {
   requireUser(ctx);
   const limit = intParam(ctx.req.nextUrl.searchParams.get('limit'), 20, 1, 50);
-  return json({ items: await listGiftCardPurchases(ctx.db, ctx.market, limit) });
+  return json({ items: (await listGiftCardPurchases(ctx.db, ctx.market, limit)).filter((p) => !p.reload) });
 });
 
 /**

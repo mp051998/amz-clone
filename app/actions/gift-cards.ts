@@ -5,7 +5,7 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { claimDemoGiftCard, redeemGiftCard } from '@/lib/data/balance';
 import { DataError } from '@/lib/data/errors';
-import { startGiftCardPurchase } from '@/lib/data/gift-card-purchases';
+import { startBalanceReload, startGiftCardPurchase } from '@/lib/data/gift-card-purchases';
 import { startGiftCardCheckout } from '@/lib/data/payments';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -82,6 +82,34 @@ export async function buyGiftCardAction(_prev: BuyState, formData: FormData): Pr
     if (!(err instanceof DataError)) throw err;
     if (err.status >= 500 && err.code !== 'payments_unavailable') {
       console.error('[gift-cards] buy', err.code, err.detail ?? '');
+      return { error: 'Something went wrong. Please try again.' };
+    }
+    return { error: err.message, field: err.code === 'invalid_input' ? err.detail : undefined };
+  }
+  redirect(url);
+}
+
+/**
+ * Reload the balance ("Reload Your Balance", amazon.in's "Add Money"): record the reload, then hand
+ * off to Stripe hosted Checkout for exactly its amount. The balance is credited once Stripe reports
+ * the session paid (/gift-cards/success, webhook).
+ */
+export async function reloadBalanceAction(_prev: BuyState, formData: FormData): Promise<BuyState> {
+  const store = await signedIn();
+  const sp = (path: string) => storePath(store, path);
+  let url: string;
+  try {
+    const reload = await startBalanceReload(await db(), store.id, Number(formData.get('amountMinor')));
+    const origin = await siteOrigin();
+    url = await startGiftCardCheckout(
+      reload,
+      { successUrl: `${origin}${sp(`${PAGE}/success?for=reload`)}`, cancelUrl: `${origin}${sp(`${PAGE}?canceled=1&for=reload#balance`)}` },
+      store.id === 'IN' ? 'Add money to balance' : 'Balance reload',
+    );
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    if (err.status >= 500 && err.code !== 'payments_unavailable') {
+      console.error('[gift-cards] reload', err.code, err.detail ?? '');
       return { error: 'Something went wrong. Please try again.' };
     }
     return { error: err.message, field: err.code === 'invalid_input' ? err.detail : undefined };

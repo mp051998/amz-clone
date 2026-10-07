@@ -35,6 +35,7 @@ const gift = (over: Partial<GiftCardPurchase> = {}): GiftCardPurchase => ({
   status: 'paid',
   code: 'ABCD-EFGHIJ-KLMN',
   redeemed: false,
+  reload: false,
   createdAt: '2026-10-02T08:00:00Z',
   paidAt: '2026-10-02T08:01:00Z',
   ...over,
@@ -90,6 +91,12 @@ describe('buildTransactions', () => {
       'order:A charge 2500 completed',
     ]);
     expect(list[2]).toMatchObject({ source: 'gift_card', method: 'card', at: '2026-10-02T08:01:00Z' });
+  });
+
+  it('shows a paid balance reload as its own source', () => {
+    const list = buildTransactions([], [], [gift({ id: 'r1', reload: true, code: null })], NOW);
+    expect(brief(list)).toEqual(['gift:r1 charge 5000 completed']);
+    expect(list[0]).toMatchObject({ source: 'reload', method: 'card' });
   });
 
   it('charges what was paid when placed, and refunds items cancelled since on their own', () => {

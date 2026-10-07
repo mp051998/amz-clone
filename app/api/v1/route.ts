@@ -26,6 +26,7 @@ export function GET(): Response {
       'DELETE /me/plus',
       'GET    /me/balance',
       'POST   /me/balance/redeem',
+      'POST   /me/balance/reload',
       'POST   /me/balance/demo-card',
       'GET    /me/gift-cards?limit=',
       'POST   /me/gift-cards',

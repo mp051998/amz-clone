@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
-vi.mock('@/app/actions/gift-cards', () => ({ buyGiftCardAction: async () => ({}) }));
+vi.mock('@/app/actions/gift-cards', () => ({ buyGiftCardAction: async () => ({}), reloadBalanceAction: async () => ({}) }));
 
 import { BuyForm } from './BuyForm';
 
@@ -40,4 +40,18 @@ it('checks a custom amount as it’s typed', () => {
 it('counts the message', () => {
   render(<BuyForm {...props} defaultMessage="Enjoy!" />);
   expect(screen.getByText('6/240')).toBeInTheDocument();
+});
+
+it('a reload asks for the amount only', () => {
+  const { container } = render(<BuyForm {...props} kind="reload" />);
+  expect(hidden(container)).toBe('5000');
+  expect(screen.getByRole('button', { name: 'Reload $50' })).toBeEnabled();
+  expect(screen.queryByLabelText(/To/)).toBeNull();
+  expect(screen.queryByLabelText(/Message/)).toBeNull();
+  expect(screen.getByText(/added to your balance once it’s paid/)).toBeInTheDocument();
+});
+
+it('a reload can say “Add”, as amazon.in does', () => {
+  render(<BuyForm {...props} kind="reload" reloadVerb="Add" denoms={[500, 1000]} symbol="₹" locale="en-IN" min={100} max={10000} />);
+  expect(screen.getByRole('button', { name: 'Add ₹1,000' })).toBeEnabled();
 });
