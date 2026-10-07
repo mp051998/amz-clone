@@ -10,7 +10,8 @@ import type { ProductInsight, RankedProduct, Weights } from './types';
 
 export { matchScores };
 
-export type RankSort = 'match' | 'price-asc' | 'price-desc' | 'rating';
+/** `newest` keeps the order the products came in (the catalog's newest arrivals first). */
+export type RankSort = 'match' | 'price-asc' | 'price-desc' | 'rating' | 'newest';
 
 export interface RankOptions {
   /** Drop products priced above this (minor units). null/undefined = no ceiling. */
@@ -117,11 +118,13 @@ export function rankProducts(
   const inBudget = opts.budgetMinor != null ? products.filter((p) => p.priceMinor <= opts.budgetMinor!) : products;
   const ranked = inBudget.map((p) => rankOne(p, get(p.id), weights, pct.get(p.id) ?? 0.5, opts.config ?? decisionConfig(p.category)));
   const sort = opts.sort ?? 'match';
+  const arrived = new Map(products.map((p, i) => [p.id, i]));
   const cmp: Record<RankSort, (a: RankedProduct, b: RankedProduct) => number> = {
     match: (a, b) => b.match - a.match || b.product.rating - a.product.rating || a.product.priceMinor - b.product.priceMinor,
     'price-asc': (a, b) => a.product.priceMinor - b.product.priceMinor || b.match - a.match,
     'price-desc': (a, b) => b.product.priceMinor - a.product.priceMinor || b.match - a.match,
     rating: (a, b) => b.product.rating - a.product.rating || b.product.reviewCount - a.product.reviewCount,
+    newest: (a, b) => arrived.get(a.product.id)! - arrived.get(b.product.id)!,
   };
   const unbuyable = (r: RankedProduct) => (r.product.stock > 0 ? 0 : 1);
   return ranked.sort((a, b) => unbuyable(a) - unbuyable(b) || cmp[sort](a, b));

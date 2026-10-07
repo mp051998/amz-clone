@@ -24,6 +24,11 @@ describe('decision params', () => {
     expect(effectiveWeights(p, 'electronics')).toEqual(weightsFor('electronics', 'travel'));
   });
 
+  it('reads the newest-arrivals sort; anything unknown is best match', () => {
+    expect(readDecisionParams(new URLSearchParams('sort=newest'), null, 'US').sort).toBe('newest');
+    expect(readDecisionParams(new URLSearchParams('sort=oldest'), null, 'US').sort).toBe('match');
+  });
+
   it('writes minimal params (omits implied weights and default sort, resets page)', () => {
     const usp = writeDecisionParams(
       { use: 'travel', weights: weightsFor('electronics', 'travel'), sort: 'match' },

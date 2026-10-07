@@ -5,7 +5,7 @@
  *   budget=1000000          ceiling in minor units
  *   use=travel              use case from the query (a preset id)
  *   preset=value            preset picked in "Refine what matters" (wins over `use`)
- *   sort=match|price-asc|price-desc|rating   (legacy featured → match, review → rating)
+ *   sort=match|price-asc|price-desc|rating|newest   (legacy featured → match, review → rating)
  * Pure — safe on server and client.
  */
 import type { Market } from '../types';
@@ -66,6 +66,7 @@ const SORTS: Record<string, RankSort> = {
   'price-desc': 'price-desc',
   rating: 'rating',
   review: 'rating',
+  newest: 'newest',
 };
 
 /** Read decision params for a category (and store, for budget clamping). */

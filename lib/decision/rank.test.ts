@@ -38,7 +38,7 @@ describe('rank', () => {
   it('puts products in stock first, whatever the sort', () => {
     const gone = product({ id: 'gone', title: 'Gamma Headphones 60h battery', priceMinor: 1000, rating: 4.9, stock: 0 });
     const all = new Map([...ins, ['gone', insight('gone', { sound: 5, battery: 5, comfort: 5, anc: 5, value: 5 })]]);
-    for (const sort of ['match', 'price-asc', 'price-desc', 'rating'] as const) {
+    for (const sort of ['match', 'price-asc', 'price-desc', 'rating', 'newest'] as const) {
       const ids = rankProducts([gone, a, b], all, cfg.defaultWeights, { sort }).map((r) => r.product.id);
       expect(ids.at(-1)).toBe('gone');
     }
@@ -57,6 +57,11 @@ describe('rank', () => {
       ['white', insight('white', scores)],
     ]);
     expect(foldVariants(rankProducts([black, white], all, cfg.defaultWeights), (r) => r.product).map((r) => r.product.id)).toEqual(['white']);
+  });
+
+  it('newest keeps the order the products came in', () => {
+    const c = product({ id: 'c', title: 'Gamma Headphones', priceMinor: 9000 });
+    expect(rankProducts([b, c, a], ins, cfg.defaultWeights, { sort: 'newest' }).map((r) => r.product.id)).toEqual(['b', 'c', 'a']);
   });
 
   it('filters to the budget and supports price sorts', () => {
