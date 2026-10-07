@@ -70,8 +70,8 @@ export interface InboxReturn {
   refundMinor: number;
   rejectedAt: string | null;
   rejectNote: string | null;
-  /** a replacement: the items being sent again, and when they ship and arrive */
-  replacement?: { items: { title: string }[]; shippedAt: string; deliveredAt: string };
+  /** a replacement: the products being sent again, and when they ship and arrive */
+  replacement?: { productIds: string[]; shippedAt: string; deliveredAt: string };
 }
 
 /** One of the store's replies on the shopper's support case. */
@@ -137,12 +137,15 @@ function orderMessages(o: Order, now: Date, timeZone: string): InboxMessage[] {
   return out;
 }
 
-function returnMessages(r: InboxReturn, subject: string): InboxMessage[] {
+function returnMessages(r: InboxReturn, order: Order | undefined): InboxMessage[] {
+  const subject = order ? orderSubject(order) : 'Your return';
   const base = { subject, href: `/orders/${encodeURIComponent(r.orderId)}?placed=0`, orderId: r.orderId };
   const out: InboxMessage[] = [];
   // a replacement goes out on request, whatever then happens to the item sent back
   if (r.replacement) {
-    const swap = { ...base, subject: r.replacement.items.length ? orderSubject(r.replacement) : subject };
+    const ids = new Set(r.replacement.productIds);
+    const items = order?.items.filter((i) => ids.has(i.productId)) ?? [];
+    const swap = { ...base, subject: items.length ? orderSubject({ items }) : subject };
     out.push({ ...swap, key: `replacement_shipped:${r.id}`, kind: 'replacement_shipped', at: r.replacement.shippedAt });
     out.push({ ...swap, key: `replacement_delivered:${r.id}`, kind: 'replacement_delivered', at: r.replacement.deliveredAt });
   }
@@ -159,10 +162,10 @@ function returnMessages(r: InboxReturn, subject: string): InboxMessage[] {
 
 /** Everything that's happened in the last 90 days, newest first, up to `INBOX_LIMIT`. */
 export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone = 'UTC'): InboxMessage[] {
-  const subjects = new Map(src.orders.map((o) => [o.id, orderSubject(o)]));
+  const byId = new Map(src.orders.map((o) => [o.id, o]));
   const all: InboxMessage[] = [
     ...src.orders.flatMap((o) => orderMessages(o, now, timeZone)),
-    ...src.returns.flatMap((r) => returnMessages(r, subjects.get(r.orderId) ?? 'Your return')),
+    ...src.returns.flatMap((r) => returnMessages(r, byId.get(r.orderId))),
     ...src.replies.map((m): InboxMessage => ({
       key: `support_reply:${m.id}`,
       kind: 'support_reply',
@@ -210,7 +213,7 @@ type ReturnRow = {
   rejected_at: string | null;
   reject_note: string | null;
   resolution: string;
-  items: { title: string }[];
+  return_items: { product_id: string }[];
   replacement_shipped_at: string | null;
   replacement_delivered_at: string | null;
 };
@@ -220,7 +223,7 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
     await db
       .from('returns')
       .select(
-        'id, order_id, status, received_at, refund_status, refunded_at, refund_minor, rejected_at, reject_note, resolution, items, replacement_shipped_at, replacement_delivered_at, orders!inner(market_id)',
+        'id, order_id, status, received_at, refund_status, refunded_at, refund_minor, rejected_at, reject_note, resolution, replacement_shipped_at, replacement_delivered_at, return_items(product_id), orders!inner(market_id)',
       )
       .eq('user_id', userId)
       .eq('orders.market_id', market)
@@ -240,7 +243,7 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
     rejectedAt: r.rejected_at,
     rejectNote: r.reject_note,
     ...(r.resolution === 'replacement' && r.replacement_shipped_at && r.replacement_delivered_at
-      ? { replacement: { items: r.items, shippedAt: r.replacement_shipped_at, deliveredAt: r.replacement_delivered_at } }
+      ? { replacement: { productIds: r.return_items.map((i) => i.product_id), shippedAt: r.replacement_shipped_at, deliveredAt: r.replacement_delivered_at } }
       : {}),
   }));
 }
