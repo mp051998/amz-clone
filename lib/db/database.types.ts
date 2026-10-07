@@ -1008,6 +1008,9 @@ isOneToOne: false
 "most_wished_for":
 { Args: { "p_category"?: string,"p_limit"?: number,"p_market": string }; Returns: (string)[]
                            },
+"movers_and_shakers":
+{ Args: { "p_category"?: string,"p_limit"?: number,"p_market": string }; Returns: Json
+                           },
 "move_category":
 { Args: { "p_market": string,"p_offset": number,"p_slug": string }; Returns: undefined
                            },

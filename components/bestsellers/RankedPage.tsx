@@ -5,7 +5,7 @@ import { Page, PageHead, Section, cardGrid } from '../brand/Page';
 import { Pill } from '../decision/Pill';
 import { EmptyState } from '../decision/Badges';
 import { buttonClasses } from '../primitives/Button';
-import { RankCard } from './RankCard';
+import { RankCard, type Move } from './RankCard';
 
 export interface RankedPageProps {
   store: Store;
@@ -22,18 +22,21 @@ export interface RankedPageProps {
   /** show "#N" ranks (bestsellers) or a mono tag (new releases). */
   ranked: boolean;
   tag?: string;
+  /** movers & shakers: each product's sales rank this week and last, by product id */
+  moves?: Map<string, Move>;
 }
 
 /** The store's charts, linked from each one as Amazon's tabs are. */
 export const CHARTS = [
   { path: '/bestsellers', label: 'Bestsellers' },
   { path: '/new-releases', label: 'New & trending' },
+  { path: '/movers-and-shakers', label: 'Movers & shakers' },
   { path: '/most-wished-for', label: 'Most wished for' },
   { path: '/gift-ideas', label: 'Gift ideas' },
 ] as const;
 
-/** Shared layout for the charts (Bestsellers, New & trending, Most wished for, Gift ideas): kicker + title, chart tabs, department pills, card grid. */
-export function RankedPage({ store, basePath, kicker, title, lede, categories, active, items, saved, ranked, tag }: RankedPageProps) {
+/** Shared layout for the charts (Bestsellers, New & trending, Movers & shakers, Most wished for, Gift ideas): kicker + title, chart tabs, department pills, card grid. */
+export function RankedPage({ store, basePath, kicker, title, lede, categories, active, items, saved, ranked, tag, moves }: RankedPageProps) {
   const activeName = active ? categories.find((x) => x.slug === active)?.name ?? active : undefined;
   return (
     <Page>
@@ -71,7 +74,7 @@ export function RankedPage({ store, basePath, kicker, title, lede, categories, a
             {items.map((p, i) => (
               <li key={p.id} className="flex">
                 <div className="flex w-full flex-col [&>article]:flex-1">
-                  <RankCard product={p} store={store} rank={ranked ? i + 1 : undefined} tag={ranked ? undefined : tag} saved={saved.has(p.id)} />
+                  <RankCard product={p} store={store} rank={ranked ? i + 1 : undefined} tag={ranked ? undefined : tag} move={moves?.get(p.id)} saved={saved.has(p.id)} />
                 </div>
               </li>
             ))}
