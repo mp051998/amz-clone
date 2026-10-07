@@ -26,7 +26,7 @@ let swap: OrderReturn;
 
 beforeAll(async () => {
   // high in the IN pool, apart from other tests' products
-  const [pa, pb] = await Promise.all([pickProduct('IN', 117), pickProduct('IN', 118)]);
+  const [pa, pb] = await Promise.all([pickProduct('IN', 61), pickProduct('IN', 62)]);
   [a, b] = [pa.id, pb.id];
   buyer = await newUser('Replacement Window Buyer');
   await setCartQty(buyer.db, 'IN', a, 2);

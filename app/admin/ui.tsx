@@ -8,6 +8,7 @@ import type { PublicMarketplace } from '@/lib/contracts';
 import type { AdminProduct } from '@/lib/data/admin-catalog';
 import { detailLines } from '@/lib/product-details';
 import { storePath } from '@/lib/marketplace';
+import { unitSizeText } from '@/lib/unit-price';
 import { cn } from '@/components/lib/cn';
 
 const STORE_LABEL = { US: 'United States store', IN: 'India store' } as const;
@@ -120,6 +121,7 @@ export function productFormValues(p: AdminProduct): ProductFormValues {
     coupon: p.couponPct == null ? '' : String(p.couponPct),
     limit: p.maxPerCustomer == null ? '' : String(p.maxPerCustomer),
     sizes: p.sizes?.join(', ') ?? '',
+    unit: p.unit ? unitSizeText(p.unit) : '',
     badge: p.badge ?? '',
     boughtPastMonth: p.boughtPastMonth ?? '',
     seller: p.seller,

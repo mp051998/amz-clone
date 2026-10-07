@@ -5,6 +5,7 @@ import { decisionConfig } from '../decision/attributes';
 import { deriveInsight, pricePercentiles } from '../decision/derive';
 import { DETAIL_LIMITS, toDetailRows, type DetailRow } from '../product-details';
 import type { Market } from '../types';
+import { isUnitKind, UNIT_KINDS, UNIT_QTY_MAX, type ProductUnit } from '../unit-price';
 import { getProduct } from './catalog';
 import { DataError, fromPostgrest, unwrap } from './errors';
 import { upsertInsight } from './insights';
@@ -54,6 +55,8 @@ export interface ProductInput {
   maxPerCustomer: number | null;
   /** the sizes it comes in, in size-chart order (clothes, shoes), or null when it doesn't. */
   sizes: string[] | null;
+  /** how much it holds (3 fl oz, 150 ml, 30 count), for its unit price; null when it isn't sold by measure. */
+  unit: ProductUnit | null;
   badge: string | null;
   boughtPastMonth: string | null;
   seller: string;
@@ -125,6 +128,18 @@ const ProductInputSchema = z
       .min(1, 'Add a size, or leave it blank')
       .max(SIZES_MAX, `Up to ${SIZES_MAX} sizes`)
       .refine((v) => new Set(v).size === v.length, 'List each size once')
+      .nullable()
+      .default(null),
+    unit: z
+      .object({
+        qty: z
+          .number()
+          .positive('Enter how much it holds, like 3 fl oz')
+          .max(UNIT_QTY_MAX, 'That’s more than a product can hold')
+          .transform((q) => Math.round(q * 100) / 100)
+          .refine((q) => q > 0, 'Enter how much it holds, like 3 fl oz'),
+        kind: z.enum(UNIT_KINDS, 'Pick a unit like oz, ml or count'),
+      })
       .nullable()
       .default(null),
     badge: optional(40),
@@ -225,6 +240,8 @@ function toRow(p: ProductInput) {
     deal: p.deal,
     max_per_customer: p.maxPerCustomer,
     sizes: p.sizes,
+    unit_qty: p.unit?.qty ?? null,
+    unit_kind: p.unit?.kind ?? null,
     badge: p.badge,
     bought_past_month: p.boughtPastMonth,
     seller: p.seller,
@@ -391,6 +408,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     maxPerCustomer: r.max_per_customer ?? null,
     // absent before the sizes migration
     sizes: r.sizes ?? null,
+    // absent before the unit price migration
+    unit: r.unit_qty != null && isUnitKind(r.unit_kind) ? { qty: Number(r.unit_qty), kind: r.unit_kind } : null,
     badge: r.badge,
     boughtPastMonth: r.bought_past_month,
     seller: r.seller,

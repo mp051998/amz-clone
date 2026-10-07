@@ -17,6 +17,7 @@ import { DataError } from '@/lib/data/errors';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { parseDetailLines } from '@/lib/product-details';
+import { parseUnitSize } from '@/lib/unit-price';
 import { adminClient } from './guard';
 
 /** What the product form needs back: field errors, a form-level message, and the values to keep. */
@@ -25,7 +26,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 /** Field errors the data layer can raise after validation. */
 const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
@@ -57,6 +58,9 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   const maxPerCustomer = !limitText ? null : /^\d+$/.test(limitText) ? Number(limitText) : NaN;
   // "S, M, L": blank for a product that doesn't come in sizes
   const sizeList = values.sizes.split(',').map((s) => s.trim()).filter(Boolean);
+  // "3 fl oz": blank for a product that isn't sold by measure
+  const unitText = values.unit.trim();
+  const unit = unitText ? parseUnitSize(unitText) : null;
   const details = parseDetailLines(values.details);
   const input = {
     title: values.title,
@@ -70,6 +74,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     couponPct,
     maxPerCustomer,
     sizes: sizeList.length ? sizeList : null,
+    unit,
     badge: values.badge,
     boughtPastMonth: values.boughtPastMonth,
     seller: values.seller,
@@ -92,6 +97,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   if (Number.isNaN(stock)) errors.stock = 'Enter a whole number';
   if (Number.isNaN(couponPct)) errors.couponPct = 'Enter a whole percent like 15, or leave it blank';
   if (Number.isNaN(maxPerCustomer)) errors.maxPerCustomer = 'Enter a whole number like 3, or leave it blank';
+  if (unitText && !unit) errors.unit = 'Enter how much it holds, like 3 fl oz, 150 ml or 30 count, or leave it blank';
   if (details.error) errors.details = details.error;
   if (kept.length + galleryUploads.length > GALLERY_MAX) errors.gallery = `Up to ${GALLERY_MAX} more images; remove ${kept.length + galleryUploads.length - GALLERY_MAX}`;
   const badFile = galleryUploads.map(imageFileError).find(Boolean);

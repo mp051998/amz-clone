@@ -40,6 +40,7 @@ const product = (category: string): ProductInput => ({
   couponPct: null,
   maxPerCustomer: null,
   sizes: null,
+  unit: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Test Seller',
