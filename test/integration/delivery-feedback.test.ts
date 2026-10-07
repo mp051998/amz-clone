@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deliveryFeedbackFor, leaveDeliveryFeedback, removeDeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { DataError, unwrap } from '@/lib/data/errors';
 import { placeOrder } from '@/lib/data/orders';
-import { admin, deleteUser, deliveredDaysAgo, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
+import { admin, deleteUser, deliveredDaysAgo, newUser, IN_SHIPPING, pickProduct, type TestUser } from './helpers';
 
 let shopper: TestUser;
 let other: TestUser;
@@ -24,9 +24,9 @@ beforeAll(async () => {
   boss = await newUser('Delivery Admin');
   const { error } = await admin().from('admins').insert({ user_id: boss.id });
   if (error) throw error;
-  // US offset 121 is this file's
-  const { id } = await pickProduct('US', 121);
-  orderId = (await placeOrder(shopper.db, 'US', { paymentMethod: 'giftcard', shipping: US_SHIPPING, buyNow: { productId: id, qty: 1 } })).id;
+  // IN offset 103 is this file's
+  const { id } = await pickProduct('IN', 103);
+  orderId = (await placeOrder(shopper.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: id, qty: 1 } })).id;
 });
 
 afterAll(async () => {
