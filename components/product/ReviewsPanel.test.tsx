@@ -362,3 +362,56 @@ it('leaves names as plain text without a profile path', () => {
   expect(screen.queryByRole('link', { name: 'Priya S’s profile' })).toBeNull();
   expect(screen.getByText('Priya S')).toBeInTheDocument();
 });
+
+it('asks how clothing fits, sending the answer (or null once cleared) with the review', async () => {
+  render(<ReviewsPanel {...props({ askFit: true })} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Write a review' }));
+  const group = screen.getByRole('group', { name: /How does it fit\?/ });
+  expect(group).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('radio', { name: 'Runs small' }));
+  expect(screen.getByRole('radio', { name: 'Runs small' })).toBeChecked();
+  fireEvent.click(screen.getByRole('radio', { name: '4 stars' }));
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'Snug' } });
+  fireEvent.change(screen.getByLabelText('Your review'), { target: { value: 'Order a size up.' } });
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit review' })));
+  expect(loads.submitted).toEqual([['p1', expect.objectContaining({ rating: 4, fit: 'small' })]]);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Write a review' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  expect(screen.getByRole('radio', { name: 'Runs small' })).not.toBeChecked();
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit review' })));
+  expect(loads.submitted[1]).toEqual(['p1', expect.objectContaining({ fit: null })]);
+});
+
+it('doesn’t ask how it fits on other products, or send a fit', async () => {
+  render(<ReviewsPanel {...props({ mine: review('m', 5, 'Mine', { mine: true }) as never })} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit your review' }));
+  expect(screen.queryByRole('group', { name: /How does it fit\?/ })).not.toBeInTheDocument();
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Update review' })));
+  expect(loads.submitted[0][1]).not.toHaveProperty('fit');
+});
+
+it('shows how its reviews say it fits, and each reviewer’s answer', () => {
+  render(
+    <ReviewsPanel
+      {...props({
+        askFit: true,
+        initial: [review('r1', 4, 'Snug', { fit: 'small' }), review('r2', 5, 'Spot on')] as never,
+        total: 2,
+        fit: { counts: { small: 1, true_to_size: 6, large: 1 }, total: 8, verdict: 'true_to_size', pct: { small: 13, true_to_size: 75, large: 13 } },
+      })}
+    />,
+  );
+  expect(screen.getByText('Fit: True to size')).toBeInTheDocument();
+  expect(screen.getByText(/75% of 8 shoppers who said/)).toBeInTheDocument();
+  const bars = screen.getByRole('list', { name: 'How it fits' });
+  expect([...bars.querySelectorAll('li')].map((li) => li.getAttribute('aria-label'))).toEqual(['Runs small: 13%', 'True to size: 75%', 'Runs large: 13%']);
+  const [snug, spot] = screen.getAllByRole('article');
+  expect(snug).toHaveTextContent('Fit: Runs small');
+  expect(spot).not.toHaveTextContent('Fit:');
+});
+
+it('has no fit summary until enough shoppers have said', () => {
+  render(<ReviewsPanel {...props({ askFit: true })} />);
+  expect(screen.queryByRole('list', { name: 'How it fits' })).not.toBeInTheDocument();
+});
