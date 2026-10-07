@@ -136,6 +136,24 @@ it('a gift order shows its note', async () => {
   expect(screen.getByText('Gift', { selector: 'dt' }).nextElementSibling).toHaveTextContent('Yes, no message');
 });
 
+it('links a gift receipt for the order, and for each item of a several-item order', async () => {
+  await show();
+  expect(screen.getByRole('link', { name: 'Gift receipt' })).toHaveAttribute('href', '/orders/ORD-9/gift-receipt');
+  expect(screen.getByRole('link', { name: 'Gift receipt for Kettle' })).toHaveAttribute('href', '/orders/ORD-9/gift-receipt?item=k%201');
+  expect(screen.getByRole('link', { name: 'Gift receipt for Mug' })).toHaveAttribute('href', '/orders/ORD-9/gift-receipt?item=m');
+  cleanup();
+  state.order = order({ items: [order().items[0]] });
+  await show();
+  expect(screen.getByRole('link', { name: 'Gift receipt' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /^Gift receipt for/ })).toBeNull();
+  for (const status of ['awaiting_payment', 'cancelled'] as const) {
+    cleanup();
+    state.order = order({ status, placedAt: status === 'cancelled' ? '2026-09-01T10:00:00Z' : undefined });
+    await show();
+    expect(screen.queryByRole('link', { name: /^Gift receipt/ })).toBeNull();
+  }
+});
+
 it('no gift row for an ordinary order', async () => {
   await show();
   expect(screen.queryByText('Gift', { selector: 'dt' })).toBeNull();

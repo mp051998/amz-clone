@@ -155,6 +155,11 @@ export default async function OrderPage({
                 {order.status === 'cancelled' ? 'Order summary' : 'Invoice'}
               </a>
             )}
+            {order.status === 'placed' ? (
+              <a href={sp(`/orders/${encodeURIComponent(order.id)}/gift-receipt`)} className="text-[14px] text-ink underline underline-offset-2">
+                Gift receipt
+              </a>
+            ) : null}
             {order.status === 'awaiting_payment' ? null : (
               <form action={archiveMyOrder.bind(null, order.id, !order.archivedAt)}>
                 <button type="submit" className="border-0 bg-transparent p-0 text-[14px] text-ink underline underline-offset-2">
@@ -354,6 +359,15 @@ export default async function OrderPage({
                       Write a product review
                     </a>
                   )
+                ) : null}
+                {order.status === 'placed' && order.items.length > 1 ? (
+                  <a
+                    href={sp(`/orders/${encodeURIComponent(order.id)}/gift-receipt?item=${encodeURIComponent(it.productId)}`)}
+                    className="self-start text-[13px] text-ink underline underline-offset-2"
+                    aria-label={`Gift receipt for ${it.title}`}
+                  >
+                    Gift receipt for this item
+                  </a>
                 ) : null}
               </div>
               <div className="flex flex-none flex-col items-end gap-1.5">
