@@ -109,6 +109,7 @@ export function GET(): Response {
       'POST   /ai/profile',
       'POST   /ai/compare',
       'GET    /admin/overview',
+      'GET    /admin/sales?days=',
       'GET    /admin/products?status=&q=&category=&stock=&page=',
       'POST   /admin/products',
       'GET    /admin/products/:id',

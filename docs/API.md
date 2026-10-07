@@ -353,6 +353,7 @@ Catalog and order management for store admins. You must be signed in **and** lis
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | GET | `/admin/overview` | | `{overview: {orders: {toShip, inTransit, refundIssues}, returns: {open, refundIssues}, reportedReviews, unansweredQuestions, productReports, support: {waiting, oldestWaiting}, stock: {out, low}}}`: what needs doing in this store, each count the same as its own queue's tab. `support.oldestWaiting` is when the longest-waiting case last changed (`null` if none wait); `stock.low` counts products on sale with 1–5 left. The web app shows it at `/admin` |
+| GET | `/admin/sales?days=30` | | `{sales: {days, from, to, timeZone, totals: {orders, units, salesMinor, cancelledOrders, returns, unitsReturned, refundedMinor}, byDay: [{day, orders, units, salesMinor}], top: [{productId, title, image, orders, units, salesMinor}]}}`: how the store sold over its last `days` days (1–365, default 30; `422 invalid_input` otherwise), as Amazon's Business Reports show it. Days are the store's own calendar days in its time zone; `from` and `to` are the first and last (`YYYY-MM-DD`), and `byDay` has every day between, oldest first. Orders count from when they were placed. `salesMinor` is what the items sold for after coupons, before tax and delivery. Orders cancelled since don't count, nor do items cancelled from an order; `cancelledOrders` counts orders placed in those days and cancelled since. `returns` and `unitsReturned` are returns received in those days, and `refundedMinor` what was refunded for them. `top` is up to 10 products, most units first. The web app shows it at `/admin/sales` |
 
 ### Products
 
@@ -568,6 +569,10 @@ Thirty-one migrations live in `supabase/migrations/`:
 | product reports | `product_reports`: shoppers' reports on a product (reason, optional details), theirs to read (admins all). `report_product()` files one, or rewrites the caller's open one on that product, up to 20 open per shopper; `resolve_product_report()` (admins) resolves or dismisses an open one with an optional note |
 | search in stock | `search_catalog(p_in_stock)` leaves out products with none left (the storefront and `/products` pass it unless `oos=1`) and returns `unavailable`, the matches with no option in stock, each variant group once |
 | frequently returned | `product_return_signal()` (anyone) says whether a product is frequently returned and its usual product-side reason; counts never leave the database |
+| cancel items | `order_cancellations` and `order_cancelled_items` (owner read only): items cancelled from an order before it shipped, with their refund; `cancel_my_items()` cancels some lines (all of them cancels the order) and `record_cancellation_refund()` (service role) records the Stripe refund |
+| most wished for | `most_wished_for()` (anyone): product ids most shoppers saved to a list in the last 30 days, never whose lists (`/most-wished-for`, `/charts/most-wished-for`) |
+| gift ideas | `gift_ideas()` (anyone): product ids most shoppers gave in the last 30 days, by gift order or off a shared list, never whose (`/gift-ideas`, `/charts/gift-ideas`) |
+| admin sales | `admin_sales()` (admins): a store's orders, units and sales by day over its last N days, cancelled orders, returns and the best sellers (`/admin/sales`) |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
