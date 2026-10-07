@@ -157,6 +157,22 @@ export async function listProducts(db: Db, market: Market, opts: ListOptions = {
   return opts.limit ? folded.slice(0, opts.limit) : folded;
 }
 
+/**
+ * "Most Wished For": what shoppers added to their lists most in the last 30 days (each shopper
+ * counted once), then the bestsellers to fill the page. Whose lists stay private; the database
+ * hands out only the ranking.
+ */
+export async function mostWishedFor(db: Db, market: Market, opts: { category?: string; limit?: number } = {}): Promise<Product[]> {
+  const limit = opts.limit ?? 40;
+  const res = await db.rpc('most_wished_for', { p_market: market, p_limit: limit, ...(opts.category ? { p_category: opts.category } : {}) });
+  // PGRST202: the ranking isn't deployed yet; the bestsellers stand in
+  const wished = foldVariants(res.error?.code === 'PGRST202' ? [] : await getProducts(db, unwrap(res) ?? []));
+  if (wished.length >= limit) return wished.slice(0, limit);
+  // a variant group shows once, at its best-placed option
+  const rest = await listProducts(db, market, { category: opts.category, order: 'popular', limit: limit * 2 });
+  return foldVariants([...wished, ...rest]).slice(0, limit);
+}
+
 /** Variant groups of a store as listing cards show them, options in label order. */
 export async function variantSummaries(db: Db, market: Market, groups: readonly string[]): Promise<Map<string, VariantSummary>> {
   const out = new Map<string, VariantSummary>();

@@ -916,6 +916,9 @@ isOneToOne: false
 "mark_sold_out":
 { Args: { "p_order_id": string }; Returns: undefined
                            },
+"most_wished_for":
+{ Args: { "p_category"?: string,"p_limit"?: number,"p_market": string }; Returns: (string)[]
+                           },
 "move_category":
 { Args: { "p_market": string,"p_offset": number,"p_slug": string }; Returns: undefined
                            },

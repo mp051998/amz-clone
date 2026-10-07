@@ -46,6 +46,7 @@ const FOOTER_COLUMNS: { heading: string; links: { label: string; path?: string; 
     { label: 'Coupons', path: '/coupons' },
     { label: 'New & trending', path: '/new-releases' },
     { label: 'Bestsellers', path: '/bestsellers' },
+    { label: 'Most wished for', path: '/most-wished-for' },
     { label: 'Gift cards', path: '/gift-cards' },
   ] },
   { heading: 'Your things', links: [
