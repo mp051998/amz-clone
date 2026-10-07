@@ -87,7 +87,7 @@ export async function loadMoreReviews(
       offset,
       limit,
       sort: reviews.readReviewSort(sort),
-      filter: reviews.readReviewFilter(filter?.stars, filter?.verified, filter?.photos),
+      filter: reviews.readReviewFilter(filter?.stars, filter?.verified, filter?.photos, filter?.q),
     });
     return { items: page.items, total: page.total };
   });

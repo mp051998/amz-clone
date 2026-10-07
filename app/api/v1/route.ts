@@ -46,7 +46,7 @@ export function GET(): Response {
       'GET    /products/:id',
       'GET    /products/:id/bought-together',
       'GET    /products/:id/insights?summarize=',
-      'GET    /products/:id/reviews?limit=&offset=&sort=&stars=&verified=&photos=',
+      'GET    /products/:id/reviews?limit=&offset=&sort=&stars=&verified=&photos=&q=',
       'POST   /products/:id/reviews',
       'DELETE /reviews/:id',
       'POST   /reviews/:id/helpful',

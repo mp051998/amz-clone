@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Review } from '@/lib/types';
-import { applyFilters, buildFilters, chipCount, facetCount, reviewThemes, serverLabels, starsLabel, themeWords, toggleStars } from './reviewFilters';
+import { applyFilters, buildFilters, chipCount, facetCount, highlightParts, reviewThemes, serverLabels, starsLabel, themeWords, toggleStars } from './reviewFilters';
 
 const r = (id: string, rating: number, body: string, verified = true): Review => ({
   id, author: 'A', initial: 'A', rating, title: '', body, createdAt: '2026-09-01T00:00:00Z',
@@ -40,6 +40,7 @@ describe('review filters', () => {
     expect(serverLabels({ stars: 'critical', verified: true })).toEqual(['Critical', 'Verified purchase']);
     expect(serverLabels({ verified: true, photos: true })).toEqual(['Verified purchase', 'With photos']);
     expect(serverLabels({})).toEqual([]);
+    expect(serverLabels({ q: 'too loud', stars: 5 })).toEqual(['“too loud”', '5 star']);
     expect(toggleStars({ verified: true }, 5)).toEqual({ verified: true, stars: 5 });
     expect(toggleStars({ stars: 5, verified: true }, 'critical')).toEqual({ verified: true, stars: 'critical' });
     expect(toggleStars({ stars: 5, verified: true }, 5)).toEqual({ verified: true });
@@ -61,4 +62,16 @@ describe('review filters', () => {
   it('tags reviews with the themes they mention', () => {
     expect(reviewThemes(reviews[1], ['Value for money', 'Comfort'])).toEqual(['Value for money']);
   });
+});
+
+it('splits text into the parts a search matched', () => {
+  expect(highlightParts('Battery life is great, battery!', 'BATTERY')).toEqual([
+    { text: 'Battery', hit: true },
+    { text: ' life is great, ', hit: false },
+    { text: 'battery', hit: true },
+    { text: '!', hit: false },
+  ]);
+  expect(highlightParts('No match', 'zzz')).toEqual([{ text: 'No match', hit: false }]);
+  expect(highlightParts('Plain', undefined)).toEqual([{ text: 'Plain', hit: false }]);
+  expect(highlightParts('', 'x')).toEqual([{ text: '', hit: false }]);
 });

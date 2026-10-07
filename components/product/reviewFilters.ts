@@ -58,7 +58,12 @@ export function starsLabel(stars: ReviewStars): string {
 
 /** The labels of the database filters that are on, in chip order. */
 export function serverLabels(f: ServerFilter): string[] {
-  return [...(f.stars ? [starsLabel(f.stars)] : []), ...(f.verified ? ['Verified purchase'] : []), ...(f.photos ? ['With photos'] : [])];
+  return [
+    ...(f.q ? [`“${f.q}”`] : []),
+    ...(f.stars ? [starsLabel(f.stars)] : []),
+    ...(f.verified ? ['Verified purchase'] : []),
+    ...(f.photos ? ['With photos'] : []),
+  ];
 }
 
 /** Picking a star chip again turns it off; another star replaces it. */
@@ -98,4 +103,20 @@ export function chipCount(reviews: Review[], filters: ReviewFilter[], active: st
 /** Themes a review mentions (for its tag row). */
 export function reviewThemes(r: Review, themes: string[], max = 2): string[] {
   return themes.filter((t) => mentions(r, themeWords(t))).slice(0, max);
+}
+
+/** `text` split into plain and matching parts (case-insensitive), to bold what a search found. */
+export function highlightParts(text: string, q: string | undefined): { text: string; hit: boolean }[] {
+  if (!q) return [{ text, hit: false }];
+  const parts: { text: string; hit: boolean }[] = [];
+  const lower = text.toLowerCase();
+  const needle = q.toLowerCase();
+  let at = 0;
+  for (let i = lower.indexOf(needle); i !== -1; i = lower.indexOf(needle, at)) {
+    if (i > at) parts.push({ text: text.slice(at, i), hit: false });
+    parts.push({ text: text.slice(i, i + needle.length), hit: true });
+    at = i + needle.length;
+  }
+  if (at < text.length) parts.push({ text: text.slice(at), hit: false });
+  return parts.length ? parts : [{ text, hit: false }];
 }

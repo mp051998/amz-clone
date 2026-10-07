@@ -1,8 +1,10 @@
 import type { Db } from '../db/client';
 import type { Market, Product, Review } from '../types';
 import { REVIEW_PHOTO_MAX, reviewPhoto } from '../review-photos';
+import { readReviewSearch } from '../review-search';
 import { getProducts } from './catalog';
 import { DataError, unwrap } from './errors';
+import { containsPattern } from './questions';
 import { removeReviewPhotos } from './review-photos';
 
 export const REVIEW_REPORT_REASONS = ['spam', 'offensive', 'off_topic', 'other'] as const;
@@ -60,12 +62,14 @@ export interface ReviewFilter {
   stars?: ReviewStars;
   verified?: boolean;
   photos?: boolean;
+  /** words the headline or review contains (2–100 characters) */
+  q?: string;
 }
 
 const on = (v: unknown) => v === true || v === '1' || v === 'true';
 
-/** `?stars=` (1–5, positive, critical), `?verified=` and `?photos=` (1 / true) into a filter; anything else is ignored. */
-export function readReviewFilter(stars: unknown, verified: unknown, photos?: unknown): ReviewFilter {
+/** `?stars=` (1–5, positive, critical), `?verified=` and `?photos=` (1 / true) and `?q=` into a filter; anything else is ignored. */
+export function readReviewFilter(stars: unknown, verified: unknown, photos?: unknown, q?: unknown): ReviewFilter {
   const out: ReviewFilter = {};
   const s = typeof stars === 'string' ? stars.trim().toLowerCase() : stars;
   if (s === 'positive' || s === 'critical') out.stars = s;
@@ -75,6 +79,8 @@ export function readReviewFilter(stars: unknown, verified: unknown, photos?: unk
   }
   if (on(verified)) out.verified = true;
   if (on(photos)) out.photos = true;
+  const search = readReviewSearch(q);
+  if (search) out.q = search;
   return out;
 }
 
@@ -82,9 +88,13 @@ const starRange = (stars: ReviewStars): [number, number] =>
   stars === 'positive' ? [4, 5] : stars === 'critical' ? [1, 3] : [stars, stars];
 
 /** Whether a review passes a filter. */
-export function matchesReviewFilter(r: { rating: number; verified: boolean; photos?: unknown[] }, f: ReviewFilter): boolean {
+export function matchesReviewFilter(
+  r: { rating: number; verified: boolean; photos?: unknown[]; title?: string; body?: string },
+  f: ReviewFilter,
+): boolean {
   if (f.verified && !r.verified) return false;
   if (f.photos && !r.photos?.length) return false;
+  if (f.q && !`${r.title ?? ''}\n${r.body ?? ''}`.toLowerCase().includes(f.q.toLowerCase())) return false;
   if (!f.stars) return true;
   const [lo, hi] = starRange(f.stars);
   return r.rating >= lo && r.rating <= hi;
@@ -160,6 +170,10 @@ export async function listReviews(
     }
     if (filter.verified) visible = visible.eq('verified', true);
     if (filter.photos && moderated) visible = visible.filter('photos', 'neq', '{}');
+    if (filter.q) {
+      const like = JSON.stringify(containsPattern(filter.q));
+      visible = visible.or(`title.ilike.${like},body.ilike.${like}`);
+    }
     const ordered = opts.sort === 'recent' ? visible : visible.order('helpful_count', { ascending: false });
     return ordered
       .order('created_at', { ascending: false })
