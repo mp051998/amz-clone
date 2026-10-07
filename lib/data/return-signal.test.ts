@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { frequentlyReturned } from './return-signal';
+import { frequentlyReturned, returnSignal } from './return-signal';
 
 const fake = (res: { data?: unknown; error?: { code: string; message: string } | null }) => {
   const calls: unknown[][] = [];
@@ -22,4 +22,12 @@ it('null when not frequent; a reason that isn’t about the product is dropped',
 it('null before the migration, other errors throw', async () => {
   expect(await frequentlyReturned(fake({ error: { code: 'PGRST202', message: 'not found' } }).db, 'p1')).toBeNull();
   await expect(frequentlyReturned(fake({ error: { code: 'XX000', message: 'boom' } }).db, 'p1')).rejects.toThrow();
+});
+
+it('says when customers usually keep it, never alongside frequently returned', async () => {
+  expect(await returnSignal(fake({ data: { frequent: false, kept: true, reason: null } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: true });
+  expect(await returnSignal(fake({ data: { frequent: true, kept: true, reason: 'damaged' } }).db, 'p1')).toEqual({ frequent: { reason: 'damaged' }, usuallyKept: false });
+  // before this migration the flag isn't there
+  expect(await returnSignal(fake({ data: { frequent: false, reason: null } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: false });
+  expect(await returnSignal(fake({ error: { code: 'PGRST202', message: 'not found' } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: false });
 });
