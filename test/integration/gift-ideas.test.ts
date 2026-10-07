@@ -82,7 +82,7 @@ describe('gift ideas', () => {
       expect(r.status).toBe(200);
       expect(((await r.json()) as { items: unknown[] }).items).toHaveLength(3);
     }
-    expect((await call('movers-and-shakers')).status).toBe(404);
+    expect((await call('hot-new-things')).status).toBe(404);
     expect((await call('bestsellers', '&dept=no-such-department')).status).toBe(404);
     expect((await call('bestsellers', '&limit=0')).status).toBe(422);
   });
