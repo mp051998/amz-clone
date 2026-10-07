@@ -42,7 +42,7 @@ function Rating({ p }: { p: Product }) {
 }
 
 /** Continue shopping: horizontally scrolling recently-viewed cards. */
-export function ContinueRow({ products, store, kicker = 'Viewed recently' }: { products: Product[]; store: Store; /** the small line over each title */ kicker?: string }) {
+export function ContinueRow({ products, store, kicker = 'Viewed recently' }: { products: Product[]; store: Store; /** the small line over each title, or how to word it for each product */ kicker?: string | ((p: Product) => string) }) {
   return (
     <ul className="no-scrollbar relative m-0 flex list-none gap-3.5 overflow-x-auto p-0 pb-1.5">
       {products.map((p) => (
@@ -52,7 +52,7 @@ export function ContinueRow({ products, store, kicker = 'Viewed recently' }: { p
             className="flex h-full flex-col gap-2.5 rounded-card border border-line bg-surface p-3 text-ink no-underline transition-colors hover:border-ink hover:text-ink"
           >
             <ProductFrame src={p.image} alt="" />
-            <span className="font-mono text-[12px] text-ink-3">{kicker}</span>
+            <span className="font-mono text-[12px] text-ink-3">{typeof kicker === 'function' ? kicker(p) : kicker}</span>
             <span className="line-clamp-2 text-[16px] font-semibold leading-tight">{p.title}</span>
             <span className="mt-auto flex items-center justify-between text-[14px]">
               <strong className="text-[16px] tabular-nums">{money(p, store)}</strong>

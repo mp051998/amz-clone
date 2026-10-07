@@ -56,6 +56,12 @@ it('continue shopping renders one card per recently viewed product', () => {
   expect(screen.getAllByText('Viewed recently')).toHaveLength(2);
 });
 
+it('the continue row can word its small line for each product', () => {
+  render(<ContinueRow products={[product({ brand: 'Sony' }), product({ id: 'p2', brand: 'Bose' })]} store={amazon} kicker={(p) => p.brand ?? ''} />);
+  expect(screen.getByText('Sony')).toBeInTheDocument();
+  expect(screen.getByText('Bose')).toBeInTheDocument();
+});
+
 it('the continue row is a positioned scroller, so its screen-reader text can’t widen the page on a phone', () => {
   // `sr-only` text is absolutely positioned: without a positioned scroller it escapes the row's
   // overflow clip and stretches the page sideways once a few cards are in it

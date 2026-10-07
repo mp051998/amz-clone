@@ -57,6 +57,8 @@ import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/
 import { myOpenReport } from '@/lib/data/product-reports';
 import type { Product } from '@/lib/types';
 import { protectionOffer } from '@/lib/data/cart';
+import { alsoViewed } from '@/lib/data/also-viewed';
+import { ContinueRow } from '@/components/home/HomeSections';
 import { protectionPlanName } from '@/lib/protection';
 import { emiPlans } from '@/lib/emi';
 import { EmiOffer } from '@/components/product/EmiOffer';
@@ -148,7 +150,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -168,6 +170,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve(null) : protectionOffer(client, p.id).catch(() => null),
     p.archived ? Promise.resolve([]) : activePromoCodes(client, store.id),
     user && p.maxPerCustomer ? purchaseAllowance(client, store.id, [p.id]) : Promise.resolve(new Map()),
+    p.archived ? Promise.resolve([]) : alsoViewed(client, p).catch(() => []),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -440,6 +443,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <section aria-labelledby="alts-h" className="flex flex-col gap-3.5">
             <h2 id="alts-h" className="m-0 text-[22px] font-semibold">{p.archived ? 'Similar items on sale' : 'Often compared with'}</h2>
             <Alternatives base={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} items={altCards} />
+          </section>
+        ) : null}
+
+        {alsoSeen.length ? (
+          <section aria-labelledby="also-viewed-h" className="flex flex-col gap-3.5">
+            <h2 id="also-viewed-h" className="m-0 text-[22px] font-semibold">Customers who viewed this item also viewed</h2>
+            <ContinueRow products={alsoSeen} store={store} kicker={(x) => x.brand ?? x.categoryName} />
           </section>
         ) : null}
 

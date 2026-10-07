@@ -852,6 +852,12 @@ isOneToOne: false
             "attach_checkout_session":
 { Args: { "p_order_id": string,"p_session_id": string }; Returns: undefined
                            },
+"also_viewed":
+{ Args: { "p_limit"?: number,"p_product_id": string }; Returns: Json
+                           },
+"record_product_view":
+{ Args: { "p_product_id": string,"p_recent": string[] }; Returns: undefined
+                           },
 "bought_together":
 { Args: { "p_limit"?: number,"p_product_id": string }; Returns: Json
                            },
