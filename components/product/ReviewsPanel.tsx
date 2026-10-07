@@ -28,6 +28,8 @@ export interface ReviewsPanelProps {
   signedIn: boolean;
   defaultName: string;
   signinHref: string;
+  /** reviewer profiles live at this path + their id (`/profile/`, `/in/profile/`); names aren't links without it */
+  profileBase?: string;
   /** store locale for numbers and dates ("en-US" / "en-IN") */
   locale: string;
   timeZone: string;
@@ -95,7 +97,7 @@ function scrollToId(id: string) {
  * (so they cover every review, with exact counts); theme chips narrow the loaded reviews. Every
  * write (review, helpful, report, delete) goes through the server actions in app/actions/review.ts.
  */
-export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, locale, timeZone, insight, aiPending, customerImages = [] }: ReviewsPanelProps) {
+export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, insight, aiPending, customerImages = [] }: ReviewsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
@@ -456,7 +458,11 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
               <article key={r.id} className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span role="img" aria-label={`${r.rating} out of 5 stars`} className="tracking-[1px] text-star">{starLine(r.rating)}</span>
-                  <span className="text-[12px] text-ink-3">{r.author}</span>
+                  {profileBase && r.authorId ? (
+                    <a href={`${profileBase}${encodeURIComponent(r.authorId)}`} className="text-[12px] text-ink-3 underline-offset-2 hover:text-ink hover:underline" aria-label={`${r.author}’s profile`}>{r.author}</a>
+                  ) : (
+                    <span className="text-[12px] text-ink-3">{r.author}</span>
+                  )}
                 </div>
                 {(r.verified || r.mine || themes.length) ? (
                   <div className="flex flex-wrap gap-1.5">

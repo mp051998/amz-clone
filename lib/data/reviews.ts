@@ -28,6 +28,7 @@ function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, r
   return {
     id: row.id,
     author: row.author_name,
+    ...(row.user_id ? { authorId: row.user_id } : {}),
     initial: row.author_name.trim().charAt(0).toUpperCase() || '?',
     rating: row.rating,
     title: row.title,
@@ -380,4 +381,61 @@ export async function reviewedProductIds(db: Db, userId: string, productIds: str
   if (!productIds.length) return new Set();
   const rows = unwrap(await db.from('reviews').select('product_id').eq('user_id', userId).in('product_id', productIds));
   return new Set(rows.map((r) => r.product_id));
+}
+
+/** How many of a reviewer's reviews a profile reads (newest first). */
+export const PROFILE_REVIEW_MAX = 200;
+export const PROFILE_PAGE_SIZE = 10;
+
+export interface ReviewerProfile {
+  /** the name on their newest review */
+  name: string;
+  initial: string;
+  /** reviews shoppers can see, in this store */
+  total: number;
+  /** "helpful" votes over those reviews */
+  helpful: number;
+  page: number;
+  pageCount: number;
+  reviews: MyReview[];
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A reviewer's public profile, as Amazon's: the reviews they've written in this store that
+ * shoppers can see (never hidden ones, even to the reviewer), newest first, and the helpful votes
+ * they've had. null when there are none, so a profile says nothing about an account that hasn't
+ * reviewed anything.
+ */
+export async function reviewerProfile(db: Db, market: Market, userId: string, page = 1): Promise<ReviewerProfile | null> {
+  if (!UUID.test(userId)) return null;
+  const rows = unwrap(
+    await db
+      .from('reviews')
+      .select(`${REVIEW_COLS}, product_id, products!inner(market_id)`)
+      .eq('user_id', userId)
+      .eq('products.market_id', market)
+      .is('hidden_at', null)
+      .order('created_at', { ascending: false })
+      .limit(PROFILE_REVIEW_MAX),
+  ) as unknown as (ReviewRow & { product_id: string })[];
+  if (!rows.length) return null;
+  const pageCount = Math.max(1, Math.ceil(rows.length / PROFILE_PAGE_SIZE));
+  const at = Math.min(pageCount, Math.max(1, Math.floor(page) || 1));
+  const shown = rows.slice((at - 1) * PROFILE_PAGE_SIZE, at * PROFILE_PAGE_SIZE);
+  const byId = new Map((await getProducts(db, shown.map((r) => r.product_id), { includeArchived: true })).map((p) => [p.id, p]));
+  const name = rows[0].author_name;
+  return {
+    name,
+    initial: name.trim().charAt(0).toUpperCase() || '?',
+    total: rows.length,
+    helpful: rows.reduce((n, r) => n + r.helpful_count, 0),
+    page: at,
+    pageCount,
+    reviews: shown.flatMap((r) => {
+      const product = byId.get(r.product_id);
+      return product ? [{ review: toReview(r, null, new Set(), new Set()), product }] : [];
+    }),
+  };
 }

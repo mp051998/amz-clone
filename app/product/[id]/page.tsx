@@ -403,6 +403,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           signedIn={Boolean(user)}
           defaultName={user?.name ?? ''}
           signinHref={storePath(store, `/signin?next=${encodeURIComponent(`${here}#reviews`)}`)}
+          profileBase={storePath(store, '/profile/')}
           locale={store.locale.default}
           timeZone={store.dates.timeZone}
           insight={insight ? { summary: insight.summary, praised: insight.praised, criticized: insight.criticized, source: insight.source } : null}

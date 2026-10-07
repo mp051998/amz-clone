@@ -205,6 +205,8 @@ export interface Address {
 export interface Review {
   id: string;
   author: string;
+  /** the reviewer's account, for their public profile (/profile/:id); absent once the account is closed */
+  authorId?: string;
   initial: string;
   rating: number;
   title: string;

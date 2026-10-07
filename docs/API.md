@@ -94,6 +94,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | POST 🔒 | `/products/:id/coupon` | Apply the product's coupon for the caller. Idempotent. Returns `{coupon: {percentOff, clipped: true}}`, or `404 coupon_not_found` when the product has no coupon or is archived. |
 | DELETE 🔒 | `/products/:id/coupon` | `204`. Stop applying it. |
 | GET | `/sellers?name=` | `{seller: {seller, periods: [{period: 30d\|90d\|12m\|all, ratings, positive, neutral, negative}], stars: {1..5: count}, recent: [{rating, arrivedOnTime, asDescribed, comment, createdAt}]}}`: a seller's page in this store, as the storefront shows it at `/seller?name=`. Positive is 4–5 stars, neutral 3, negative 1–2; `stars` covers the last 12 months and `recent` the 10 latest ratings with a comment, never who left them. `404 not_found` (`detail: "seller"`) when the seller has nothing listed and no ratings in this store; `422 invalid_input` without a name. |
+| GET | `/profiles/:id?page=` | `{profile: {name, initial, total, helpful, page, pageCount, reviews: [{review, product}]}}`. A reviewer's public profile in this store (`:id` is a review's `authorId`): the name on their newest review, how many reviews shoppers can see and the helpful votes on them, and those reviews newest first, 10 a page. Hidden reviews are never listed. 404 `not_found` when they have no visible reviews here. |
 | GET | `/products/:id/bought-together` | `{items: [{product, reason, source}]}`: up to 2 products to buy with this one for the product page's "Frequently bought together". `source: orders` items are bought together in placed orders by at least two shoppers; when there are fewer, `source: rules` accessories fill in. Empty for a sold-out or archived product. Returns `404 product_not_found` if the product doesn't exist in this store. |
 | GET | `/products/:id/insights?summarize=1` | `{insight, attributes: [{key, label, phrase}]}`. `insight` has `productId, scores: {<attributeKey>: 1..5}, pros[], cons[], bestFor, summary, praised: [{theme, count}], criticized: [{theme, count}], source: rules\|ai, updatedAt`. When no insight is stored, a rules estimate is returned. `summarize=1` refreshes the review summary with the AI provider (cached; ignored when AI is off). |
 
@@ -119,6 +120,7 @@ Postgres as that user, so RLS decides what each caller can see.
 
 `Review` has these fields:
 - Content: `id, author, initial, rating, title, body, createdAt`
+- `authorId`: the reviewer's account, for `GET /profiles/:id`. Absent once the account is closed.
 - Status: `verified, helpful`
 - Viewer state: `mine, votedHelpful, reported`
 - `photos: [{path, url}]`: up to 5, in the author's order. `url` is public.

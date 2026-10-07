@@ -44,6 +44,9 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your reviews</h1>
           <span className="text-[15px] text-ink-2">Things you’ve received that are waiting for a review, and the reviews you’ve written.</span>
+          {written.some(({ review }) => !review.hidden) ? (
+            <a href={sp(`/profile/${encodeURIComponent(user.id)}`)} className="self-start text-[14px] text-ink underline underline-offset-2">See your public profile</a>
+          ) : null}
         </div>
 
         {done === 'deleted' ? <Alert tone="success">Review deleted.</Alert> : null}
