@@ -184,6 +184,17 @@ it('counts as new what came in after the shopper last looked, and everything the
   expect(isNewMessage({ at: '2026-10-01T00:00:00Z' }, null)).toBe(true);
 });
 
+it('a return refunded to the balance says so', () => {
+  const o = order('D', '2026-10-01T00:00:00Z', schedule('2026-10-01T12:00:00Z', '2026-10-03T20:00:00Z', '2026-10-04T09:00:00Z'));
+  const returns = [
+    ret({ id: 'r1', receivedAt: '2026-10-05T10:00:00Z', refundStatus: 'succeeded', refundedAt: '2026-10-05T10:00:00Z', refundMinor: 1200, toBalance: true }),
+    ret({ id: 'r2', receivedAt: '2026-10-05T09:00:00Z', refundStatus: 'succeeded', refundedAt: '2026-10-05T09:30:00Z', refundMinor: 900 }),
+  ];
+  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW);
+  expect(inbox.find((m) => m.key === 'return_refunded:r1')).toMatchObject({ amountMinor: 1200, toBalance: true });
+  expect(inbox.find((m) => m.key === 'return_refunded:r2')).not.toHaveProperty('toBalance');
+});
+
 it('a missing package reported is news only once refunded, as a refund', () => {
   const o = order('D', '2026-10-01T00:00:00Z', schedule('2026-10-01T12:00:00Z', '2026-10-03T20:00:00Z', '2026-10-04T09:00:00Z'));
   const returns = [

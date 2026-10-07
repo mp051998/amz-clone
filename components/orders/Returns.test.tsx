@@ -24,7 +24,7 @@ const swap: OrderReturn = {
 };
 
 const card = (r: OrderReturn, now: string, cancel?: () => Promise<void>) =>
-  render(<ReturnCard r={r} currency="USD" method="card" label="Visa ending 4242" store={amazon} now={new Date(now)} cancel={cancel} />);
+  render(<ReturnCard r={r} currency="USD" market="US" method="card" label="Visa ending 4242" store={amazon} now={new Date(now)} cancel={cancel} />);
 
 it('a replacement on its way says when it arrives and where to drop the original, with no refund', () => {
   card(swap, '2026-10-07T18:00:00Z', async () => {});
@@ -74,4 +74,14 @@ it('a missing package sent again has nothing to drop off or refund', () => {
   card(resent, '2026-10-10T12:00:00Z');
   expect(screen.getByText('Replacement delivered')).toBeTruthy();
   expect(screen.getByText(/Your replacement was delivered on .+ There’s nothing to send back\./)).toBeTruthy();
+});
+
+it('a refund asked for on the balance says it went there, with no wait for the card', () => {
+  const refund: OrderReturn = { ...swap, resolution: 'refund', replacement: undefined, reason: 'better_price', itemsMinor: 2000, taxMinor: 160, refundMinor: 2160, refundToBalance: true };
+  card(refund, '2026-10-07T18:00:00Z');
+  expect(screen.getByText(/We’ll refund \$21\.60 to your gift card balance once it reaches us\./)).toBeTruthy();
+  cleanup();
+  card({ ...refund, status: 'received', receivedAt: '2026-10-09T00:00:00Z', refund: { status: 'succeeded', refundedAt: '2026-10-09T00:00:00Z' } }, '2026-10-09T12:00:00Z');
+  expect(screen.getByText(/\$21\.60 refunded to your gift card balance on/)).toBeTruthy();
+  expect(screen.queryByText(/Card refunds take/)).toBeNull();
 });

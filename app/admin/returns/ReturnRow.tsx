@@ -5,6 +5,7 @@ import { StatusChip } from '@/components/orders/Tracking';
 import { itemsText, REASON_LABEL, refundBreakdown, returnChip } from '@/components/orders/Returns';
 import { paymentText } from '@/components/orders/format';
 import { canRetryReturnRefund, type AdminReturn } from '@/lib/data/admin-returns';
+import { balanceMethod } from '@/lib/data/balance';
 import { STORE_FAULT_REASONS } from '@/lib/data/returns';
 import { formatMoney } from '@/lib/marketplaces';
 import { adminTime } from '../orders/labels';
@@ -29,7 +30,9 @@ export function ReturnRow({
   const money = (minor: number) => formatMoney(minor, r.order.currency);
   const refund = money(r.refundMinor);
   // where the money goes, in the admin's words (the shopper sees "your …")
-  const dest = r.order.paymentMethod === 'cod' ? 'Bank transfer (paid on delivery)' : paymentText(r.order.paymentMethod, r.order.paymentLabel) || 'Card';
+  const dest = r.refundToBalance
+    ? `${paymentText(balanceMethod(r.order.market), '')} (shopper’s choice)`
+    : r.order.paymentMethod === 'cod' ? 'Bank transfer (paid on delivery)' : paymentText(r.order.paymentMethod, r.order.paymentLabel) || 'Card';
   const fault = (STORE_FAULT_REASONS as readonly string[]).includes(r.reason);
   // rejected or cancelled: nothing was refunded
   const unpaid = r.status === 'rejected' || r.status === 'cancelled';

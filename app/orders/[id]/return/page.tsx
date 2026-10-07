@@ -9,6 +9,7 @@ import { longDate } from '@/components/orders/format';
 import { REASON_LABEL, refundTo } from '@/components/orders/Returns';
 import { startReturn } from '@/app/actions/returns';
 import { readUser } from '@/lib/auth';
+import { balanceMethod, isBalanceMethod } from '@/lib/data/balance';
 import { messageFor } from '@/lib/data/errors';
 import { getOrder } from '@/lib/data/orders';
 import { canStartReturn, getOrderReturns, RETURN_REASONS } from '@/lib/data/returns';
@@ -24,6 +25,7 @@ const FIELD_ERROR: Record<string, string> = {
   reason: 'Choose why you’re returning it.',
   comment: 'Keep the comment under 1,000 characters.',
   resolution: 'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described. Choose one of those reasons, or a refund.',
+  refundTo: 'Choose where the refund goes: back to how you paid, or your balance.',
 };
 
 /** /orders/:id/return: pick items and quantities, say why, start the return. */
@@ -50,6 +52,9 @@ export default async function ReturnPage({
   const open = canStartReturn(returns, now);
   const lines = order.items.filter((it) => (returns.returnable[it.productId] ?? 0) > 0);
   const replaceable = lines.filter((it) => (returns.replaceable[it.productId] ?? 0) > 0);
+  const original = refundTo(order.paymentMethod, order.paymentLabel);
+  // an order paid from the balance is refunded to it anyway
+  const balance = isBalanceMethod(order.paymentMethod) ? null : refundTo(balanceMethod(order.market), '');
   const errorText = error ? (error === 'invalid_input' && field && FIELD_ERROR[field]) || messageFor(error) || 'Something went wrong. Please try again.' : null;
 
   return (
@@ -78,7 +83,7 @@ export default async function ReturnPage({
         ) : (
           <form action={startReturn.bind(null, order.id)} className="flex flex-col gap-5">
             <p className="m-0 text-[15px] text-ink-2">
-              Eligible until {longDate(new Date(returns.returnBy!), store)}. Refunds go to {refundTo(order.paymentMethod, order.paymentLabel)} once the items reach us.
+              Eligible until {longDate(new Date(returns.returnBy!), store)}. Refunds go to {original}{balance ? `, or ${balance} if you’d rather,` : ''} once the items reach us.
             </p>
             {errorText ? <Alert tone="error">{errorText}</Alert> : null}
 
@@ -129,7 +134,7 @@ export default async function ReturnPage({
                   <input type="radio" name="resolution" value="refund" defaultChecked className="mt-0.5 size-4 flex-none accent-ink" />
                   <span>
                     <span className="font-semibold">A refund</span>
-                    <span className="block text-[13px] text-ink-3">To {refundTo(order.paymentMethod, order.paymentLabel)}, once the items reach us.</span>
+                    <span className="block text-[13px] text-ink-3">{balance ? 'Once the items reach us, to where you choose below.' : `To ${original}, once the items reach us.`}</span>
                   </span>
                 </label>
                 <label className="flex items-start gap-2.5 text-[14px]">
@@ -140,6 +145,28 @@ export default async function ReturnPage({
                       The same item again at no charge, sent right away. Only if it arrived damaged, doesn’t work, is the wrong item, has parts missing or isn’t as described
                       {replaceable.length < lines.length ? `; available for ${replaceable.map((it) => it.title).join(', ')}` : ''}.
                     </span>
+                  </span>
+                </label>
+              </fieldset>
+            ) : null}
+
+            {balance ? (
+              <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                <legend className="mb-1.5 p-0 text-[14px] font-semibold">Where should the refund go?</legend>
+                <label className="flex items-start gap-2.5 text-[14px]">
+                  <input type="radio" name="refundTo" value="original" defaultChecked className="mt-0.5 size-4 flex-none accent-ink" />
+                  <span>
+                    <span className="font-semibold">Back to how you paid</span>
+                    <span className="block text-[13px] text-ink-3">
+                      To {original}, once the items reach us.{order.paymentMethod === 'card' ? ' Card refunds take 5–10 business days to show up.' : ''}
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2.5 text-[14px]">
+                  <input type="radio" name="refundTo" value="balance" className="mt-0.5 size-4 flex-none accent-ink" />
+                  <span>
+                    <span className="font-semibold">To {balance}</span>
+                    <span className="block text-[13px] text-ink-3">Added the moment the items reach us, ready to spend on anything in the store. It can’t be moved back to {original}.</span>
                   </span>
                 </label>
               </fieldset>

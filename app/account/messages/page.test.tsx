@@ -148,3 +148,15 @@ it('treats everything as new the first time', async () => {
   expect(screen.getByText(/1 new since you last looked\./)).toBeInTheDocument();
   expect(state.marked).toEqual(['US']);
 });
+
+it('says a return refunded to the balance went there', async () => {
+  state.store = amazonIn;
+  state.list = [
+    msg({ key: 'return_refunded:r1', kind: 'return_refunded', at: '2026-10-06T06:05:00Z', amountMinor: 120000, toBalance: true }),
+    msg({ key: 'return_refunded:r2', kind: 'return_refunded', at: '2026-10-06T06:00:00Z', amountMinor: 90000 }),
+  ];
+  render(await MessagesPage());
+  const [balance, back] = screen.getAllByRole('listitem');
+  expect(balance).toHaveTextContent('₹1,200 added to your wallet balance, as you asked.');
+  expect(back).toHaveTextContent('₹900 back to how you paid.');
+});

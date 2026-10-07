@@ -14,7 +14,8 @@ const ORDER_ID = /^\d{3}-\d{7}-\d{7}$/;
 
 /**
  * The return form (bound to the order id): one `qty:<productId>` field per item, a reason, an
- * optional comment and the resolution (refund, or a replacement for a store-fault reason). The database checks the window and what's left to return, and prices the
+ * optional comment, the resolution (refund, or a replacement for a store-fault reason) and where a
+ * refund goes (`refundTo`: back to how they paid, or the store balance). The database checks the window and what's left to return, and prices the
  * refund; back to the order on success, or to the form with the error.
  */
 export async function startReturn(orderId: string, formData: FormData): Promise<void> {
@@ -36,6 +37,7 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
       reason: formData.get('reason'),
       comment: formData.get('comment'),
       resolution: formData.get('resolution'),
+      refundTo: formData.get('refundTo'),
     });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;

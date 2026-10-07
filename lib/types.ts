@@ -162,6 +162,8 @@ export interface OrderReturn {
   refundMinor: number;
   /** set once the store has received the items */
   refund?: { status: 'pending' | 'succeeded' | 'failed'; refundedAt?: string };
+  /** the shopper asked for the refund on their balance in the store, not back to how they paid (absent otherwise) */
+  refundToBalance?: boolean;
   dropoffCode: string;
   dropoffBy: string;
   rejectNote?: string;

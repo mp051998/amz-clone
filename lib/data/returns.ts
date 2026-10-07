@@ -61,6 +61,7 @@ export function toReturn(json: unknown): OrderReturn {
     ...(Number(r.wrap_minor ?? 0) ? { wrapMinor: Number(r.wrap_minor) } : {}),
     refundMinor: Number(r.refund_minor ?? 0),
     refund: refund ? { status: refund, refundedAt: str(r.refunded_at) } : undefined,
+    ...(r.refund_to === 'balance' ? { refundToBalance: true } : {}),
     dropoffCode: String(r.dropoff_code ?? ''),
     dropoffBy: String(r.dropoff_by),
     rejectNote: str(r.reject_note),
@@ -154,6 +155,12 @@ export interface ReturnInput {
   comment?: unknown;
   /** 'refund' (the default) or 'replacement' */
   resolution?: unknown;
+  /**
+   * Where a refund goes: 'original' (the default), back to how the order was paid, or 'balance',
+   * the shopper's balance in the store, paid in as soon as the items are received. Ignored for a
+   * replacement and for orders paid from the balance, whose refunds go back to it anyway.
+   */
+  refundTo?: unknown;
 }
 
 /**
@@ -166,6 +173,10 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
     input.resolution == null || input.resolution === '' || input.resolution === 'refund' ? 'refund' : input.resolution === 'replacement' ? 'replacement' : null;
   if (!resolution || (resolution === 'replacement' && !isStoreFault(input.reason))) {
     throw new DataError('invalid_input', 'resolution', 'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described.');
+  }
+  const toBalance = input.refundTo === 'balance';
+  if (!toBalance && input.refundTo != null && input.refundTo !== '' && input.refundTo !== 'original') {
+    throw new DataError('invalid_input', 'refundTo', 'Choose where the refund goes: back to how you paid, or your balance.');
   }
   const comment = typeof input.comment === 'string' ? input.comment.trim() : '';
   if (comment.length > 1000) throw new DataError('invalid_input', 'comment', 'Keep the comment under 1,000 characters.');
@@ -181,6 +192,8 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
     p_comment: comment || undefined,
     // left out for a refund, so a refund still works on a database without replacements
     ...(resolution === 'replacement' ? { p_resolution: resolution } : {}),
+    // likewise left out for the original payment method
+    ...(toBalance && resolution === 'refund' ? { p_refund_to: 'balance' } : {}),
   });
   if (res.error?.message === 'invalid_input' && res.error.details === 'items') {
     throw new DataError('invalid_input', 'items', 'Those items or quantities can’t be returned. Check what’s left to return.');

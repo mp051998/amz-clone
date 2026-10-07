@@ -53,6 +53,8 @@ export interface InboxMessage {
   orderId?: string;
   /** refunds, in the store's currency */
   amountMinor?: number;
+  /** a return's refund paid onto the store balance, as the shopper asked, not back to how they paid */
+  toBalance?: true;
   /** why a return wasn't accepted, or the answer's text */
   detail?: string;
   /** answers: who wrote it */
@@ -74,6 +76,8 @@ export interface InboxReturn {
   replacement?: { productIds: string[]; shippedAt: string; deliveredAt: string };
   /** a "Package didn't arrive" claim: nothing came back, so only its refund is news */
   missing?: true;
+  /** refunded to the store balance, as the shopper asked */
+  toBalance?: true;
 }
 
 /** One of the store's replies on the shopper's support case. */
@@ -157,7 +161,14 @@ function returnMessages(r: InboxReturn, order: Order | undefined): InboxMessage[
   }
   if (r.receivedAt && !r.missing) out.push({ ...base, key: `return_received:${r.id}`, kind: 'return_received', at: r.receivedAt });
   if (r.refundStatus === 'succeeded' && r.refundedAt && r.refundMinor > 0) {
-    out.push({ ...base, key: `return_refunded:${r.id}`, kind: r.missing ? 'refunded' : 'return_refunded', at: r.refundedAt, amountMinor: r.refundMinor });
+    out.push({
+      ...base,
+      key: `return_refunded:${r.id}`,
+      kind: r.missing ? 'refunded' : 'return_refunded',
+      at: r.refundedAt,
+      amountMinor: r.refundMinor,
+      ...(r.toBalance ? { toBalance: true as const } : {}),
+    });
   }
   return out;
 }
@@ -219,6 +230,7 @@ type ReturnRow = {
   return_items: { product_id: string }[];
   replacement_shipped_at: string | null;
   replacement_delivered_at: string | null;
+  refund_to?: string;
 };
 
 async function inboxReturns(db: Db, market: Market, userId: string): Promise<InboxReturn[]> {
@@ -226,7 +238,7 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
     await db
       .from('returns')
       .select(
-        'id, order_id, status, received_at, refund_status, refunded_at, refund_minor, rejected_at, reject_note, reason, resolution, replacement_shipped_at, replacement_delivered_at, return_items(product_id), orders!inner(market_id)',
+        'id, order_id, status, received_at, refund_status, refunded_at, refund_minor, rejected_at, reject_note, reason, resolution, replacement_shipped_at, replacement_delivered_at, refund_to, return_items(product_id), orders!inner(market_id)',
       )
       .eq('user_id', userId)
       .eq('orders.market_id', market)
@@ -246,6 +258,7 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
     rejectedAt: r.rejected_at,
     rejectNote: r.reject_note,
     ...(r.reason === 'not_received' ? { missing: true as const } : {}),
+    ...(r.refund_to === 'balance' ? { toBalance: true as const } : {}),
     ...(r.resolution === 'replacement' && r.replacement_shipped_at && r.replacement_delivered_at
       ? { replacement: { productIds: r.return_items.map((i) => i.product_id), shippedAt: r.replacement_shipped_at, deliveredAt: r.replacement_delivered_at } }
       : {}),
