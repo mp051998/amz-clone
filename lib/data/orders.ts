@@ -6,7 +6,7 @@ import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
 import { expireCardCheckout } from './payments';
-import { refundOrder } from './refunds';
+import { refundCancellation, refundOrder } from './refunds';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -79,7 +79,10 @@ export async function fastShipFee(db: Db, market: Market): Promise<number | null
   return error || !data ? null : data.fast_ship_fee_minor;
 }
 
-const ORDER_SELECT = '*, order_items(*)';
+const ORDER_SELECT = '*, order_items(*), order_cancellations(*, order_cancelled_items(*))';
+// PGRST200: order_cancellations is missing until the cancel-items migration lands.
+const ORDER_SELECT_BEFORE_CANCELLATIONS = '*, order_items(*)';
+const MISSING_EMBED = 'PGRST200';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Orders that were placed or charged: placed ones (cancelled later or not) and card
@@ -90,15 +93,20 @@ const MISSING_COLUMN = '42703';
 
 /** The caller's placed or charged orders in a store (cancelled ones included), newest first. */
 export async function listOrders(db: Db, market: Market, opts: { limit?: number } = {}): Promise<Order[]> {
+  let select = ORDER_SELECT;
   const query = (placedOnly: boolean) => {
-    let q = db.from('orders').select(ORDER_SELECT).eq('market_id', market);
+    let q = db.from('orders').select(select).eq('market_id', market);
     q = placedOnly ? q.not('placed_at', 'is', null) : q.or(PLACED_OR_CHARGED);
     q = q.order('created_at', { ascending: false });
     return opts.limit ? q.limit(opts.limit) : q;
   };
   let res = await query(false);
+  if (res.error?.code === MISSING_EMBED) {
+    select = ORDER_SELECT_BEFORE_CANCELLATIONS;
+    res = await query(false);
+  }
   if (res.error?.code === MISSING_COLUMN) res = await query(true);
-  return unwrap(res).map((row) => toOrder(row));
+  return unwrap(res).map((row) => toOrder(row as unknown as Parameters<typeof toOrder>[0]));
 }
 
 export async function countOrders(db: Db, market: Market): Promise<number> {
@@ -114,8 +122,11 @@ export async function countOrders(db: Db, market: Market): Promise<number> {
 
 /** One of the caller's orders (any status). RLS hides everyone else's. */
 export async function getOrder(db: Db, id: string): Promise<Order | null> {
-  const row = unwrap(await db.from('orders').select(ORDER_SELECT).eq('id', id).maybeSingle());
-  return row ? toOrder(row) : null;
+  const query = (select: string) => db.from('orders').select(select).eq('id', id).maybeSingle();
+  let res = await query(ORDER_SELECT);
+  if (res.error?.code === MISSING_EMBED) res = await query(ORDER_SELECT_BEFORE_CANCELLATIONS);
+  const row = unwrap(res);
+  return row ? toOrder(row as unknown as Parameters<typeof toOrder>[0]) : null;
 }
 
 /**
@@ -163,6 +174,33 @@ export async function cancelPendingOrder(db: Db, id: string): Promise<Order> {
  * Stripe page closed), or a placed order that hasn't shipped yet — stock returned, and a card payment
  * refunded on Stripe. The cancel stands even if the refund fails (admins retry it).
  */
+/**
+ * Owner cancels some items of an order, each line whole, until it ships
+ * (`order_not_cancellable` after; `invalid_input` 'items' for none or one that isn't in it).
+ * The rest keep coming, repriced; the cancelled items' card refund is asked of Stripe
+ * here. Every line is the whole order, cancelled as cancelOrder does.
+ */
+export async function cancelOrderItems(db: Db, id: string, productIds: unknown): Promise<Order> {
+  if (!Array.isArray(productIds) || !productIds.length || !productIds.every((p) => typeof p === 'string' && p !== '')) {
+    throw new DataError('invalid_input', 'items', 'Choose the items to cancel.');
+  }
+  const json = unwrap(await db.rpc('cancel_my_items', { p_order_id: id, p_product_ids: [...new Set(productIds as string[])] }));
+  if (!json) throw new DataError('order_not_found');
+  const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  if (order.paymentMethod !== 'card') return order;
+  const pending = order.status === 'cancelled'
+    ? order.refund?.status === 'pending'
+    : order.cancellations?.at(-1)?.refund.status === 'pending';
+  if (!pending) return order;
+  try {
+    if (order.status === 'cancelled') await refundOrder(id);
+    else await refundCancellation(order.cancellations!.at(-1)!.id);
+  } catch (err) {
+    console.error('[orders] refund after cancelling items failed', id, err);
+  }
+  return (await getOrder(db, id)) ?? order;
+}
+
 export async function cancelOrder(db: Db, id: string): Promise<Order> {
   const res = await db.rpc('cancel_my_order', { p_order_id: id });
   // PGRST202: the RPC doesn't exist yet (lifecycle migration not applied)

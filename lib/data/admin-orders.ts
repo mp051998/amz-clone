@@ -5,7 +5,7 @@ import type { CancelReason, Market, Order, OrderStage, OrderStatus, PaymentMetho
 import { requireAdmin } from './admin-catalog';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
-import { refundOrder } from './refunds';
+import { refundCancellation, refundOrder } from './refunds';
 
 /**
  * Orders for store admins (/admin/orders, /api/v1/admin/orders). Reads and moves go through
@@ -176,15 +176,22 @@ export async function retryRefund(db: Db, id: string): Promise<AdminOrder> {
   await requireAdmin(db);
   const order = await getAdminOrder(db, id);
   if (!order) throw new DataError('order_not_found');
-  if (order.paymentMethod !== 'card' || !order.refund || (order.refund.status !== 'pending' && order.refund.status !== 'failed')) {
-    return order;
-  }
-  const status = await refundOrder(id);
-  if (status === 'failed') throw new DataError('refund_failed');
+  if (order.paymentMethod !== 'card') return order;
+  const owed = (s?: string) => s === 'pending' || s === 'failed';
+  const statuses: (string | null)[] = [];
+  // cancelled items' refunds first, then the order's own: each is safe to repeat
+  for (const c of order.cancellations ?? []) if (owed(c.refund.status)) statuses.push(await refundCancellation(c.id));
+  if (owed(order.refund?.status)) statuses.push(await refundOrder(id));
+  if (statuses.includes('failed')) throw new DataError('refund_failed');
   return (await getAdminOrder(db, id)) ?? order;
 }
 
-/** Whether the detail page offers "Retry refund". */
+/** Whether the detail page offers "Retry refund" (for the order, or for items cancelled from it). */
 export function canRetryRefund(order: AdminOrder): boolean {
-  return order.paymentMethod === 'card' && (order.refund?.status === 'failed' || (order.refund?.status === 'pending' && !order.stripeRefundId));
+  return (
+    order.paymentMethod === 'card' &&
+    (order.refund?.status === 'failed' ||
+      (order.refund?.status === 'pending' && !order.stripeRefundId) ||
+      (order.cancellations ?? []).some((c) => c.refund.status === 'failed'))
+  );
 }

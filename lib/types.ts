@@ -138,6 +138,18 @@ export interface OrderItem {
   unitDiscountMinor?: number;
 }
 
+/** Some items of an order cancelled before it shipped, with their own refund. */
+export interface OrderCancellation {
+  id: string;
+  items: OrderItem[];
+  /** what the items cost after any coupon */
+  itemsMinor: number;
+  /** the tax that no longer applies */
+  taxMinor: number;
+  refund: { status: RefundStatus; amountMinor: number; refundedAt?: string };
+  createdAt: string;
+}
+
 export interface ShippingAddress {
   name: string;
   phone: string;
@@ -176,6 +188,8 @@ export interface Order {
   cancelReason?: CancelReason;
   /** set once a paid (or cash on delivery) order is cancelled. */
   refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string };
+  /** items cancelled before it shipped while the rest kept coming, oldest first (absent with none). */
+  cancellations?: OrderCancellation[];
   /** a gift order, with the note for the recipient when there is one. */
   gift?: { message?: string };
   /** delivery speed chosen at checkout (absent means standard). */

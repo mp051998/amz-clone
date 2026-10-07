@@ -310,6 +310,62 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"order_cancellations": {
+                  Row: {
+                    "created_at": string,"id": string,"items_minor": number,"order_id": string,"refund_minor": number,"refund_status": string,"refunded_at": string | null,"stripe_refund_id": string | null,"tax_minor": number
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"items_minor": number,"order_id": string,"refund_minor"?: never,"refund_status": string,"refunded_at"?: string | null,"stripe_refund_id"?: string | null,"tax_minor"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"refund_minor"?: never,"refund_status"?: string,"refunded_at"?: string | null,"stripe_refund_id"?: string | null,"tax_minor"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "order_cancellations_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"order_cancelled_items": {
+                  Row: {
+                    "cancellation_id": string,"image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number
+                  }
+                  Insert: {
+                    "cancellation_id": string,"image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number
+                  }
+                  Update: {
+                    "cancellation_id"?: string,"image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "order_cancelled_items_cancellation_id_fkey"
+      columns: ["cancellation_id"]
+isOneToOne: false
+      referencedRelation: "order_cancellations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_cancelled_items_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_cancelled_items_product_id_fkey"
+      columns: ["product_id"]
+isOneToOne: false
+      referencedRelation: "catalog_products"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_cancelled_items_product_id_fkey"
+      columns: ["product_id"]
+isOneToOne: false
+      referencedRelation: "products"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"order_items": {
                   Row: {
                     "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number
@@ -789,6 +845,9 @@ isOneToOne: false
 "archive_my_order":
 { Args: { "p_archived"?: boolean,"p_order_id": string }; Returns: Json
                            },
+"cancel_my_items":
+{ Args: { "p_order_id": string,"p_product_ids": (string)[] }; Returns: Json
+                           },
 "cancel_my_order":
 { Args: { "p_order_id": string }; Returns: Json
                            },
@@ -882,6 +941,9 @@ isOneToOne: false
                            },
 "record_refund":
 { Args: { "p_order_id": string,"p_refund_id": string | null,"p_status": string }; Returns: undefined
+                           },
+"record_cancellation_refund":
+{ Args: { "p_cancellation_id": string,"p_refund_id": string | null,"p_status": string }; Returns: undefined
                            },
 "record_return_refund":
 { Args: { "p_refund_id": string | null,"p_return_id": string,"p_status": string }; Returns: undefined

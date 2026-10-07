@@ -12,6 +12,7 @@ import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
+import { CancelledItems } from '@/components/orders/CancelledItems';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { canStartReturn, getOrderReturns } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
@@ -175,6 +176,8 @@ export default async function OrderPage({
           <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
         ) : cancelled === '1' && order.status === 'cancelled' ? (
           <Alert tone="success">Your order is cancelled.</Alert>
+        ) : cancelled === 'items' && order.cancellations?.length ? (
+          <Alert tone="success">Items cancelled. The rest of your order is still on its way.</Alert>
         ) : returned === 'started' ? (
           <Alert tone="success">Return started. Drop the items off with the code below.</Alert>
         ) : returned === 'cancelled' ? (
@@ -293,14 +296,19 @@ export default async function OrderPage({
             <p className="m-0 text-[14px] text-ink-2">
               Changed your mind? You can cancel until it ships, {lcFirst(stepTime(view.cancelUntil, store, now))}.
             </p>
-            <ConfirmAction
-              action={cancelMyOrder.bind(null, order.id)}
-              label="Cancel order"
-              prompt={<>Cancel this order? {refundPromise(order, money(order.totals.totalMinor))}</>}
-              confirmLabel="Yes, cancel it"
-              pendingLabel="Cancelling…"
-              cancelLabel="Keep order"
-            />
+            <div className="flex flex-wrap items-center gap-2.5">
+              {order.items.length > 1 ? (
+                <a href={sp(`/orders/${encodeURIComponent(order.id)}/cancel`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Cancel items</a>
+              ) : null}
+              <ConfirmAction
+                action={cancelMyOrder.bind(null, order.id)}
+                label="Cancel order"
+                prompt={<>Cancel this order? {refundPromise(order, money(order.totals.totalMinor))}</>}
+                confirmLabel="Yes, cancel it"
+                pendingLabel="Cancelling…"
+                cancelLabel="Keep order"
+              />
+            </div>
           </section>
         ) : null}
 
@@ -393,6 +401,8 @@ export default async function OrderPage({
             )}
           </dl>
         </section>
+
+        <CancelledItems order={order} store={store} href={(productId) => sp(`/product/${encodeURIComponent(productId)}`)} />
 
         {feedbackUntil ? (
           <SellerFeedbackSection

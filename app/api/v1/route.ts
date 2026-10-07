@@ -77,6 +77,7 @@ export function GET(): Response {
       'PATCH  /orders/:id',
       'POST   /orders/:id/pay',
       'POST   /orders/:id/cancel',
+      'POST   /orders/:id/cancel-items',
       'GET    /orders/:id/returns',
       'POST   /orders/:id/returns',
       'GET    /orders/:id/seller-feedback',

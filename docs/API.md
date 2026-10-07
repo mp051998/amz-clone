@@ -172,6 +172,7 @@ Prices and totals are computed by the database on every read.
 | PATCH | `/orders/:id` | `{addressId?: string, archived?: boolean, instructions?: string \| null}` | `{order}`. `addressId` sends the order to another of your saved addresses in this store (`GET /addresses`) while it's being prepared; the order takes that address's delivery instructions too, and its total doesn't change. `404 address_not_found` for an address that isn't yours or is in the other store; once the order ships (or if it's unpaid or cancelled), `409 order_address_locked`. `instructions` changes the order's delivery instructions (up to 250 characters; `""` or `null` removes them) while it's being prepared or shipped; once it's out for delivery, `409 order_not_editable`. The saved address keeps its own note. `archived` archives an order (it gets `archivedAt`) or brings it back. Archived orders stay in `GET /orders`; the site lists them under *Archived* instead of the periods, and a search still finds them. `409 order_not_archivable` for an `awaiting_payment` order. Archiving changes nothing else: the order still ships and can be cancelled or returned. The fields apply in the order `addressId`, `instructions`, `archived`. |
 | POST | `/orders/:id/pay` | | Finish paying an `awaiting_payment` card order: `{checkoutUrl}`, its Stripe Checkout page (the same one while it's open, so there's never a second payable page; a new one once it has lapsed), or `{order}` when Stripe reports it paid after all. `409 order_not_pending` for any other order, `503 payments_unavailable` without Stripe. |
 | POST | `/orders/:id/cancel` | | `{order}`. An `awaiting_payment` card order is abandoned: the reserved stock is released, its Stripe page is closed and the cart is kept. A placed order can be cancelled until it ships (`409 order_not_cancellable` after that): the stock goes back and the payment is refunded (see `refund`). |
+| POST | `/orders/:id/cancel-items` | `{productIds: string[]}` | `{order}`. Cancels some items of a placed order until it ships, each line whole; the rest keep coming. Their stock goes back, and the order is repriced over the lines left: `totals` and `items` drop them, the delivery charge stays and the tax only goes down. The cancelled lines move to `cancellations`, each with its own refund (what the items cost after any coupon, plus the tax that no longer applies), paid back like a cancelled order's. Every item is the whole order, cancelled as `POST /orders/:id/cancel` does. `422 invalid_input` (`detail` `items`) for none or a product that isn't in the order, `409 order_not_cancellable` once it has shipped. |
 
 There is no guest checkout. Orders belong to an account, so every route here needs a signed-in user (`401 not_authenticated`), and so does `place_order()` in the database. A guest's cart carries over: sign in, then `POST /cart/merge`.
 
@@ -196,6 +197,7 @@ How `POST /orders` works:
 - Timestamps: `createdAt, placedAt?, cancelledAt?`
 - Delivery schedule (set once placed): `shippedAt?, outForDeliveryAt?, deliveredAt?`. Orders move along on their own: the stage is the latest of these that has passed (`preparing` before `shippedAt`). Admins can move them forward.
 - Cancellation: `cancelReason?: customer | admin | sold_out`, and for orders that were placed or charged `refund?: {status, amountMinor, refundedAt?}`. `status` is `pending` / `succeeded` / `failed` for card refunds on Stripe, `succeeded` straight away for the simulated methods (the store balance is credited back), and `not_charged` for pay on delivery.
+- `cancellations?`: items cancelled before it shipped while the rest kept coming, oldest first: `[{id, items, itemsMinor, taxMinor, refund: {status, amountMinor, refundedAt?}, createdAt}]` (absent when there are none). `refund` works like the order's.
 
 ### Returns
 
@@ -249,8 +251,9 @@ The customer never tells us they paid. Stripe does:
   acknowledged with `200 {received, outcome}` so Stripe stops retrying.
 - A gift card purchase's session (`metadata.kind: "gift_card"`) issues its code when paid; expiring, it has nothing to release.
 - `refund.created`, `refund.updated` and `refund.failed` settle a return's refund
-  (matched by the refund's `metadata.returnId`) or a cancelled order's (by
-  `metadata.orderId`, else its PaymentIntent). Enable these events on the Stripe
+  (matched by the refund's `metadata.returnId`), cancelled items' (by
+  `metadata.cancellationId`) or a cancelled order's (by `metadata.orderId`, else
+  its PaymentIntent). Enable these events on the Stripe
   endpoint alongside the `checkout.session.*` ones.
 
 A payment that arrives after the order's reserved stock was released and sold
@@ -398,7 +401,7 @@ Orders of this store that were placed or charged (abandoned checkouts are left o
 | POST | `/admin/orders/:id/ship` | | `{order}`. Shipped now; out for delivery and delivered move up to the next delivery morning if that's earlier. Placed orders only (`409 order_not_open`); repeating does nothing. |
 | POST | `/admin/orders/:id/deliver` | | `{order}`. Every step still ahead happens now. Placed orders only. |
 | POST | `/admin/orders/:id/cancel` | | `{order}`. Any order not yet delivered (`409 order_not_cancellable` after). Stock goes back; a card payment is refunded on Stripe. If Stripe refuses, the cancel stands with `refund.status: failed`. |
-| POST | `/admin/orders/:id/refund` | | `{order}`. Retries a card refund that failed (or never reached Stripe). `502 refund_failed` if it fails again. |
+| POST | `/admin/orders/:id/refund` | | `{order}`. Retries a card refund that failed (or never reached Stripe), the order's own and its cancelled items'. `502 refund_failed` if one fails again. |
 
 ### Returns
 

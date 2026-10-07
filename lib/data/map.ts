@@ -1,6 +1,6 @@
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
-import type { Address, CancelReason, Cart, Market, Order, OrderStatus, PaymentMethod, Product, RefundStatus } from '../types';
+import type { Address, CancelReason, Cart, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus } from '../types';
 
 type ProductRow = Database['public']['Views']['catalog_products_all']['Row'];
 type AddressRow = Database['public']['Tables']['addresses']['Row'];
@@ -106,11 +106,48 @@ export function toAddress(row: AddressRow): Address {
   };
 }
 
-type OrderWithItems = OrderRow & { items?: Partial<OrderItemRow>[]; order_items?: Partial<OrderItemRow>[] };
+type CancellationRow = Database['public']['Tables']['order_cancellations']['Row'];
+type CancellationWithItems = CancellationRow & { items?: Partial<OrderItemRow>[]; order_cancelled_items?: Partial<OrderItemRow>[] };
+type OrderWithItems = OrderRow & {
+  items?: Partial<OrderItemRow>[];
+  order_items?: Partial<OrderItemRow>[];
+  cancellations?: CancellationWithItems[];
+  order_cancellations?: CancellationWithItems[];
+};
+
+function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
+  return rows
+    .slice()
+    .sort((a, b) => (a.line_no ?? 0) - (b.line_no ?? 0))
+    .map((it) => ({
+      productId: it.product_id ?? '',
+      title: it.title ?? '',
+      image: it.image ?? '',
+      seller: it.seller ?? '',
+      unitPriceMinor: it.unit_price_minor ?? 0,
+      qty: it.qty ?? 0,
+      ...(it.unit_discount_minor ? { unitDiscountMinor: it.unit_discount_minor } : {}),
+    }));
+}
+
+function toCancellation(row: CancellationWithItems): OrderCancellation {
+  return {
+    id: row.id,
+    items: toOrderItems(row.items ?? row.order_cancelled_items ?? []),
+    itemsMinor: row.items_minor,
+    taxMinor: row.tax_minor,
+    refund: { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor, refundedAt: opt(row.refunded_at) },
+    createdAt: row.created_at,
+  };
+}
 
 /** orders row with embedded items (PostgREST embed or RPC JSON) → Order. */
 export function toOrder(row: OrderWithItems): Order {
-  const items = (row.items ?? row.order_items ?? []).slice().sort((a, b) => (a.line_no ?? 0) - (b.line_no ?? 0));
+  // absent on rows read before the cancel-items migration lands
+  const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
+    .slice()
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+    .map(toCancellation);
   return {
     id: row.id,
     market: row.market_id as Market,
@@ -137,15 +174,7 @@ export function toOrder(row: OrderWithItems): Order {
       postcode: row.ship_postcode,
       instructions: opt(row.ship_instructions) ?? undefined,
     },
-    items: items.map((it) => ({
-      productId: it.product_id ?? '',
-      title: it.title ?? '',
-      image: it.image ?? '',
-      seller: it.seller ?? '',
-      unitPriceMinor: it.unit_price_minor ?? 0,
-      qty: it.qty ?? 0,
-      ...(it.unit_discount_minor ? { unitDiscountMinor: it.unit_discount_minor } : {}),
-    })),
+    items: toOrderItems(row.items ?? row.order_items ?? []),
     createdAt: row.created_at,
     placedAt: opt(row.placed_at),
     // the lifecycle columns are absent on rows read before that migration lands
@@ -162,5 +191,6 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.ship_speed === 'fast' ? { shipSpeed: 'fast' as const } : {}),
     // absent on rows read before the archive migration lands
     ...(row.archived_at ? { archivedAt: row.archived_at } : {}),
+    ...(cancellations.length ? { cancellations } : {}),
   };
 }

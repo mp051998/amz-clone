@@ -7,13 +7,13 @@ import { listOrders } from './orders';
 /**
  * "Your transactions": every charge and refund in a store, newest first, built from what the
  * store already keeps: orders (charged when placed, or on delivery for cash on delivery),
- * refunds for cancelled orders and received returns, and gift card purchases.
+ * refunds for cancelled orders, cancelled items and received returns, and gift card purchases.
  */
 
 export type TransactionStatus = 'completed' | 'pending' | 'failed' | 'due';
 
 export interface Transaction {
-  /** stable and unique: `order:<id>`, `cancel:<id>`, `return:<id>` or `gift:<id>` */
+  /** stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `return:<id>` or `gift:<id>` */
   key: string;
   kind: 'charge' | 'refund';
   source: 'order' | 'cancellation' | 'return' | 'gift_card';
@@ -42,14 +42,28 @@ const refundStatus = (s: string): TransactionStatus => (s === 'succeeded' ? 'com
 function orderTransactions(o: Order, now: Date): Transaction[] {
   const out: Transaction[] = [];
   const base = { method: o.paymentMethod, paymentLabel: o.paymentLabel, orderId: o.id };
+  const cancelled = (o.cancellations ?? []).filter((c) => c.refund.status !== 'not_charged' && c.refund.amountMinor > 0);
   const total = o.totals.totalMinor;
+  // what was charged when placed: the order as it is now plus the items cancelled since
+  const charged = total + cancelled.reduce((sum, c) => sum + c.refund.amountMinor, 0);
   if (o.paymentMethod === 'cod') {
     const delivered = o.deliveredAt && Date.parse(o.deliveredAt) <= now.getTime() ? o.deliveredAt : null;
     if (delivered) out.push({ ...base, key: `order:${o.id}`, kind: 'charge', source: 'order', amountMinor: total, at: delivered, status: 'completed' });
     else if (o.status !== 'cancelled') out.push({ ...base, key: `order:${o.id}`, kind: 'charge', source: 'order', amountMinor: total, at: o.placedAt ?? o.createdAt, status: 'due' });
-  } else if (o.refund?.status !== 'not_charged' && total > 0) {
+  } else if (o.refund?.status !== 'not_charged' && charged > 0) {
     // a card payment that arrived after the stock sold out was charged (and refunded) unplaced
-    out.push({ ...base, key: `order:${o.id}`, kind: 'charge', source: 'order', amountMinor: total, at: o.placedAt ?? o.createdAt, status: 'completed' });
+    out.push({ ...base, key: `order:${o.id}`, kind: 'charge', source: 'order', amountMinor: charged, at: o.placedAt ?? o.createdAt, status: 'completed' });
+  }
+  for (const c of cancelled) {
+    out.push({
+      ...base,
+      key: `cancel-items:${c.id}`,
+      kind: 'refund',
+      source: 'cancellation',
+      amountMinor: c.refund.amountMinor,
+      at: c.refund.refundedAt ?? c.createdAt,
+      status: refundStatus(c.refund.status),
+    });
   }
   if (o.refund && o.refund.status !== 'not_charged' && o.refund.amountMinor > 0) {
     out.push({

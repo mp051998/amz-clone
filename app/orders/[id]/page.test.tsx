@@ -367,3 +367,37 @@ it('confirms feedback saved or removed', async () => {
   await show({ feedback: 'removed' });
   expect(screen.getByText('Your seller feedback is removed.')).toBeInTheDocument();
 });
+
+it('items can be cancelled one by one until it ships, and cancelled ones are listed with their refund', async () => {
+  state.order = order(FUTURE);
+  await show();
+  expect(screen.getByRole('link', { name: 'Cancel items' })).toHaveAttribute('href', '/orders/ORD-9/cancel');
+  cleanup();
+
+  // one item left: cancelling it is cancelling the order
+  state.order = order({
+    ...FUTURE,
+    items: [order().items[1]],
+    totals: { subtotalMinor: 2000, shipMinor: 0, taxMinor: 0, totalMinor: 2000 },
+    cancellations: [
+      {
+        id: 'c1',
+        items: [{ ...order().items[0], unitDiscountMinor: 100 }],
+        itemsMinor: 900,
+        taxMinor: 72,
+        refund: { status: 'succeeded', amountMinor: 972, refundedAt: '2026-09-01T11:00:00Z' },
+        createdAt: '2026-09-01T11:00:00Z',
+      },
+    ],
+  });
+  await show({ cancelled: 'items' });
+  expect(screen.getByText('Items cancelled. The rest of your order is still on its way.')).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Cancel items' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Cancel order' })).toBeInTheDocument();
+  const cancelled = screen.getByRole('article', { name: 'Cancelled items' });
+  expect(cancelled).toHaveTextContent('Kettle');
+  expect(cancelled).toHaveTextContent('$9.00');
+  expect(cancelled).toHaveTextContent('Refund of $9.72 to Visa ending 4242 · issued September 1.');
+  expect(cancelled).toHaveTextContent('Includes $0.72 tax.');
+  expect(screen.getByRole('heading', { name: '1 item' })).toBeInTheDocument();
+});
