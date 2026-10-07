@@ -114,6 +114,33 @@ describe('your messages', () => {
     expect(read.data ?? []).toEqual([]);
   });
 
+  it('says when a replacement ships and arrives, and nothing for a return still on its way back', async () => {
+    const swapper = await newUser('Inbox Swapper');
+    try {
+      const p = await pickProduct('IN', 54);
+      const o = await placeOrder(swapper.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 2 } });
+      await deliveredDaysAgo(o.id, 1);
+      const refund = await requestReturn(swapper.db, o.id, { items: [{ productId: p.id, qty: 1 }], reason: 'damaged' });
+      const swap = await requestReturn(swapper.db, o.id, { items: [{ productId: p.id, qty: 1 }], reason: 'defective', resolution: 'replacement' });
+      const about = (kinds: string[]) => inbox(swapper).then((all) => all.filter((m) => kinds.includes(m.kind)));
+      // it ships later today
+      expect(await about(['replacement_shipped', 'replacement_delivered', 'return_received'])).toEqual([]);
+
+      const hour = 3_600_000;
+      const { error } = await admin()
+        .from('returns')
+        .update({ replacement_shipped_at: new Date(Date.now() - 2 * hour).toISOString(), replacement_delivered_at: new Date(Date.now() - hour).toISOString() })
+        .eq('id', swap.id);
+      if (error) throw error;
+      const got = await about(['replacement_shipped', 'replacement_delivered', 'return_received']);
+      expect(got.map((m) => m.key)).toEqual([`replacement_delivered:${swap.id}`, `replacement_shipped:${swap.id}`]);
+      expect(got[0]).toMatchObject({ subject: o.items[0].title, orderId: o.id, href: `/orders/${o.id}?placed=0` });
+      expect(got.some((m) => m.key.endsWith(refund.id))).toBe(false);
+    } finally {
+      await deleteUser(swapper);
+    }
+  });
+
   it('asks for a review a couple of days after something arrives, until it is reviewed', async () => {
     const reviewer = await newUser('Inbox Reviewer');
     try {

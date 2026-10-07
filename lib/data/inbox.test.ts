@@ -121,6 +121,34 @@ it('says when items were cancelled from an order that kept coming, and when thei
   expect(inbox.find((m) => m.key === 'items_cancelled:c2')).toMatchObject({ subject: 'Mug', at: '2026-10-05T10:00:00Z' });
 });
 
+it('follows a replacement on its way, from the request, even if the item sent back is turned down', () => {
+  const o = order('D', '2026-10-01T00:00:00Z', {
+    ...schedule('2026-10-01T12:00:00Z', '2026-10-03T20:00:00Z', '2026-10-04T09:00:00Z'),
+    items: [ITEM, { ...ITEM, productId: 'l', title: 'Lid' }, { ...ITEM, productId: 'm', title: 'Mug' }],
+  });
+  const swap = { productIds: ['m'], shippedAt: '2026-10-05T08:00:00Z', deliveredAt: '2026-10-06T10:00:00Z' };
+  const returns = [
+    ret({ id: 's1', status: 'requested', replacement: swap }),
+    // arrives tomorrow: only the shipping so far
+    ret({ id: 's2', status: 'requested', replacement: { ...swap, productIds: ['l', 'm'], deliveredAt: '2026-10-07T10:00:00Z' } }),
+    ret({ id: 's3', status: 'rejected', rejectedAt: '2026-10-06T11:00:00Z', rejectNote: 'Not the item we sent', replacement: swap }),
+    // a refund return still on its way back says nothing yet
+    ret({ id: 'r1', status: 'requested' }),
+  ];
+  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW).filter((m) => !['shipped', 'out_for_delivery', 'delivered'].includes(m.kind));
+  expect(inbox.map((m) => m.key)).toEqual([
+    'return_rejected:s3',
+    'replacement_delivered:s1',
+    'replacement_delivered:s3',
+    'replacement_shipped:s1',
+    'replacement_shipped:s2',
+    'replacement_shipped:s3',
+  ]);
+  expect(inbox.find((m) => m.key === 'replacement_shipped:s2')).toMatchObject({ subject: 'Lid and 1 more', href: '/orders/D?placed=0', orderId: 'D' });
+  expect(inbox.find((m) => m.key === 'replacement_delivered:s1')).toMatchObject({ subject: 'Mug' });
+  expect(inbox.find((m) => m.key === 'return_rejected:s3')).toMatchObject({ subject: 'Electric Kettle 1.7L and 2 more', detail: 'Not the item we sent' });
+});
+
 it('asks for a review two days after something arrives, until it is reviewed', () => {
   const toReview = [
     { product: { id: 'k', title: 'Electric Kettle 1.7L' }, orderId: 'D', deliveredAt: '2026-10-03T09:00:00Z' },

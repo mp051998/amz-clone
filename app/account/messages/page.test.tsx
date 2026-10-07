@@ -102,6 +102,20 @@ it('says which items were cancelled and what came back for them', async () => {
   expect(cancelled).toHaveTextContent('The rest of your order is still coming.');
 });
 
+it('follows a replacement to the door', async () => {
+  state.list = [
+    msg({ key: 'replacement_delivered:s1', kind: 'replacement_delivered', at: '2026-10-06T06:05:00Z', subject: 'Mug' }),
+    msg({ key: 'replacement_shipped:s1', kind: 'replacement_shipped', at: '2026-10-05T06:00:00Z', subject: 'Mug' }),
+  ];
+  render(await MessagesPage());
+  const [arrived, shipped] = screen.getAllByRole('listitem');
+  expect(within(arrived).getByText('Replacement delivered')).toBeInTheDocument();
+  expect(arrived).toHaveTextContent('Your replacement arrived.');
+  expect(within(shipped).getByText('Replacement shipped')).toBeInTheDocument();
+  expect(within(shipped).getByRole('link', { name: 'Mug' })).toBeInTheDocument();
+  expect(shipped).toHaveTextContent('Drop off the original with your return code.');
+});
+
 it('asks for a review of what arrived, linking to the review form', async () => {
   state.list = [msg({ key: 'review_request:k', kind: 'review_request', at: '2026-10-06T06:00:00Z', subject: 'Electric Kettle', href: '/product/k#write-review' })];
   render(await MessagesPage());
