@@ -44,6 +44,11 @@ export function availabilityOf(p: Product | null | undefined): Availability {
 
 const RANK: Record<Availability, number> = { available: 0, sold_out: 1, gone: 2 };
 
+/** The first `n` you can buy right now, for the home page's "Buy again" row. */
+export function buyableAgain(items: readonly BuyAgainItem[], n: number): (BuyAgainItem & { product: Product })[] {
+  return items.filter((x): x is BuyAgainItem & { product: Product } => x.availability === 'available' && x.product != null).slice(0, n);
+}
+
 /** Past purchases with their products as they are now: the ones you can buy first, each lot newest first. */
 export function buyAgainItems(past: readonly PastPurchase[], products: readonly Product[]): BuyAgainItem[] {
   const byId = new Map(products.map((p) => [p.id, p]));

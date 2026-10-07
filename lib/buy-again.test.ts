@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availabilityOf, buyAgainItems, pastPurchases } from './buy-again';
+import { availabilityOf, buyableAgain, buyAgainItems, pastPurchases } from './buy-again';
 import type { Order, OrderItem, Product } from './types';
 
 const item = (productId: string): OrderItem => ({ productId, title: `Item ${productId}`, image: `/${productId}.jpg`, seller: 'Store', unitPriceMinor: 1000, qty: 1 });
@@ -51,5 +51,12 @@ describe('buyAgainItems', () => {
       ['gone', 'gone'],
     ]);
     expect(items.find((x) => x.productId === 'gone')?.product).toBeNull();
+  });
+
+  it('the home row takes only what is in stock now', () => {
+    const past = pastPurchases([order('o1', '2026-09-20T10:00:00Z', ['gone', 'out', 'new']), order('o0', '2026-09-01T10:00:00Z', ['old'])]);
+    const items = buyAgainItems(past, [product('out', 0), product('new'), product('old')]);
+    expect(buyableAgain(items, 4).map((x) => x.product.id)).toEqual(['new', 'old']);
+    expect(buyableAgain(items, 1).map((x) => x.productId)).toEqual(['new']);
   });
 });
