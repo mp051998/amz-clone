@@ -24,6 +24,8 @@ export interface SearchQuery {
   brand?: string[];
   /** "Seller": sold by any of these (`seller=a|b`; names can hold commas) */
   seller?: string[];
+  /** "Size": comes in any of these (`size=M,L`) */
+  size?: string[];
   rating?: number;
   deal?: boolean;
   /** lowest price, minor units */
@@ -49,6 +51,8 @@ export interface SearchResult {
   brandFacets: { name: string; count: number }[];
   /** sellers in the same scope, with counts */
   sellerFacets: { name: string; count: number }[];
+  /** sizes in the same scope, with counts, in size-chart order */
+  sizeFacets: { name: string; count: number }[];
   /** matches with no option in stock, each variant group once (left out unless `includeOutOfStock`) */
   unavailable: number;
   headingLabel: string;
@@ -74,6 +78,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const brandRaw = one(sp.brand);
   const sellerRaw = one(sp.seller);
+  const sizeRaw = one(sp.size);
   const sortRaw = one(sp.sort) as SortKey | undefined;
   const rating = Number(one(sp.rating));
   const pct = Number(one(sp.pct));
@@ -86,6 +91,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     dept: one(sp.dept) || undefined,
     brand: brandRaw ? brandRaw.split(',').filter(Boolean) : undefined,
     seller: sellerRaw ? readSellers(sellerRaw) : undefined,
+    size: sizeRaw ? readSizes(sizeRaw) : undefined,
     rating: Number.isFinite(rating) && rating >= 1 && rating <= 5 ? rating : undefined,
     deal: one(sp.deal) === '1' || undefined,
     minPrice: price(sp.min),
@@ -103,6 +109,32 @@ export const SELLER_SEPARATOR = '|';
 function readSellers(raw: string): string[] | undefined {
   const names = [...new Set(raw.split(SELLER_SEPARATOR).map((s) => s.trim().slice(0, 120)).filter(Boolean))].slice(0, 20);
   return names.length ? names : undefined;
+}
+
+/** Sizes in `size=`: comma-separated, as the admin form takes them (a size is at most 12 characters). */
+function readSizes(raw: string): string[] | undefined {
+  const sizes = [...new Set(raw.split(',').map((s) => s.trim()).filter((s) => s && s.length <= 12))].slice(0, 20);
+  return sizes.length ? sizes : undefined;
+}
+
+const LETTER_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+/**
+ * Size-chart order for the "Size" facet: letter sizes small to large (S, M, L, XL…), then
+ * numbered sizes by number ("6", "UK 7", "10.5"), grouped by any prefix, then anything else
+ * alphabetically.
+ */
+export function compareSizes(a: string, b: string): number {
+  const key = (s: string): [number, string, number] => {
+    const letter = LETTER_SIZES.indexOf(s.toUpperCase());
+    if (letter >= 0) return [0, '', letter];
+    const m = /^(.*?)\s*(\d+(?:\.\d+)?)$/.exec(s);
+    if (m) return [1, m[1].toUpperCase(), Number(m[2])];
+    return [2, s.toUpperCase(), 0];
+  };
+  const [ga, pa, na] = key(a);
+  const [gb, pb, nb] = key(b);
+  return ga - gb || pa.localeCompare(pb) || na - nb || a.localeCompare(b);
 }
 
 /** The "Discount" filter's choices, percent off ("10% off or more"). */

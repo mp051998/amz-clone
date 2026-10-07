@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { budgetRange } from './decision/attributes';
-import { parseQuery, pricePresets } from './search';
+import { compareSizes, parseQuery, pricePresets } from './search';
 
 describe('parseQuery price range', () => {
   it('reads min and max as whole minor units', () => {
@@ -75,5 +75,34 @@ describe('parseQuery seller', () => {
     expect(parseQuery({ seller: ' Amazon.com || Amazon.com ' }).seller).toEqual(['Amazon.com']);
     expect(parseQuery({ seller: '|' }).seller).toBeUndefined();
     expect(parseQuery({}).seller).toBeUndefined();
+  });
+});
+
+describe('parseQuery size', () => {
+  it('reads comma-separated sizes, trimmed and once each', () => {
+    expect(parseQuery({ size: 'M, L,UK 8,M' }).size).toEqual(['M', 'L', 'UK 8']);
+    expect(parseQuery({ size: ' , ' }).size).toBeUndefined();
+    expect(parseQuery({ size: 'X'.repeat(13) }).size).toBeUndefined();
+    expect(parseQuery({}).size).toBeUndefined();
+  });
+
+  it('keeps twenty at most', () => {
+    expect(parseQuery({ size: Array.from({ length: 25 }, (_, i) => String(i)).join(',') }).size).toHaveLength(20);
+  });
+});
+
+describe('compareSizes', () => {
+  const sorted = (xs: string[]) => [...xs].sort(compareSizes);
+
+  it('puts letter sizes small to large', () => {
+    expect(sorted(['XL', 'S', 'XXL', 'M', 'xs', 'L'])).toEqual(['xs', 'S', 'M', 'L', 'XL', 'XXL']);
+  });
+
+  it('puts numbered sizes by number, grouped by prefix', () => {
+    expect(sorted(['UK 10', 'UK 7', 'UK 6', '12', '9.5', '10', 'UK 8'])).toEqual(['9.5', '10', '12', 'UK 6', 'UK 7', 'UK 8', 'UK 10']);
+  });
+
+  it('lists letters, then numbers, then the rest', () => {
+    expect(sorted(['One Size', '8', 'M', 'Free'])).toEqual(['M', '8', 'Free', 'One Size']);
   });
 });

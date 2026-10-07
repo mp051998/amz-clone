@@ -1,7 +1,7 @@
 import type { Db } from '../db/client';
 import { toDetailRows, type DetailRow } from '../product-details';
 import type { Category, Market, Product, RatingSummary } from '../types';
-import { NO_SUGGESTIONS, PAGE_SIZE, SUGGEST_MIN, type SearchQuery, type SearchResult, type Suggestions } from '../search';
+import { compareSizes, NO_SUGGESTIONS, PAGE_SIZE, SUGGEST_MIN, type SearchQuery, type SearchResult, type Suggestions } from '../search';
 import { unwrap } from './errors';
 import { toProduct } from './map';
 import { foldVariants, type VariantSummary } from '../variants';
@@ -250,6 +250,8 @@ interface SearchJson {
   brands: { name: string; count: number }[];
   /** absent before the search-sellers migration */
   sellers?: { name: string; count: number }[];
+  /** absent before the search-sizes migration */
+  sizes?: { name: string; count: number }[];
   items: Parameters<typeof toProduct>[0][];
 }
 
@@ -262,6 +264,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       p_dept: query.dept ?? undefined,
       p_brands: query.brand?.length ? query.brand : undefined,
       p_sellers: query.seller?.length ? query.seller : undefined,
+      p_sizes: query.size?.length ? query.size : undefined,
       p_min_rating: query.rating ?? undefined,
       p_deal: query.deal ?? false,
       p_sort: query.sort,
@@ -289,6 +292,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     pageCount: json.page_count,
     brandFacets: json.brands,
     sellerFacets: json.sellers ?? [],
+    sizeFacets: (json.sizes ?? []).sort((a, b) => compareSizes(a.name, b.name)),
     unavailable: json.unavailable ?? 0,
     headingLabel,
   };

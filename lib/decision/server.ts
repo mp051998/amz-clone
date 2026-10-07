@@ -28,6 +28,8 @@ export interface RankFilters {
   brand?: string[];
   /** sold by any of these */
   seller?: string[];
+  /** comes in any of these sizes */
+  size?: string[];
   /** minimum star rating 1..5 */
   rating?: number;
   deal?: boolean;
@@ -76,6 +78,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     dept: q.category ?? undefined,
     brand: f.brand?.length ? f.brand : undefined,
     seller: f.seller?.length ? f.seller : undefined,
+    size: f.size?.length ? f.size : undefined,
     rating: f.rating,
     deal: f.deal || undefined,
     includeOutOfStock: f.includeOutOfStock || undefined,
@@ -127,6 +130,7 @@ export async function rankedSearch(
     if (filters.rating) products = products.filter((p) => p.rating >= filters.rating!);
     if (filters.brand?.length) products = products.filter((p) => p.brand && filters.brand!.includes(p.brand));
     if (filters.seller?.length) products = products.filter((p) => filters.seller!.includes(p.seller));
+    if (filters.size?.length) products = products.filter((p) => p.sizes?.some((s) => filters.size!.includes(s)));
     if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
     if (filters.minDiscount) products = products.filter((p) => p.deal && (p.dealPct ?? 0) >= filters.minDiscount!);
     if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
