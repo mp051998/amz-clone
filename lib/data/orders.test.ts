@@ -6,7 +6,7 @@ vi.mock('./refunds', () => refunds);
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderAddress, setOrderInstructions } from './orders';
+import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderAddress, setOrderGst, setOrderInstructions } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -258,5 +258,69 @@ describe('cancelOrderItems', () => {
       await expect(cancelOrderItems(db, row.id, bad)).rejects.toMatchObject({ code: 'invalid_input', detail: 'items' });
       expect(calls).toHaveLength(0);
     }
+  });
+});
+
+describe('GST invoice', () => {
+  const IN_SHIPPING = { fullName: 'Asha Rao', phone: '9876543210', line1: '12 MG Road', line2: 'Ashok Nagar', city: 'Bengaluru', state: 'Karnataka', postcode: '560001' };
+  const inRow = { ...row, id: '402-1234567-1234567', market_id: 'IN', currency: 'INR', payment_method: 'amazonpay', payment_label: 'Wallet balance' };
+  const GST = { gstin: '27AAPFU0939F1ZV', name: 'Acme Traders' };
+
+  /** place_order answers with the order; set_order_gst with it as `gst` says, or fails. */
+  function gstDb(gst: { data?: unknown; error?: unknown } = {}) {
+    const calls: [string, Record<string, unknown>][] = [];
+    const db = {
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        calls.push([fn, args]);
+        if (fn !== 'set_order_gst') return { data: inRow, error: null };
+        return gst.error ? { data: null, error: gst.error } : { data: gst.data ?? { ...inRow, gstin: args.p_gstin, gst_name: args.p_name }, error: null };
+      },
+    };
+    return { db: db as unknown as Db, calls };
+  }
+
+  it('adds the tidied details once the order is placed, and reads them back', async () => {
+    const t = gstDb();
+    const placed = await placeOrder(t.db, 'IN', { paymentMethod: 'amazonpay', shipping: IN_SHIPPING, gst: { gstin: ' 27aapfu0939f1zv ', name: ' Acme  Traders ' } });
+    expect(t.calls.map(([fn]) => fn)).toEqual(['place_order', 'set_order_gst']);
+    expect(t.calls[1][1]).toEqual({ p_order_id: inRow.id, p_gstin: GST.gstin, p_name: GST.name });
+    expect(placed.gst).toEqual(GST);
+  });
+
+  it('a blank GSTIN is none', async () => {
+    const t = gstDb();
+    const placed = await placeOrder(t.db, 'IN', { paymentMethod: 'amazonpay', shipping: IN_SHIPPING, gst: { gstin: '  ', name: '' } });
+    expect(t.calls.map(([fn]) => fn)).toEqual(['place_order']);
+    expect(placed.gst).toBeUndefined();
+  });
+
+  it('wrong details, or another store, fail before anything is reserved', async () => {
+    const t = gstDb();
+    await expect(placeOrder(t.db, 'IN', { paymentMethod: 'amazonpay', shipping: IN_SHIPPING, gst: { gstin: '27AAPFU0939F1ZW', name: 'Acme' } })).rejects.toMatchObject({
+      code: 'invalid_input',
+      detail: 'gstin',
+    });
+    await expect(placeOrder(t.db, 'IN', { paymentMethod: 'amazonpay', shipping: IN_SHIPPING, gst: { gstin: GST.gstin, name: '' } })).rejects.toMatchObject({
+      code: 'invalid_input',
+      detail: 'gstName',
+    });
+    await expect(placeOrder(t.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, gst: GST })).rejects.toMatchObject({ code: 'gst_unavailable' });
+    expect(t.calls).toHaveLength(0);
+  });
+
+  it('keeps the placed order when the details can’t be added', async () => {
+    const t = gstDb({ error: { code: 'PGRST202', message: 'Could not find the function', details: '', hint: '' } });
+    const placed = await placeOrder(t.db, 'IN', { paymentMethod: 'amazonpay', shipping: IN_SHIPPING, gst: GST });
+    expect(placed).toMatchObject({ id: inRow.id, status: 'placed' });
+    expect(placed.gst).toBeUndefined();
+  });
+
+  it('changes or removes them later', async () => {
+    const t = gstDb();
+    expect((await setOrderGst(t.db, inRow.id, '29AAGCB7383J1Z4', 'Beta Labs')).gst).toEqual({ gstin: '29AAGCB7383J1Z4', name: 'Beta Labs' });
+    const removed = gstDb({ data: inRow });
+    expect((await setOrderGst(removed.db, inRow.id, '', '')).gst).toBeUndefined();
+    expect(removed.calls[0]).toEqual(['set_order_gst', { p_order_id: inRow.id, p_gstin: '', p_name: '' }]);
+    await expect(setOrderGst(t.db, inRow.id, 'nope', 'x')).rejects.toMatchObject({ code: 'invalid_input', detail: 'gstin' });
   });
 });

@@ -200,6 +200,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
               { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : 'Standard' },
               ...(order.gift ? [{ label: 'Gift note', value: order.gift.message ? <span className="whitespace-pre-line">{order.gift.message}</span> : 'Gift, no note' }] : []),
               ...(order.gift?.wrapped ? [{ label: 'Gift wrap', value: 'Wrap every item' }] : []),
+              ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),
             ]}
           />
           <FactsCard

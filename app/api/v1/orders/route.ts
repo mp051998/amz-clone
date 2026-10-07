@@ -14,10 +14,12 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? }, promoCode? }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? }, promoCode?, gst?: { gstin, name } }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
- * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to.
+ * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to. India only: `gst`
+ * makes the invoice out to that GSTIN and business name (`invalid_input` gstin | gstName before
+ * anything is reserved; `gst_unavailable` in other stores).
  */
 export const POST = route(async (ctx) => {
   requireUser(ctx);
@@ -38,6 +40,9 @@ export const POST = route(async (ctx) => {
     throw new DataError('invalid_input', 'promoCode', 'Enter a promotion code.');
   }
 
+  const gr = b.gst && typeof b.gst === 'object' ? (b.gst as { gstin?: unknown; name?: unknown }) : null;
+  if (b.gst !== undefined && b.gst !== null && !gr) throw new DataError('invalid_input', 'gstin', 'Send gst as { gstin, name }.');
+
   const emiMonths = b.emiMonths === undefined ? undefined : Number(b.emiMonths);
   const order = await placeOrder(ctx.db, ctx.market, {
     paymentMethod: b.paymentMethod,
@@ -47,6 +52,7 @@ export const POST = route(async (ctx) => {
     buyNow,
     emiMonths,
     promoCode: typeof b.promoCode === 'string' ? b.promoCode : null,
+    gst: gr ? { gstin: gr.gstin, name: gr.name } : undefined,
   });
   if (order.status === 'placed') return json({ order }, { status: 201 });
 

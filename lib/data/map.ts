@@ -238,6 +238,8 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.ship_speed === 'fast' ? { shipSpeed: 'fast' as const } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),
     ...(row.promo_code ? { promoCode: row.promo_code } : {}),
+    // absent on rows read before the GST invoice migration lands
+    ...(row.gstin ? { gst: { gstin: row.gstin, name: row.gst_name ?? '' } } : {}),
     // absent on rows read before the archive migration lands
     ...(row.archived_at ? { archivedAt: row.archived_at } : {}),
     ...(cancellations.length ? { cancellations } : {}),

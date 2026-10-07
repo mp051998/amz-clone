@@ -113,6 +113,21 @@ it('India: tax included note, rupees, store links', async () => {
   expect(screen.getByRole('link', { name: '← Back to order' })).toHaveAttribute('href', '/in/orders/ORD-77?placed=0');
 });
 
+it('India: a GST invoice is billed to the business, with its GSTIN', async () => {
+  state.store = amazonIn;
+  state.order = order({ market: 'IN', currency: 'INR', gst: { gstin: '27AAPFU0939F1ZV', name: 'Acme Traders' } });
+  await show();
+  const billed = screen.getByRole('region', { name: 'Billed to' });
+  expect(billed).toHaveTextContent('Acme Traders');
+  expect(billed).toHaveTextContent('GSTIN 27AAPFU0939F1ZV');
+  expect(screen.getByRole('region', { name: 'Shipping address' })).toBeInTheDocument();
+});
+
+it('without GST details there is no billing block', async () => {
+  await show();
+  expect(screen.queryByRole('region', { name: 'Billed to' })).toBeNull();
+});
+
 it('sends the signed-out to sign in, the wrong store to the right one, and unpaid orders back', async () => {
   state.user = null;
   await expect(show()).rejects.toThrow('REDIRECT /signin?next=%2Forders%2FORD-77%2Finvoice');

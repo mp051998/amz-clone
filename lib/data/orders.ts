@@ -9,6 +9,7 @@ import { toOrder } from './map';
 import { expireCardCheckout } from './payments';
 import { refundCancellation, refundOrder } from './refunds';
 import { readPromoCode } from '../promo';
+import { readGst } from '../gst';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -31,6 +32,8 @@ export interface PlaceOrderInput {
   emiMonths?: number;
   /** a promotion code typed at checkout (blank is none) */
   promoCode?: string | null;
+  /** India: a GST invoice made out to this GSTIN and business name (a blank GSTIN is none) */
+  gst?: { gstin: unknown; name: unknown };
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
@@ -57,6 +60,9 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
   const emi = input.paymentMethod === 'emi' ? input.emiMonths : undefined;
   if (emi !== undefined && !isEmiMonths(emi)) throw new DataError('invalid_input', 'emiMonths', 'Choose 3, 6, 9 or 12 monthly payments.');
   const promo = readPromoCode(input.promoCode);
+  // GST details are checked before anything is reserved, and added once the order exists
+  const gst = input.gst ? readGst(input.gst.gstin, input.gst.name) : null;
+  if (gst && market !== 'IN') throw new DataError('gst_unavailable');
   const json = unwrap(
     await db.rpc('place_order', {
       p_market: market,
@@ -83,6 +89,21 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(promo ? { p_promo_code: promo } : {}),
     }),
   );
+  const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  if (!gst) return order;
+  // the order is placed either way; the details can still be added until it ships
+  return setOrderGst(db, order.id, gst.gstin, gst.name).catch(() => order);
+}
+
+/**
+ * Owner adds, changes or (blank GSTIN) removes an India order's GST invoice details while it's
+ * unpaid or being prepared: `gst_locked` once it ships or is cancelled, `gst_unavailable` in other
+ * stores, `invalid_input` (`gstin` | `gstName`) for details that don't check out.
+ */
+export async function setOrderGst(db: Db, id: string, gstin: unknown, name: unknown): Promise<Order> {
+  const gst = readGst(gstin, name);
+  const json = unwrap(await db.rpc('set_order_gst', { p_order_id: id, p_gstin: gst?.gstin ?? '', p_name: gst?.name ?? '' }));
+  if (!json) throw new DataError('order_not_found');
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
 }
 
