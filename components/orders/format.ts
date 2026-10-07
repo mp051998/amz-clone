@@ -158,7 +158,7 @@ export interface OrderView {
   steps: TrackingStep[];
   eta: Date | null;
   delivered: boolean;
-  /** dark-panel kicker: "ON TIME", "OUT FOR DELIVERY", "DELIVERED", … */
+  /** dark-panel kicker: "ON TIME", "OUT FOR DELIVERY", "DELIVERED", "READY FOR PICKUP", … */
   kicker: string;
   /** big headline: "Arriving tomorrow", "Delivered", … */
   headline: string;
@@ -204,6 +204,15 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
       headline: 'Waiting for payment',
       window: 'Complete card payment to confirm this order — unpaid orders are released.',
       chip: { label: 'Payment pending', tone: 'warn' },
+    };
+  }
+  if (delivered && eta && order.pickup) {
+    return {
+      steps, eta, delivered, itemCount, cancelUntil,
+      kicker: 'READY FOR PICKUP',
+      headline: 'Ready for pickup',
+      window: `At ${order.shipTo.line1} · ${stepTime(eta, store, now)}`,
+      chip: { label: 'Ready for pickup', tone: 'good' },
     };
   }
   if (delivered && eta) {

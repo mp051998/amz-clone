@@ -10,6 +10,7 @@ import { expireCardCheckout } from './payments';
 import { refundCancellation, refundOrder } from './refunds';
 import { readPromoCode } from '../promo';
 import { readGst } from '../gst';
+import { getPickupPoint } from './pickup';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -22,6 +23,11 @@ export const GIFT_NOTE_MAX = 240;
 export interface PlaceOrderInput {
   paymentMethod: PaymentMethod;
   shipping: AddressFieldsInput;
+  /**
+   * collect the order at this pickup point (an id from listPickupPoints) instead: `shipping` then
+   * needs only the name and phone, and the point's address stands in for the rest
+   */
+  pickupPoint?: string;
   /** mark the order as a gift, with an optional note for the recipient */
   gift?: { message?: unknown; wrap?: boolean };
   /** delivery speed; 'fast' only when offered right now (see deliveryOptions), 'day' only for a Plus member with a Delivery Day */
@@ -55,7 +61,13 @@ export function readGiftNote(v: unknown): string | undefined {
  * Card orders come back `awaiting_payment` — hand them to startCardCheckout.
  */
 export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput): Promise<Order> {
-  const a = parseAddress(market, input.shipping);
+  const point = input.pickupPoint ? await getPickupPoint(db, market, input.pickupPoint) : null;
+  if (input.pickupPoint && !point) throw new DataError('pickup_point_not_found');
+  // a pickup point's address stands in for the shopper's (no courier, so no instructions)
+  const shipping = point
+    ? { fullName: input.shipping.fullName, phone: input.shipping.phone, line1: point.name, line2: point.line1, city: point.city, state: point.state, postcode: point.postcode }
+    : input.shipping;
+  const a = parseAddress(market, shipping);
   const note = input.gift ? readGiftNote(input.gift.message) : undefined;
   const emi = input.paymentMethod === 'emi' ? input.emiMonths : undefined;
   if (emi !== undefined && !isEmiMonths(emi)) throw new DataError('invalid_input', 'emiMonths', 'Choose 3, 6, 9 or 12 monthly payments.');
@@ -77,6 +89,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
         state: a.state,
         postcode: a.postcode,
         instructions: a.instructions ?? null,
+        ...(point ? { pickup_point: point.id } : {}),
       },
       // sent only for gifts, so ordinary checkouts don't depend on the gift migration
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}), ...(input.gift.wrap ? { p_gift_wrap: true } : {}) } : {}),

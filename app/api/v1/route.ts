@@ -51,6 +51,7 @@ export function GET(): Response {
       'POST   /searches',
       'GET    /searches/related?q=',
       'GET    /sellers?name=',
+      'GET    /pickup-points?q=',
       'GET    /profiles/:id?page=',
       'GET    /products/:id',
       'GET    /products/:id/bought-together',

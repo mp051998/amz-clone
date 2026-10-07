@@ -56,6 +56,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         addressType: formData.get('addressType'),
         instructions: formData.get('instructions'),
       },
+      pickupPoint: typeof formData.get('pickupPoint') === 'string' && formData.get('pickupPoint') ? String(formData.get('pickupPoint')) : undefined,
       gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage'), wrap: formData.get('giftWrap') === 'on' } : undefined,
       speed: formData.get('shipSpeed') === 'fast' ? 'fast' : formData.get('shipSpeed') === 'day' ? 'day' : undefined,
       buyNow,
