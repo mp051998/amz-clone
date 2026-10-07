@@ -20,13 +20,14 @@ vi.mock('@/app/cart/actions', () => ({ swapCartLine: async () => ({ ok: true }) 
 
 import { SavedForLater } from './SavedForLater';
 
-function item(id: string, over: Partial<Product> = {}, savedPriceMinor = 1999): CollectionItem {
+function item(id: string, over: Partial<Product> = {}, savedPriceMinor = 1999, savedInStock = true): CollectionItem {
   return {
     product: {
       id, market: 'US', title: `Product ${id}`, category: 'c', categoryName: 'C', image: '', priceMinor: 1999, rating: 4, reviewCount: 1,
       seller: 'S', shipsFrom: 'S', bullets: [], stock: 20, curBase: 'USD', ...over,
     },
     savedPriceMinor,
+    savedInStock,
     addedAt: '2026-10-01T00:00:00Z',
   };
 }
@@ -53,6 +54,15 @@ it('lists the saved items at today’s price, with what each can do', () => {
   expect(within(rows[1]).queryByRole('button', { name: /Move/ })).toBeNull();
   expect(within(rows[2]).getByText('No longer available')).toBeInTheDocument();
   expect(within(rows[2]).getByRole('button', { name: 'Delete Product c from Saved for later' })).toBeInTheDocument();
+});
+
+it('says when something saved sold out can be bought again', () => {
+  render(<SavedForLater collectionId="c1" sp={sp} items={[item('a', {}, 1999, false), item('b', { stock: 3 }, 1999, false), item('c', { stock: 0 }, 1999, false)]} />);
+  const rows = screen.getAllByRole('listitem');
+  expect(within(rows[0]).getByText('Back in stock')).toBeInTheDocument();
+  expect(within(rows[1]).getByText('Back in stock · only 3 left')).toBeInTheDocument();
+  expect(within(rows[2]).getByText('Out of stock')).toBeInTheDocument();
+  expect(within(rows[2]).queryByText(/Back in stock/)).toBeNull();
 });
 
 it('moves an item to the cart and refreshes', async () => {

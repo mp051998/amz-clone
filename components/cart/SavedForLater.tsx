@@ -1,4 +1,5 @@
 import { ProductFrame } from '@/components/decision';
+import { isBackInStock } from '@/lib/data/collections';
 import type { CollectionItem } from '@/lib/decision/types';
 import { formatMoney } from '@/lib/marketplaces';
 import { SavedItemActions } from './CartActions';
@@ -19,7 +20,8 @@ export function SavedForLater({ collectionId, items, sp }: SavedForLaterProps) {
         Saved for later <span className="font-normal text-ink-3">({items.length} {items.length === 1 ? 'item' : 'items'})</span>
       </h2>
       <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">
-        {items.map(({ product: p, savedPriceMinor }) => {
+        {items.map((item) => {
+          const { product: p, savedPriceMinor } = item;
           const href = sp(`/product/${encodeURIComponent(p.id)}`);
           const money = (minor: number) => formatMoney(minor, p.curBase);
           const drop = p.archived ? 0 : savedPriceMinor - p.priceMinor;
@@ -38,6 +40,8 @@ export function SavedForLater({ collectionId, items, sp }: SavedForLaterProps) {
                   <span className="text-[14px] font-semibold text-warn">No longer available</span>
                 ) : p.stock === 0 ? (
                   <span className="text-[14px] font-semibold text-warn">Out of stock</span>
+                ) : isBackInStock(item) ? (
+                  <span className="text-[14px] font-semibold text-good-strong">Back in stock{p.stock <= 10 ? ` · only ${p.stock} left` : ''}</span>
                 ) : (
                   <span className="text-[14px] text-ink-2">{p.stock <= 10 ? `Only ${p.stock} left` : 'In stock'}</span>
                 )}

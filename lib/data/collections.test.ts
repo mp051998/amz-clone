@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { product } from '@/test/fixtures/decision';
-import { getSharedList, isShareToken, listChoices, markSharedGift, moveItem, priceDrops, shareCollection, unshareCollection } from './collections';
+import { backInStock, getSharedList, isBackInStock, isShareToken, listChoices, markSharedGift, moveItem, priceDrops, shareCollection, unshareCollection } from './collections';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
 
@@ -103,6 +103,29 @@ it('lists the shopper’s lists in Collections order, ticking the ones that hold
     { id: 'b', name: 'Birthday', kind: 'custom', has: false },
     { id: 'l', name: 'Saved for later', kind: 'later', has: true },
   ]);
+});
+
+it('finds what was saved sold out and can be bought now, latest saved first, each product once', () => {
+  const kettle = product({ id: 'kettle', priceMinor: 4000 });
+  const lamp = product({ id: 'lamp', priceMinor: 900 });
+  const at = (day: number) => `2026-10-0${day}T00:00:00Z`;
+  const mug = product({ id: 'mug' });
+  const back = backInStock([
+    { product: kettle, savedPriceMinor: 4500, savedInStock: false, addedAt: at(1) },
+    { product: kettle, savedPriceMinor: 5000, savedInStock: false, addedAt: at(3) }, // on two lists: the higher saved price counts
+    { product: lamp, savedPriceMinor: 900, savedInStock: false, addedAt: at(2) },
+    { product: mug, savedPriceMinor: 700, savedInStock: false, addedAt: at(1) },
+    { product: mug, savedPriceMinor: 700, savedInStock: true, addedAt: at(4) }, // saved again since, in stock: not news
+    { product: product({ id: 'never-out' }), savedPriceMinor: 700, savedInStock: true, addedAt: at(3) },
+    { product: product({ id: 'still-out', stock: 0 }), savedPriceMinor: 700, savedInStock: false, addedAt: at(3) },
+    { product: product({ id: 'gone', archived: true }), savedPriceMinor: 700, savedInStock: false, addedAt: at(3) },
+  ]);
+  expect(back.map((b) => [b.product.id, b.savedPriceMinor])).toEqual([
+    ['kettle', 5000],
+    ['lamp', 900],
+  ]);
+  expect(isBackInStock({ product: kettle, savedInStock: false })).toBe(true);
+  expect(isBackInStock({ product: kettle, savedInStock: true })).toBe(false);
 });
 
 it('finds what got cheaper since it was saved, biggest share first, each product once', () => {

@@ -159,13 +159,13 @@ isOneToOne: false
                   ]
                 },"collection_items": {
                   Row: {
-                    "added_at": string,"collection_id": string,"product_id": string,"saved_price_minor": number
+                    "added_at": string,"collection_id": string,"product_id": string,"saved_in_stock": boolean,"saved_price_minor": number
                   }
                   Insert: {
-                    "added_at"?: string,"collection_id": string,"product_id": string,"saved_price_minor": number
+                    "added_at"?: string,"collection_id": string,"product_id": string,"saved_in_stock"?: boolean,"saved_price_minor": number
                   }
                   Update: {
-                    "added_at"?: string,"collection_id"?: string,"product_id"?: string,"saved_price_minor"?: number
+                    "added_at"?: string,"collection_id"?: string,"product_id"?: string,"saved_in_stock"?: boolean,"saved_price_minor"?: number
                   }
                   Relationships: [
                     {

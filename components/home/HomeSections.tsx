@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { PriceDrop } from '@/lib/data/collections';
+import type { BackInStock, PriceDrop } from '@/lib/data/collections';
 import type { HomeDeal, HomePick } from '@/lib/home-content';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -152,6 +152,39 @@ export function SavedDropGrid({ drops, store }: { drops: PriceDrop[]; store: Sto
                 <s className="text-[13px] text-ink-3 tabular-nums">
                   <span className="sr-only">saved at </span>{money(p, store, savedPriceMinor)}
                 </s>
+              </span>
+              <span className="text-[13px]"><Rating p={p} /></span>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Saved products that were sold out and can be bought again: a "Back in stock" chip, today's price (the saved price struck if it's cheaper now). */
+export function SavedBackGrid({ items, store }: { items: BackInStock[]; store: Store }) {
+  return (
+    <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3.5 p-0">
+      {items.map(({ product: p, savedPriceMinor }) => (
+        <li key={p.id}>
+          <a
+            href={storePath(store, `/product/${p.id}`)}
+            className="flex h-full items-stretch gap-3.5 rounded-card border border-line bg-surface p-3.5 text-ink no-underline transition-colors hover:border-ink hover:text-ink"
+          >
+            <div className="min-h-[110px] flex-[0_0_96px]">
+              <ProductFrame src={p.image} alt="" aspect="auto" className="h-full min-h-[110px]" label="product" />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="self-start rounded-chip bg-good-bg px-2 py-1 text-[13px] font-semibold text-good-strong">Back in stock</span>
+              <span className="line-clamp-2 text-[15px] font-semibold leading-tight">{p.title}</span>
+              <span className="flex flex-wrap items-baseline gap-2">
+                <strong className="text-[18px] tabular-nums">{money(p, store)}</strong>
+                {savedPriceMinor > p.priceMinor ? (
+                  <s className="text-[13px] text-ink-3 tabular-nums">
+                    <span className="sr-only">saved at </span>{money(p, store, savedPriceMinor)}
+                  </s>
+                ) : null}
               </span>
               <span className="text-[13px]"><Rating p={p} /></span>
             </div>

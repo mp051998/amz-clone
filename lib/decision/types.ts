@@ -137,6 +137,8 @@ export interface CollectionItem {
   product: Product;
   /** Price when saved, minor units — drives "↓ ₹800 since you saved". */
   savedPriceMinor: number;
+  /** Whether it was in stock when saved: one saved sold out that's buyable again is back in stock. */
+  savedInStock: boolean;
   addedAt: string;
 }
 

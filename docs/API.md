@@ -289,7 +289,7 @@ Phone numbers are normalised: digits only, with a leading `+1` / `+91` dropped.
 
 Saved products, per store. Two system lists are created on first use: `considering` ("Things I'm Considering", where the Save button puts things) and `later` ("Saved for later", from the cart). Shoppers can add up to 20 collections, each holding up to 200 items.
 
-`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, shareToken, items: [{product, savedPriceMinor, addedAt}]`. `shareToken` is set while the list is shared by link. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, stamped by the database. Compare it with `product.priceMinor` to show price drops. Items keep archived products (`product.archived: true`).
+`Collection` has these fields: `id, name, note, kind: custom|considering|later, createdAt, shareToken, items: [{product, savedPriceMinor, savedInStock, addedAt}]`. `shareToken` is set while the list is shared by link. Items are sorted newest first. `savedPriceMinor` is the catalog price when the item was first saved, and `savedInStock` whether it was in stock then, both stamped by the database and kept when the item moves lists. Compare them with `product.priceMinor` and `product.stock` to show price drops and "back in stock" (saved sold out, `stock > 0` now). Items keep archived products (`product.archived: true`).
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
@@ -543,6 +543,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | support cases | `support_cases` and `support_messages`; shoppers read their own (admins all) and write only through `open_support_case()`, `reply_support_case()` and `close_support_case()`, which set the status (`open` / `answered` / `closed`) and cap open cases at 5 per shopper per store |
 | order address | `set_my_order_address()` (owner) copies one of their saved addresses in the order's store onto the order (with its instructions) while it's being prepared |
 | support seen | `support_cases.customer_seen_at`: when the shopper last opened the case or wrote on it (a trigger on their messages). `my_unread_support_cases()` lists their cases with a store reply since, and `mark_support_case_seen()` (owner) records a visit |
+| saved stock | `collection_items.saved_in_stock`: whether the product was in stock when saved, stamped by the insert trigger with the saved price and kept by `move_collection_item()` |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

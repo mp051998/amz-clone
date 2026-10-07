@@ -8,7 +8,7 @@ import { ShareList } from '@/components/collections/ShareList';
 import { cn } from '@/components/lib/cn';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
-import { listCollections } from '@/lib/data/collections';
+import { isBackInStock, listCollections } from '@/lib/data/collections';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -139,6 +139,9 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                                       ? `↑ ${formatMoney(-d, p.curBase)} since you saved`
                                       : 'Same price as when saved'}
                                 </span>
+                                {isBackInStock(it) ? (
+                                  <span className="self-start rounded-chip bg-good-bg px-2 py-0.5 text-[13px] font-semibold text-good-strong">Back in stock</span>
+                                ) : null}
                               </>
                             )}
                           </div>

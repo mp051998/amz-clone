@@ -9,7 +9,7 @@ import { DataError, unwrap } from './errors';
  * Customer collections ("Things I'm Considering", "Saved for later", and lists
  * they make). Every function takes the caller's client: row-level security
  * scopes reads and writes to the signed-in user, triggers enforce the limits
- * (20 collections, 200 items each) and stamp the price at save time.
+ * (20 collections, 200 items each) and stamp the price and stock at save time.
  */
 
 export type CollectionKind = NonNullable<Collection['kind']>;
@@ -21,7 +21,7 @@ export const SYSTEM_COLLECTION_NAMES: Record<Exclude<CollectionKind, 'custom'>, 
 };
 
 type CollectionRow = Database['public']['Tables']['collections']['Row'];
-type ItemRow = Pick<Database['public']['Tables']['collection_items']['Row'], 'product_id' | 'saved_price_minor' | 'added_at'>;
+type ItemRow = Pick<Database['public']['Tables']['collection_items']['Row'], 'product_id' | 'saved_price_minor' | 'saved_in_stock' | 'added_at'>;
 type RowWithItems = CollectionRow & { collection_items?: ItemRow[] };
 
 const KIND_ORDER: Record<string, number> = { considering: 0, custom: 1, later: 2 };
@@ -66,12 +66,12 @@ async function hydrate(db: Db, rows: RowWithItems[]): Promise<Collection[]> {
         .sort((a, b) => b.added_at.localeCompare(a.added_at))
         .flatMap((i): CollectionItem[] => {
           const product = products.get(i.product_id);
-          return product ? [{ product, savedPriceMinor: i.saved_price_minor, addedAt: i.added_at }] : [];
+          return product ? [{ product, savedPriceMinor: i.saved_price_minor, savedInStock: i.saved_in_stock, addedAt: i.added_at }] : [];
         }),
     }));
 }
 
-const WITH_ITEMS = '*, collection_items(product_id, saved_price_minor, added_at)';
+const WITH_ITEMS = '*, collection_items(product_id, saved_price_minor, saved_in_stock, added_at)';
 
 /** The caller's collections in a store, with items and live products (system lists first/last). */
 export async function listCollections(db: Db, market: Market): Promise<Collection[]> {
@@ -131,7 +131,8 @@ export async function deleteCollection(db: Db, id: string): Promise<void> {
 /**
  * Add a product (idempotent — re-adding keeps the original saved price).
  * The database stamps `savedPriceMinor` with the current catalog price and
- * rejects products from another store (`404 product_not_found`).
+ * `savedInStock` with whether it can be bought now, and rejects products from
+ * another store (`404 product_not_found`).
  */
 export async function addItem(db: Db, collectionId: string, productId: string): Promise<CollectionItem> {
   if (!isUuid(collectionId)) throw new DataError('collection_not_found');
@@ -146,14 +147,14 @@ export async function addItem(db: Db, collectionId: string, productId: string): 
   const item = unwrap(
     await db
       .from('collection_items')
-      .select('product_id, saved_price_minor, added_at')
+      .select('product_id, saved_price_minor, saved_in_stock, added_at')
       .eq('collection_id', collectionId)
       .eq('product_id', productId)
       .maybeSingle(),
   );
   const [product] = await getProducts(db, [productId]);
   if (!item || !product) throw new DataError('product_not_found');
-  return { product, savedPriceMinor: item.saved_price_minor, addedAt: item.added_at };
+  return { product, savedPriceMinor: item.saved_price_minor, savedInStock: item.saved_in_stock, addedAt: item.added_at };
 }
 
 /** Remove a product from one collection (no-op when absent). */
@@ -219,20 +220,63 @@ export function priceDrops(items: { product: Product; savedPriceMinor: number }[
   return [...best.values()].sort((a, b) => b.dropMinor / b.savedPriceMinor - a.dropMinor / a.savedPriceMinor);
 }
 
-/** Price drops across all the caller's lists in this store (the home page row). */
-export async function savedPriceDrops(db: Db, market: Market, limit = 8): Promise<PriceDrop[]> {
+/** Saved while sold out, and can be bought again now. */
+export function isBackInStock(item: { product: Product; savedInStock: boolean }): boolean {
+  return !item.savedInStock && !item.product.archived && item.product.stock > 0;
+}
+
+/** A saved product that was sold out when it was saved and is in stock again. */
+export interface BackInStock {
+  product: Product;
+  /** the highest price it was saved at; above today's when it's cheaper too */
+  savedPriceMinor: number;
+}
+
+type SavedItem = { product: Product; savedPriceMinor: number; savedInStock: boolean; addedAt: string };
+
+/**
+ * Saved products that were sold out when saved and can be bought now, latest saved first. A
+ * product on several lists counts once, by the copy saved last: saving it again while in stock
+ * means the shopper has seen it back.
+ */
+export function backInStock(items: SavedItem[]): BackInStock[] {
+  const last = new Map<string, { item: SavedItem; savedPriceMinor: number }>();
+  for (const item of items) {
+    const seen = last.get(item.product.id);
+    last.set(item.product.id, {
+      item: seen && seen.item.addedAt > item.addedAt ? seen.item : item,
+      savedPriceMinor: Math.max(seen?.savedPriceMinor ?? 0, item.savedPriceMinor),
+    });
+  }
+  return [...last.values()]
+    .filter(({ item }) => isBackInStock(item))
+    .sort((a, b) => b.item.addedAt.localeCompare(a.item.addedAt))
+    .map(({ item, savedPriceMinor }) => ({ product: item.product, savedPriceMinor }));
+}
+
+/** What changed on the caller's saved products in this store (the home page rows). */
+export interface SavedUpdates {
+  back: BackInStock[];
+  /** price drops on the rest: a product back in stock shows once, under `back` */
+  drops: PriceDrop[];
+}
+
+/** Back in stock and price drops across all the caller's lists in this store, up to `limit` of each. */
+export async function savedUpdates(db: Db, market: Market, limit = 8): Promise<SavedUpdates> {
   const rows = unwrap(
     await db
       .from('collection_items')
-      .select('product_id, saved_price_minor, collections!inner(market_id)')
+      .select('product_id, saved_price_minor, saved_in_stock, added_at, collections!inner(market_id)')
       .eq('collections.market_id', market),
   );
   const byId = new Map((await getProducts(db, [...new Set(rows.map((r) => r.product_id))])).map((p) => [p.id, p]));
   const items = rows.flatMap((r) => {
     const product = byId.get(r.product_id);
-    return product ? [{ product, savedPriceMinor: r.saved_price_minor }] : [];
+    return product ? [{ product, savedPriceMinor: r.saved_price_minor, savedInStock: r.saved_in_stock, addedAt: r.added_at }] : [];
   });
-  return priceDrops(items).slice(0, limit);
+  const back = backInStock(items);
+  const backIds = new Set(back.map((b) => b.product.id));
+  return { back: back.slice(0, limit), drops: priceDrops(items.filter((i) => !backIds.has(i.product.id))).slice(0, limit) };
 }
 
 /** Ids of every product the caller has saved in any collection in this store. */

@@ -4,7 +4,7 @@ import { amazon } from '../../lib/amazon';
 import { amazonIn } from '../../lib/marketplace-in';
 import { endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
 import type { Product } from '../../lib/types';
-import { ContinueRow, DealGrid, PickGrid, SavedDropGrid } from './HomeSections';
+import { ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid } from './HomeSections';
 
 afterEach(cleanup);
 
@@ -82,3 +82,22 @@ it('shows what a saved product dropped by, with the price it was saved at struck
   expect(card.querySelector('s')).toHaveTextContent('saved at $49.99');
   expect(within(card).getByText('$39.99')).toBeInTheDocument();
 });
+
+it('shows saved products back in stock, striking the saved price only when it’s cheaper now', () => {
+  render(
+    <SavedBackGrid
+      items={[
+        { product: product({ id: 'p1', title: 'Kettle', priceMinor: 3999 }), savedPriceMinor: 4999 },
+        { product: product({ id: 'p2', title: 'Lamp', priceMinor: 2500 }), savedPriceMinor: 2500 },
+      ]}
+      store={amazonIn}
+    />,
+  );
+  const [kettle, lamp] = screen.getAllByRole('link');
+  expect(kettle).toHaveAttribute('href', '/in/product/p1');
+  expect(within(kettle).getByText('Back in stock')).toBeInTheDocument();
+  expect(kettle.querySelector('s')).toHaveTextContent(/^saved at ₹/);
+  expect(within(lamp).getByText('Back in stock')).toBeInTheDocument();
+  expect(lamp.querySelector('s')).toBeNull();
+});
+
