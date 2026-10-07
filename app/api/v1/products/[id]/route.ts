@@ -3,14 +3,15 @@ import { getProduct, getProductInfo, getRatingSummary } from '@/lib/data/catalog
 import { protectionOffer } from '@/lib/data/cart';
 import { couponFor } from '@/lib/data/coupons';
 import { DataError } from '@/lib/data/errors';
-import { frequentlyReturned } from '@/lib/data/return-signal';
+import { returnSignal } from '@/lib/data/return-signal';
 import { protectionPlanName } from '@/lib/protection';
 import { emiPlans } from '@/lib/emi';
 
 /**
  * GET /api/v1/products/:id — product detail (with live stock, description and spec rows), its rating
  * histogram, its coupon (`{percentOff, clipped}` or null; `clipped` is false signed out), and
- * `frequentlyReturned` (`{reason}` when it often comes back, else null), and the store's
+ * `frequentlyReturned` (`{reason}` when it often comes back, else null), `usuallyKept` (true when
+ * customers rarely send it back), and the store's
  * `protection` plan for it (`{name, unitMinor}` or null), and its card EMI plans (`emi`, India from
  * ₹3,000, else empty).
  */
@@ -21,12 +22,12 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
     getProductInfo(ctx.db, id),
     getRatingSummary(ctx.db, id),
     product.archived ? null : couponFor(ctx.db, id, ctx.user != null),
-    product.archived ? null : frequentlyReturned(ctx.db, id),
+    product.archived ? null : returnSignal(ctx.db, id),
     product.archived ? null : protectionOffer(ctx.db, id),
   ]);
   const protection = plan ? { name: protectionPlanName(product.market), unitMinor: plan } : null;
   const emi = product.archived ? [] : emiPlans(product.market, product.priceMinor);
-  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns, protection, emi });
+  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, protection, emi });
 });
 
 export const OPTIONS = preflight;

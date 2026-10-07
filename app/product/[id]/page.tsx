@@ -22,8 +22,8 @@ import { QuestionsPanel } from '@/components/product/QuestionsPanel';
 import { ReportIssue } from '@/components/product/ReportIssue';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
-import { FrequentlyReturned } from '@/components/product/FrequentlyReturned';
-import { frequentlyReturned } from '@/lib/data/return-signal';
+import { FrequentlyReturned, UsuallyKept } from '@/components/product/FrequentlyReturned';
+import { returnSignal as readReturnSignal, type ReturnSignal } from '@/lib/data/return-signal';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { readUser } from '@/lib/auth';
 import { getProvider } from '@/lib/ai';
@@ -167,7 +167,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     countAnsweredQuestions(client, p.id),
     sellerRatings(client, store.id, [p.seller]).catch(() => new Map<string, SellerRating>()),
     user && !p.archived ? myOpenReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
-    p.archived ? Promise.resolve(null) : frequentlyReturned(client, p.id).catch(() => null),
+    p.archived ? Promise.resolve(null) : readReturnSignal(client, p.id).catch((): ReturnSignal | null => null),
     p.archived ? Promise.resolve(null) : protectionOffer(client, p.id).catch(() => null),
     p.archived ? Promise.resolve([]) : activePromoCodes(client, store.id),
     user && p.maxPerCustomer ? purchaseAllowance(client, store.id, [p.id]) : Promise.resolve(new Map()),
@@ -331,7 +331,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   </a>
                 ) : null}
                 {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
-                {returnSignal ? <FrequentlyReturned signal={returnSignal} reviewsHref="#reviews" /> : null}
+                {returnSignal?.frequent ? <FrequentlyReturned signal={returnSignal.frequent} reviewsHref="#reviews" /> : null}
+                {returnSignal?.usuallyKept ? <UsuallyKept /> : null}
               </div>
 
               {p.archived ? null : (

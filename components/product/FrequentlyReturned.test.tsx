@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
-import { FrequentlyReturned } from './FrequentlyReturned';
+import { FrequentlyReturned, UsuallyKept } from './FrequentlyReturned';
 
 afterEach(cleanup);
 
@@ -14,4 +14,9 @@ it('warns, gives the usual reason, and points to the reviews', () => {
 it('without a product-side reason, only the warning', () => {
   render(<FrequentlyReturned signal={{ reason: null }} reviewsHref="#reviews" />);
   expect(screen.getByRole('note')).toHaveTextContent(/^Frequently returned itemCheck the product details/);
+});
+
+it('says customers usually keep it', () => {
+  render(<UsuallyKept />);
+  expect(screen.getByRole('note', { name: 'Customers usually keep this item' })).toHaveTextContent('Customers usually keep this item');
 });
