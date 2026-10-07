@@ -7,6 +7,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { FactsCard, StatusChip, Timeline } from '@/components/orders/Tracking';
 import { paymentText } from '@/components/orders/format';
 import { trackingSteps } from '@/lib/decision/tracking';
+import { CancelledItems } from '@/components/orders/CancelledItems';
 import { canRetryRefund, getAdminOrder, type AdminOrder } from '@/lib/data/admin-orders';
 import { listOrderReturns } from '@/lib/data/admin-returns';
 import { messageFor } from '@/lib/data/errors';
@@ -147,6 +148,8 @@ export default async function AdminOrderPage({ params, searchParams }: {
               <div className="flex justify-between font-bold"><dt>Total</dt><dd className="m-0 tabular-nums">{money(order.totals.totalMinor)}</dd></div>
             </dl>
           </section>
+
+          <CancelledItems order={order} store={store} href={(productId) => to(`/admin/products/${encodeURIComponent(productId)}`)} />
 
           {returns.length ? (
             <section className="flex flex-col gap-3" aria-labelledby="returns-h">

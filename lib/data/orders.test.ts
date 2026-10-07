@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Db } from '../db/client';
 
-vi.mock('./refunds', () => ({ refundOrder: async () => undefined }));
+const refunds = vi.hoisted(() => ({ refundOrder: vi.fn(async () => undefined), refundCancellation: vi.fn(async () => undefined) }));
+vi.mock('./refunds', () => refunds);
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { archiveOrder, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderAddress, setOrderInstructions } from './orders';
+import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderAddress, setOrderInstructions } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -171,5 +172,57 @@ describe('placeOrder gift and speed', () => {
       message: 'Gift messages can be up to 240 characters.',
     });
     expect(gift.calls).toHaveLength(0);
+  });
+});
+
+describe('cancelOrderItems', () => {
+  const kettle = { line_no: 2, product_id: 'k2', title: 'Kettle', image: '', seller: 'Kettle Co', unit_price_minor: 1000, unit_discount_minor: 100, qty: 1 };
+  const cancellation = (status: string) => ({
+    id: 'c1',
+    order_id: row.id,
+    items_minor: 900,
+    tax_minor: 72,
+    refund_minor: 972,
+    refund_status: status,
+    stripe_refund_id: null,
+    refunded_at: status === 'succeeded' ? '2026-10-06T11:00:00Z' : null,
+    created_at: '2026-10-06T11:00:00Z',
+    items: [kettle],
+  });
+
+  it('sends each line once and reads the cancelled items back', async () => {
+    const { db, calls } = fakeDb({ ...row, cancellations: [cancellation('succeeded')] });
+    const order = await cancelOrderItems(db, row.id, ['k2', 'k2']);
+    expect(calls[0]).toEqual({ p_order_id: row.id, p_product_ids: ['k2'] });
+    expect(order.cancellations).toEqual([
+      {
+        id: 'c1',
+        items: [{ productId: 'k2', title: 'Kettle', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, unitDiscountMinor: 100, qty: 1 }],
+        itemsMinor: 900,
+        taxMinor: 72,
+        refund: { status: 'succeeded', amountMinor: 972, refundedAt: '2026-10-06T11:00:00Z' },
+        createdAt: '2026-10-06T11:00:00Z',
+      },
+    ]);
+    expect(refunds.refundCancellation).not.toHaveBeenCalled();
+  });
+
+  it('asks Stripe for a card order’s refund of the items just cancelled', async () => {
+    const reply = { ...row, payment_method: 'card', cancellations: [cancellation('pending')] };
+    const calls: unknown[] = [];
+    const db = {
+      rpc: async (_fn: string, args: unknown) => (calls.push(args), { data: reply, error: null }),
+      from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: reply, error: null }) }) }) }),
+    } as unknown as Db;
+    await cancelOrderItems(db, row.id, ['k2']);
+    expect(refunds.refundCancellation).toHaveBeenCalledWith('c1');
+  });
+
+  it('refuses no items, or anything but product ids, without asking the database', async () => {
+    for (const bad of [undefined, [], 'k2', [''], [3]]) {
+      const { db, calls } = fakeDb();
+      await expect(cancelOrderItems(db, row.id, bad)).rejects.toMatchObject({ code: 'invalid_input', detail: 'items' });
+      expect(calls).toHaveLength(0);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import type { Store } from '../lib/store';
-import type { Order } from '@/lib/types';
+import type { Order, OrderCancellation } from '@/lib/types';
 import type { TrackingStep } from '@/lib/decision/types';
 import { cancellableUntil, deliveryEta, isDelivered, trackingSteps } from '@/lib/decision/tracking';
 import { formatMoney } from '@/lib/marketplaces';
@@ -110,8 +110,15 @@ export function cartEta(now: Date = new Date(), store?: StoreDates): Date {
  * "Nothing was charged (pay on delivery).", or "No payment was taken for this order."
  */
 export function refundText(order: Order, store: StoreDates): string {
-  const r = order.refund;
-  if (!r) return 'No payment was taken for this order.';
+  return order.refund ? refundLine(order, order.refund, store) : 'No payment was taken for this order.';
+}
+
+/** The same for some items cancelled before the order shipped. */
+export function cancellationRefundText(order: Order, c: OrderCancellation, store: StoreDates): string {
+  return refundLine(order, c.refund, store);
+}
+
+function refundLine(order: Order, r: NonNullable<Order['refund']>, store: StoreDates): string {
   if (r.status === 'not_charged') return 'Nothing was charged (pay on delivery).';
   const to = `${formatMoney(r.amountMinor, order.currency)} to ${paymentText(order.paymentMethod, order.paymentLabel)}`;
   if (r.status === 'succeeded') {

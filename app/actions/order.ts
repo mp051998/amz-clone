@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { archiveOrder, cancelOrder, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
+import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
@@ -108,6 +108,30 @@ export async function cancelMyOrder(orderId: string): Promise<void> {
   }
   revalidatePath('/', 'layout');
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'cancelled=1'}`));
+}
+
+/**
+ * The "Cancel items" form (bound to the order id): one `item` checkbox per line to cancel.
+ * Back to the order on success (`cancelled=1` when that was every item, so the whole order),
+ * or to the form with the error.
+ */
+export async function cancelMyItems(orderId: string, formData: FormData): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(`${page}/cancel`)}`));
+  let order: Order | null = null;
+  let code: string | null = null;
+  try {
+    order = await cancelOrderItems(await db(), orderId, formData.getAll('item'));
+  } catch (err) {
+    code = err instanceof DataError ? err.code : 'internal';
+    if (!(err instanceof DataError)) console.error('[orders] cancel items failed', orderId, err);
+  }
+  if (!order) redirect(sp(`${page}/cancel?error=${encodeURIComponent(code ?? 'internal')}`));
+  revalidatePath('/', 'layout');
+  redirect(sp(`${page}?placed=0&cancelled=${order.status === 'cancelled' ? '1' : 'items'}`));
 }
 
 /**

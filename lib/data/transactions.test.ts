@@ -92,6 +92,42 @@ describe('buildTransactions', () => {
     expect(list[2]).toMatchObject({ source: 'gift_card', method: 'card', at: '2026-10-02T08:01:00Z' });
   });
 
+  it('charges what was paid when placed, and refunds items cancelled since on their own', () => {
+    const kettle = { productId: 'k2', title: 'Kettle', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, qty: 1 };
+    const cancellation = (id: string, status: 'succeeded' | 'pending' | 'not_charged', at: string) => ({
+      id,
+      items: [kettle],
+      itemsMinor: 1000,
+      taxMinor: 80,
+      refund: { status, amountMinor: 1080, ...(status === 'succeeded' ? { refundedAt: at } : {}) },
+      createdAt: at,
+    });
+    const card = order('P', '2026-10-01T09:00:00Z', { cancellations: [cancellation('c1', 'pending', '2026-10-01T10:00:00Z')] });
+    expect(brief(buildTransactions([card], [], [], NOW))).toEqual(['cancel-items:c1 refund 1080 pending', 'order:P charge 3580 completed']);
+
+    // then the rest is cancelled too: the order's refund is what was left
+    const all = order('Q', '2026-10-01T09:00:00Z', {
+      paymentMethod: 'giftcard',
+      status: 'cancelled',
+      cancelledAt: '2026-10-02T09:00:00Z',
+      refund: { status: 'succeeded', amountMinor: 2500, refundedAt: '2026-10-02T09:00:00Z' },
+      cancellations: [cancellation('c2', 'succeeded', '2026-10-01T10:00:00Z')],
+    });
+    expect(brief(buildTransactions([all], [], [], NOW))).toEqual([
+      'cancel:Q refund 2500 completed',
+      'cancel-items:c2 refund 1080 completed',
+      'order:Q charge 3580 completed',
+    ]);
+
+    // cash on delivery: the cancelled items were never charged
+    const cod = order('R', '2026-10-05T09:00:00Z', {
+      paymentMethod: 'cod',
+      paymentLabel: 'Cash on delivery',
+      cancellations: [cancellation('c3', 'not_charged', '2026-10-05T10:00:00Z')],
+    });
+    expect(brief(buildTransactions([cod], [], [], NOW))).toEqual(['order:R charge 2500 due']);
+  });
+
   it('puts a refund above the charge it gives back at the same moment', () => {
     // a card payment that arrived after the stock sold out: charged and refunded, never placed
     const late = order('L', '2026-10-01T09:00:00Z', { placedAt: undefined, status: 'cancelled', refund: { status: 'succeeded', amountMinor: 2500, refundedAt: '2026-10-01T09:00:00Z' } });
