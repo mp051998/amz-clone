@@ -25,7 +25,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 /** Field errors the data layer can raise after validation. */
 const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
@@ -53,6 +53,8 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   const stock = /^\d+$/.test(values.stock.trim()) ? Number(values.stock.trim()) : NaN;
   const couponText = values.coupon.trim().replace(/%$/, '').trim();
   const couponPct = !couponText ? null : /^\d+$/.test(couponText) ? Number(couponText) : NaN;
+  const limitText = values.limit.trim();
+  const maxPerCustomer = !limitText ? null : /^\d+$/.test(limitText) ? Number(limitText) : NaN;
   const details = parseDetailLines(values.details);
   const input = {
     title: values.title,
@@ -64,6 +66,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     listMinor,
     deal: values.deal === 'on',
     couponPct,
+    maxPerCustomer,
     badge: values.badge,
     boughtPastMonth: values.boughtPastMonth,
     seller: values.seller,
@@ -85,6 +88,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   if (values.listPrice.trim() && listMinor == null) errors.listMinor = 'Enter a price like 24.99, or leave it blank';
   if (Number.isNaN(stock)) errors.stock = 'Enter a whole number';
   if (Number.isNaN(couponPct)) errors.couponPct = 'Enter a whole percent like 15, or leave it blank';
+  if (Number.isNaN(maxPerCustomer)) errors.maxPerCustomer = 'Enter a whole number like 3, or leave it blank';
   if (details.error) errors.details = details.error;
   if (kept.length + galleryUploads.length > GALLERY_MAX) errors.gallery = `Up to ${GALLERY_MAX} more images; remove ${kept.length + galleryUploads.length - GALLERY_MAX}`;
   const badFile = galleryUploads.map(imageFileError).find(Boolean);

@@ -65,3 +65,23 @@ it('has no plan box for a product the store doesn’t cover', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
   await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, false));
 });
+
+it('says the limit per customer, and caps the quantity at what’s left of it', () => {
+  show({}, { limit: { max: 3, left: 2 } });
+  expect(screen.getByText('Limit 3 per customer · You can buy 2 more')).toBeInTheDocument();
+  expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['1', '2']);
+  cleanup();
+
+  // signed out: the whole limit
+  show({}, { limit: { max: 3, left: null } });
+  expect(screen.getByText('Limit 3 per customer')).toBeInTheDocument();
+  expect(screen.getAllByRole('option')).toHaveLength(3);
+});
+
+it('offers nothing more to buy once the limit is reached', () => {
+  show({}, { limit: { max: 2, left: 0 } });
+  expect(screen.getByText('Limit 2 per customer · You’ve bought 2')).toBeInTheDocument();
+  expect(screen.getByText('You’ve bought as many of this item as one customer can.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Buy Now' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Add to Cart' })).toBeNull();
+});
