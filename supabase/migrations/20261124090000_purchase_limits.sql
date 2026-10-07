@@ -11,6 +11,9 @@
 alter table public.products
   add column max_per_customer smallint check (max_per_customer between 1 and 99);
 
+-- admins write it like the other product fields (column grants, admin.sql)
+grant insert (max_per_customer), update (max_per_customer) on public.products to authenticated;
+
 -- The catalog views (as in 20261007090000_fold_variants) gain the limit, last.
 create or replace view public.catalog_products_all
 with (security_invoker = true)
