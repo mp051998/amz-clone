@@ -259,17 +259,29 @@ export function productStatus(v: string | null | undefined): ProductStatus {
   return v === 'archived' ? 'archived' : 'active';
 }
 
+/** At or below this many units a product on sale is low on stock (the catalogue marks it). */
+export const LOW_STOCK = 5;
+
+/** `out`: none left · `low`: 1 to LOW_STOCK left. */
+export type StockFilter = 'out' | 'low';
+
+export function stockFilter(v: unknown): StockFilter | undefined {
+  return v === 'out' || v === 'low' ? v : undefined;
+}
+
 /** A store's products in one status, most recently changed first; `q` matches the title or id. */
 export async function listAdminProducts(
   db: Db,
   market: Market,
-  opts: { q?: string; category?: string; status?: ProductStatus; page?: number; pageSize?: number } = {},
+  opts: { q?: string; category?: string; status?: ProductStatus; stock?: StockFilter; page?: number; pageSize?: number } = {},
 ): Promise<AdminProductPage> {
   const size = opts.pageSize ?? ADMIN_PAGE_SIZE;
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   let q = db.from('products').select(SUMMARY, { count: 'exact' }).eq('market_id', market);
   q = opts.status === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null);
   if (opts.category) q = q.eq('category_slug', opts.category);
+  if (opts.stock === 'out') q = q.lte('stock', 0);
+  else if (opts.stock === 'low') q = q.gte('stock', 1).lte('stock', LOW_STOCK);
   const term = opts.q?.trim().slice(0, 100);
   if (term) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -313,6 +325,15 @@ export async function countAdminProducts(db: Db, market: Market): Promise<Record
   };
   const [active, archived] = await Promise.all([count('active'), count('archived')]);
   return { active, archived };
+}
+
+/** Products on sale with none left, and with 1 to LOW_STOCK left. */
+export async function countAdminStock(db: Db, market: Market): Promise<Record<StockFilter, number>> {
+  const base = () => db.from('products').select('id', { count: 'exact', head: true }).eq('market_id', market).is('archived_at', null);
+  const [out, low] = await Promise.all([base().lte('stock', 0), base().gte('stock', 1).lte('stock', LOW_STOCK)]);
+  if (out.error) throw fromPostgrest(out.error);
+  if (low.error) throw fromPostgrest(low.error);
+  return { out: out.count ?? 0, low: low.count ?? 0 };
 }
 
 export interface AdminProduct extends ProductInput {

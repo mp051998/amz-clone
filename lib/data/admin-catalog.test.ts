@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dealPct, newProductId, productStatus, toMinor, validateProduct, type ProductInput } from './admin-catalog';
+import type { Db } from '../db/client';
+import { countAdminStock, dealPct, listAdminProducts, LOW_STOCK, newProductId, productStatus, stockFilter, toMinor, validateProduct, type ProductInput } from './admin-catalog';
 
 const good: ProductInput = {
   title: 'Acme Wireless Headphones',
@@ -147,5 +148,66 @@ describe('validateProduct: gallery and variants', () => {
   it('ignores option fields without a group', () => {
     const res = validateProduct({ ...good, variantGroup: '', variantAxis: 'Color', variantLabel: 'Black' });
     expect(res.ok && [res.data.variantGroup, res.data.variantAxis, res.data.variantLabel]).toEqual([null, null, null]);
+  });
+});
+
+/** A products query that records its filters and resolves to `reply`. */
+function fakeDb(reply: (ops: unknown[][]) => { data?: unknown[]; count: number | null; error?: unknown }) {
+  const queries: unknown[][][] = [];
+  const db = {
+    from() {
+      const ops: unknown[][] = [];
+      queries.push(ops);
+      const q: Record<string, unknown> = {
+        then: (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) => Promise.resolve({ data: [], error: null, ...reply(ops) }).then(ok, bad),
+      };
+      for (const m of ['select', 'eq', 'is', 'not', 'lte', 'gte', 'or', 'order', 'range']) {
+        q[m] = (...args: unknown[]) => {
+          ops.push([m, ...args]);
+          return q;
+        };
+      }
+      return q;
+    },
+  };
+  return { db: db as unknown as Db, queries };
+}
+
+const stockOps = (ops: unknown[][]) => ops.filter(([m]) => m === 'lte' || m === 'gte');
+
+describe('stockFilter', () => {
+  it('takes out and low only', () => {
+    expect(stockFilter('out')).toBe('out');
+    expect(stockFilter('low')).toBe('low');
+    for (const v of [undefined, null, '', 'OUT', 'all', 3]) expect(stockFilter(v)).toBeUndefined();
+  });
+});
+
+describe('listAdminProducts: stock', () => {
+  it('filters to none left, or 1 to LOW_STOCK left, and not otherwise', async () => {
+    const { db, queries } = fakeDb(() => ({ count: 0 }));
+    await listAdminProducts(db, 'US', { stock: 'out' });
+    await listAdminProducts(db, 'US', { stock: 'low' });
+    await listAdminProducts(db, 'US', {});
+    expect(queries.map(stockOps)).toEqual([[['lte', 'stock', 0]], [['gte', 'stock', 1], ['lte', 'stock', LOW_STOCK]], []]);
+  });
+});
+
+describe('countAdminStock', () => {
+  it('counts active products with none left and with few left in the market', async () => {
+    const { db, queries } = fakeDb((ops) => ({ count: ops.some(([m, , v]) => m === 'lte' && v === 0) ? 3 : 9 }));
+    expect(await countAdminStock(db, 'IN')).toEqual({ out: 3, low: 9 });
+    expect(queries).toHaveLength(2);
+    for (const ops of queries) {
+      expect(ops).toContainEqual(['select', 'id', { count: 'exact', head: true }]);
+      expect(ops).toContainEqual(['eq', 'market_id', 'IN']);
+      expect(ops).toContainEqual(['is', 'archived_at', null]);
+    }
+    expect(queries.map(stockOps)).toEqual([[['lte', 'stock', 0]], [['gte', 'stock', 1], ['lte', 'stock', LOW_STOCK]]]);
+  });
+
+  it('reads a missing count as 0 and throws on an error', async () => {
+    expect(await countAdminStock(fakeDb(() => ({ count: null })).db, 'US')).toEqual({ out: 0, low: 0 });
+    await expect(countAdminStock(fakeDb(() => ({ count: null, error: { code: '42501', message: 'denied' } })).db, 'US')).rejects.toThrow();
   });
 });

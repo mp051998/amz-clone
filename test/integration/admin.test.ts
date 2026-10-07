@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   countAdminProducts,
+  countAdminStock,
   createProduct,
   deleteProduct,
   getAdminProduct,
@@ -10,8 +11,10 @@ import {
   setArchived,
   updateProduct,
   uploadProductImage,
+  LOW_STOCK,
   type ProductInput,
 } from '@/lib/data/admin-catalog';
+import { adminOverview } from '@/lib/data/admin-overview';
 import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { addItem, createCollection, getCollection } from '@/lib/data/collections';
 import { clipCoupon, couponFor } from '@/lib/data/coupons';
@@ -301,6 +304,52 @@ describe('archived products', () => {
     await setArchived(boss.db, other, true);
     await deleteProduct(boss.db, other);
     expect(await getAdminProduct(admin(), other)).toBeNull();
+  });
+});
+
+describe('stock levels', () => {
+  let out: string;
+  let low: string;
+  let plenty: string;
+
+  beforeAll(async () => {
+    [out, low, plenty] = await Promise.all([
+      createProduct(boss.db, 'US', input({ stock: 0 })),
+      createProduct(boss.db, 'US', input({ stock: LOW_STOCK })),
+      createProduct(boss.db, 'US', input({ stock: LOW_STOCK + 1 })),
+    ]);
+    created.push(out, low, plenty);
+  });
+
+  const ids = async (stock: 'out' | 'low', q: string) => (await listAdminProducts(boss.db, 'US', { q, stock })).items.map((p) => p.id);
+
+  it('the admin list filters to none left, or 1 to LOW_STOCK left', async () => {
+    expect(await ids('out', out)).toEqual([out]);
+    expect(await ids('low', out)).toEqual([]);
+    expect(await ids('low', low)).toEqual([low]);
+    expect(await ids('out', low)).toEqual([]);
+    expect(await ids('out', plenty)).toEqual([]);
+    expect(await ids('low', plenty)).toEqual([]);
+  });
+
+  it('counts them for the overview, which an admin reads in one call', async () => {
+    const stock = await countAdminStock(boss.db, 'US');
+    expect(stock.out).toBeGreaterThanOrEqual(1);
+    expect(stock.low).toBeGreaterThanOrEqual(1);
+    const o = await adminOverview(boss.db, 'US');
+    expect(o.stock.out).toBeGreaterThanOrEqual(1);
+    expect(o).toMatchObject({
+      orders: { toShip: expect.any(Number), inTransit: expect.any(Number), refundIssues: expect.any(Number) },
+      returns: { open: expect.any(Number), refundIssues: expect.any(Number) },
+      reportedReviews: expect.any(Number),
+      unansweredQuestions: expect.any(Number),
+      support: { waiting: expect.any(Number) },
+    });
+  });
+
+  it('an archived product is not out of stock: it is off sale', async () => {
+    await setArchived(boss.db, out, true);
+    expect(await ids('out', out)).toEqual([]);
   });
 });
 

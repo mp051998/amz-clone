@@ -69,7 +69,7 @@ export function AccountMenu({
             {userName ? (
               <>
                 <ul className="m-0 list-none p-0">
-                  {(isAdmin ? [...SIGNED_IN_LINKS, { label: 'Admin · Catalogue', href: '/admin/products' }] : SIGNED_IN_LINKS).map((l) => (
+                  {(isAdmin ? [...SIGNED_IN_LINKS, { label: 'Admin · Overview', href: '/admin' }] : SIGNED_IN_LINKS).map((l) => (
                     <li key={l.href}>
                       <a href={to(l.href)} className="flex min-h-10 items-center rounded-input px-2 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink">{l.label}</a>
                     </li>
