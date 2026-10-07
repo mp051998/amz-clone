@@ -83,13 +83,13 @@ isOneToOne: false
                   ]
                 },"cart_items": {
                   Row: {
-                    "added_at": string,"cart_id": string,"product_id": string,"qty": number,"selected": boolean,"protection": boolean
+                    "added_at": string,"cart_id": string,"product_id": string,"qty": number,"selected": boolean,"protection": boolean,"added_price_minor": number | null
                   }
                   Insert: {
-                    "added_at"?: string,"cart_id": string,"product_id": string,"qty": number,"selected"?: boolean,"protection"?: boolean
+                    "added_at"?: string,"cart_id": string,"product_id": string,"qty": number,"selected"?: boolean,"protection"?: boolean,"added_price_minor"?: number | null
                   }
                   Update: {
-                    "added_at"?: string,"cart_id"?: string,"product_id"?: string,"qty"?: number,"selected"?: boolean,"protection"?: boolean
+                    "added_at"?: string,"cart_id"?: string,"product_id"?: string,"qty"?: number,"selected"?: boolean,"protection"?: boolean,"added_price_minor"?: number | null
                   }
                   Relationships: [
                     {

@@ -68,6 +68,8 @@ export interface CartLine {
   selected: boolean;
   /** the store's protection plan for the product, per unit, and whether this line has it (absent when there's no plan) */
   protection?: { unitMinor: number; added: boolean };
+  /** the product's price when it was put in the cart (absent for lines from before that was kept) */
+  addedPriceMinor?: number;
 }
 
 export interface Cart {
