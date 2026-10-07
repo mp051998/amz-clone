@@ -10,6 +10,7 @@ import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrd
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
+import { deliveryReasons, leaveDeliveryFeedback, removeDeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
 import { readPromoCode } from '@/lib/promo';
 import type { Order } from '@/lib/types';
@@ -225,7 +226,29 @@ export async function removeSellerRating(orderId: string, seller: string): Promi
   });
 }
 
-async function sellerFeedbackAction(orderId: string, run: (client: Awaited<ReturnType<typeof db>>) => Promise<string>): Promise<void> {
+/** "How was your delivery?" on a delivered order (or change it), or remove it. */
+export async function rateDelivery(orderId: string, formData: FormData): Promise<void> {
+  await sellerFeedbackAction(orderId, async (client) => {
+    const rating = formData.get('rating');
+    // both lists are in the form; only the chosen thumb's reasons count
+    const allowed: string[] = rating === 'up' || rating === 'down' ? deliveryReasons(rating === 'up') : [];
+    await leaveDeliveryFeedback(client, orderId, {
+      positive: rating,
+      reasons: formData.getAll('reasons').filter((r) => typeof r === 'string' && allowed.includes(r)),
+      comment: formData.get('comment'),
+    });
+    return 'saved';
+  }, 'delivery');
+}
+
+export async function removeDeliveryRating(orderId: string): Promise<void> {
+  await sellerFeedbackAction(orderId, async (client) => {
+    await removeDeliveryFeedback(client, orderId);
+    return 'removed';
+  }, 'delivery');
+}
+
+async function sellerFeedbackAction(orderId: string, run: (client: Awaited<ReturnType<typeof db>>) => Promise<string>, kind: 'seller' | 'delivery' = 'seller'): Promise<void> {
   const market = await getMarket();
   const sp = (path: string) => storePath({ id: market }, path);
   if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
@@ -233,13 +256,13 @@ async function sellerFeedbackAction(orderId: string, run: (client: Awaited<Retur
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
   let result: string;
   try {
-    result = `feedback=${await run(await db())}`;
+    result = `${kind === 'delivery' ? 'delivery' : 'feedback'}=${await run(await db())}`;
   } catch (err) {
     result = `error=${encodeURIComponent(err instanceof DataError ? err.code : 'internal')}`;
-    if (!(err instanceof DataError)) console.error('[orders] seller feedback failed', orderId, err);
+    if (!(err instanceof DataError)) console.error(`[orders] ${kind} feedback failed`, orderId, err);
   }
   revalidatePath(page);
-  redirect(sp(`${page}?placed=0&${result}#seller-feedback`));
+  redirect(sp(`${page}?placed=0&${result}#${kind}-feedback`));
 }
 
 /**

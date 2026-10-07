@@ -1,9 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[] }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -43,6 +43,12 @@ vi.mock('@/app/actions/order', () => ({
   changeOrderAddress: async () => {},
   rateSeller: async () => {},
   removeSellerRating: async () => {},
+  rateDelivery: async () => {},
+  removeDeliveryRating: async () => {},
+}));
+vi.mock('@/lib/data/delivery-feedback', async (original) => ({
+  ...(await original<typeof import('@/lib/data/delivery-feedback')>()),
+  deliveryFeedbackFor: async () => state.delivery,
 }));
 vi.mock('@/lib/data/seller-feedback', async (original) => ({
   ...(await original<typeof import('@/lib/data/seller-feedback')>()),
@@ -84,6 +90,7 @@ beforeEach(() => {
   state.paired = [];
   state.reviewed = [];
   state.feedback = [];
+  state.delivery = null;
   state.addresses = [];
   state.addressReads = 0;
   state.returns = [];
@@ -385,7 +392,7 @@ it('once delivered, asks for feedback on each seller in the order', async () => 
   expect(screen.getAllByText('Leave seller feedback')).toHaveLength(2);
   expect(screen.getAllByRole('radio', { name: '5 stars' })).toHaveLength(2);
   expect(screen.getAllByRole('radio', { name: '1 star' })[0]).toBeRequired();
-  expect(screen.getAllByLabelText(/^Comments/)).toHaveLength(2);
+  expect(within(section).getAllByLabelText(/^Comments/)).toHaveLength(2);
 });
 
 it('shows feedback already left, to change or remove', async () => {
@@ -430,6 +437,59 @@ it('confirms feedback saved or removed', async () => {
   cleanup();
   await show({ feedback: 'removed' });
   expect(screen.getByText('Your seller feedback is removed.')).toBeInTheDocument();
+});
+
+it('once delivered, asks how the delivery went for 30 days', async () => {
+  state.order = order({ deliveredAt: daysAgo(2) });
+  await show();
+  const section = screen.getByRole('region', { name: 'Delivery feedback' });
+  expect(within(section).getByText('Leave delivery feedback')).toBeInTheDocument();
+  expect(within(section).getByRole('radio', { name: 'Good' })).toBeRequired();
+  expect(within(section).getByRole('radio', { name: 'Not good' })).not.toBeChecked();
+  expect(within(section).getByRole('group', { name: 'What went wrong? (optional)' })).toBeInTheDocument();
+  expect(within(section).getByRole('checkbox', { name: 'Package was damaged' })).not.toBeChecked();
+  cleanup();
+
+  state.order = order({ ...FUTURE });
+  await show();
+  expect(screen.queryByRole('region', { name: 'Delivery feedback' })).toBeNull();
+});
+
+it('shows delivery feedback already left, to change or remove, and read-only after 30 days', async () => {
+  state.delivery = { orderId: 'ORD-9', positive: false, reasons: ['late', 'unsafe_spot'], comment: 'Left in the rain.', createdAt: daysAgo(1), updatedAt: daysAgo(1) };
+  state.order = order({ deliveredAt: daysAgo(2) });
+  await show();
+  let section = screen.getByRole('region', { name: 'Delivery feedback' });
+  expect(section).toHaveTextContent('You said the delivery wasn’t good');
+  expect(section).toHaveTextContent('Arrived late · Left somewhere unsafe');
+  expect(section).toHaveTextContent('Left in the rain.');
+  expect(within(section).getByText('Change your feedback')).toBeInTheDocument();
+  expect(within(section).getByRole('radio', { name: 'Not good' })).toBeChecked();
+  expect(within(section).getByRole('checkbox', { name: 'Arrived late' })).toBeChecked();
+  expect(within(section).getByRole('button', { name: 'Remove your delivery feedback' })).toBeInTheDocument();
+  cleanup();
+
+  state.order = order({ deliveredAt: daysAgo(40) });
+  await show();
+  section = screen.getByRole('region', { name: 'Delivery feedback' });
+  expect(section).toHaveTextContent('Arrived late · Left somewhere unsafe');
+  expect(within(section).queryByText('Change your feedback')).toBeNull();
+  expect(within(section).queryByRole('button', { name: /Remove/ })).toBeNull();
+  cleanup();
+
+  // nothing left and the window closed: nothing to show
+  state.delivery = null;
+  await show();
+  expect(screen.queryByRole('region', { name: 'Delivery feedback' })).toBeNull();
+});
+
+it('confirms delivery feedback saved or removed', async () => {
+  state.order = order({ deliveredAt: daysAgo(2) });
+  await show({ delivery: 'saved' });
+  expect(screen.getByText('Thanks, your delivery feedback is saved.')).toBeInTheDocument();
+  cleanup();
+  await show({ delivery: 'removed' });
+  expect(screen.getByText('Your delivery feedback is removed.')).toBeInTheDocument();
 });
 
 it('items can be cancelled one by one until it ships, and cancelled ones are listed with their refund', async () => {
