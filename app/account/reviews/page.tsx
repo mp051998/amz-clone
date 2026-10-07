@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { EmptyState, ProductFrame } from '@/components/decision';
+import { ReviewPhotoThumbs } from '@/components/product/ReviewPhotos';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Stars } from '@/components/primitives/Stars';
@@ -20,7 +21,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 /**
  * /account/reviews: what's waiting for a review (delivered, not reviewed yet) and every review the
- * shopper has written in this store, with Edit (on the product page) and Delete.
+ * shopper has written in this store, with their photos, Edit (on the product page) and Delete.
  */
 export default async function YourReviewsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string }> }) {
   const store = await getMarketplace();
@@ -96,6 +97,7 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
                       <strong className="text-[15px] font-semibold">{r.title}</strong>
                     </span>
                     <p className="m-0 line-clamp-3 text-[14px] leading-[1.5]">{r.body}</p>
+                    <ReviewPhotoThumbs photos={r.photos} author={`your review of ${p.title}`} />
                     <span className="text-[13px] text-ink-3">
                       Reviewed {day.format(new Date(r.createdAt))}
                       {r.verified ? ' · Verified purchase' : ''}
