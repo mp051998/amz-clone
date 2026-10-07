@@ -106,6 +106,7 @@ function stripeCardNotice() {
         <span aria-hidden>🔒</span> You&apos;ll enter your card on Stripe&apos;s secure page.
       </p>
       <p className="m-0 mt-1">After you place the order, we redirect you to Stripe Checkout to pay. Use test card <b className="font-mono text-ink">4242 4242 4242 4242</b>, any future expiry and any CVC.</p>
+      <p className="m-0 mt-1">Your saved cards show there, and you can save this one for next time.</p>
     </div>
   );
 }

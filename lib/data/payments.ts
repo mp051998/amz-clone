@@ -8,6 +8,7 @@ import { DataError, unwrap } from './errors';
 import { toPurchase, type GiftCardPurchase, type PurchaseRow } from './gift-card-purchases';
 import { toOrder } from './map';
 import { refundOrder } from './refunds';
+import { brandLabel, savedCardsCheckout, type Payer } from './wallet';
 
 /**
  * Card payments run on Stripe hosted Checkout (the card is typed on Stripe, never
@@ -37,8 +38,11 @@ function requireStripe(): Stripe {
   return stripe;
 }
 
-/** Create the Stripe Checkout Session for an awaiting-payment card order; returns its URL. */
-export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string): Promise<string> {
+/**
+ * Create the Stripe Checkout Session for an awaiting-payment card order; returns its URL. With the
+ * `payer`, Stripe's page offers to save the card and shows their saved cards.
+ */
+export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string, payer?: Payer | null): Promise<string> {
   const s = requireStripe();
   if (order.paymentMethod !== 'card' || order.status !== 'awaiting_payment') throw new DataError('order_not_pending');
 
@@ -72,10 +76,12 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
     lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.taxMinor, product_data: { name: 'Estimated tax' } } });
   }
 
+  const saved = await savedCardsCheckout(payer);
   let session: Stripe.Checkout.Session;
   try {
     session = await s.checkout.sessions.create({
       mode: 'payment',
+      ...saved,
       line_items: lineItems,
       client_reference_id: order.id,
       metadata: { orderId: order.id, market: order.market },
@@ -106,7 +112,7 @@ async function sessionIdOf(orderId: string): Promise<string | null> {
  * there's never a second payable session), otherwise a new one. Returns where to send the shopper,
  * or null when Stripe says it was paid after all (the order is confirmed here).
  */
-export async function resumeCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string): Promise<string | null> {
+export async function resumeCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string, payer?: Payer | null): Promise<string | null> {
   const s = requireStripe();
   if (order.paymentMethod !== 'card' || order.status !== 'awaiting_payment') throw new DataError('order_not_pending');
   const id = await sessionIdOf(order.id);
@@ -124,7 +130,7 @@ export async function resumeCardCheckout(order: Order, urls: CheckoutUrls, image
       return null;
     }
   }
-  return startCardCheckout(order, urls, imageOrigin);
+  return startCardCheckout(order, urls, imageOrigin, payer);
 }
 
 /**
@@ -139,17 +145,6 @@ export async function expireCardCheckout(orderId: string): Promise<void> {
     await stripe.checkout.sessions.expire(id);
   } catch {
     // not open any more
-  }
-}
-
-function brandLabel(brand?: string | null): string {
-  switch (brand) {
-    case 'visa': return 'Visa';
-    case 'mastercard': return 'Mastercard';
-    case 'amex': return 'Amex';
-    case 'discover': return 'Discover';
-    case 'rupay': return 'RuPay';
-    default: return 'Card';
   }
 }
 
@@ -216,14 +211,16 @@ export function isGiftCardSession(session: Pick<Stripe.Checkout.Session, 'metada
   return session.metadata?.kind === 'gift_card';
 }
 
-/** Create the Stripe Checkout Session for a gift card purchase awaiting payment; returns its URL. */
-export async function startGiftCardCheckout(purchase: GiftCardPurchase, urls: CheckoutUrls, label: string): Promise<string> {
+/** Create the Stripe Checkout Session for a gift card purchase (or reload) awaiting payment; returns its URL. */
+export async function startGiftCardCheckout(purchase: GiftCardPurchase, urls: CheckoutUrls, label: string, payer?: Payer | null): Promise<string> {
   const s = requireStripe();
   if (purchase.status !== 'awaiting_payment') throw new DataError('purchase_not_found');
+  const saved = await savedCardsCheckout(payer);
   let session: Stripe.Checkout.Session;
   try {
     session = await s.checkout.sessions.create({
       mode: 'payment',
+      ...saved,
       line_items: [
         {
           quantity: 1,

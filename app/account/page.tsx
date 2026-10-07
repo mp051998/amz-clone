@@ -68,6 +68,7 @@ export default async function AccountPage() {
       href: '/gift-cards#balance',
     },
     { title: 'Your messages', meta: newMessages ? `${newMessages} new` : 'Order and return updates', desc: 'Shipping and delivery updates, refunds, our replies and answers to your questions.', href: '/account/messages' },
+    { title: 'Your Payments', meta: 'Saved cards', desc: 'Cards you’ve saved for paying on Stripe. Add or remove them.', href: '/account/payments' },
     { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns, gift cards and balance reloads.', href: '/account/transactions' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, download your data, or close your account.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },

@@ -85,6 +85,8 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       // backing out of Stripe returns to this checkout, Buy Now's included
       { successUrl: `${origin}${sp('/checkout/success')}`, cancelUrl: `${origin}${sp(buyNow ? `/checkout/cancel?${buyNowQuery(buyNow)}` : '/checkout/cancel')}` },
       origin,
+      // Stripe's page offers to save the card, and shows the shopper's saved cards
+      await readUser(),
     );
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
@@ -287,6 +289,7 @@ export async function payForOrder(orderId: string): Promise<void> {
       order,
       { successUrl: `${origin}${sp('/checkout/success')}`, cancelUrl: `${origin}${sp('/checkout/cancel')}` },
       origin,
+      await readUser(),
     );
   } catch (err) {
     code = err instanceof DataError ? err.code : 'internal';
