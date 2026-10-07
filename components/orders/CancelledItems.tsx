@@ -23,6 +23,15 @@ export function CancelledItems({ order, store, href }: { order: Order; store: St
   const cancellations = order.cancellations ?? [];
   if (!cancellations.length) return null;
   const money = (minor: number) => formatMoney(minor, order.currency);
+  // "Includes $1.20 tax, $3.99 gift wrap and $7.99 protection plans."
+  const includes = (c: OrderCancellation) => {
+    const parts = [
+      c.taxMinor ? `${money(c.taxMinor)} tax` : '',
+      c.wrapMinor ? `${money(c.wrapMinor)} gift wrap` : '',
+      c.protectionMinor ? `${money(c.protectionMinor)} protection plans` : '',
+    ].filter(Boolean);
+    return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  };
   return (
     <section className="flex flex-col gap-3" aria-labelledby="cancelled-items-h">
       <h2 id="cancelled-items-h" className="m-0 text-[16px] font-semibold">Cancelled items</h2>
@@ -46,11 +55,7 @@ export function CancelledItems({ order, store, href }: { order: Order; store: St
           ))}
           <p className="m-0 border-t border-line-2 px-[18px] py-3 text-[14px] leading-[1.5] text-ink-2">
             {cancellationRefundText(order, c, store)}
-            {c.taxMinor || c.wrapMinor ? (
-              <span className="text-ink-3">
-                {' '}Includes {[c.taxMinor ? `${money(c.taxMinor)} tax` : '', c.wrapMinor ? `${money(c.wrapMinor)} gift wrap` : ''].filter(Boolean).join(' and ')}.
-              </span>
-            ) : null}
+            {c.taxMinor || c.wrapMinor || c.protectionMinor ? <span className="text-ink-3"> Includes {includes(c)}.</span> : null}
           </p>
         </article>
       ))}

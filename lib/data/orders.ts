@@ -67,7 +67,9 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}), ...(input.gift.wrap ? { p_gift_wrap: true } : {}) } : {}),
       // likewise only for fast delivery
       ...(input.speed === 'fast' ? { p_speed: 'fast' } : {}),
-      ...(input.buyNow ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty } } : {}),
+      ...(input.buyNow
+        ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}) } }
+        : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);

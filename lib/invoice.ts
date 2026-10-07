@@ -10,6 +10,8 @@ export interface InvoiceLine {
   amountMinor: number;
   /** what a coupon took off the line (0 without one) */
   discountMinor: number;
+  /** the protection plans bought with the line (0 without one) */
+  protectionMinor: number;
 }
 
 export interface InvoiceRefund {
@@ -31,6 +33,8 @@ export interface Invoice {
   shipMinor: number;
   /** gift wrap (0 without it) */
   wrapMinor: number;
+  /** protection plans (0 without any) */
+  protectionMinor: number;
   taxMinor: number;
   totalMinor: number;
   /** false when nothing was ever taken: a cancelled pay-on-delivery order, or no payment at all */
@@ -57,6 +61,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,
     discountMinor: (it.unitDiscountMinor ?? 0) * it.qty,
+    protectionMinor: (it.protectionMinor ?? 0) * it.qty,
   }));
 
   const refunds: InvoiceRefund[] = [];
@@ -85,6 +90,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     discountMinor: order.totals.discountMinor ?? 0,
     shipMinor: order.totals.shipMinor,
     wrapMinor: order.totals.wrapMinor ?? 0,
+    protectionMinor: order.totals.protectionMinor ?? 0,
     taxMinor: order.totals.taxMinor,
     totalMinor: order.totals.totalMinor,
     charged,

@@ -10,9 +10,9 @@ import { readBuyNow } from '@/lib/buy-now';
 export const GET = route(async (ctx) => {
   requireUser(ctx);
   const q = ctx.req.nextUrl.searchParams;
-  const buy = readBuyNow(q.get('productId'), q.get('qty'));
+  const buy = readBuyNow(q.get('productId'), q.get('qty'), q.get('protection'));
   if (!buy) throw new DataError('invalid_input', 'productId', 'Say which product to buy.');
-  return json({ quote: await buyNowQuote(ctx.db, ctx.market, buy.productId, buy.qty) });
+  return json({ quote: await buyNowQuote(ctx.db, ctx.market, buy.productId, buy.qty, buy.protection) });
 });
 
 export const OPTIONS = preflight;

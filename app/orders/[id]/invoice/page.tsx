@@ -13,6 +13,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
 import type { ShippingAddress } from '@/lib/types';
+import { protectionPlanName } from '@/lib/protection';
 
 export const metadata: Metadata = { title: 'Invoice · Store' };
 
@@ -116,6 +117,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                       <span className="block font-medium">{l.title}</span>
                       <span className="block text-[13px] text-ink-3">Sold by {l.seller}</span>
                       {l.discountMinor ? <span className="block text-[13px] text-ink-2">Coupon −{money(l.discountMinor)}</span> : null}
+                      {l.protectionMinor ? <span className="block text-[13px] text-ink-2">{protectionPlanName(order.market)} {money(l.protectionMinor)}</span> : null}
                     </td>
                     <td className={`${cell} text-right tabular-nums`}>{l.qty}</td>
                     <td className={`${cell} text-right tabular-nums`}>{money(l.unitMinor)}</td>
@@ -133,6 +135,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <div className="flex justify-between gap-4"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{inv.shipMinor === 0 ? 'FREE' : money(inv.shipMinor)}</dd></div>
             {inv.wrapMinor > 0 ? (
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(inv.wrapMinor)}</dd></div>
+            ) : null}
+            {inv.protectionMinor > 0 ? (
+              <div className="flex justify-between gap-4"><dt className="text-ink-2">Protection plans</dt><dd className="m-0 tabular-nums">{money(inv.protectionMinor)}</dd></div>
             ) : null}
             {inv.taxMinor > 0 ? (
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(inv.taxMinor)}</dd></div>

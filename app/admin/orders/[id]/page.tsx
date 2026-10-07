@@ -133,7 +133,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
                 <span className="w-14 flex-none" aria-hidden><ProductFrame src={it.image} alt="" aspect="1/1" /></span>
                 <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                   <a href={to(`/admin/products/${encodeURIComponent(it.productId)}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline hover:underline">{it.title}</a>
-                  <span className="text-[13px] text-ink-3">{money(it.unitPriceMinor)} × {it.qty} · Sold by {it.seller}{it.unitDiscountMinor ? ` · coupon −${money(it.unitDiscountMinor * it.qty)}` : ''}</span>
+                  <span className="text-[13px] text-ink-3">{money(it.unitPriceMinor)} × {it.qty} · Sold by {it.seller}{it.unitDiscountMinor ? ` · coupon −${money(it.unitDiscountMinor * it.qty)}` : ''}{it.protectionMinor ? ` · protection plan ${money(it.protectionMinor * it.qty)}` : ''}</span>
                 </div>
                 <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
               </div>
@@ -146,6 +146,9 @@ export default async function AdminOrderPage({ params, searchParams }: {
               <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
               {order.totals.wrapMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(order.totals.wrapMinor)}</dd></div>
+              ) : null}
+              {order.totals.protectionMinor ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Protection plans</dt><dd className="m-0 tabular-nums">{money(order.totals.protectionMinor)}</dd></div>
               ) : null}
               <div className="flex justify-between"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(order.totals.taxMinor)}</dd></div>
               <div className="flex justify-between font-bold"><dt>Total</dt><dd className="m-0 tabular-nums">{money(order.totals.totalMinor)}</dd></div>

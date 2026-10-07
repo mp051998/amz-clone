@@ -46,6 +46,8 @@ export interface BuyPanelProps {
   confidence: { level: 'High' | 'Medium' | 'Low'; rows: ConfidenceRow[] };
   /** why the last add-to-cart failed (legacy ?error= redirects) */
   error?: string | null;
+  /** the store's protection plan for this product ("2-Year Protection Plan", "$7.99" per unit), when it has one */
+  protection?: { name: string; price: string };
 }
 
 /** at or below this many units the panel warns "Only N left". */
@@ -60,11 +62,13 @@ const LEVEL_TONE = {
 /**
  * PDP aside (prototype Product detail): delivery card, Purchase confidence, qty, Add to Cart (accent,
  * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare, and Add to List.
+ * An eligible product offers the store's protection plan as a box above the buttons; both take it.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
+  const [plan, setPlan] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [err, setErr] = useState<string | null>(error ?? null);
   const [pending, start] = useTransition();
@@ -75,7 +79,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
   const onAdd = () =>
     start(async () => {
       try {
-        const res = await addToCartInline(productId, qty);
+        const res = await addToCartInline(productId, qty, Boolean(protection) && plan);
         if (!res.ok) { setErr(res.message); setJustAdded(false); return; }
         setErr(null);
         setJustAdded(true);
@@ -138,6 +142,18 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
               ))}
             </select>
           </label>
+          {protection ? (
+            <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
+              <legend className="mb-1.5 p-0 text-[14px] font-semibold">Add a protection plan:</legend>
+              <label className="flex items-start gap-2 text-[14px]">
+                <input type="checkbox" name="protection" value="1" checked={plan} onChange={(e) => setPlan(e.target.checked)} className="mt-[3px] h-4 w-4 accent-ink" />
+                <span>
+                  {protection.name} for <strong className="font-semibold">{protection.price}</strong>
+                  {qty > 1 ? <span className="text-ink-3"> each</span> : null}
+                </span>
+              </label>
+            </fieldset>
+          ) : null}
           <button type="button" onClick={onAdd} disabled={pending} aria-busy={pending || undefined} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>
             {pending ? 'Adding…' : 'Add to Cart'}
           </button>

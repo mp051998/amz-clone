@@ -47,6 +47,8 @@ export interface OrderTotals {
   taxMinor: number;
   /** gift wrap, per unit wrapped (absent or 0 without it) */
   wrapMinor?: number;
+  /** protection plans on the items (absent or 0 without any) */
+  protectionMinor?: number;
   totalMinor: number;
 }
 
@@ -64,6 +66,8 @@ export interface CartLine {
   available: boolean;
   /** ticked for checkout; unticked lines stay in the cart, outside the subtotal. */
   selected: boolean;
+  /** the store's protection plan for the product, per unit, and whether this line has it (absent when there's no plan) */
+  protection?: { unitMinor: number; added: boolean };
 }
 
 export interface Cart {
@@ -144,6 +148,8 @@ export interface OrderItem {
   qty: number;
   /** what a coupon took off each unit (absent without one) */
   unitDiscountMinor?: number;
+  /** the protection plan bought with it, per unit (absent without one) */
+  protectionMinor?: number;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */
@@ -156,6 +162,8 @@ export interface OrderCancellation {
   taxMinor: number;
   /** the cancelled units' gift wrap (absent without it) */
   wrapMinor?: number;
+  /** the cancelled lines' protection plans (absent without any) */
+  protectionMinor?: number;
   refund: { status: RefundStatus; amountMinor: number; refundedAt?: string };
   createdAt: string;
 }

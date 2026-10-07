@@ -2,6 +2,7 @@ import 'server-only';
 import type Stripe from 'stripe';
 import { stripe } from '../stripe';
 import { createAdminClient } from '../supabase/admin';
+import { protectionPlanName } from '../protection';
 import type { Order } from '../types';
 import { DataError, unwrap } from './errors';
 import { toPurchase, type GiftCardPurchase, type PurchaseRow } from './gift-card-purchases';
@@ -55,6 +56,12 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
       },
     },
   }));
+  for (const it of order.items) {
+    if (it.protectionMinor) {
+      const name = `${protectionPlanName(order.market)} for ${it.title}`;
+      lineItems.push({ quantity: it.qty, price_data: { currency, unit_amount: it.protectionMinor, product_data: { name: name.slice(0, 120) } } });
+    }
+  }
   if (order.totals.shipMinor > 0) {
     lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.shipMinor, product_data: { name: order.shipSpeed === 'fast' ? 'Faster delivery' : 'Shipping' } } });
   }

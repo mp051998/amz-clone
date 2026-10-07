@@ -38,7 +38,7 @@ export async function addToCart(formData: FormData): Promise<void> {
 /** Buy Now: checkout for just this product at the picked quantity; the cart is left as it is. */
 export async function buyNow(formData: FormData): Promise<void> {
   const market = await getMarket();
-  const buy = readBuyNow(formData.get('id'), formData.get('qty'));
+  const buy = readBuyNow(formData.get('id'), formData.get('qty'), formData.get('protection'));
   redirect(storePath({ id: market }, buy ? `/checkout?${buyNowQuery(buy)}` : '/cart'));
 }
 
@@ -107,6 +107,24 @@ export async function selectItems(formData: FormData): Promise<void> {
   let code: string | null = null;
   try {
     await cart.selectCartLines(client, market, id || null, formData.get('selected') === '1', token);
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    code = err.code;
+  }
+  revalidatePath('/', 'layout');
+  if (code) redirect(storePath({ id: market }, `/cart?error=${code}`));
+}
+
+/**
+ * Add (`on` "1") or drop the store's protection plan on a line (`id`). When that fails, back to
+ * the cart saying why.
+ */
+export async function setProtection(formData: FormData): Promise<void> {
+  const { client, market, token } = await scope();
+  const id = String(formData.get('id') ?? '');
+  let code: string | null = null;
+  try {
+    await cart.setCartProtection(client, market, id, formData.get('on') === '1', token);
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
     code = err.code;

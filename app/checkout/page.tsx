@@ -30,13 +30,14 @@ import { viewerCart } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { protectionPlanName } from '@/lib/protection';
 
 export const metadata: Metadata = { title: 'Checkout · Store' };
 
 /** Buy Now's one line, priced; null when the product isn't sold here (any more). */
 async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], buy: BuyNow): Promise<Cart | null> {
   try {
-    return await buyNowQuote(client, market, buy.productId, buy.qty);
+    return await buyNowQuote(client, market, buy.productId, buy.qty, buy.protection);
   } catch (err) {
     if (err instanceof DataError) return null;
     throw err;
@@ -46,11 +47,11 @@ async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['marke
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; msg?: string; canceled?: string; buy?: string; qty?: string }>;
+  searchParams: Promise<{ error?: string; msg?: string; canceled?: string; buy?: string; qty?: string; protection?: string }>;
 }) {
-  const { error, msg, canceled, buy: buyId, qty: buyQty } = await searchParams;
+  const { error, msg, canceled, buy: buyId, qty: buyQty, protection } = await searchParams;
   // Buy Now: checkout for just this product; the cart is left as it is
-  const buy = readBuyNow(buyId, buyQty);
+  const buy = readBuyNow(buyId, buyQty, protection);
   const store = await getMarketplace();
   const cur = store.currency.code;
   const money = (minor: number) => formatMoney(minor, cur);
@@ -142,7 +143,8 @@ export default async function CheckoutPage({
         <span className="hidden group-has-[#gift-wrap:checked]/co:inline">{wrapped}</span>
       </>
     ) : plain;
-  const fastTotal = fast ? totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor : 0;
+  const planMinor = totals.protectionMinor ?? 0;
+  const fastTotal = fast ? totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor + planMinor : 0;
   const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
   // balance methods pay the whole order from the gift card balance (null before balances exist)
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
@@ -181,6 +183,7 @@ export default async function CheckoutPage({
           <>
             <input type="hidden" name="buy" value={buy.productId} />
             <input type="hidden" name="qty" value={buy.qty} />
+            {buy.protection ? <input type="hidden" name="protection" value="1" /> : null}
           </>
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
@@ -213,12 +216,15 @@ export default async function CheckoutPage({
                     {l.product.title}
                     {buy ? (
                       <span className="block">
-                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={l.product.stock} name={l.product.title} />
+                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={l.product.stock} name={l.product.title} protection={buy.protection} />
                       </span>
                     ) : (
                       <span className="text-ink-3"> × {l.qty}</span>
                     )}
                     {l.discountMinor ? <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor)}</span> : null}
+                    {l.protection?.added ? (
+                      <span className="block text-[13px] text-ink-2">+ {protectionPlanName(store.id)} · {money(l.protection.unitMinor * l.qty)}</span>
+                    ) : null}
                     {!l.available ? (
                       <span className="block text-[13px] font-semibold text-warn">⚠ No longer available</span>
                     ) : !l.inStock ? (
@@ -240,6 +246,9 @@ export default async function CheckoutPage({
               <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 tabular-nums">−{money(discount)}</dd></div>
             ) : null}
             <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
+            {planMinor > 0 ? (
+              <div className="flex justify-between gap-3"><dt>Protection plans</dt><dd className="m-0 tabular-nums">{money(planMinor)}</dd></div>
+            ) : null}
             {wrapMinor > 0 ? (
               <div className="hidden justify-between gap-3 group-has-[#gift-wrap:checked]/co:flex"><dt>Gift wrap</dt><dd className="m-0 tabular-nums">{money(wrapMinor)}</dd></div>
             ) : null}

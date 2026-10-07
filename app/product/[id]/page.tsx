@@ -56,6 +56,8 @@ import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/data/questions';
 import { myOpenReport } from '@/lib/data/product-reports';
 import type { Product } from '@/lib/types';
+import { protectionOffer } from '@/lib/data/cart';
+import { protectionPlanName } from '@/lib/protection';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -139,7 +141,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -156,6 +158,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     sellerRatings(client, store.id, [p.seller]).catch(() => new Map<string, SellerRating>()),
     user && !p.archived ? myOpenReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : frequentlyReturned(client, p.id).catch(() => null),
+    p.archived ? Promise.resolve(null) : protectionOffer(client, p.id).catch(() => null),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -383,6 +386,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   delivery={delivery}
                   confidence={{ level, rows: confidence }}
                   error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
+                  protection={planMinor ? { name: protectionPlanName(store.id), price: formatMoney(planMinor, cur) } : undefined}
                 />
               )}
             </aside>

@@ -19,5 +19,16 @@ it('no product, no Buy Now', () => {
 
 it('round-trips through the checkout query', () => {
   const q = new URLSearchParams(buyNowQuery({ productId: 'k 1&x', qty: 2 }));
-  expect(readBuyNow(q.get('buy'), q.get('qty'))).toEqual({ productId: 'k 1&x', qty: 2 });
+  expect(q.has('protection')).toBe(false);
+  expect(readBuyNow(q.get('buy'), q.get('qty'), q.get('protection'))).toEqual({ productId: 'k 1&x', qty: 2 });
+});
+
+it('carries the protection plan when asked for', () => {
+  const q = new URLSearchParams(buyNowQuery({ productId: 'k1', qty: 1, protection: true }));
+  expect(q.get('protection')).toBe('1');
+  expect(readBuyNow(q.get('buy'), q.get('qty'), q.get('protection'))).toEqual({ productId: 'k1', qty: 1, protection: true });
+  expect(readBuyNow('k1', '1', 'on')).toEqual({ productId: 'k1', qty: 1, protection: true });
+  expect(readBuyNow('k1', '1', true)).toEqual({ productId: 'k1', qty: 1, protection: true });
+  expect(readBuyNow('k1', '1', '0')).toEqual({ productId: 'k1', qty: 1 });
+  expect(readBuyNow('k1', '1', null)).toEqual({ productId: 'k1', qty: 1 });
 });
