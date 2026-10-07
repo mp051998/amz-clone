@@ -27,6 +27,8 @@ import { formatMoney } from '@/lib/marketplaces';
 import type { Collection } from '@/lib/decision/types';
 import type { CartLine, Market } from '@/lib/types';
 import { CartProtection } from '@/components/cart/CartProtection';
+import { PriceChanges } from '@/components/cart/PriceChanges';
+import { cartPriceChanges } from '@/lib/cart-price-changes';
 import { protectionPlanName } from '@/lib/protection';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
@@ -146,6 +148,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-[120px] pt-7">
         <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Cart</h1>
         {notice}
+        <PriceChanges changes={cartPriceChanges(lines)} money={money} sp={sp} />
 
         <div className="flex flex-wrap items-start gap-6">
           <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-[22px]">

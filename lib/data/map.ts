@@ -54,6 +54,7 @@ interface CartJson {
     selected?: boolean;
     protection_unit_minor?: number | null;
     protection?: boolean;
+    added_price_minor?: number | null;
   }[];
   totals: { subtotal_minor: number; discount_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
 }
@@ -81,6 +82,8 @@ export function toCart(json: unknown): Cart {
       selected: l.selected ?? true,
       // absent before the protection plans migration
       ...(l.protection_unit_minor ? { protection: { unitMinor: l.protection_unit_minor, added: l.protection === true } } : {}),
+      // absent before the cart price changes migration, and for Buy Now's line
+      ...(l.added_price_minor != null ? { addedPriceMinor: l.added_price_minor } : {}),
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
