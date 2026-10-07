@@ -73,7 +73,7 @@ function one(sp: SP, key: string): string | undefined {
  *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
  *   spell  `0` = search exactly as typed, no spelling correction
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|rating  ·  page
- *   brand, rating, deal — "More filters" facets
+ *   brand, rating, deal — "More filters" facets  ·  oos  `1` = include out of stock
  */
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -112,8 +112,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const client = await db();
   const [result, scope, saved, jar, plus] = await Promise.all([
-    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, rating: facets.rating, deal: facets.deal, minPrice: facets.minPrice, sort }, client),
-    searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, sort: 'featured', page: 1 }).catch(() => null),
+    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, rating: facets.rating, deal: facets.deal, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
+    searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, includeOutOfStock: facets.includeOutOfStock, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
     plusMembership(client),
@@ -137,7 +137,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   };
   // nothing matched the words as typed: retry with typos corrected (only when that finds something)
   const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
-  if (k && pq.keywords && !result.candidates && !result.pricedOut && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal) {
+  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal) {
     const fix = await spellFix(client, store.id, k, pq.keywords, category);
     if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
   }
@@ -159,6 +159,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (facets.rating) chips.push({ label: `${facets.rating}★ & up`, href: hrefWith({ rating: null }) });
   if (facets.deal) chips.push({ label: 'On sale', href: hrefWith({ deal: null }) });
   if (facets.minPrice) chips.push({ label: `${formatMoney(facets.minPrice, store.currency.code)} & above`, href: hrefWith({ min: null }) });
+  if (facets.includeOutOfStock) chips.push({ label: 'Including out of stock', href: hrefWith({ oos: null }) });
 
   const presetSpec = findPreset(category, preset ?? use);
   /** the refine pill that matches the current weights (a parsed use counts until hand-tuned) */
@@ -314,6 +315,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   pricePresets={pricePresets(range)}
                   minPrice={facets.minPrice ?? null}
                   maxPrice={budgetMinor}
+                  includeOutOfStock={!!facets.includeOutOfStock}
                   hrefWith={(patch) => hrefWith(patch)}
                 />
               }
@@ -353,6 +355,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             ) : (
               <>
                 {empty}
+                {result.unavailable && !facets.includeOutOfStock ? (
+                  <p className="m-0 text-center text-[15px] text-ink-2">
+                    {result.unavailable === 1 ? '1 match is' : `${result.unavailable.toLocaleString('en-US')} matches are`} out of stock.{' '}
+                    <a href={hrefWith({ oos: '1' })} className="text-ink underline underline-offset-2">Include out of stock</a>
+                  </p>
+                ) : null}
                 {popular.length ? (
                   <section aria-labelledby="popular-h" className="flex flex-col gap-3 pt-2">
                     <h2 id="popular-h" className="m-0 text-[20px] font-semibold">{category ? `Popular in ${cfg.noun}` : 'Popular right now'}</h2>

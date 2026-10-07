@@ -31,6 +31,8 @@ export interface RankFilters {
   deal?: boolean;
   /** lowest price, minor units (the budget is the highest) */
   minPrice?: number;
+  /** keep products with none left ("Include Out of Stock"); left out otherwise */
+  includeOutOfStock?: boolean;
   sort?: RankSort;
 }
 
@@ -43,6 +45,8 @@ export interface RankedSearchResult {
   candidates: number;
   /** nothing in the price range, though the words and filters match products at other prices */
   pricedOut: boolean;
+  /** matches left out because no option is in stock, each variant group once */
+  unavailable: number;
 }
 
 async function client(c?: Db): Promise<Db> {
@@ -59,27 +63,29 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     brand: f.brand?.length ? f.brand : undefined,
     rating: f.rating,
     deal: f.deal || undefined,
+    includeOutOfStock: f.includeOutOfStock || undefined,
     sort: 'featured',
   };
 }
 
-async function searchCandidates(c: Db, market: Market, base: CandidateQuery): Promise<Product[]> {
+async function searchCandidates(c: Db, market: Market, base: CandidateQuery): Promise<{ products: Product[]; unavailable: number }> {
   const pages = Math.ceil(CANDIDATE_LIMIT / PAGE_SIZE);
   const first = await searchCatalog(c, market, { ...base, page: 1 });
   const rest = await Promise.all(
     Array.from({ length: Math.min(pages, first.pageCount) - 1 }, (_, i) => searchCatalog(c, market, { ...base, page: i + 2 })),
   );
   const seen = new Set<string>();
-  return [first, ...rest]
+  const products = [first, ...rest]
     .flatMap((r) => r.items)
     .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
     .slice(0, CANDIDATE_LIMIT);
+  return { products, unavailable: first.unavailable };
 }
 
 /**
  * Ranked search. Pulls up to 48 candidates via `searchCatalog` (keywords,
  * category, facet filters and the price range: `filters.minPrice` up to
- * `budgetMinor`); when keywords match nothing inside a detected category, at any
+ * `budgetMinor`; in stock unless `filters.includeOutOfStock`); when keywords match nothing inside a detected category, at any
  * price, falls back to that category's popular products. Candidates are then
  * ranked against `weights` (`filters.sort`, default 'match').
  */
@@ -94,10 +100,13 @@ export async function rankedSearch(
   const db = await client(c);
   const base = candidateQuery(parsedQuery, filters);
   const priced = Boolean(filters.minPrice || budgetMinor);
-  let products = await searchCandidates(db, market, { ...base, minPrice: filters.minPrice, maxPrice: budgetMinor ?? undefined });
+  const found = await searchCandidates(db, market, { ...base, minPrice: filters.minPrice, maxPrice: budgetMinor ?? undefined });
+  let products = found.products;
   const pricedOut = !products.length && priced && (await searchCatalog(db, market, { ...base, page: 1 })).total > 0;
-  if (!products.length && !pricedOut && parsedQuery.category && parsedQuery.keywords) {
+  // the words matched, only nothing is in stock: say so (the page offers to include them), no fallback
+  if (!products.length && !pricedOut && !found.unavailable && parsedQuery.category && parsedQuery.keywords) {
     products = await listProducts(db, market, { category: parsedQuery.category, order: 'popular', limit: CANDIDATE_LIMIT });
+    if (!filters.includeOutOfStock) products = products.filter((p) => p.stock > 0);
     if (filters.rating) products = products.filter((p) => p.rating >= filters.rating!);
     if (filters.brand?.length) products = products.filter((p) => p.brand && filters.brand!.includes(p.brand));
     if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
@@ -107,7 +116,7 @@ export async function rankedSearch(
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);
   // one card per variant group: its best-ranked option (within budget, and in stock, if any)
   const items = foldVariants(rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' }), (r) => r.product);
-  return { items, total: items.length, candidates: foldVariants(products).length, pricedOut };
+  return { items, total: items.length, candidates: foldVariants(products).length, pricedOut, unavailable: found.unavailable };
 }
 
 /** A product's stored insight (public), or null. */
