@@ -52,6 +52,7 @@ export function toReturn(json: unknown): OrderReturn {
       image: String(it.image ?? ''),
       unitPriceMinor: Number(it.unit_price_minor ?? 0),
       qty: Number(it.qty ?? 0),
+      ...(typeof it.size === 'string' && it.size ? { size: it.size } : {}),
     })),
     itemsMinor: Number(r.items_minor ?? 0),
     taxMinor: Number(r.tax_minor ?? 0),

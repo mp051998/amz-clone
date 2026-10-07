@@ -5,6 +5,7 @@ import type { Accessory } from '@/lib/decision/server';
 import { shortTitle } from '@/lib/decision/verdict';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { SeeOptions } from '@/components/product/SeeOptions';
 
 /** Add-ons that pair with what's in the cart or an order, one-tap Add each (hidden when empty). */
 export function PairsWith({ items, store, id, title, note }: { items: Accessory[]; store: Store; id: string; title: string; note: string }) {
@@ -27,17 +28,21 @@ export function PairsWith({ items, store, id, title, note }: { items: Accessory[
               <span className="text-[13px] text-ink-2">{a.reason}</span>
               <strong className="text-[15px] tabular-nums">{formatMoney(a.product.priceMinor, a.product.curBase)}</strong>
             </div>
-            <form action={addToCart} className="flex-none">
-              <input type="hidden" name="id" value={a.product.id} />
-              <input type="hidden" name="qty" value="1" />
-              <button
-                type="submit"
-                aria-label={`Add ${a.product.title} to cart`}
-                className="min-h-11 rounded-pill border border-ink bg-surface px-3.5 text-[14px] font-semibold text-ink transition-colors hover:bg-surface-2"
-              >
-                Add
-              </button>
-            </form>
+            {a.product.sizes ? (
+              <SeeOptions href={sp(`/product/${a.product.id}`)} name={a.product.title} className="flex-none" />
+            ) : (
+              <form action={addToCart} className="flex-none">
+                <input type="hidden" name="id" value={a.product.id} />
+                <input type="hidden" name="qty" value="1" />
+                <button
+                  type="submit"
+                  aria-label={`Add ${a.product.title} to cart`}
+                  className="min-h-11 rounded-pill border border-ink bg-surface px-3.5 text-[14px] font-semibold text-ink transition-colors hover:bg-surface-2"
+                >
+                  Add
+                </button>
+              </form>
+            )}
           </li>
         ))}
       </ul>

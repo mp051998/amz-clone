@@ -38,3 +38,8 @@ it('keeps an applied promotion code on as the quantity steps', () => {
   render(<BuyNowQty checkoutHref="/checkout" productId="k1" qty={2} stock={50} name="Kettle" promo="SAVE10" />);
   expect(screen.getByRole('link', { name: 'Increase quantity Kettle' })).toHaveAttribute('href', '/checkout?buy=k1&qty=3&promo=SAVE10');
 });
+
+it('keeps the size picked as the quantity steps', () => {
+  render(<BuyNowQty checkoutHref="/in/checkout" productId="in-shoe" qty={1} stock={50} name="Shoe" size="UK 8" />);
+  expect(screen.getByRole('link', { name: 'Increase quantity Shoe' })).toHaveAttribute('href', '/in/checkout?buy=in-shoe&qty=2&size=UK+8');
+});

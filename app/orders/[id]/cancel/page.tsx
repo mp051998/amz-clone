@@ -99,6 +99,7 @@ export default async function CancelItemsPage({
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <label htmlFor={fieldId} className="line-clamp-2 text-[15px] font-semibold">{it.title}</label>
+                      {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
                       <span className="text-[13px] text-ink-3">
                         Qty {it.qty} · {money((it.unitPriceMinor - (it.unitDiscountMinor ?? 0)) * it.qty)}{it.unitDiscountMinor ? ' after coupon' : ''}
                       </span>

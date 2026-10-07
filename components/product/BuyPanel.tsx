@@ -51,10 +51,15 @@ export interface BuyPanelProps {
   protection?: { name: string; price: string };
   /** "Limit 3 per customer": the limit, and how many more the shopper can buy (null when unknown, signed out) */
   limit?: { max: number; left: number | null };
+  /** the sizes it comes in: one must be picked before Add to Cart or Buy Now */
+  sizes?: string[];
 }
 
 /** at or below this many units the panel warns "Only N left". */
 export const LOW_STOCK = 10;
+
+const SIZE_CHIP =
+  'flex min-h-10 min-w-12 cursor-pointer items-center justify-center rounded-input border border-line bg-surface px-3 text-[14px] text-ink hover:border-ink has-[:checked]:border-ink has-[:checked]:font-semibold has-[:checked]:ring-1 has-[:checked]:ring-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink';
 
 const LEVEL_TONE = {
   High: 'bg-good-bg text-good-strong',
@@ -66,12 +71,15 @@ const LEVEL_TONE = {
  * PDP aside (prototype Product detail): delivery card, Purchase confidence, qty, Add to Cart (accent,
  * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare, and Add to List.
  * An eligible product offers the store's protection plan as a box above the buttons; both take it.
+ * A product that comes in sizes (clothes, shoes) asks for one first, and both buttons take it.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
   const [plan, setPlan] = useState(false);
+  const [size, setSize] = useState<string | null>(null);
+  const needsSize = Boolean(sizes?.length) && !size;
   const [justAdded, setJustAdded] = useState(false);
   const [err, setErr] = useState<string | null>(error ?? null);
   const [pending, start] = useTransition();
@@ -81,10 +89,16 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
   const used = limit?.left === 0;
   const cartHref = storeHref(market, '/cart');
 
-  const onAdd = () =>
+  const askSize = () => {
+    setErr('Select a size first.');
+    setJustAdded(false);
+  };
+
+  const onAdd = () => {
+    if (needsSize) return askSize();
     start(async () => {
       try {
-        const res = await addToCartInline(productId, qty, Boolean(protection) && plan);
+        const res = await addToCartInline(productId, qty, Boolean(protection) && plan, size);
         if (!res.ok) { setErr(res.message); setJustAdded(false); return; }
         setErr(null);
         setJustAdded(true);
@@ -94,6 +108,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
         setErr("Couldn't add to cart — try again");
       }
     });
+  };
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -140,8 +155,41 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
       {available && used ? (
         <p className="m-0 rounded-input bg-surface-4 px-3 py-2.5 text-[14px] text-ink-2">You’ve bought as many of this item as one customer can.</p>
       ) : available ? (
-        <form action={buyNow} className="flex flex-col gap-3">
+        <form
+          action={buyNow}
+          onSubmit={(e) => {
+            if (!needsSize) return;
+            e.preventDefault();
+            askSize();
+          }}
+          className="flex flex-col gap-3"
+        >
           <input type="hidden" name="id" value={productId} />
+          {sizes?.length ? (
+            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+              <legend className="mb-2 p-0 text-[14px] text-ink-2">
+                Size: <strong className="font-semibold text-ink">{size ?? 'Select'}</strong>
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((s) => (
+                  <label key={s} className={SIZE_CHIP}>
+                    <input
+                      type="radio"
+                      name="size"
+                      value={s}
+                      checked={size === s}
+                      onChange={() => {
+                        setSize(s);
+                        setErr(null);
+                      }}
+                      className="sr-only"
+                    />
+                    {s}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">
             Quantity
             <select name="qty" value={qty} onChange={(e) => setQty(Number(e.target.value))} className={selectClass}>

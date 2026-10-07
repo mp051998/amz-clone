@@ -33,6 +33,8 @@ export interface Product {
   variant?: { group: string; axis: string; label: string };
   /** "Limit 3 per customer": the most units one shopper can buy across their orders (absent: no limit). */
   maxPerCustomer?: number;
+  /** the sizes it comes in (clothes, shoes): one is picked before it goes in the cart (absent: no sizes). */
+  sizes?: string[];
 }
 
 export interface Category {
@@ -76,6 +78,10 @@ export interface CartLine {
   addedPriceMinor?: number;
   /** the promotion code's part of discountMinor at checkout (absent without one) */
   promoMinor?: number;
+  /** the size picked, for a product that comes in sizes */
+  size?: string;
+  /** the product comes in sizes and the line has none of them: it needs one before checkout */
+  needsSize?: boolean;
 }
 
 /** A promotion code applied at checkout. */
@@ -130,6 +136,8 @@ export interface ReturnItem {
   image: string;
   unitPriceMinor: number;
   qty: number;
+  /** the size ordered, for a product that comes in sizes */
+  size?: string;
 }
 
 /** A return of some of a delivered order's items. */
@@ -177,6 +185,8 @@ export interface OrderItem {
   unitPromoMinor?: number;
   /** the protection plan bought with it, per unit (absent without one) */
   protectionMinor?: number;
+  /** the size ordered, for a product that comes in sizes */
+  size?: string;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */

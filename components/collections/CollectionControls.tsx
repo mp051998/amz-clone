@@ -12,6 +12,7 @@ import {
 import { addToCartQuiet } from '@/app/collections/actions';
 import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
+import { SeeOptions } from '../product/SeeOptions';
 import { cn } from '../lib/cn';
 import { fieldClass } from '../lib/controls';
 import { storeHref, type MarketId } from '../lib/store';
@@ -161,7 +162,7 @@ export function CollectionMenu({ id, name, market }: { id: string; name: string;
 }
 
 /** Add to cart (accent, stays on the page), Move to another list, and Remove from this collection. */
-export function ItemActions({ collectionId, collectionName, productId, productName, inStock, unavailable = false, market, moveTo = [] }: {
+export function ItemActions({ collectionId, collectionName, productId, productName, inStock, unavailable = false, market, moveTo = [], optionsHref }: {
   collectionId: string;
   collectionName: string;
   productId: string;
@@ -172,6 +173,8 @@ export function ItemActions({ collectionId, collectionName, productId, productNa
   market: MarketId;
   /** the shopper's other lists in this store */
   moveTo?: { id: string; name: string }[];
+  /** it comes in sizes: "See options" on its page, where one is picked, in place of Add to cart */
+  optionsHref?: string;
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -204,9 +207,13 @@ export function ItemActions({ collectionId, collectionName, productId, productNa
 
   return (
     <div className="flex flex-none gap-2">
-      <Button variant="primary" onClick={add} disabled={pending || !inStock || unavailable} aria-label={`Add ${productName} to cart`}>
-        {unavailable ? 'Unavailable' : inStock ? 'Add to cart' : 'Out of stock'}
-      </Button>
+      {optionsHref && inStock && !unavailable ? (
+        <SeeOptions href={optionsHref} name={productName} variant="primary" size="md" />
+      ) : (
+        <Button variant="primary" onClick={add} disabled={pending || !inStock || unavailable} aria-label={`Add ${productName} to cart`}>
+          {unavailable ? 'Unavailable' : inStock ? 'Add to cart' : 'Out of stock'}
+        </Button>
+      )}
       {!unavailable && moveTo.length ? (
         <MoveTo collectionId={collectionId} productId={productId} productName={productName} targets={moveTo} market={market} />
       ) : null}

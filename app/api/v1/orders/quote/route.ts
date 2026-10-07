@@ -5,7 +5,7 @@ import { readBuyNow, type BuyNow } from '@/lib/buy-now';
 import { readPromoCode } from '@/lib/promo';
 
 /**
- * GET /api/v1/orders/quote?promo=CODE[&productId=…&qty=1&protection=1] — the caller's checkout (the
+ * GET /api/v1/orders/quote?promo=CODE[&productId=…&qty=1&protection=1&size=…] — the caller's checkout (the
  * cart's ticked lines, or Buy Now's product) priced with a promotion code. A code that doesn't apply
  * comes back as `promoError` with the checkout priced without it.
  */
@@ -16,7 +16,7 @@ export const GET = route(async (ctx) => {
   if (!code) throw new DataError('invalid_input', 'promo', 'Enter a promotion code.');
   let buy: BuyNow | undefined;
   if (q.has('productId')) {
-    buy = readBuyNow(q.get('productId'), q.get('qty'), q.get('protection')) ?? undefined;
+    buy = readBuyNow(q.get('productId'), q.get('qty'), q.get('protection'), q.get('size')) ?? undefined;
     if (!buy) throw new DataError('invalid_input', 'productId', 'Say which product to buy.');
   }
   const { cart, promoError } = await checkoutQuote(ctx.db, ctx.market, code, buy);

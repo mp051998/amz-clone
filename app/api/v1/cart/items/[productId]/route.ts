@@ -1,12 +1,12 @@
 import { body, json, preflight, route } from '@/lib/api/http';
 import { cartToken } from '@/lib/api/cart';
-import { selectCartLines, setCartProtection, setCartQty } from '@/lib/data/cart';
+import { selectCartLines, setCartProtection, setCartQty, setCartSize } from '@/lib/data/cart';
 import { DataError } from '@/lib/data/errors';
 
 /**
- * PATCH /api/v1/cart/items/:productId { qty?, selected?, protection? } — set the quantity (0 removes
- * the line), tick or untick the line for checkout, and/or add or drop the store's protection plan.
- * At least one of them.
+ * PATCH /api/v1/cart/items/:productId { qty?, selected?, protection?, size? } — set the quantity (0
+ * removes the line), tick or untick the line for checkout, add or drop the store's protection plan,
+ * and/or change the size (one of the product's `sizes`). At least one of them.
  */
 export const PATCH = route<{ productId: string }>(async (ctx, { productId }) => {
   const b = await body(ctx.req);
@@ -14,9 +14,13 @@ export const PATCH = route<{ productId: string }>(async (ctx, { productId }) => 
   if (qty !== undefined && (!Number.isInteger(qty) || qty < 0)) throw new DataError('invalid_input', 'qty', 'qty must be a non-negative integer.');
   if (b.selected !== undefined && typeof b.selected !== 'boolean') throw new DataError('invalid_input', 'selected', 'selected must be true or false.');
   if (b.protection !== undefined && typeof b.protection !== 'boolean') throw new DataError('invalid_input', 'protection', 'protection must be true or false.');
-  if (qty === undefined && b.selected === undefined && b.protection === undefined) throw new DataError('invalid_input', 'qty', 'Send qty, selected or protection.');
+  if (b.size !== undefined && (typeof b.size !== 'string' || !b.size.trim())) throw new DataError('invalid_input', 'size', 'size must be one of the product’s sizes.');
+  if (qty === undefined && b.selected === undefined && b.protection === undefined && b.size === undefined) {
+    throw new DataError('invalid_input', 'qty', 'Send qty, selected, protection or size.');
+  }
   const { token, minted } = cartToken(ctx, true);
   let cart = qty === undefined ? null : await setCartQty(ctx.db, ctx.market, productId, qty, token);
+  if (typeof b.size === 'string' && qty !== 0) cart = await setCartSize(ctx.db, ctx.market, productId, b.size.trim(), token);
   // a line that qty 0 just removed has nothing left to tick
   if (typeof b.selected === 'boolean' && qty !== 0) cart = await selectCartLines(ctx.db, ctx.market, productId, b.selected, token);
   if (typeof b.protection === 'boolean' && qty !== 0) cart = await setCartProtection(ctx.db, ctx.market, productId, b.protection, token);

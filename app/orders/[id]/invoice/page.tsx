@@ -115,6 +115,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                   <tr key={l.productId}>
                     <td className={cell}>
                       <span className="block font-medium">{l.title}</span>
+                      {l.size ? <span className="block text-[13px] text-ink-2">Size: {l.size}</span> : null}
                       <span className="block text-[13px] text-ink-3">Sold by {l.seller}</span>
                       {l.discountMinor ? <span className="block text-[13px] text-ink-2">Coupon −{money(l.discountMinor)}</span> : null}
                       {l.promoMinor ? <span className="block text-[13px] text-ink-2">Promotion −{money(l.promoMinor)}</span> : null}

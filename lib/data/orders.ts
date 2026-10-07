@@ -77,7 +77,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       // likewise only for fast delivery
       ...(input.speed === 'fast' ? { p_speed: 'fast' } : {}),
       ...(input.buyNow
-        ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}) } }
+        ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}), ...(input.buyNow.size ? { size: input.buyNow.size } : {}) } }
         : {}),
       ...(emi !== undefined ? { p_emi_months: emi } : {}),
       ...(promo ? { p_promo_code: promo } : {}),

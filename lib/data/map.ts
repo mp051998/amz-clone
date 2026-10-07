@@ -36,6 +36,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     variant: row.variant_group && row.variant_axis && row.variant_label ? { group: row.variant_group, axis: row.variant_axis, label: row.variant_label } : undefined,
     // absent on rows read before the purchase limits migration lands
     maxPerCustomer: opt(row.max_per_customer),
+    // absent on rows read before the sizes migration lands
+    ...(row.sizes?.length ? { sizes: row.sizes } : {}),
   };
 }
 
@@ -58,6 +60,8 @@ interface CartJson {
     protection?: boolean;
     added_price_minor?: number | null;
     promo_minor?: number;
+    size?: string | null;
+    needs_size?: boolean;
   }[];
   totals: { subtotal_minor: number; discount_minor?: number; promo_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
   promo?: { code: string; percent_off: number; description: string; category_slug: string | null } | null;
@@ -90,6 +94,9 @@ export function toCart(json: unknown): Cart {
       ...(l.added_price_minor != null ? { addedPriceMinor: l.added_price_minor } : {}),
       // checkout quotes with a promotion code only
       ...(l.promo_minor ? { promoMinor: l.promo_minor } : {}),
+      // absent before the sizes migration
+      ...(l.size ? { size: l.size } : {}),
+      ...(l.needs_size ? { needsSize: true } : {}),
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
@@ -155,6 +162,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       // absent on rows read before the promo codes migration lands
       ...(it.unit_promo_minor ? { unitPromoMinor: it.unit_promo_minor } : {}),
       ...(it.protection_minor ? { protectionMinor: it.protection_minor } : {}),
+      // absent on rows read before the sizes migration lands
+      ...(it.size ? { size: it.size } : {}),
     }));
 }
 

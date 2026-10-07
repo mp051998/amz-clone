@@ -53,7 +53,7 @@ async function promoQuote(client: Awaited<ReturnType<typeof db>>, market: Cart['
 /** Buy Now's one line, priced; null when the product isn't sold here (any more). */
 async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], buy: BuyNow): Promise<Cart | null> {
   try {
-    return await buyNowQuote(client, market, buy.productId, buy.qty, buy.protection);
+    return await buyNowQuote(client, market, buy.productId, buy.qty, buy.protection, buy.size);
   } catch (err) {
     if (err instanceof DataError) return null;
     throw err;
@@ -63,12 +63,12 @@ async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['marke
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; promo?: string }>;
+  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; size?: string; promo?: string }>;
 }) {
-  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, promo: promoParam } = await searchParams;
+  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, size, promo: promoParam } = await searchParams;
   const promoCode = readPromoCode(promoParam);
   // Buy Now: checkout for just this product; the cart is left as it is
-  const buy = readBuyNow(buyId, buyQty, protection);
+  const buy = readBuyNow(buyId, buyQty, protection, size);
   const store = await getMarketplace();
   const cur = store.currency.code;
   const money = (minor: number) => formatMoney(minor, cur);
@@ -147,7 +147,9 @@ export default async function CheckoutPage({
   const leftOf = (l: (typeof lines)[number]) => unitsLeft(l.product, allowance);
   const overLimit = lines.filter((l) => l.available && (leftOf(l) ?? Infinity) < l.qty);
   const stockBlocked = lines.some((l) => !l.inStock);
-  const blocked = stockBlocked || overLimit.length > 0;
+  // a product that comes in sizes is ordered in one of them
+  const sizeBlocked = lines.some((l) => l.available && l.needsSize);
+  const blocked = stockBlocked || sizeBlocked || overLimit.length > 0;
   const unavailable = lines.some((l) => !l.available);
   const now = new Date();
   const options = deliveryOptions(now, store.dates.timeZone);
@@ -210,6 +212,10 @@ export default async function CheckoutPage({
               </>
             ) : stockBlocked ? (
               'There isn’t enough stock for that many. Lower the quantity under Items to place the order.'
+            ) : sizeBlocked ? (
+              <>
+                Select a size first. <a href={productHref} className="underline">Back to the product</a> to pick one.
+              </>
             ) : leftOf(overLimit[0]) === 0 ? (
               'You’ve bought as many of this item as one customer can.'
             ) : (
@@ -218,7 +224,13 @@ export default async function CheckoutPage({
           </Alert>
         ) : (
           <Alert tone="warning">
-            {unavailable ? 'Some items are no longer available.' : stockBlocked ? 'Some items no longer have enough stock.' : 'Some items are over their limit per customer.'}{' '}
+            {unavailable
+              ? 'Some items are no longer available.'
+              : stockBlocked
+                ? 'Some items no longer have enough stock.'
+                : sizeBlocked
+                  ? 'Some items need a size.'
+                  : 'Some items are over their limit per customer.'}{' '}
             <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
           </Alert>
         )
@@ -231,6 +243,7 @@ export default async function CheckoutPage({
             <input type="hidden" name="buy" value={buy.productId} />
             <input type="hidden" name="qty" value={buy.qty} />
             {buy.protection ? <input type="hidden" name="protection" value="1" /> : null}
+            {buy.size ? <input type="hidden" name="size" value={buy.size} /> : null}
           </>
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
@@ -263,11 +276,12 @@ export default async function CheckoutPage({
                     {l.product.title}
                     {buy ? (
                       <span className="block">
-                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={Math.min(l.product.stock, leftOf(l) ?? Infinity)} name={l.product.title} protection={buy.protection} promo={promo?.code ?? promoTried?.code} />
+                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={Math.min(l.product.stock, leftOf(l) ?? Infinity)} name={l.product.title} protection={buy.protection} size={buy.size} promo={promo?.code ?? promoTried?.code} />
                       </span>
                     ) : (
                       <span className="text-ink-3"> × {l.qty}</span>
                     )}
+                    {l.size ? <span className="block text-[13px] text-ink-2">Size: {l.size}</span> : null}
                     {l.product.maxPerCustomer ? (
                       <span className={`block text-[13px]${overLimit.includes(l) ? ' font-semibold text-warn' : ' text-ink-3'}`}>{limitNote(l.product.maxPerCustomer, leftOf(l))}</span>
                     ) : null}
@@ -282,6 +296,8 @@ export default async function CheckoutPage({
                       <span className="block text-[13px] font-semibold text-warn">⚠ No longer available</span>
                     ) : !l.inStock ? (
                       <span className="block text-[13px] font-semibold text-warn">⚠ Not enough stock</span>
+                    ) : l.needsSize ? (
+                      <span className="block text-[13px] font-semibold text-warn">⚠ Select a size</span>
                     ) : null}
                   </span>
                   <span className="flex-none font-semibold tabular-nums">{money(l.lineTotalMinor)}</span>

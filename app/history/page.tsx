@@ -79,7 +79,7 @@ export default async function HistoryPage() {
                     {p.stock > 0 ? (
                       <>
                         <strong className="text-[16px] tabular-nums">{formatMoney(toStoreMinor(p.priceMinor, cur, p.curBase), cur)}</strong>
-                        <BuyAgainButton productId={p.id} title={p.title} label="Add to cart" block />
+                        <BuyAgainButton productId={p.id} title={p.title} label="Add to cart" block optionsHref={p.sizes ? sp(`/product/${encodeURIComponent(p.id)}`) : undefined} />
                       </>
                     ) : (
                       <span className="text-[13px] font-medium text-ink-2">Currently unavailable</span>

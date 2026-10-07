@@ -60,7 +60,7 @@ export function RankCard({ product: p, store, rank, tag, saved = false }: RankCa
       <div className="mt-auto flex items-center gap-2 border-t border-line-2 pt-3">
         <CompareToggle item={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} />
         <SaveButton productId={p.id} saved={saved} name={p.title} />
-        <QuickAdd productId={p.id} name={p.title} />
+        <QuickAdd productId={p.id} name={p.title} optionsHref={p.sizes ? href : undefined} />
       </div>
     </article>
   );

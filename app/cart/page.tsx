@@ -27,6 +27,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import type { Collection } from '@/lib/decision/types';
 import type { CartLine, Market } from '@/lib/types';
 import { CartProtection } from '@/components/cart/CartProtection';
+import { CartSize } from '@/components/cart/CartSize';
 import { PriceChanges } from '@/components/cart/PriceChanges';
 import { cartPriceChanges } from '@/lib/cart-price-changes';
 import { purchaseAllowance } from '@/lib/data/purchase-limits';
@@ -148,7 +149,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const overLimit = (l: CartLine) => l.available && (leftOf(l) ?? Infinity) < l.qty;
   // only ticked lines are ordered, so an unticked line can't hold up checkout
   const stockBlocked = lines.some((l) => l.selected && !l.inStock);
-  const blocked = stockBlocked || lines.some((l) => l.selected && overLimit(l));
+  // a line of something that comes in sizes needs one picked before it can be ordered
+  const sizeBlocked = lines.some((l) => l.selected && l.available && l.needsSize);
+  const blocked = stockBlocked || sizeBlocked || lines.some((l) => l.selected && overLimit(l));
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
   const discount = totals.discountMinor ?? 0;
@@ -197,6 +200,12 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                             {l.qty > 1 ? <span className="text-ink-3"> · {money(p.priceMinor)} each</span> : null}
                           </span>
                         )}
+                        {l.available && p.sizes ? (
+                          <>
+                            <CartSize id={p.id} size={l.size} sizes={p.sizes} name={p.title} />
+                            {l.needsSize ? <span className="text-[14px] font-semibold text-warn">⚠ Select a size to check out.</span> : null}
+                          </>
+                        ) : null}
                         {l.available && p.maxPerCustomer ? (
                           overLimit(l) ? (
                             <span className="text-[14px] font-semibold text-warn">
@@ -272,7 +281,10 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <a href={sp(`/product/${swap.alt.product.id}`)} className={buttonClasses({ variant: 'secondary' })}>See alternative</a>
-                    <SwapButton fromId={swap.line.product.id} toId={swap.alt.product.id} amount={money(-swap.alt.priceDeltaMinor * swap.line.qty)} />
+                    {/* one that comes in sizes needs one picked on its page first */}
+                    {swap.alt.product.sizes ? null : (
+                      <SwapButton fromId={swap.line.product.id} toId={swap.alt.product.id} amount={money(-swap.alt.priceDeltaMinor * swap.line.qty)} />
+                    )}
                   </div>
                 </div>
               </section>
@@ -320,7 +332,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                   ? 'Some items are no longer available. Remove them to check out.'
                   : stockBlocked
                     ? 'Some items no longer have enough stock. Update them to check out.'
-                    : 'Some items are over their limit per customer. Update them to check out.'}
+                    : sizeBlocked
+                      ? 'Some items need a size. Select one to check out.'
+                      : 'Some items are over their limit per customer. Update them to check out.'}
               </Alert>
             ) : user ? (
               <a href={sp('/checkout')} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</a>

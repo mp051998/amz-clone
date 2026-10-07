@@ -32,3 +32,14 @@ it('carries the protection plan when asked for', () => {
   expect(readBuyNow('k1', '1', '0')).toEqual({ productId: 'k1', qty: 1 });
   expect(readBuyNow('k1', '1', null)).toEqual({ productId: 'k1', qty: 1 });
 });
+
+it('carries the size picked, trimmed, and drops a blank or overlong one', () => {
+  const q = new URLSearchParams(buyNowQuery({ productId: 'k1', qty: 1, size: 'UK 8' }));
+  expect(q.get('size')).toBe('UK 8');
+  expect(readBuyNow(q.get('buy'), q.get('qty'), q.get('protection'), q.get('size'))).toEqual({ productId: 'k1', qty: 1, size: 'UK 8' });
+  expect(readBuyNow('k1', '1', null, ' M ')).toEqual({ productId: 'k1', qty: 1, size: 'M' });
+  expect(readBuyNow('k1', '1', null, '  ')).toEqual({ productId: 'k1', qty: 1 });
+  expect(readBuyNow('k1', '1', null, 'x'.repeat(13))).toEqual({ productId: 'k1', qty: 1 });
+  expect(readBuyNow('k1', '1', null, ['M'])).toEqual({ productId: 'k1', qty: 1 });
+  expect(new URLSearchParams(buyNowQuery({ productId: 'k1', qty: 1 })).has('size')).toBe(false);
+});

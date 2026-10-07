@@ -48,7 +48,7 @@ export function CancelledItems({ order, store, href }: { order: Order; store: St
               </a>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <a href={href(it.productId)} className="line-clamp-2 text-[14px] font-semibold text-ink-2 no-underline">{it.title}</a>
-                <span className="text-[13px] text-ink-3">Qty {it.qty}</span>
+                <span className="text-[13px] text-ink-3">{it.size ? `Size: ${it.size} · ` : ''}Qty {it.qty}</span>
               </div>
               <span className="flex-none text-[14px] tabular-nums text-ink-3 line-through">{money((it.unitPriceMinor - (it.unitDiscountMinor ?? 0)) * it.qty)}</span>
             </div>

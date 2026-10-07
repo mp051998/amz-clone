@@ -215,8 +215,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     to: deliverTo.current ? `to ${deliverLabel(deliverTo.current)}` : undefined,
   };
 
-  const bundleEntries: BundleEntry[] = bundle.length
-    ? [p, ...bundle.map((b) => b.product)].map((x) => ({
+  // "Add all to cart" adds one of each, so a product that comes in sizes (picked on its own page) sits it out
+  const bundled = p.sizes ? [] : bundle.filter((b) => !b.product.sizes);
+  const bundleEntries: BundleEntry[] = bundled.length
+    ? [p, ...bundled.map((b) => b.product)].map((x) => ({
         id: x.id,
         title: shortTitle(x.title, 12),
         image: x.image,
@@ -411,6 +413,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
                   protection={planMinor ? { name: protectionPlanName(store.id), price: formatMoney(planMinor, cur) } : undefined}
                   limit={p.maxPerCustomer ? { max: p.maxPerCustomer, left: user ? unitsLeft(p, allowance) : null } : undefined}
+                  sizes={p.sizes}
                 />
               )}
             </aside>
@@ -420,7 +423,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         {bundleEntries.length > 1 ? (
           <section aria-labelledby="fbt-h" className="flex max-w-[980px] flex-col gap-3">
             {/* only order data earns "Frequently bought together"; rules picks are just suggestions */}
-            <h2 id="fbt-h" className="m-0 text-[22px] font-semibold">{bundle.every((b) => b.source === 'orders') ? 'Frequently bought together' : 'Goes well with this'}</h2>
+            <h2 id="fbt-h" className="m-0 text-[22px] font-semibold">{bundled.every((b) => b.source === 'orders') ? 'Frequently bought together' : 'Goes well with this'}</h2>
             <BoughtTogether productId={p.id} items={bundleEntries} currency={cur} />
           </section>
         ) : null}
