@@ -984,6 +984,9 @@ isOneToOne: false
 "ask_question":
 { Args: { "p_product": string,"p_body": string }; Returns: Json
                            },
+"admin_sales":
+{ Args: { "p_days"?: number,"p_market": string }; Returns: Json
+                           },
 "answer_question":
 { Args: { "p_question": string,"p_body": string }; Returns: Json
                            },
