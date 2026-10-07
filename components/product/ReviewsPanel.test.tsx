@@ -348,3 +348,17 @@ it('has no review search before there are written reviews', () => {
   render(<ReviewsPanel {...props()} />);
   expect(screen.queryByRole('search')).toBeNull();
 });
+
+it('links each reviewer’s name to their public profile', () => {
+  const initial = [review('a', 5, 'Love it', { author: 'Priya S', authorId: 'u 1' }), review('b', 4, 'Fine', { author: 'Gone' })];
+  render(<ReviewsPanel {...props({ initial, total: 2, profileBase: '/in/profile/' })} />);
+  expect(screen.getByRole('link', { name: 'Priya S’s profile' })).toHaveAttribute('href', '/in/profile/u%201');
+  expect(screen.queryByRole('link', { name: 'Gone’s profile' })).toBeNull();
+  expect(screen.getByText('Gone')).toBeInTheDocument();
+});
+
+it('leaves names as plain text without a profile path', () => {
+  render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Love it', { author: 'Priya S', authorId: 'u1' })], total: 1 })} />);
+  expect(screen.queryByRole('link', { name: 'Priya S’s profile' })).toBeNull();
+  expect(screen.getByText('Priya S')).toBeInTheDocument();
+});
