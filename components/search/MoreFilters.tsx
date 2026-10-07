@@ -16,6 +16,8 @@ export interface MoreFiltersProps {
   /** current price range, minor units (null = open-ended) */
   minPrice?: number | null;
   maxPrice?: number | null;
+  /** "Include Out of Stock" is ticked */
+  includeOutOfStock?: boolean;
   /** href for the current search with these params changed (null = remove). */
   hrefWith: (patch: Record<string, string | null>) => string;
 }
@@ -30,8 +32,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, price, rating, deals) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, pricePresets = [], minPrice = null, maxPrice = null, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, price, rating, deals, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -119,6 +121,14 @@ export function MoreFilters({ categories, dept, brandFacets, brands, rating, dea
         <a href={hrefWith({ deal: deal ? null : '1' })} role="checkbox" aria-checked={deal} className={row}>
           <Box on={deal} />
           <span>On sale now</span>
+        </a>
+      </div>
+
+      <div>
+        <h3 className="m-0 mb-1 text-[14px] font-semibold">Availability</h3>
+        <a href={hrefWith({ oos: includeOutOfStock ? null : '1' })} role="checkbox" aria-checked={includeOutOfStock} className={row}>
+          <Box on={includeOutOfStock} />
+          <span>Include Out of Stock</span>
         </a>
       </div>
     </div>

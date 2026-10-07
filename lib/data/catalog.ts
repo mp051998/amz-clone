@@ -189,13 +189,15 @@ interface SearchJson {
   total: number;
   /** matches counted once per variant group (absent before the fold-variants migration) */
   groups?: number;
+  /** matches with no option in stock (absent before the search-in-stock migration) */
+  unavailable?: number;
   page: number;
   page_count: number;
   brands: { name: string; count: number }[];
   items: Parameters<typeof toProduct>[0][];
 }
 
-/** Full search page in one RPC: filtered + sorted page, total, and brand facets. */
+/** Full search page in one RPC: filtered + sorted page, total, and brand facets. Products with none left are left out unless `query.includeOutOfStock`. */
 export async function searchCatalog(db: Db, market: Market, query: SearchQuery): Promise<SearchResult> {
   const json = unwrap(
     await db.rpc('search_catalog', {
@@ -210,6 +212,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       p_page_size: PAGE_SIZE,
       p_min_price: query.minPrice ?? undefined,
       p_max_price: query.maxPrice ?? undefined,
+      p_in_stock: !query.includeOutOfStock,
     }),
   ) as unknown as SearchJson;
 
@@ -227,6 +230,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     groups: json.groups ?? json.total,
     pageCount: json.page_count,
     brandFacets: json.brands,
+    unavailable: json.unavailable ?? 0,
     headingLabel,
   };
 }

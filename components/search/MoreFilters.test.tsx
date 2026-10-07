@@ -47,3 +47,17 @@ describe('MoreFilters price', () => {
     expect(screen.queryByRole('heading', { name: 'Price' })).toBeNull();
   });
 });
+
+describe('MoreFilters availability', () => {
+  it('leaves out-of-stock products out until ticked, and unticking takes them out again', () => {
+    renderFilters();
+    const box = screen.getByRole('checkbox', { name: 'Include Out of Stock' });
+    expect(box).toHaveAttribute('aria-checked', 'false');
+    expect(box.getAttribute('href')).toBe(hrefWith({ oos: '1' }));
+    cleanup();
+    renderFilters({ includeOutOfStock: true });
+    const on = screen.getByRole('checkbox', { name: 'Include Out of Stock' });
+    expect(on).toHaveAttribute('aria-checked', 'true');
+    expect(on.getAttribute('href')).toBe(hrefWith({ oos: null }));
+  });
+});

@@ -27,6 +27,8 @@ export interface SearchQuery {
   minPrice?: number;
   /** highest price, minor units */
   maxPrice?: number;
+  /** "Include Out of Stock": products with none left are left out unless this is set (`oos=1`) */
+  includeOutOfStock?: boolean;
   sort: SortKey;
   page: number;
 }
@@ -40,6 +42,8 @@ export interface SearchResult {
   pageCount: number;
   /** brands available in the query+dept scope, with counts */
   brandFacets: { name: string; count: number }[];
+  /** matches with no option in stock, each variant group once (left out unless `includeOutOfStock`) */
+  unavailable: number;
   headingLabel: string;
 }
 
@@ -76,6 +80,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     deal: one(sp.deal) === '1' || undefined,
     minPrice: price(sp.min),
     maxPrice: price(sp.max),
+    includeOutOfStock: one(sp.oos) === '1' || undefined,
     sort: SORTS.some((s) => s.key === sortRaw) ? (sortRaw as SortKey) : 'featured',
     page: Math.max(1, Number(one(sp.page)) || 1),
   };

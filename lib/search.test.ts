@@ -18,6 +18,15 @@ describe('parseQuery price range', () => {
   });
 });
 
+describe('parseQuery availability', () => {
+  it('leaves out-of-stock products out unless oos=1', () => {
+    expect(parseQuery({}).includeOutOfStock).toBeUndefined();
+    expect(parseQuery({ oos: '0' }).includeOutOfStock).toBeUndefined();
+    expect(parseQuery({ oos: '1' }).includeOutOfStock).toBe(true);
+    expect(parseQuery({ oos: ['1', '0'] }).includeOutOfStock).toBe(true);
+  });
+});
+
 describe('pricePresets', () => {
   it('buckets a department range at round prices the budget slider can reach', () => {
     expect(pricePresets(budgetRange('US', null))).toEqual([

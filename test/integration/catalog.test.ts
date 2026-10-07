@@ -4,7 +4,7 @@ import { amazonIn } from '@/lib/marketplace-in';
 import { getProduct, getProducts, getRatingSummary, listCategories, listProducts, searchCatalog } from '@/lib/data/catalog';
 import { getHomeContent } from '@/lib/home-content';
 import { parseQuery } from '@/lib/search';
-import { admin, anon } from './helpers';
+import { admin, anon, setStock } from './helpers';
 
 describe('catalog', () => {
   it('each store has its own departments and products', async () => {
@@ -46,7 +46,8 @@ describe('catalog', () => {
     const min = inDept.items[2].priceMinor;
     const max = inDept.items[8].priceMinor;
     const inRange = async (lo: number | null, hi: number | null) => {
-      let q = admin().from('catalog_products').select('id', { count: 'exact', head: true }).eq('market_id', 'US').eq('category_slug', dept);
+      // search leaves out what's out of stock
+      let q = admin().from('catalog_products').select('id', { count: 'exact', head: true }).eq('market_id', 'US').eq('category_slug', dept).gt('stock', 0);
       if (lo != null) q = q.gte('price_minor', lo);
       if (hi != null) q = q.lte('price_minor', hi);
       return (await q).count;
@@ -69,6 +70,42 @@ describe('catalog', () => {
     const backwards = await searchCatalog(anon(), 'US', parseQuery({ dept, min: String(max), max: String(min - 1) }));
     expect(backwards.total).toBe(0);
     expect(backwards.items).toEqual([]);
+  });
+
+  it('search leaves out products with none left unless asked, and says how many', async () => {
+    // a product without options, so it alone is the match
+    const { data, error } = await admin()
+      .from('catalog_products')
+      .select('id, title, stock, brand')
+      .eq('market_id', 'US')
+      .is('variant_group', null)
+      .gte('stock', 25)
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+    if (error) throw error;
+    const k = data.title!;
+    const before = await searchCatalog(anon(), 'US', parseQuery({ k }));
+    expect(before.items.map((p) => p.id)).toContain(data.id);
+
+    await setStock(data.id!, 0);
+    try {
+      const hidden = await searchCatalog(anon(), 'US', parseQuery({ k }));
+      expect(hidden.items.map((p) => p.id)).not.toContain(data.id);
+      expect(hidden.total).toBe(before.total - 1);
+      expect(hidden.unavailable).toBe(before.unavailable + 1);
+
+      const shown = await searchCatalog(anon(), 'US', parseQuery({ k, oos: '1' }));
+      expect(shown.items.map((p) => p.id)).toContain(data.id);
+      expect(shown.total).toBe(before.total);
+      expect(shown.unavailable).toBe(before.unavailable + 1);
+
+      // a bare call still searches everything
+      const bare = await anon().rpc('search_catalog', { p_market: 'US', p_q: k });
+      expect(JSON.stringify(bare.data)).toContain(data.id);
+    } finally {
+      await setStock(data.id!, data.stock!);
+    }
   });
 
   it('full-text search finds products by title words', async () => {
