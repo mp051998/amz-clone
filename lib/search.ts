@@ -8,13 +8,14 @@ import type { Product } from './types';
 
 export const PAGE_SIZE = 16;
 
-export type SortKey = 'featured' | 'price-asc' | 'price-desc' | 'review' | 'newest';
+export type SortKey = 'featured' | 'price-asc' | 'price-desc' | 'review' | 'newest' | 'bestsellers';
 export const SORTS: { key: SortKey; label: string }[] = [
   { key: 'featured', label: 'Featured' },
   { key: 'price-asc', label: 'Price: Low to High' },
   { key: 'price-desc', label: 'Price: High to Low' },
   { key: 'review', label: 'Avg. Customer Review' },
   { key: 'newest', label: 'Newest Arrivals' },
+  { key: 'bestsellers', label: 'Best Sellers' },
 ];
 
 export interface SearchQuery {

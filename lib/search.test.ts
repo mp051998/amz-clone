@@ -54,3 +54,10 @@ describe('pricePresets', () => {
     expect(pricePresets({ currency: 'USD', minMinor: 1000, maxMinor: 2000, stepMinor: 100, defaultMinor: 1500 })).toEqual([]);
   });
 });
+
+describe('parseQuery sort', () => {
+  it('reads Best Sellers, and falls back to Featured for anything unknown', () => {
+    expect(parseQuery({ sort: 'bestsellers' }).sort).toBe('bestsellers');
+    expect(parseQuery({ sort: 'popularity' }).sort).toBe('featured');
+  });
+});

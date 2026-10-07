@@ -55,13 +55,14 @@ async function client(c?: Db): Promise<Db> {
 
 type CandidateQuery = Omit<SearchQuery, 'page'>;
 
-/** The catalog order to pull candidates in, so a sort sees the whole catalog's cheapest, best rated or newest, not those of the featured few. */
+/** The catalog order to pull candidates in, so a sort sees the whole catalog's cheapest, best rated, newest or best selling, not those of the featured few. */
 const CANDIDATE_SORT: Record<RankSort, SearchQuery['sort']> = {
   match: 'featured',
   'price-asc': 'price-asc',
   'price-desc': 'price-desc',
   rating: 'review',
   newest: 'newest',
+  bestsellers: 'bestsellers',
 };
 
 /** The catalog search behind a ranked search, at any price. */

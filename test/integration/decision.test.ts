@@ -206,10 +206,11 @@ describe('decision server helpers', () => {
     const all = await searchCatalog(db, 'US', { sort: 'featured', page: 1 });
     expect(all.total).toBeGreaterThan(48); // more matches than candidates
     const q = parseQuery('US', '', await listCategories(db, 'US'));
-    const [cheapest, dearest, newest] = await Promise.all([
+    const [cheapest, dearest, newest, selling] = await Promise.all([
       searchCatalog(db, 'US', { sort: 'price-asc', page: 1 }),
       searchCatalog(db, 'US', { sort: 'price-desc', page: 1 }),
       searchCatalog(db, 'US', { sort: 'newest', page: 1 }),
+      searchCatalog(db, 'US', { sort: 'bestsellers', page: 1 }),
     ]);
     const low = await rankedSearch('US', q, null, null, { sort: 'price-asc' }, db);
     expect(low.items[0].product.priceMinor).toBe(cheapest.items[0].priceMinor);
@@ -219,6 +220,10 @@ describe('decision server helpers', () => {
     // one card per variant group, so compare groups
     const card = (p: { id: string; variant?: { group: string } }) => p.variant?.group ?? p.id;
     expect(card(fresh.items[0].product)).toBe(card(newest.items[0]));
+    const best = await rankedSearch('US', q, null, null, { sort: 'bestsellers' }, db);
+    expect(card(best.items[0].product)).toBe(card(selling.items[0]));
+    const counts = best.items.map((r) => r.product.reviewCount);
+    expect(counts).toEqual([...counts].sort((x, y) => y - x));
   });
 
   it('alternativesFor and accessoriesFor return same-store suggestions', async () => {
