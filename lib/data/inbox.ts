@@ -12,6 +12,7 @@ import { awaitingReview, type ToReview } from './reviews';
  * - order milestones: shipped, out for delivery, delivered, cancelled, refunded
  * - items cancelled from an order before it shipped, and their refund
  * - returns: received, refunded, or not accepted
+ * - replacements: shipped and delivered
  * - the store's replies on support cases
  * - other shoppers' answers to the shopper's questions
  * - asking for a review of what arrived and hasn't been reviewed, a couple of days after delivery
@@ -34,6 +35,8 @@ export type InboxKind =
   | 'return_received'
   | 'return_refunded'
   | 'return_rejected'
+  | 'replacement_shipped'
+  | 'replacement_delivered'
   | 'support_reply'
   | 'answer'
   | 'review_request';
@@ -43,7 +46,7 @@ export interface InboxMessage {
   key: string;
   kind: InboxKind;
   at: string;
-  /** what it's about: the order's first item ("Kettle and 2 more"), the items cancelled, the case subject, or the question */
+  /** what it's about: the order's first item ("Kettle and 2 more"), the items cancelled or replaced, the case subject, or the question */
   subject: string;
   /** store-relative link to where it's dealt with */
   href: string;
@@ -56,17 +59,19 @@ export interface InboxMessage {
   from?: string;
 }
 
-/** A return that has got somewhere (received or not accepted). */
+/** A return that has got somewhere (received or not accepted), or a replacement's (sent on request). */
 export interface InboxReturn {
   id: string;
   orderId: string;
-  status: 'received' | 'rejected';
+  status: 'requested' | 'received' | 'rejected';
   receivedAt: string | null;
   refundStatus: string | null;
   refundedAt: string | null;
   refundMinor: number;
   rejectedAt: string | null;
   rejectNote: string | null;
+  /** a replacement: the items being sent again, and when they ship and arrive */
+  replacement?: { items: { title: string }[]; shippedAt: string; deliveredAt: string };
 }
 
 /** One of the store's replies on the shopper's support case. */
@@ -100,7 +105,7 @@ export interface InboxSources {
 export const REVIEW_REQUEST_DELAY_MS = 2 * 86_400_000;
 
 /** "Kettle", "Kettle and 1 more", "Kettle and 2 more". */
-export function orderSubject(o: Pick<Order, 'items'>): string {
+export function orderSubject(o: { items: { title: string }[] }): string {
   const [first, ...rest] = o.items;
   if (!first) return 'Your order';
   return rest.length ? `${first.title} and ${rest.length} more` : first.title;
@@ -134,10 +139,17 @@ function orderMessages(o: Order, now: Date, timeZone: string): InboxMessage[] {
 
 function returnMessages(r: InboxReturn, subject: string): InboxMessage[] {
   const base = { subject, href: `/orders/${encodeURIComponent(r.orderId)}?placed=0`, orderId: r.orderId };
-  if (r.status === 'rejected') {
-    return r.rejectedAt ? [{ ...base, key: `return_rejected:${r.id}`, kind: 'return_rejected', at: r.rejectedAt, detail: r.rejectNote ?? undefined }] : [];
-  }
   const out: InboxMessage[] = [];
+  // a replacement goes out on request, whatever then happens to the item sent back
+  if (r.replacement) {
+    const swap = { ...base, subject: r.replacement.items.length ? orderSubject(r.replacement) : subject };
+    out.push({ ...swap, key: `replacement_shipped:${r.id}`, kind: 'replacement_shipped', at: r.replacement.shippedAt });
+    out.push({ ...swap, key: `replacement_delivered:${r.id}`, kind: 'replacement_delivered', at: r.replacement.deliveredAt });
+  }
+  if (r.status === 'rejected') {
+    if (r.rejectedAt) out.push({ ...base, key: `return_rejected:${r.id}`, kind: 'return_rejected', at: r.rejectedAt, detail: r.rejectNote ?? undefined });
+    return out;
+  }
   if (r.receivedAt) out.push({ ...base, key: `return_received:${r.id}`, kind: 'return_received', at: r.receivedAt });
   if (r.refundStatus === 'succeeded' && r.refundedAt && r.refundMinor > 0) {
     out.push({ ...base, key: `return_refunded:${r.id}`, kind: 'return_refunded', at: r.refundedAt, amountMinor: r.refundMinor });
@@ -197,29 +209,39 @@ type ReturnRow = {
   refund_minor: number;
   rejected_at: string | null;
   reject_note: string | null;
+  resolution: string;
+  items: { title: string }[];
+  replacement_shipped_at: string | null;
+  replacement_delivered_at: string | null;
 };
 
 async function inboxReturns(db: Db, market: Market, userId: string): Promise<InboxReturn[]> {
   const rows = unwrap(
     await db
       .from('returns')
-      .select('id, order_id, status, received_at, refund_status, refunded_at, refund_minor, rejected_at, reject_note, orders!inner(market_id)')
+      .select(
+        'id, order_id, status, received_at, refund_status, refunded_at, refund_minor, rejected_at, reject_note, resolution, items, replacement_shipped_at, replacement_delivered_at, orders!inner(market_id)',
+      )
       .eq('user_id', userId)
       .eq('orders.market_id', market)
-      .in('status', ['received', 'rejected'])
+      // replacements ship as soon as they're asked for; other returns have nothing to say until they arrive
+      .or('status.in.(received,rejected),and(status.eq.requested,resolution.eq.replacement)')
       .order('created_at', { ascending: false })
       .limit(INBOX_LIMIT),
   ) as unknown as ReturnRow[];
   return rows.map((r) => ({
     id: r.id,
     orderId: r.order_id,
-    status: r.status === 'rejected' ? 'rejected' : 'received',
+    status: r.status === 'rejected' || r.status === 'requested' ? r.status : 'received',
     receivedAt: r.received_at,
     refundStatus: r.refund_status,
     refundedAt: r.refunded_at,
     refundMinor: r.refund_minor,
     rejectedAt: r.rejected_at,
     rejectNote: r.reject_note,
+    ...(r.resolution === 'replacement' && r.replacement_shipped_at && r.replacement_delivered_at
+      ? { replacement: { items: r.items, shippedAt: r.replacement_shipped_at, deliveredAt: r.replacement_delivered_at } }
+      : {}),
   }));
 }
 

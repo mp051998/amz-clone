@@ -24,6 +24,8 @@ const HEAD: Record<InboxKind, string> = {
   return_received: 'Return received',
   return_refunded: 'Return refunded',
   return_rejected: 'Return not accepted',
+  replacement_shipped: 'Replacement shipped',
+  replacement_delivered: 'Replacement delivered',
   support_reply: 'Customer service replied',
   answer: 'New answer to your question',
   review_request: 'How was it?',
@@ -52,6 +54,10 @@ function note(m: InboxMessage, money: (minor: number) => string): string {
       return `${money(m.amountMinor ?? 0)} back to how you paid.`;
     case 'return_rejected':
       return m.detail ? `We couldn’t accept it: ${m.detail}` : 'We couldn’t accept it.';
+    case 'replacement_shipped':
+      return 'Your replacement is on its way, at no charge. Drop off the original with your return code.';
+    case 'replacement_delivered':
+      return 'Your replacement arrived.';
     case 'support_reply':
       return 'Read our reply and answer it on your case.';
     case 'answer':
