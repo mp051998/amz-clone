@@ -10,6 +10,7 @@ import { trackingSteps } from '@/lib/decision/tracking';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { canRetryRefund, getAdminOrder, type AdminOrder } from '@/lib/data/admin-orders';
 import { listOrderReturns } from '@/lib/data/admin-returns';
+import { deliveryFeedbackFor, reasonLabel, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { messageFor } from '@/lib/data/errors';
 import { formatMoney } from '@/lib/marketplaces';
 import { storePath } from '@/lib/marketplace';
@@ -52,7 +53,11 @@ export default async function AdminOrderPage({ params, searchParams }: {
   const { store, admin } = await adminPage(`/admin/orders/${id}`);
   if (!admin) return <AdminOnly store={store} />;
   const client = await db();
-  const [order, returns] = await Promise.all([getAdminOrder(client, id), listOrderReturns(client, id)]);
+  const [order, returns, deliveryFeedback] = await Promise.all([
+    getAdminOrder(client, id),
+    listOrderReturns(client, id),
+    deliveryFeedbackFor(client, id).catch((): DeliveryFeedback | null => null),
+  ]);
   if (!order) notFound();
   if (order.market !== store.id) redirect(storePath({ id: order.market }, `/admin/orders/${encodeURIComponent(order.id)}`));
 
@@ -124,6 +129,14 @@ export default async function AdminOrderPage({ params, searchParams }: {
           <section className="flex flex-col rounded-panel border border-line bg-surface p-[22px]" aria-labelledby="timeline-h">
             <h2 id="timeline-h" className="m-0 mb-3.5 text-[18px] font-semibold">Delivery</h2>
             <Timeline steps={steps} store={store} now={now} />
+            {deliveryFeedback ? (
+              <div className="mt-3.5 flex flex-col gap-1 border-t border-line-2 pt-3.5 text-[14px]">
+                <span className="font-semibold">Customer feedback: {deliveryFeedback.positive ? 'good delivery' : 'delivery not good'}</span>
+                {deliveryFeedback.reasons.length ? <span className="text-ink-2">{deliveryFeedback.reasons.map(reasonLabel).join(' · ')}</span> : null}
+                {deliveryFeedback.comment ? <p className="m-0 whitespace-pre-line text-ink">“{deliveryFeedback.comment}”</p> : null}
+                <span className="text-[13px] text-ink-3">{adminTime(deliveryFeedback.updatedAt, store)}</span>
+              </div>
+            ) : null}
           </section>
 
           <section className="overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="items-h">

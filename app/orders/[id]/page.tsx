@@ -7,13 +7,15 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
-import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateSeller, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
+import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, reportMissing } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
+import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
+import { deliveryFeedbackFor, deliveryFeedbackOpen, deliveryFeedbackOpenUntil, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { canStartReturn, getOrderReturns, reportMissingUntil } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
 import { orderStage } from '@/lib/decision/tracking';
@@ -86,10 +88,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string; address?: string; feedback?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, archived, instructions, address, feedback } = await searchParams;
+  const { placed, cancelled, error, return: returned, archived, instructions, address, feedback, delivery } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -109,18 +111,21 @@ export default async function OrderPage({
   // the sellers can be rated once it arrives, for 90 days
   const feedbackUntil = feedbackOpenUntil(order, now);
   const noFeedback = new Map<string, SellerFeedback>();
+  // the delivery can be rated for 30 days after it arrives
+  const deliveryUntil = deliveryFeedbackOpenUntil(order, now);
   // the address can change until the order ships; delivery instructions until it's out for delivery
   const stage = orderStage(order, now, store.dates.timeZone);
   const addressOpen = stage === 'preparing';
   const instructionsOpen = stage === 'preparing' || stage === 'shipped';
-  const [returns, current, reviewed, sellerFeedback, saved] = confirming
-    ? [null, [], new Set<string>(), noFeedback, []]
+  const [returns, current, reviewed, sellerFeedback, saved, deliveryFeedback] = confirming
+    ? [null, [], new Set<string>(), noFeedback, [], null]
     : await Promise.all([
         getOrderReturns(client, order.id),
         getProducts(client, productIds, { includeArchived: true }).catch(() => []),
         view.delivered ? reviewedProductIds(client, user.id, productIds).catch(() => new Set<string>()) : new Set<string>(),
         feedbackUntil ? orderFeedback(client, order.id).catch(() => noFeedback) : noFeedback,
         addressOpen ? listAddresses(client, store.id).catch((): Address[] => []) : [],
+        deliveryUntil ? deliveryFeedbackFor(client, order.id).catch((): DeliveryFeedback | null => null) : null,
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
   const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
@@ -214,6 +219,10 @@ export default async function OrderPage({
           <Alert tone="success">Thanks, your seller feedback is saved.</Alert>
         ) : feedback === 'removed' ? (
           <Alert tone="success">Your seller feedback is removed.</Alert>
+        ) : delivery === 'saved' ? (
+          <Alert tone="success">Thanks, your delivery feedback is saved.</Alert>
+        ) : delivery === 'removed' ? (
+          <Alert tone="success">Your delivery feedback is removed.</Alert>
         ) : order.archivedAt ? (
           <Alert tone="info">This order is archived, so it isn’t in your order list. Unarchive it to bring it back.</Alert>
         ) : null}
@@ -458,6 +467,19 @@ export default async function OrderPage({
         </section>
 
         <CancelledItems order={order} store={store} href={(productId) => sp(`/product/${encodeURIComponent(productId)}`)} />
+
+        {deliveryUntil ? (
+          deliveryFeedbackOpen(order, now) ? (
+            <DeliveryFeedbackSection
+              feedback={deliveryFeedback}
+              openUntil={longDate(deliveryUntil, store)}
+              rate={rateDelivery.bind(null, order.id)}
+              remove={removeDeliveryRating.bind(null, order.id)}
+            />
+          ) : (
+            <DeliveryFeedbackSection feedback={deliveryFeedback} />
+          )
+        ) : null}
 
         {feedbackUntil ? (
           <SellerFeedbackSection
