@@ -24,20 +24,19 @@ describe("changing an order's delivery address", () => {
 
   beforeAll(async () => {
     [me, other] = await Promise.all([newUser('Address Mover'), newUser('Someone Else')]);
-    [office, flat, usHome, theirs] = await Promise.all([
-      createAddress(me.db, 'IN', {
-        ...IN_SHIPPING,
-        line1: '4th Floor, Embassy Tech Square',
-        line2: 'Outer Ring Road, Kadubeesanahalli',
-        landmark: 'Near the metro',
-        postcode: '560103',
-        addressType: 'office',
-        instructions: 'Leave it at reception',
-      }),
-      createAddress(me.db, 'IN', { ...IN_SHIPPING, fullName: 'Diya Sharma', line1: '7, Lake View Apartments', postcode: '560038' }),
-      createAddress(me.db, 'US', US_SHIPPING),
-      createAddress(other.db, 'IN', { ...IN_SHIPPING, fullName: 'Not Mine' }),
-    ]);
+    // one at a time: a shopper's first address in a store becomes the default
+    office = await createAddress(me.db, 'IN', {
+      ...IN_SHIPPING,
+      line1: '4th Floor, Embassy Tech Square',
+      line2: 'Outer Ring Road, Kadubeesanahalli',
+      landmark: 'Near the metro',
+      postcode: '560103',
+      addressType: 'office',
+      instructions: 'Leave it at reception',
+    });
+    flat = await createAddress(me.db, 'IN', { ...IN_SHIPPING, fullName: 'Diya Sharma', line1: '7, Lake View Apartments', postcode: '560038' });
+    usHome = await createAddress(me.db, 'US', US_SHIPPING);
+    theirs = await createAddress(other.db, 'IN', { ...IN_SHIPPING, fullName: 'Not Mine' });
   });
   afterAll(async () => {
     await Promise.all([deleteUser(me), deleteUser(other)]);
