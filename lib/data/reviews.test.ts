@@ -12,7 +12,7 @@ function fakeDb(replies: Record<string, Reply[]>) {
       const call = { table, ops: [] as [string, unknown[]][] };
       calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'gte', 'lte', 'is', 'in', 'order', 'range', 'maybeSingle', 'filter']) {
+      for (const m of ['select', 'eq', 'gte', 'lte', 'is', 'in', 'order', 'range', 'maybeSingle', 'filter', 'or']) {
         q[m] = (...args: unknown[]) => {
           call.ops.push([m, args]);
           return q;
@@ -38,6 +38,8 @@ it('reads the stars, verified and photos query', () => {
   expect(readReviewFilter('6', 'yes')).toEqual({});
   expect(readReviewFilter('2.5', null)).toEqual({});
   expect(readReviewFilter(undefined, undefined)).toEqual({});
+  expect(readReviewFilter(undefined, undefined, undefined, '  too   loud ')).toEqual({ q: 'too loud' });
+  expect(readReviewFilter('5', undefined, undefined, 'x')).toEqual({ stars: 5 });
 });
 
 it('matches reviews to a filter', () => {
@@ -48,6 +50,9 @@ it('matches reviews to a filter', () => {
   expect(matchesReviewFilter({ rating: 3, verified: true }, { stars: 'critical' })).toBe(true);
   expect(matchesReviewFilter({ rating: 3, verified: true }, { stars: 2 })).toBe(false);
   expect(matchesReviewFilter({ rating: 1, verified: false }, {})).toBe(true);
+  expect(matchesReviewFilter({ rating: 5, verified: true, title: 'Great SOUND', body: 'Loud' }, { q: 'sound' })).toBe(true);
+  expect(matchesReviewFilter({ rating: 5, verified: true, title: 'Great', body: 'Battery lasts' }, { q: 'battery', stars: 5 })).toBe(true);
+  expect(matchesReviewFilter({ rating: 5, verified: true, title: 'Great', body: 'Loud' }, { q: 'battery' })).toBe(false);
 });
 
 it('asks the database for the filtered reviews and pins the viewer’s own only when it passes', async () => {
@@ -76,6 +81,11 @@ it('asks the database for the filtered reviews and pins the viewer’s own only 
   const withPhotos = await listReviews(pics.db, 'p1', null, { filter: { photos: true } });
   expect(withPhotos.items[0].photos.map((p) => p.path)).toEqual(['u9/a.jpg']);
   expect(pics.calls[0].ops).toContainEqual(['filter', ['photos', 'neq', '{}']]);
+
+  const words = fakeDb({ reviews: [{ data: [row('r5', 5, { body: 'Battery is 50% better' })], error: null, count: 1 }] });
+  await listReviews(words.db, 'p1', null, { filter: { q: '50%' } });
+  expect(words.calls[0].ops).toContainEqual(['or', ['title.ilike."%50\\\\%%",body.ilike."%50\\\\%%"']]);
+  expect(one.calls[0].ops.some(([m]) => m === 'or')).toBe(false);
 });
 
 it('counts visible written reviews per star: all, verified, with photos, verified with photos', async () => {

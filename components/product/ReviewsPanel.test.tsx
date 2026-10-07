@@ -294,3 +294,57 @@ it('has no photos chip when no review has photos', () => {
   render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Love it')], total: 1, facets: facetsOf([1, 1], [0, 0], [0, 0], [0, 0], [0, 0]) })} />);
   expect(screen.queryByRole('button', { name: /^With photos/ })).toBeNull();
 });
+
+it('searches the reviews, keeping the other filters, and bolds what it found', async () => {
+  const initial = [review('a', 5, 'Love it'), review('b', 1, 'Broke', { verified: false })];
+  const { container } = render(<ReviewsPanel {...props({ initial, total: 40, facets: facetsOf([20, 15], [5, 1], [3, 0], [2, 2], [10, 4]) })} />);
+  const chip = (name: RegExp) => screen.getByRole('button', { name });
+  const box = screen.getByLabelText('Search customer reviews');
+  const search = () => act(async () => fireEvent.submit(box.closest('form')!));
+
+  loads.items = [initial[1]];
+  await act(async () => chip(/^Critical 15$/).click());
+
+  loads.items = [review('c', 2, 'Battery died', { body: 'The battery lasts a day. BATTERY!' })];
+  fireEvent.change(box, { target: { value: '  battery ' } });
+  await search();
+  expect(loads.calls.at(-1)).toEqual(['p1', 0, 'top', 30, { stars: 'critical', q: 'battery' }]);
+  expect([...container.querySelectorAll('mark')].map((m) => m.textContent)).toEqual(['Battery', 'battery', 'BATTERY']);
+  expect(screen.getByText(/“battery” \+ Critical, most helpful first/)).toBeInTheDocument();
+  // facets can't count words, so the chips lose their counts while searching
+  expect(chip(/^Critical$/)).toHaveAttribute('aria-pressed', 'true');
+  expect(chip(/^All$/)).toBeInTheDocument();
+
+  // the same search again, or one too short, asks for nothing
+  const asked = loads.calls.length;
+  await search();
+  fireEvent.change(box, { target: { value: 'b' } });
+  await search();
+  expect(loads.calls).toHaveLength(asked);
+
+  loads.items = [initial[1]];
+  await act(async () => chip(/^Clear search$/).click());
+  expect(loads.calls.at(-1)).toEqual(['p1', 0, 'top', 30, { stars: 'critical' }]);
+  expect(box).toHaveValue('');
+  expect(chip(/^Critical 15$/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+});
+
+it('says when no review mentions the search', async () => {
+  render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Love it')], total: 1, facets: facetsOf([1, 1], [0, 0], [0, 0], [0, 0], [0, 0]) })} />);
+  const box = screen.getByLabelText('Search customer reviews');
+  fireEvent.change(box, { target: { value: 'zipper' } });
+  await act(async () => fireEvent.submit(box.closest('form')!));
+  expect(loads.calls.at(-1)).toEqual(['p1', 0, 'top', 30, { q: 'zipper' }]);
+  expect(screen.getByText(/No reviews mention “zipper”\./)).toBeInTheDocument();
+
+  loads.items = [review('a', 5, 'Love it')];
+  await act(async () => screen.getByRole('button', { name: 'Clear filters' }).click());
+  expect(loads.calls.at(-1)).toEqual(['p1', 0, 'top', 30, {}]);
+  expect(box).toHaveValue('');
+});
+
+it('has no review search before there are written reviews', () => {
+  render(<ReviewsPanel {...props()} />);
+  expect(screen.queryByRole('search')).toBeNull();
+});

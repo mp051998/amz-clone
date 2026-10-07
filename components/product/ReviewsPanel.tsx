@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ReviewFacets, ReviewFilter, ReviewSort, ReviewStars } from '@/lib/data/reviews';
 import type { CustomerImage } from '@/lib/data/review-photos';
+import { readReviewSearch, REVIEW_SEARCH_MAX } from '@/lib/review-search';
 import type { RatingSummary, Review } from '@/lib/types';
 import { loadMoreReviews, removeReview, reportReview, submitReview, toggleReviewHelpful } from '@/app/actions/review';
 import { Kicker, SourceTag } from '../decision/Badges';
@@ -12,7 +13,7 @@ import { Button, buttonClasses } from '../primitives/Button';
 import { fieldClass, selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
 import { CustomerImages, PhotoPicker, ReviewPhotoThumbs } from './ReviewPhotos';
-import { applyFilters, buildFilters, chipCount, facetCount, REVIEW_PAGE, reviewThemes, serverLabels, starsLabel, toggleStars } from './reviewFilters';
+import { applyFilters, buildFilters, chipCount, facetCount, highlightParts, REVIEW_PAGE, reviewThemes, serverLabels, starsLabel, toggleStars } from './reviewFilters';
 
 export interface ThemeCount { theme: string; count: number }
 
@@ -40,6 +41,17 @@ export interface ReviewsPanelProps {
   aiPending?: boolean;
   /** the newest photos from the product's reviews */
   customerImages?: CustomerImage[];
+}
+
+/** Review text with what was searched for in bold. */
+function Highlight({ text, q }: { text: string; q?: string }) {
+  return (
+    <>
+      {highlightParts(text, q).map((p, i) =>
+        p.hit ? <mark key={i} className="bg-transparent font-semibold text-ink">{p.text}</mark> : p.text,
+      )}
+    </>
+  );
 }
 
 /** Clickable 1–5 star picker for the write-review form. */
@@ -92,6 +104,8 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
   // stars / verified, asked of the database; `count` is how many reviews match it
   const [filter, setFilter] = useState<ReviewFilter>({});
   const [count, setCount] = useState(total);
+  // what's typed in "Search customer reviews" (filter.q is what was searched)
+  const [query, setQuery] = useState('');
   // theme chips on, over the loaded reviews
   const [active, setActive] = useState<string[]>([]);
   const [notice, setNotice] = useState<Record<string, string>>({});
@@ -106,6 +120,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     setFilter({});
     setCount(total);
     setActive([]);
+    setQuery('');
   }, [initial, total]);
 
   // "Write a product review" on a delivered order links to #write-review: open the form there
@@ -130,7 +145,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
 
   const themes = useMemo(() => [...new Set([...(insight?.praised ?? []), ...(insight?.criticized ?? [])].map((t) => t.theme))], [insight]);
   const star = typeof filter.stars === 'number' ? filter.stars : null;
-  const filtered = Boolean(filter.stars || filter.verified || filter.photos);
+  const filtered = Boolean(filter.stars || filter.verified || filter.photos || filter.q);
   const filters = useMemo(() => buildFilters(items, themes), [items, themes]);
   // a theme chip that no loaded review mentions any more drops out of the active set
   const on = useMemo(() => active.filter((id) => filters.some((f) => f.id === id)), [active, filters]);
@@ -165,8 +180,24 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     const { photos, ...rest } = filter;
     reload(photos ? rest : { ...rest, photos: true });
   };
+  // a search keeps the star / verified / photo filters; an empty one shows them all again
+  const onSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const q = readReviewSearch(query);
+    if (!q && query.trim()) return toast('Search for at least 2 characters.');
+    if ((q ?? undefined) === filter.q) return;
+    const rest = { ...filter };
+    delete rest.q;
+    reload(q ? { ...rest, q } : rest);
+  };
+  const clearSearch = () => {
+    setQuery('');
+    const { q, ...rest } = filter;
+    if (q) reload(rest);
+  };
   const clearAll = () => {
     setActive([]);
+    setQuery('');
     if (filtered) reload({});
   };
   // "Read supporting reviews" / "Show critical reviews": just those, in view
@@ -245,7 +276,8 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
         ? `Showing ${num(loaded)} of ${num(count)} written reviews, ${order} first`
         : 'No written reviews yet';
   const written = facetCount(facets, {});
-  const chip = (n: number) => <span className="font-mono text-[12px] opacity-75">{num(n)}</span>;
+  // the facets count stars / verified / photos, not words, so a search shows chips without counts
+  const chip = (n: number) => (filter.q ? null : <span className="font-mono text-[12px] opacity-75">{num(n)}</span>);
 
   const summaryKicker = insight?.source === 'ai'
     ? `AI summary · from ${num(summary.count)} reviews`
@@ -326,6 +358,23 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
         </div>
 
         <CustomerImages images={customerImages} />
+
+        {written || filter.q ? (
+          <form role="search" onSubmit={onSearch} className="flex max-w-[640px] gap-2">
+            <label htmlFor="rv-search" className="sr-only">Search customer reviews</label>
+            <input
+              id="rv-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              maxLength={REVIEW_SEARCH_MAX}
+              placeholder="Search customer reviews"
+              className={cn(fieldClass, 'min-w-0 flex-1')}
+            />
+            <Button type="submit" variant="dark" loading={pending && readReviewSearch(query) !== (filter.q ?? null)}>Search</Button>
+            {filter.q ? <Button type="button" variant="secondary" onClick={clearSearch}>Clear search</Button> : null}
+          </form>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           {written || items.length ? (
@@ -419,8 +468,8 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                     ))}
                   </div>
                 ) : null}
-                <strong className="text-[17px] font-semibold leading-[1.3]">{r.title}</strong>
-                <p className="m-0 whitespace-pre-line text-[15px] leading-[1.55] text-ink-2 text-pretty">{r.body}</p>
+                <strong className="text-[17px] font-semibold leading-[1.3]"><Highlight text={r.title} q={filter.q} /></strong>
+                <p className="m-0 whitespace-pre-line text-[15px] leading-[1.55] text-ink-2 text-pretty"><Highlight text={r.body} q={filter.q} /></p>
                 <ReviewPhotoThumbs photos={r.photos} author={r.author} />
                 {r.hidden ? (
                   <p className="m-0 text-[12px] text-ink-3">Only you can see this review. It was hidden after reports from other shoppers, or by our team, and doesn’t count toward the rating.</p>
@@ -458,7 +507,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
           </div>
         ) : items.length || filtered ? (
           <div className="rounded-card border border-dashed border-line-3 bg-surface p-[22px] text-[15px]">
-            No reviews match every filter.{' '}
+            {filter.q && serverLabels(filter).length === 1 && !on.length ? `No reviews mention “${filter.q}”.` : 'No reviews match every filter.'}{' '}
             <button type="button" onClick={clearAll} className="text-[15px] underline underline-offset-2">Clear filters</button>
           </div>
         ) : (
