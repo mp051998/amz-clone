@@ -105,7 +105,7 @@ export async function rankedSearch(
   }
   const insights = await getInsights(db, products.map((p) => p.id));
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);
-  // one card per variant group: its best-ranked option (within budget, if any)
+  // one card per variant group: its best-ranked option (within budget, and in stock, if any)
   const items = foldVariants(rankProducts(products, insights, w, { budgetMinor, sort: filters.sort ?? 'match' }), (r) => r.product);
   return { items, total: items.length, candidates: foldVariants(products).length, pricedOut };
 }
