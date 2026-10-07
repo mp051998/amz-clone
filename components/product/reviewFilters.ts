@@ -46,7 +46,8 @@ export function mentions(r: Review, words: string[]): boolean {
 export function facetCount(facets: ReviewFacets, f: ServerFilter): number {
   const [lo, hi] = f.stars === 'positive' ? [4, 5] : f.stars === 'critical' ? [1, 3] : f.stars ? [f.stars, f.stars] : [1, 5];
   let n = 0;
-  for (let star = lo; star <= hi; star++) n += facets[star as 1 | 2 | 3 | 4 | 5][f.verified ? 'verified' : 'all'];
+  const key = f.photos ? (f.verified ? 'verifiedPhotos' : 'photos') : f.verified ? 'verified' : 'all';
+  for (let star = lo; star <= hi; star++) n += facets[star as 1 | 2 | 3 | 4 | 5][key] ?? 0;
   return n;
 }
 
@@ -57,7 +58,7 @@ export function starsLabel(stars: ReviewStars): string {
 
 /** The labels of the database filters that are on, in chip order. */
 export function serverLabels(f: ServerFilter): string[] {
-  return [...(f.stars ? [starsLabel(f.stars)] : []), ...(f.verified ? ['Verified purchase'] : [])];
+  return [...(f.stars ? [starsLabel(f.stars)] : []), ...(f.verified ? ['Verified purchase'] : []), ...(f.photos ? ['With photos'] : [])];
 }
 
 /** Picking a star chip again turns it off; another star replaces it. */

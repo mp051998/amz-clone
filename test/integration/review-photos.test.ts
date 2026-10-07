@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { listReviewQueue, moderateReview } from '@/lib/data/admin-reviews';
 import { customerImages, uploadReviewPhoto } from '@/lib/data/review-photos';
-import { deleteReview, listReviews, upsertReview } from '@/lib/data/reviews';
+import { deleteReview, listReviews, reviewFacets, upsertReview } from '@/lib/data/reviews';
 import { REVIEW_PHOTO_BUCKET } from '@/lib/review-photos';
 import { admin, anon, deleteUser, newUser, pickProduct, type TestUser } from './helpers';
 
@@ -43,6 +43,12 @@ describe('photos on reviews', () => {
     const page = await listReviews(anon(), productId, null, { limit: 50 });
     expect(page.items.find((r) => r.id === review.id)?.photos).toEqual([b, a]);
     expect((await customerImages(anon(), productId)).filter((i) => i.reviewId === review.id).map((i) => i.path)).toEqual([b.path, a.path]);
+
+    // "With photos" lists only reviews with photos, and the facets count them
+    const withPhotos = await listReviews(anon(), productId, null, { limit: 50, filter: { photos: true } });
+    expect(withPhotos.items.map((r) => r.id)).toContain(review.id);
+    expect(withPhotos.items.every((r) => r.photos.length > 0)).toBe(true);
+    expect((await reviewFacets(anon(), productId))[5].photos).toBeGreaterThanOrEqual(1);
 
     // rewriting the review without photos keeps them; taking one off deletes its file
     await upsertReview(shopper.db, productId, shopper.id, { rating: 4, title: 'Looks great', body: 'As pictured, mostly.' });

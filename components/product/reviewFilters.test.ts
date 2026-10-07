@@ -38,6 +38,7 @@ describe('review filters', () => {
     expect(starsLabel('positive')).toBe('Positive');
     expect(starsLabel(2)).toBe('2 star');
     expect(serverLabels({ stars: 'critical', verified: true })).toEqual(['Critical', 'Verified purchase']);
+    expect(serverLabels({ verified: true, photos: true })).toEqual(['Verified purchase', 'With photos']);
     expect(serverLabels({})).toEqual([]);
     expect(toggleStars({ verified: true }, 5)).toEqual({ verified: true, stars: 5 });
     expect(toggleStars({ stars: 5, verified: true }, 'critical')).toEqual({ verified: true, stars: 'critical' });
@@ -50,6 +51,11 @@ describe('review filters', () => {
     expect(facetCount(facets, { stars: 'positive' })).toBe(25);
     expect(facetCount(facets, { stars: 'critical', verified: true })).toBe(6);
     expect(facetCount(facets, { stars: 3 })).toBe(3);
+    // facets without photo counts count none
+    expect(facetCount(facets, { photos: true })).toBe(0);
+    const withPhotos = { ...facets, 5: { all: 20, verified: 15, photos: 6, verifiedPhotos: 4 }, 1: { all: 10, verified: 4, photos: 2, verifiedPhotos: 1 } };
+    expect(facetCount(withPhotos, { photos: true })).toBe(8);
+    expect(facetCount(withPhotos, { photos: true, verified: true, stars: 'positive' })).toBe(4);
   });
 
   it('tags reviews with the themes they mention', () => {

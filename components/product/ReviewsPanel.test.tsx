@@ -269,3 +269,28 @@ it('adds photos to a review as they are picked, and sends them in order', async 
   });
   expect(loads.submitted).toEqual([['p1', expect.objectContaining({ rating: 5, photos: ['u1/b.png'] })]]);
 });
+
+it('narrows to reviews with photos, counting alongside the other filters', async () => {
+  const initial = [review('a', 5, 'Love it'), review('b', 1, 'Broke', { verified: false })];
+  const facets = facetsOf([20, 15], [5, 1], [3, 0], [2, 2], [10, 4]);
+  facets[5] = { ...facets[5], photos: 6, verifiedPhotos: 4 };
+  facets[1] = { ...facets[1], photos: 2, verifiedPhotos: 0 };
+  render(<ReviewsPanel {...props({ initial, total: 40, facets })} />);
+  const chip = (name: RegExp) => screen.getByRole('button', { name });
+  expect(chip(/^With photos 8$/)).toHaveAttribute('aria-pressed', 'false');
+
+  loads.items = [initial[0]];
+  await act(async () => chip(/^With photos 8$/).click());
+  expect(loads.calls.at(-1)).toEqual(['p1', 0, 'top', 30, { photos: true }]);
+  expect(chip(/^Verified purchase 4$/)).toBeInTheDocument();
+  expect(chip(/^Critical 2$/)).toBeInTheDocument();
+  expect(screen.getByText(/With photos, most helpful first/)).toBeInTheDocument();
+
+  await act(async () => chip(/^With photos 8$/).click());
+  expect(loads.calls.at(-1)).toEqual(['p1', 0, 'top', 30, {}]);
+});
+
+it('has no photos chip when no review has photos', () => {
+  render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Love it')], total: 1, facets: facetsOf([1, 1], [0, 0], [0, 0], [0, 0], [0, 0]) })} />);
+  expect(screen.queryByRole('button', { name: /^With photos/ })).toBeNull();
+});
