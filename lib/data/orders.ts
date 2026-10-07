@@ -2,6 +2,7 @@ import type { Db } from '../db/client';
 import type { Market, Order, PaymentMethod, ShipSpeed } from '../types';
 import type { BuyNow } from '../buy-now';
 import { INSTRUCTIONS_MAX } from '../contracts';
+import { isEmiMonths } from '../emi';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
@@ -25,6 +26,8 @@ export interface PlaceOrderInput {
   speed?: ShipSpeed;
   /** Buy Now: order just this product (the cart is left as it is) */
   buyNow?: BuyNow;
+  /** EMI only: how many monthly payments (3, 6, 9 or 12; the store takes 3 when not said) */
+  emiMonths?: number;
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
@@ -48,6 +51,8 @@ export function readGiftNote(v: unknown): string | undefined {
 export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput): Promise<Order> {
   const a = parseAddress(market, input.shipping);
   const note = input.gift ? readGiftNote(input.gift.message) : undefined;
+  const emi = input.paymentMethod === 'emi' ? input.emiMonths : undefined;
+  if (emi !== undefined && !isEmiMonths(emi)) throw new DataError('invalid_input', 'emiMonths', 'Choose 3, 6, 9 or 12 monthly payments.');
   const json = unwrap(
     await db.rpc('place_order', {
       p_market: market,
@@ -70,6 +75,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(input.buyNow
         ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}) } }
         : {}),
+      ...(emi !== undefined ? { p_emi_months: emi } : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);

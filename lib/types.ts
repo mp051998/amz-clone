@@ -214,6 +214,8 @@ export interface Order {
   gift?: { message?: string; wrapped?: boolean };
   /** delivery speed chosen at checkout (absent means standard). */
   shipSpeed?: ShipSpeed;
+  /** EMI orders: how many monthly payments the shopper chose. */
+  emiMonths?: number;
 }
 
 /**
