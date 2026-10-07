@@ -1,10 +1,14 @@
 import { body, json, preflight, requireUser, route } from '@/lib/api/http';
-import { listMyCases, openCase } from '@/lib/data/support';
+import { listMyCases, openCase, unreadCaseIds } from '@/lib/data/support';
 
-/** GET /api/v1/me/support — the caller's support cases in this store: waiting or answered first, then closed. */
+/**
+ * GET /api/v1/me/support — the caller's support cases in this store: waiting or answered first, then
+ * closed. `newReply` marks cases the store has written on since the caller last opened them.
+ */
 export const GET = route(async (ctx) => {
   const user = requireUser(ctx);
-  return json({ cases: await listMyCases(ctx.db, ctx.market, user.id) });
+  const [cases, unread] = await Promise.all([listMyCases(ctx.db, ctx.market, user.id), unreadCaseIds(ctx.db, ctx.market)]);
+  return json({ cases: cases.map((c) => ({ ...c, newReply: unread.has(c.id) })) });
 });
 
 /**

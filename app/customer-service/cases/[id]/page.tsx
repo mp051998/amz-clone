@@ -10,7 +10,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { CaseStatus, CaseThread } from '@/components/support/CaseThread';
 import { readUser } from '@/lib/auth';
 import { messageFor } from '@/lib/data/errors';
-import { getCase, MESSAGE_MAX, TOPIC_LABELS } from '@/lib/data/support';
+import { getCase, markCaseSeen, MESSAGE_MAX, TOPIC_LABELS } from '@/lib/data/support';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
@@ -29,15 +29,18 @@ const DONE: Record<string, string> = {
 
 const ERROR: Record<string, string> = { invalid_reply: 'Write a reply of 2 to 2,000 characters.' };
 
-/** /customer-service/cases/:id: one of the shopper's support cases, its messages, and Reply / Close. */
+/** /customer-service/cases/:id: one of the shopper's support cases, its messages, and Reply / Close. Opening it marks its replies seen. */
 export default async function SupportCasePage({ params, searchParams }: { params: Params; searchParams: SP }) {
   const [{ id }, { done, error }] = await Promise.all([params, searchParams]);
   const store = await getMarketplace();
   const sp = (p: string) => storePath(store, p);
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(`/customer-service/cases/${id}`)}`));
-  const thread = await getCase(await db(), store.id, id, user.id);
+  const client = await db();
+  const thread = await getCase(client, store.id, id, user.id);
   if (!thread) notFound();
+  // reading the case: the store's replies so far are no longer new
+  await markCaseSeen(client, thread.id);
   const when = (iso: string) => `${shortDate(new Date(iso), store)}, ${timeOfDay(new Date(iso), store)}`;
   const closed = thread.status === 'closed';
 

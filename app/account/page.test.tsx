@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   balance: 0 as number | null,
   collections: [] as unknown[],
   toReview: [] as unknown[],
+  unread: [] as string[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -33,6 +34,7 @@ vi.mock('@/lib/data/collections', async (actual) => ({
 vi.mock('@/lib/data/plus', () => ({ plusMembership: async () => state.plus }));
 vi.mock('@/lib/data/reviews', () => ({ awaitingReview: async () => state.toReview }));
 vi.mock('@/lib/data/balance', () => ({ storeBalance: async () => state.balance }));
+vi.mock('@/lib/data/support', () => ({ unreadCaseIds: async () => new Set(state.unread) }));
 vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
 vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, historyPaused: async () => state.paused }));
 vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
@@ -52,6 +54,7 @@ beforeEach(() => {
   state.balance = 0;
   state.collections = [];
   state.toReview = [];
+  state.unread = [];
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -128,4 +131,17 @@ it('counts what’s waiting for a review', async () => {
   state.toReview = [{ product: product({ id: 'p1' }), orderId: 'o', deliveredAt: '2026-10-01T00:00:00Z' }, { product: product({ id: 'p2' }), orderId: 'o', deliveredAt: '2026-10-01T00:00:00Z' }];
   render(await AccountPage());
   expect(within(tile('Your reviews')).getByText('2 items to review')).toBeInTheDocument();
+});
+
+it('says when the store has replied on support cases since the shopper looked', async () => {
+  render(await AccountPage());
+  expect(within(tile('Your support cases')).getByText('Messages with us')).toBeInTheDocument();
+  cleanup();
+  state.unread = ['c1'];
+  render(await AccountPage());
+  expect(within(tile('Your support cases')).getByText('New reply on 1 case')).toBeInTheDocument();
+  cleanup();
+  state.unread = ['c1', 'c2'];
+  render(await AccountPage());
+  expect(within(tile('Your support cases')).getByText('New replies on 2 cases')).toBeInTheDocument();
 });

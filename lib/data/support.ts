@@ -7,6 +7,8 @@ import { DataError, unwrap } from './errors';
  * of their orders, and the store's admins answer in the same thread until either side closes it.
  * Writes go through open_support_case / reply_support_case / close_support_case
  * (20261031090000_support_cases.sql); reads lean on RLS (your own cases, or any as an admin).
+ * A case has a new reply for its shopper while the store has written since they last opened it
+ * (20261102090000_support_seen.sql).
  */
 
 export const SUPPORT_TOPICS = ['order', 'delivery', 'return', 'payment', 'account', 'other'] as const;
@@ -131,6 +133,23 @@ export async function listMyCases(db: Db, market: Market, userId: string): Promi
   ) as unknown as Row[];
   const cases = rows.map(toCase);
   return [...cases.filter((c) => c.status !== 'closed'), ...cases.filter((c) => c.status === 'closed')];
+}
+
+/**
+ * Ids of the caller's cases in a store with a store reply they haven't seen yet. Never throws: a
+ * failed read (or a database before the support_seen migration) shows no new replies.
+ */
+export async function unreadCaseIds(db: Db, market: Market): Promise<Set<string>> {
+  const { data, error } = await db.rpc('my_unread_support_cases', { p_market: market });
+  if (error || !Array.isArray(data)) return new Set();
+  return new Set(data.map(String));
+}
+
+/** The shopper has read their case, so its replies so far aren't new. Best-effort: never throws. */
+export async function markCaseSeen(db: Db, caseId: string): Promise<void> {
+  if (!UUID.test(caseId)) return;
+  const { error } = await db.rpc('mark_support_case_seen', { p_case: caseId });
+  if (error) console.error('[support] mark seen failed', caseId, error.message);
 }
 
 /**

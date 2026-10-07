@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { Db } from '../db/client';
 import {
   assertStoreCase,
@@ -8,9 +8,11 @@ import {
   listCaseOrders,
   listCaseQueue,
   listMyCases,
+  markCaseSeen,
   openCase,
   replyToCase,
   supportTopic,
+  unreadCaseIds,
 } from './support';
 
 type Reply = { data: unknown; error: unknown; count?: number | null };
@@ -200,4 +202,23 @@ it('summarises the shopper’s orders to pick from', async () => {
   // admins can read every order: the list names the shopper rather than leaning on RLS
   expect(calls[0].ops).toContainEqual(['eq', ['user_id', 'u1']]);
   expect(calls[0].ops).toContainEqual(['not', ['placed_at', 'is', null]]);
+});
+
+it('reads which cases have a new reply, and none when that fails', async () => {
+  const { db, calls } = fakeDb({ 'rpc:my_unread_support_cases': [{ data: [ID, 'c2'], error: null }, { data: null, error: { code: 'PGRST202', message: 'missing' } }] });
+  expect(await unreadCaseIds(db, 'IN')).toEqual(new Set([ID, 'c2']));
+  expect(calls[0]).toEqual({ table: 'rpc:my_unread_support_cases', ops: [['args', [{ p_market: 'IN' }]]] });
+  expect(await unreadCaseIds(db, 'IN')).toEqual(new Set());
+});
+
+it('marks a case seen, skipping a malformed id and never throwing', async () => {
+  const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const { db, calls } = fakeDb({ 'rpc:mark_support_case_seen': [{ data: null, error: null }, { data: null, error: { code: '42501', message: 'denied' } }] });
+  await markCaseSeen(db, 'not-a-case');
+  expect(calls).toEqual([]);
+  await markCaseSeen(db, ID);
+  await expect(markCaseSeen(db, ID)).resolves.toBeUndefined();
+  expect(calls.map((c) => c.ops[0][1][0])).toEqual([{ p_case: ID }, { p_case: ID }]);
+  expect(err).toHaveBeenCalledTimes(1);
+  err.mockRestore();
 });
