@@ -24,7 +24,7 @@ let order: Order;
 
 beforeAll(async () => {
   // high in each store's pool, apart from other tests' products
-  const [p, us] = await Promise.all([pickProduct('IN', 119), pickProduct('US', 113)]);
+  const [p, us] = await Promise.all([pickProduct('IN', 60), pickProduct('US', 113)]);
   [product, usProduct] = [p.id, us.id];
   [buyer, other] = await Promise.all([newUser('GST Buyer'), newUser('GST Stranger')]);
 });
