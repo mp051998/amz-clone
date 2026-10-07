@@ -7,6 +7,7 @@ import { Pill } from '@/components/decision/Pill';
 import { QuizButton } from '@/components/quiz/QuizDialog';
 import { savedUpdates, type SavedUpdates } from '@/lib/data/collections';
 import { buyAgain } from '@/lib/data/buy-again';
+import { inspiredBy } from '@/lib/data/also-viewed';
 import { buyableAgain } from '@/lib/buy-again';
 import { exampleQueries, getDecisionHome, greetingFor } from '@/lib/home-content';
 import { readRecentIds } from '@/lib/recent';
@@ -20,6 +21,8 @@ import { storePath } from '@/lib/marketplace';
 
 /** Past purchases looked at for the home page's "Buy again" row (the in-stock ones come first). */
 const BUY_AGAIN_SCAN = 12;
+/** Products in "Inspired by your browsing history", after leaving out the picks shown below it. */
+const INSPIRED_MAX = 8;
 
 export async function generateMetadata(): Promise<Metadata> {
   const store = await getMarketplace();
@@ -31,11 +34,14 @@ export default async function Home() {
   const [client, user, recentIds, categories] = await Promise.all([db(), readUser(), readRecentIds(), storeCategories()]);
   const now = new Date();
   const none: SavedUpdates = { back: [], drops: [] };
-  const [home, { back, drops }, again] = await Promise.all([
+  const [home, { back, drops }, again, related] = await Promise.all([
     getDecisionHome(client, store, recentIds, now),
     user ? savedUpdates(client, store.id, 4).catch(() => none) : Promise.resolve(none),
     user ? buyAgain(client, store.id, BUY_AGAIN_SCAN).then((items) => buyableAgain(items, 4)).catch(() => []) : Promise.resolve([]),
+    inspiredBy(client, store.id, recentIds, INSPIRED_MAX * 2).catch(() => []),
   ]);
+  const picked = new Set(home.picks.map((x) => x.product.id));
+  const inspired = related.filter((p) => !picked.has(p.id)).slice(0, INSPIRED_MAX);
   const greeting = user ? `${greetingFor(now, store.dates.timeZone)}, ${firstName(user)}` : 'Welcome';
   const searchHref = storePath(store, '/s');
   const site = websiteJsonLd(await siteOrigin(), store.id, store.name);
@@ -77,6 +83,12 @@ export default async function Home() {
         {home.recent.length ? (
           <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits" link={{ href: storePath(store, '/history'), label: 'See history' }}>
             <ContinueRow products={home.recent} store={store} />
+          </HomeSection>
+        ) : null}
+
+        {inspired.length ? (
+          <HomeSection id="home-inspired" title="Inspired by your browsing history" meta="What shoppers looked at alongside the things you viewed">
+            <ContinueRow products={inspired} store={store} kicker={(p) => p.brand ?? p.categoryName} />
           </HomeSection>
         ) : null}
 
