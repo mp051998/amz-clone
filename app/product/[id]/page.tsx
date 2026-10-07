@@ -63,6 +63,8 @@ import { EmiOffer } from '@/components/product/EmiOffer';
 import { PromoOffers } from '@/components/product/PromoOffers';
 import { activePromoCodes } from '@/lib/data/promo';
 import { promosFor } from '@/lib/promo';
+import { purchaseAllowance } from '@/lib/data/purchase-limits';
+import { unitsLeft } from '@/lib/purchase-limits';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -146,7 +148,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -165,6 +167,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve(null) : frequentlyReturned(client, p.id).catch(() => null),
     p.archived ? Promise.resolve(null) : protectionOffer(client, p.id).catch(() => null),
     p.archived ? Promise.resolve([]) : activePromoCodes(client, store.id),
+    user && p.maxPerCustomer ? purchaseAllowance(client, store.id, [p.id]) : Promise.resolve(new Map()),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -395,6 +398,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   confidence={{ level, rows: confidence }}
                   error={messageFor(Array.isArray(sp.error) ? sp.error[0] : sp.error)}
                   protection={planMinor ? { name: protectionPlanName(store.id), price: formatMoney(planMinor, cur) } : undefined}
+                  limit={p.maxPerCustomer ? { max: p.maxPerCustomer, left: user ? unitsLeft(p, allowance) : null } : undefined}
                 />
               )}
             </aside>

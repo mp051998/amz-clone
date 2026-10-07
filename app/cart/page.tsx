@@ -29,6 +29,8 @@ import type { CartLine, Market } from '@/lib/types';
 import { CartProtection } from '@/components/cart/CartProtection';
 import { PriceChanges } from '@/components/cart/PriceChanges';
 import { cartPriceChanges } from '@/lib/cart-price-changes';
+import { purchaseAllowance } from '@/lib/data/purchase-limits';
+import { limitNote, unitsLeft } from '@/lib/purchase-limits';
 import { protectionPlanName } from '@/lib/protection';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
@@ -132,11 +134,21 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const eta = cartEta(now, store);
   const etaText = relativeDayName(eta, store, now)?.toLowerCase() ?? `on ${longDate(eta, store)}`;
   const freeShip = totals.shipMinor === 0;
-  // only ticked lines are ordered, so an unticked line can't hold up checkout
-  const blocked = lines.some((l) => l.selected && !l.inStock);
   const allSelected = lines.every((l) => l.selected);
   const saved = savedPrices(lists);
-  const [swap, accessories, plus] = await Promise.all([saving(lines), setup(lines), user ? db().then(plusMembership) : null]);
+  const limited = lines.filter((l) => l.product.maxPerCustomer).map((l) => l.product.id);
+  const [swap, accessories, plus, allowance] = await Promise.all([
+    saving(lines),
+    setup(lines),
+    user ? db().then(plusMembership) : null,
+    user && limited.length ? db().then((c) => purchaseAllowance(c, store.id, limited)) : new Map(),
+  ]);
+  // what's left of a line's limit per customer (null: no limit), and whether the line goes past it
+  const leftOf = (l: CartLine) => unitsLeft(l.product, allowance);
+  const overLimit = (l: CartLine) => l.available && (leftOf(l) ?? Infinity) < l.qty;
+  // only ticked lines are ordered, so an unticked line can't hold up checkout
+  const stockBlocked = lines.some((l) => l.selected && !l.inStock);
+  const blocked = stockBlocked || lines.some((l) => l.selected && overLimit(l));
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
   const discount = totals.discountMinor ?? 0;
@@ -185,6 +197,15 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                             {l.qty > 1 ? <span className="text-ink-3"> · {money(p.priceMinor)} each</span> : null}
                           </span>
                         )}
+                        {l.available && p.maxPerCustomer ? (
+                          overLimit(l) ? (
+                            <span className="text-[14px] font-semibold text-warn">
+                              ⚠ {limitNote(p.maxPerCustomer, leftOf(l))} — {leftOf(l) === 0 ? 'remove it' : 'lower the quantity'} to check out.
+                            </span>
+                          ) : (
+                            <span className="text-[13px] text-ink-2">{limitNote(p.maxPerCustomer, leftOf(l))}</span>
+                          )
+                        ) : null}
                         {l.available && l.coupon ? (
                           <CouponToggle
                             productId={p.id}
@@ -214,7 +235,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                         <div className="mt-1 flex flex-wrap items-center gap-2.5">
                           {l.available ? (
                             <>
-                              <CartQty id={p.id} qty={l.qty} max={Math.min(30, Math.max(p.stock, l.qty))} name={p.title} />
+                              <CartQty id={p.id} qty={l.qty} max={Math.min(30, Math.max(p.stock, l.qty), leftOf(l) ?? 30)} name={p.title} />
                               <SaveForLater productId={p.id} name={p.title} market={store.id} signedIn={!!user} />
                             </>
                           ) : null}
@@ -297,7 +318,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
               <Alert tone="warning">
                 {lines.some((l) => l.selected && !l.available)
                   ? 'Some items are no longer available. Remove them to check out.'
-                  : 'Some items no longer have enough stock. Update them to check out.'}
+                  : stockBlocked
+                    ? 'Some items no longer have enough stock. Update them to check out.'
+                    : 'Some items are over their limit per customer. Update them to check out.'}
               </Alert>
             ) : user ? (
               <a href={sp('/checkout')} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</a>

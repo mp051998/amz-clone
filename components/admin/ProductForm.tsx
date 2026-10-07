@@ -22,6 +22,8 @@ export interface ProductFormValues {
   deal: boolean;
   /** coupon percent, blank for none. */
   coupon: string;
+  /** limit per customer, blank for none. */
+  limit: string;
   badge: string;
   boughtPastMonth: string;
   seller: string;
@@ -156,6 +158,16 @@ export function ProductForm({
               error={e.couponPct}
               placeholder="15"
               hint="Optional, 5 to 50. Shoppers apply it on the product page; removing it takes it off their carts."
+              className="sm:max-w-[240px]"
+            />
+            <Input
+              label="Limit per customer"
+              name="limit"
+              inputMode="numeric"
+              defaultValue={val('limit')}
+              error={e.maxPerCustomer}
+              placeholder="3"
+              hint="Optional, 1 to 99: the most one shopper can buy across their orders. Cancelled orders don’t count."
               className="sm:max-w-[240px]"
             />
             <div className="flex flex-col gap-1">

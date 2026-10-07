@@ -50,6 +50,8 @@ export interface ProductInput {
   deal: boolean;
   /** percent off with the product's coupon (5–50), or null for no coupon. */
   couponPct: number | null;
+  /** "Limit 3 per customer": the most units one shopper can buy (1–99), or null for no limit. */
+  maxPerCustomer: number | null;
   badge: string | null;
   boughtPastMonth: string | null;
   seller: string;
@@ -74,6 +76,8 @@ export const GALLERY_MAX = 8;
 /** A coupon's range (coupons_percent_off_check). */
 export const COUPON_MIN = 5;
 export const COUPON_MAX = 50;
+/** A limit per customer's range (products_max_per_customer_check). */
+export const LIMIT_MAX = 99;
 /** Option names the form suggests; any short name works. */
 export const VARIANT_AXES = ['Color', 'Size', 'Style', 'Capacity', 'Configuration', 'Pattern', 'Pack size'];
 
@@ -102,6 +106,13 @@ const ProductInputSchema = z
       .int('Enter a whole percent')
       .min(COUPON_MIN, `Coupons are ${COUPON_MIN}% to ${COUPON_MAX}% off`)
       .max(COUPON_MAX, `Coupons are ${COUPON_MIN}% to ${COUPON_MAX}% off`)
+      .nullable()
+      .default(null),
+    maxPerCustomer: z
+      .number()
+      .int('Enter a whole number')
+      .min(1, `Limits are 1 to ${LIMIT_MAX} per customer`)
+      .max(LIMIT_MAX, `Limits are 1 to ${LIMIT_MAX} per customer`)
       .nullable()
       .default(null),
     badge: optional(40),
@@ -200,6 +211,7 @@ function toRow(p: ProductInput) {
     list_minor: p.listMinor,
     deal_pct: dealPct(p.priceMinor, p.listMinor),
     deal: p.deal,
+    max_per_customer: p.maxPerCustomer,
     badge: p.badge,
     bought_past_month: p.boughtPastMonth,
     seller: p.seller,
@@ -362,6 +374,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     listMinor: r.list_minor,
     deal: r.deal,
     couponPct: coupon.error ? null : coupon.data?.percent_off ?? null,
+    // absent before the purchase limits migration
+    maxPerCustomer: r.max_per_customer ?? null,
     badge: r.badge,
     boughtPastMonth: r.bought_past_month,
     seller: r.seller,

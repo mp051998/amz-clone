@@ -12,6 +12,7 @@ import { AddToList } from '../collections/AddToList';
 import { CompareToggle } from '../decision/Compare';
 import { SaveButton } from '../decision/SaveButton';
 import { useToast } from '../decision/Toast';
+import { limitNote } from '@/lib/purchase-limits';
 
 export interface ConfidenceRow { k: string; v: string }
 
@@ -48,6 +49,8 @@ export interface BuyPanelProps {
   error?: string | null;
   /** the store's protection plan for this product ("2-Year Protection Plan", "$7.99" per unit), when it has one */
   protection?: { name: string; price: string };
+  /** "Limit 3 per customer": the limit, and how many more the shopper can buy (null when unknown, signed out) */
+  limit?: { max: number; left: number | null };
 }
 
 /** at or below this many units the panel warns "Only N left". */
@@ -64,7 +67,7 @@ const LEVEL_TONE = {
  * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare, and Add to List.
  * An eligible product offers the store's protection plan as a box above the buttons; both take it.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
@@ -73,7 +76,9 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
   const [err, setErr] = useState<string | null>(error ?? null);
   const [pending, start] = useTransition();
   const available = stock > 0;
-  const maxQty = Math.max(1, Math.min(10, stock));
+  const maxQty = Math.max(1, Math.min(10, stock, limit?.left ?? limit?.max ?? 10));
+  // bought as many as the limit allows: nothing more to add
+  const used = limit?.left === 0;
   const cartHref = storeHref(market, '/cart');
 
   const onAdd = () =>
@@ -129,9 +134,12 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
       ) : (
         <p className="m-0 text-[14px] font-semibold text-good">In stock</p>
       )}
+      {limit ? <p className="m-0 text-[13px] text-ink-2">{limitNote(limit.max, limit.left)}</p> : null}
       {err ? <p role="alert" className="m-0 text-[13px] text-bad">⚠ {err}</p> : null}
 
-      {available ? (
+      {available && used ? (
+        <p className="m-0 rounded-input bg-surface-4 px-3 py-2.5 text-[14px] text-ink-2">You’ve bought as many of this item as one customer can.</p>
+      ) : available ? (
         <form action={buyNow} className="flex flex-col gap-3">
           <input type="hidden" name="id" value={productId} />
           <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">

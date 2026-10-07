@@ -11,6 +11,7 @@ const good: ProductInput = {
   listMinor: 6999,
   deal: true,
   couponPct: null,
+  maxPerCustomer: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Acme Store',
@@ -54,6 +55,16 @@ describe('validateProduct', () => {
     }
     const { couponPct: _, ...noCoupon } = good;
     expect(validateProduct(noCoupon)).toMatchObject({ ok: true, data: { couponPct: null } });
+  });
+
+  it('takes a whole-number limit per customer from 1 to 99, and none by default', () => {
+    expect(validateProduct({ ...good, maxPerCustomer: 3 })).toMatchObject({ ok: true, data: { maxPerCustomer: 3 } });
+    for (const bad of [0, 100, 2.5]) {
+      const res = validateProduct({ ...good, maxPerCustomer: bad });
+      expect(!res.ok && res.errors.maxPerCustomer).toBeTruthy();
+    }
+    const { maxPerCustomer: _, ...noLimit } = good;
+    expect(validateProduct(noLimit)).toMatchObject({ ok: true, data: { maxPerCustomer: null } });
   });
 
   it('takes site paths and https URLs only', () => {

@@ -31,6 +31,8 @@ export interface Product {
   archived?: boolean;
   /** one of several options of a product (Color: Black); listings show one card per group. */
   variant?: { group: string; axis: string; label: string };
+  /** "Limit 3 per customer": the most units one shopper can buy across their orders (absent: no limit). */
+  maxPerCustomer?: number;
 }
 
 export interface Category {

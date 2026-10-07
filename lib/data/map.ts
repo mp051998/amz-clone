@@ -34,6 +34,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     curBase: (row.currency ?? 'USD') as CurrencyCode,
     archived: row.archived_at ? true : undefined,
     variant: row.variant_group && row.variant_axis && row.variant_label ? { group: row.variant_group, axis: row.variant_axis, label: row.variant_label } : undefined,
+    // absent on rows read before the purchase limits migration lands
+    maxPerCustomer: opt(row.max_per_customer),
   };
 }
 

@@ -35,6 +35,8 @@ import { EMI_MIN_MINOR, emiPlans } from '@/lib/emi';
 import { PromoCode } from '@/components/checkout/PromoCode';
 import { checkoutQuote, type CheckoutQuote } from '@/lib/data/promo';
 import { promoProblem, readPromoCode } from '@/lib/promo';
+import { purchaseAllowance } from '@/lib/data/purchase-limits';
+import { limitNote, unitsLeft } from '@/lib/purchase-limits';
 
 export const metadata: Metadata = { title: 'Checkout · Store' };
 
@@ -139,7 +141,13 @@ export default async function CheckoutPage({
   const promoTried = promoCode && priced?.promoError
     ? { code: promoCode, problem: promoProblem(priced.promoError.code, priced.promoError.detail, money, messageFor(priced.promoError.code) ?? 'That promotion code can’t be used here.') }
     : undefined;
-  const blocked = lines.some((l) => !l.inStock);
+  const limited = lines.filter((l) => l.product.maxPerCustomer).map((l) => l.product.id);
+  const allowance = limited.length ? await purchaseAllowance(client, store.id, limited) : new Map();
+  // a line past what's left of its limit per customer can't be ordered
+  const leftOf = (l: (typeof lines)[number]) => unitsLeft(l.product, allowance);
+  const overLimit = lines.filter((l) => l.available && (leftOf(l) ?? Infinity) < l.qty);
+  const stockBlocked = lines.some((l) => !l.inStock);
+  const blocked = stockBlocked || overLimit.length > 0;
   const unavailable = lines.some((l) => !l.available);
   const now = new Date();
   const options = deliveryOptions(now, store.dates.timeZone);
@@ -200,13 +208,17 @@ export default async function CheckoutPage({
               <>
                 This item is no longer available. <a href={productHref} className="underline">Back to the product</a> to pick again.
               </>
-            ) : (
+            ) : stockBlocked ? (
               'There isn’t enough stock for that many. Lower the quantity under Items to place the order.'
+            ) : leftOf(overLimit[0]) === 0 ? (
+              'You’ve bought as many of this item as one customer can.'
+            ) : (
+              'That’s more than the limit per customer. Lower the quantity under Items to place the order.'
             )}
           </Alert>
         ) : (
           <Alert tone="warning">
-            {unavailable ? 'Some items are no longer available.' : 'Some items no longer have enough stock.'}{' '}
+            {unavailable ? 'Some items are no longer available.' : stockBlocked ? 'Some items no longer have enough stock.' : 'Some items are over their limit per customer.'}{' '}
             <a href={sp('/cart')} className="underline">Update your cart</a> to place the order.
           </Alert>
         )
@@ -251,11 +263,14 @@ export default async function CheckoutPage({
                     {l.product.title}
                     {buy ? (
                       <span className="block">
-                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={l.product.stock} name={l.product.title} protection={buy.protection} promo={promo?.code ?? promoTried?.code} />
+                        <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={Math.min(l.product.stock, leftOf(l) ?? Infinity)} name={l.product.title} protection={buy.protection} promo={promo?.code ?? promoTried?.code} />
                       </span>
                     ) : (
                       <span className="text-ink-3"> × {l.qty}</span>
                     )}
+                    {l.product.maxPerCustomer ? (
+                      <span className={`block text-[13px]${overLimit.includes(l) ? ' font-semibold text-warn' : ' text-ink-3'}`}>{limitNote(l.product.maxPerCustomer, leftOf(l))}</span>
+                    ) : null}
                     {l.discountMinor && l.discountMinor > (l.promoMinor ?? 0) ? (
                       <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor - (l.promoMinor ?? 0))}</span>
                     ) : null}
