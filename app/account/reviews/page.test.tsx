@@ -30,6 +30,7 @@ vi.mock('@/lib/data/reviews', () => ({
   listMyReviews: async () => state.written,
 }));
 vi.mock('./actions', () => ({ deleteMyReview: async () => {} }));
+vi.mock('@/app/actions/review', () => ({ uploadReviewPhoto: async () => ({ ok: false }) }));
 
 import YourReviewsPage from './page';
 
@@ -106,4 +107,14 @@ it('still shows the reviews written when the waiting list can’t load, and repo
   cleanup();
   await show({ error: 'review_not_found' });
   expect(screen.getByRole('alert')).toBeInTheDocument();
+});
+
+it('shows the photos on a review, opening them full size', async () => {
+  const photos = ['u1/a.jpg', 'u1/b.png'].map((path) => ({ path, url: `https://cdn.test/${path}` }));
+  state.written = [{ review: review({ photos }), product: product({ id: 'k', title: 'Kettle' }) }, { review: review({ id: 'r2' }), product: product({ id: 'm', title: 'Mug' }) }];
+  await show();
+  const open = screen.getAllByRole('button', { name: /^Open photo/ });
+  expect(open.map((b) => b.getAttribute('aria-label'))).toEqual(['Open photo 1 of 2 from your review of Kettle', 'Open photo 2 of 2 from your review of Kettle']);
+  open[1].click();
+  expect(await screen.findByRole('dialog')).toBeInTheDocument();
 });
