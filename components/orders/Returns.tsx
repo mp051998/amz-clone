@@ -2,8 +2,9 @@ import type { ReactNode } from 'react';
 import { ConfirmAction } from '../admin/ConfirmAction';
 import { formatMoney } from '@/lib/marketplaces';
 import type { CurrencyCode } from '@/lib/contracts';
+import { balanceMethod } from '@/lib/data/balance';
 import type { ReturnSummary } from '@/lib/data/returns';
-import type { OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
+import type { Market, OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
 import { StatusChip } from './Tracking';
 import { longDate, shortDate, type ChipTone, type StoreDates } from './format';
 
@@ -27,6 +28,11 @@ export function refundTo(method: PaymentMethod, label: string): string {
   if (method === 'amazonpay') return 'your wallet balance';
   if (method === 'cod') return 'your bank account';
   return label || (method === 'card' ? 'your card' : 'your payment method');
+}
+
+/** Where a return's refund goes, mid-sentence: the store balance when the shopper chose it, else as `refundTo`. */
+export function returnRefundTo(r: Pick<OrderReturn, 'refundToBalance'>, market: Market, method: PaymentMethod, label: string): string {
+  return r.refundToBalance ? refundTo(balanceMethod(market), '') : refundTo(method, label);
 }
 
 /** The orders-list chip for an order's most pressing return (see `returnSummaries`). */
@@ -80,6 +86,7 @@ export function refundBreakdown(r: OrderReturn, currency: CurrencyCode): string 
 export function ReturnCard({
   r,
   currency,
+  market,
   method,
   label,
   store,
@@ -88,6 +95,7 @@ export function ReturnCard({
 }: {
   r: OrderReturn;
   currency: CurrencyCode;
+  market: Market;
   method: PaymentMethod;
   label: string;
   store: StoreDates;
@@ -96,7 +104,7 @@ export function ReturnCard({
   cancel?: () => Promise<void>;
 }) {
   const money = formatMoney(r.refundMinor, currency);
-  const to = refundTo(method, label);
+  const to = returnRefundTo(r, market, method, label);
   const code = <strong className="font-mono tracking-[0.06em]">{r.dropoffCode}</strong>;
   // a missing package has nothing to send back, so nothing to receive
   const got = r.reason === 'not_received' ? '' : 'We received your return. ';
@@ -139,7 +147,7 @@ export function ReturnCard({
       <>
         {money} refunded to {to}
         {r.refund.refundedAt ? ` on ${shortDate(new Date(r.refund.refundedAt), store)}` : ''}.
-        {method === 'card' ? ' Card refunds take 5–10 business days to show up.' : ''}
+        {method === 'card' && !r.refundToBalance ? ' Card refunds take 5–10 business days to show up.' : ''}
       </>
     );
   } else if (r.refund?.status === 'failed') {

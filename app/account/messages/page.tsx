@@ -4,7 +4,9 @@ import { AppShell } from '@/components/AppShell';
 import { EmptyState } from '@/components/decision';
 import { StatusChip } from '@/components/orders/Tracking';
 import { buttonClasses } from '@/components/primitives/Button';
+import { refundTo } from '@/components/orders/Returns';
 import { readUser } from '@/lib/auth';
+import { balanceMethod } from '@/lib/data/balance';
 import { INBOX_DAYS, inboxSeenAt, isNewMessage, listInbox, markInboxSeen, type InboxKind, type InboxMessage } from '@/lib/data/inbox';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -32,7 +34,7 @@ const HEAD: Record<InboxKind, string> = {
 };
 
 /** One line under the heading saying what it means for the shopper. */
-function note(m: InboxMessage, money: (minor: number) => string): string {
+function note(m: InboxMessage, money: (minor: number) => string, balance: string): string {
   switch (m.kind) {
     case 'shipped':
       return 'Your order is on its way.';
@@ -51,7 +53,7 @@ function note(m: InboxMessage, money: (minor: number) => string): string {
     case 'return_received':
       return 'We have your return.';
     case 'return_refunded':
-      return `${money(m.amountMinor ?? 0)} back to how you paid.`;
+      return m.toBalance ? `${money(m.amountMinor ?? 0)} added to ${balance}, as you asked.` : `${money(m.amountMinor ?? 0)} back to how you paid.`;
     case 'return_rejected':
       return m.detail ? `We couldn’t accept it: ${m.detail}` : 'We couldn’t accept it.';
     case 'replacement_shipped':
@@ -82,6 +84,7 @@ export default async function MessagesPage() {
   await markInboxSeen(client, store.id);
   const fresh = list.filter((m) => isNewMessage(m, seenAt)).length;
   const money = (minor: number) => formatMoney(minor, store.currency.code);
+  const balance = refundTo(balanceMethod(store.id), '');
   const day = new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone });
   const time = new Intl.DateTimeFormat(store.locale.default, { hour: 'numeric', minute: '2-digit', timeZone: store.dates.timeZone });
 
@@ -131,7 +134,7 @@ export default async function MessagesPage() {
                     {m.subject}
                   </a>
                   <span className="line-clamp-3 text-[14px] text-ink-2">
-                    {note(m, money)}
+                    {note(m, money, balance)}
                     {m.orderId ? <span className="text-ink-3"> · Order <span className="font-mono text-[13px]">{m.orderId}</span></span> : null}
                   </span>
                 </li>

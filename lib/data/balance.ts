@@ -16,6 +16,11 @@ export function isBalanceMethod(method: string): boolean {
   return (BALANCE_METHODS as readonly string[]).includes(method);
 }
 
+/** The store's balance method: `amazonpay` (the wallet) in India, `giftcard` in the US. */
+export function balanceMethod(market: Market): PaymentMethod {
+  return market === 'IN' ? 'amazonpay' : 'giftcard';
+}
+
 export interface GiftCard {
   code: string;
   amountMinor: number;

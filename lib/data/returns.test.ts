@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { refundBreakdown, refundTo, returnChip } from '@/components/orders/Returns';
+import { refundBreakdown, refundTo, returnChip, returnRefundTo } from '@/components/orders/Returns';
 import type { Db } from '../db/client';
 import type { Order, OrderReturn } from '../types';
 import { DataError } from './errors';
@@ -133,6 +133,45 @@ describe('replacements', () => {
     await requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'refund' });
     await requestReturn(db, 'o1', { items, reason: 'better_price' });
     for (const [, args] of rpc.mock.calls as unknown as [string, Record<string, unknown>][]) expect(args).not.toHaveProperty('p_resolution');
+  });
+});
+
+describe('refund to the balance', () => {
+  function fakeDb() {
+    const rpc = vi.fn(async () => ({ data: { ...row, refund_to: 'balance' }, error: null }));
+    return { db: { rpc } as unknown as Db, rpc };
+  }
+  const items = [{ productId: 'p1', qty: 1 }];
+  const code = (p: Promise<unknown>) => p.then(() => 'ok', (e: DataError) => `${e.code}:${e.detail}`);
+  const args = (rpc: ReturnType<typeof fakeDb>['rpc']) => (rpc.mock.calls as unknown as [string, Record<string, unknown>][]).map(([, a]) => a);
+
+  it('maps where the refund goes, leaving the original method out', () => {
+    expect(toReturn({ ...row, refund_to: 'balance' }).refundToBalance).toBe(true);
+    expect(toReturn({ ...row, refund_to: 'original' })).not.toHaveProperty('refundToBalance');
+    expect(toReturn(row)).not.toHaveProperty('refundToBalance');
+  });
+
+  it('asks for the balance only for a refund, leaving the original method out', async () => {
+    const { db, rpc } = fakeDb();
+    await requestReturn(db, 'o1', { items, reason: 'better_price', refundTo: 'balance' });
+    expect(args(rpc)[0]).toMatchObject({ p_refund_to: 'balance' });
+    await requestReturn(db, 'o1', { items, reason: 'better_price', refundTo: 'original' });
+    await requestReturn(db, 'o1', { items, reason: 'better_price', refundTo: '' });
+    await requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'replacement', refundTo: 'balance' });
+    for (const a of args(rpc).slice(1)) expect(a).not.toHaveProperty('p_refund_to');
+  });
+
+  it('turns down anywhere else', async () => {
+    const { db, rpc } = fakeDb();
+    expect(await code(requestReturn(db, 'o1', { items, reason: 'better_price', refundTo: 'bank' }))).toBe('invalid_input:refundTo');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('says it goes to the store’s balance', () => {
+    const r = toReturn({ ...row, refund_to: 'balance' });
+    expect(returnRefundTo(r, 'US', 'card', 'Visa ending 4242')).toBe('your gift card balance');
+    expect(returnRefundTo(r, 'IN', 'upi', 'UPI · riley@okbank')).toBe('your wallet balance');
+    expect(returnRefundTo(toReturn(row), 'US', 'card', 'Visa ending 4242')).toBe('Visa ending 4242');
   });
 });
 

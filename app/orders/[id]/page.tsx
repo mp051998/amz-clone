@@ -406,6 +406,7 @@ export default async function OrderPage({
                 key={r.id}
                 r={r}
                 currency={order.currency}
+                market={order.market}
                 method={order.paymentMethod}
                 label={order.paymentLabel}
                 store={store}

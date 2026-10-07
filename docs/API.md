@@ -231,10 +231,12 @@ Delivered items can be returned within the store's window (`markets.return_days`
 
 For a store-fault reason the shopper can ask for a replacement instead of a refund (`resolution: "replacement"`), as Amazon's "Replace item" does. The same items ship at once on an order-style schedule (`replacement.shippedAt`, `replacement.deliveredAt`), out of stock, at no charge; nothing is refunded, and the originals still have to be dropped off with the code. Each unit can be replaced once, and only while it's on sale and in stock. Replaced units stay returnable for a refund, since the shopper has the new ones.
 
+A refund can go onto the shopper's balance in the store instead of back to how they paid (`refundTo: "balance"`), as Amazon's "Refund to gift card balance" (amazon.in: the Amazon Pay balance) does. It's paid in as soon as the return is received, with nothing asked of the bank or Stripe. Orders paid from the balance are refunded to it anyway, and a replacement refunds nothing, so for those it stays `original`.
+
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | GET | `/orders/:id/returns` | | `{delivered, returnBy?, returnable: {<productId>: qty}, replaceable: {<productId>: qty}, returns: [Return]}`. `returnBy` is set once the order is delivered. `returnable` is what's left to return; `replaceable` what can be replaced instead (not replaced before, still returnable, on sale and in stock). `404` for someone else's order. |
-| POST | `/orders/:id/returns` | `{items: [{productId, qty}], reason, comment?, resolution?: refund \| replacement}` | `201 {return}`. `409 return_not_allowed` with `detail` `not_delivered` or `window_closed`; `409 replacement_unavailable` with `detail` `already_replaced` or `out_of_stock`; `422 invalid_input` with `detail` `items` (none, unknown, or more than is left), `reason`, `comment` (≤ 1000 chars) or `resolution` (unknown, or a replacement for a reason that isn't the store's fault). |
+| POST | `/orders/:id/returns` | `{items: [{productId, qty}], reason, comment?, resolution?: refund \| replacement, refundTo?: original \| balance}` | `201 {return}`. `409 return_not_allowed` with `detail` `not_delivered` or `window_closed`; `409 replacement_unavailable` with `detail` `already_replaced` or `out_of_stock`; `422 invalid_input` with `detail` `items` (none, unknown, or more than is left), `reason`, `comment` (≤ 1000 chars), `resolution` (unknown, or a replacement for a reason that isn't the store's fault) or `refundTo` (unknown). |
 | GET | `/orders/:id/seller-feedback` | | `{feedback: [SellerFeedback]}`: the caller's ratings of the order's sellers, each `{orderId, seller, rating, arrivedOnTime, asDescribed, comment, createdAt, updatedAt}`. `404` for someone else's order. |
 | PUT | `/orders/:id/seller-feedback` | `{seller, rating: 1–5, arrivedOnTime?: boolean \| null, asDescribed?: boolean \| null, comment?}` | `{feedback}`. Rates a seller in the order, or changes the rating: once the order is delivered, for 90 days; `409 feedback_not_open` before or after. `422 invalid_input` with `detail` `seller` (not in this order), `rating` or `comment` (≤ 500 chars). Product pages show each seller's rating over the last 12 months (average and share of 4–5 star ratings), never who left it. |
 | DELETE | `/orders/:id/seller-feedback` | `{seller}` | `204`. Removes the caller's rating; `404 not_found` when there's none. |
@@ -261,10 +263,11 @@ The refund is priced when the return starts:
 - `items: [{productId, title, image, unitPriceMinor, qty, size?}]` (`size` is the size ordered, for a product that comes in sizes)
 - `itemsMinor, taxMinor, shipMinor, refundMinor`
 - `refund?: {status: pending | succeeded | failed, refundedAt?}`, set once received
+- `refundToBalance?: true` when the shopper asked for the refund on their balance in the store
 - `dropoffCode` (e.g. `7F3A-09BC`, shown at a drop-off point), `dropoffBy` (14 days after the start)
 - `rejectNote?`, `createdAt, receivedAt?, rejectedAt?, cancelledAt?`
 
-When an admin marks a return received, the units go back into stock and the shopper is refunded (a replacement's refund is zero, recorded as `succeeded` at once): card payments on Stripe (a partial refund of the PaymentIntent, `metadata.returnId` set), simulated methods at once, pay on delivery at once to the shopper's bank (simulated).
+When an admin marks a return received, the units go back into stock and the shopper is refunded (a replacement's refund is zero, recorded as `succeeded` at once): card payments on Stripe (a partial refund of the PaymentIntent, `metadata.returnId` set), simulated methods at once, pay on delivery at once to the shopper's bank (simulated), and a refund asked for on the balance at once to the balance (as are orders paid from it).
 
 ### How card payment is confirmed
 
@@ -617,6 +620,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | gift ideas | `gift_ideas()` (anyone): product ids most shoppers gave in the last 30 days, by gift order or off a shared list, never whose (`/gift-ideas`, `/charts/gift-ideas`) |
 | admin sales | `admin_sales()` (admins): a store's orders, units and sales by day over its last N days, cancelled orders, returns and the best sellers (`/admin/sales`) |
 | replacements | `returns.resolution` (`refund` or `replacement`), `replacement_shipped_at` and `replacement_delivered_at`; `request_return()` takes `p_resolution`, `order_returns()` adds `replaceable`, and `cancel_my_return()` refuses a shipped replacement and restocks one cancelled before |
+| refund to balance | `returns.refund_to` (`original` or `balance`); `request_return()` takes `p_refund_to` (`original` for replacements and balance orders), `admin_receive_return()` settles a balance refund at once, and the `returns_refund_balance` trigger pays it in |
 | promo codes | `promo_codes` (no client access): a store's codes, a percent off the order or one category, with a minimum spend, uses per customer and dates; `orders.promo_code` and `order_items.unit_promo_minor` (inside `unit_discount_minor`); `checkout_quote()` prices the caller's checkout with a code, `active_promo_codes()` (anyone) lists the running ones, and `place_order()` takes `p_promo_code` |
 | purchase limits | `products.max_per_customer` (in `catalog_products`); a before-insert trigger on `order_items` refuses a line that takes the customer past it, counting their orders that aren't cancelled; `purchase_allowance()` (caller) says how many of each limited product they've bought |
 | also viewed | `product_coviews` (no client access): views per pair of products in a store; `record_product_view()` (anyone) counts a view with up to 5 products seen before it, and `also_viewed()` (anyone) lists the products most viewed with one, as ids and counts |

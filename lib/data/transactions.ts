@@ -1,5 +1,6 @@
 import type { Db } from '../db/client';
 import type { Market, Order, PaymentMethod } from '../types';
+import { balanceMethod } from './balance';
 import { unwrap } from './errors';
 import { listGiftCardPurchases, type GiftCardPurchase } from './gift-card-purchases';
 import { listOrders } from './orders';
@@ -119,6 +120,7 @@ type ReturnRow = {
   refund_status: string | null;
   refunded_at: string | null;
   received_at: string | null;
+  refund_to?: string;
   orders: { payment_method: string; payment_label: string };
 };
 
@@ -127,7 +129,7 @@ async function returnRefunds(db: Db, market: Market, userId: string): Promise<Re
   const rows = unwrap(
     await db
       .from('returns')
-      .select('id, order_id, refund_minor, refund_status, refunded_at, received_at, orders!inner(market_id, payment_method, payment_label)')
+      .select('id, order_id, refund_minor, refund_status, refunded_at, received_at, refund_to, orders!inner(market_id, payment_method, payment_label)')
       .eq('user_id', userId)
       .eq('orders.market_id', market)
       .eq('status', 'received')
@@ -141,8 +143,10 @@ async function returnRefunds(db: Db, market: Market, userId: string): Promise<Re
     amountMinor: r.refund_minor,
     status: (r.refund_status ?? 'pending') as ReturnRefund['status'],
     at: r.refunded_at ?? r.received_at ?? '',
-    method: r.orders.payment_method as PaymentMethod,
-    paymentLabel: r.orders.payment_label,
+    // a refund the shopper asked for on their balance went there, not back to how they paid
+    ...(r.refund_to === 'balance'
+      ? { method: balanceMethod(market), paymentLabel: '' }
+      : { method: r.orders.payment_method as PaymentMethod, paymentLabel: r.orders.payment_label }),
   }));
 }
 
