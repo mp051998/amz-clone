@@ -26,6 +26,7 @@ const HEAD: Record<InboxKind, string> = {
   return_rejected: 'Return not accepted',
   support_reply: 'Customer service replied',
   answer: 'New answer to your question',
+  review_request: 'How was it?',
 };
 
 /** One line under the heading saying what it means for the shopper. */
@@ -55,6 +56,8 @@ function note(m: InboxMessage, money: (minor: number) => string): string {
       return 'Read our reply and answer it on your case.';
     case 'answer':
       return `${m.from ?? 'A shopper'} answered: “${m.detail ?? ''}”`;
+    case 'review_request':
+      return 'It arrived a couple of days ago. Rate it and tell other shoppers what you think.';
   }
 }
 
@@ -91,7 +94,7 @@ export default async function MessagesPage() {
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your messages</h1>
           <span className="text-[15px] text-ink-2">
-            Updates on your orders, returns, support cases and questions in this store from the last {INBOX_DAYS} days.
+            Updates on your orders, returns, reviews, support cases and questions in this store from the last {INBOX_DAYS} days.
             {fresh ? ` ${fresh} new since you last looked.` : ''}
           </span>
         </div>

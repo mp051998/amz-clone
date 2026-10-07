@@ -3,6 +3,7 @@ import { trackingSteps } from '../decision/tracking';
 import type { Market, Order } from '../types';
 import { unwrap } from './errors';
 import { listOrders } from './orders';
+import { awaitingReview, type ToReview } from './reviews';
 
 /**
  * "Your messages": what's happened lately with the shopper's orders, returns, support cases and
@@ -13,6 +14,7 @@ import { listOrders } from './orders';
  * - returns: received, refunded, or not accepted
  * - the store's replies on support cases
  * - other shoppers' answers to the shopper's questions
+ * - asking for a review of what arrived and hasn't been reviewed, a couple of days after delivery
  *
  * Only things that have happened, from the last 90 days. What came in since the shopper last opened
  * the page in that store is new (`inbox_reads`).
@@ -33,7 +35,8 @@ export type InboxKind =
   | 'return_refunded'
   | 'return_rejected'
   | 'support_reply'
-  | 'answer';
+  | 'answer'
+  | 'review_request';
 
 export interface InboxMessage {
   /** stable and unique: `<kind>:<id>` */
@@ -89,7 +92,12 @@ export interface InboxSources {
   returns: InboxReturn[];
   replies: InboxReply[];
   answers: InboxAnswer[];
+  /** delivered products not reviewed yet */
+  toReview?: (Pick<ToReview, 'orderId' | 'deliveredAt'> & { product: Pick<ToReview['product'], 'id' | 'title'> })[];
 }
+
+/** How long after delivery the store asks for a review, as Amazon's "How was it?" does. */
+export const REVIEW_REQUEST_DELAY_MS = 2 * 86_400_000;
 
 /** "Kettle", "Kettle and 1 more", "Kettle and 2 more". */
 export function orderSubject(o: Pick<Order, 'items'>): string {
@@ -149,6 +157,14 @@ export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone =
       at: m.at,
       subject: m.subject,
       href: `/customer-service/cases/${encodeURIComponent(m.caseId)}`,
+    })),
+    ...(src.toReview ?? []).map((r): InboxMessage => ({
+      key: `review_request:${r.product.id}`,
+      kind: 'review_request',
+      at: new Date(Date.parse(r.deliveredAt) + REVIEW_REQUEST_DELAY_MS).toISOString(),
+      subject: r.product.title,
+      href: `/product/${encodeURIComponent(r.product.id)}#write-review`,
+      orderId: r.orderId,
     })),
     ...src.answers.map((a): InboxMessage => ({
       key: `answer:${a.id}`,
@@ -273,11 +289,12 @@ export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null)
 /** The caller's messages in a store, newest first. */
 export async function listInbox(db: Db, market: Market, userId: string, now: Date = new Date(), timeZone = 'UTC'): Promise<InboxMessage[]> {
   const since = new Date(now.getTime() - INBOX_DAYS * 86_400_000).toISOString();
-  const [orders, returns, replies, answers] = await Promise.all([
+  const [orders, returns, replies, answers, toReview] = await Promise.all([
     listOrders(db, market, { limit: INBOX_LIMIT }),
     inboxReturns(db, market, userId),
     inboxReplies(db, market, userId, since),
     inboxAnswers(db, market, userId, since),
+    awaitingReview(db, market, userId, now),
   ]);
-  return buildInbox({ orders, returns, replies, answers }, now, timeZone);
+  return buildInbox({ orders, returns, replies, answers, toReview }, now, timeZone);
 }
