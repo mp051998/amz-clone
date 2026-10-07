@@ -59,5 +59,5 @@ export const amazon: PublicMarketplace = {
       },
     ],
   },
-  features: { displayCurrencySwitch: false, protectionPlans: true, giftWrap: true },
+  features: { displayCurrencySwitch: false, protectionPlans: true, giftWrap: true, deliveryDay: true },
 };

@@ -146,7 +146,7 @@ describe('placeOrder gift and speed', () => {
     expect(placed.gift).toEqual({});
   });
 
-  it('sends the speed only for fast delivery', async () => {
+  it('sends the speed only for fast delivery or the Delivery Day', async () => {
     const plain = fakeDb();
     await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, speed: 'standard' });
     expect(plain.calls[0]).not.toHaveProperty('p_speed');
@@ -154,6 +154,10 @@ describe('placeOrder gift and speed', () => {
     const placed = await placeOrder(fast.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, speed: 'fast' });
     expect(fast.calls[0]).toMatchObject({ p_speed: 'fast' });
     expect(placed.shipSpeed).toBe('fast');
+    const day = fakeDb({ ...row, ship_speed: 'day', delivery_day: 5 });
+    const onDay = await placeOrder(day.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, speed: 'day' });
+    expect(day.calls[0]).toMatchObject({ p_speed: 'day' });
+    expect(onDay).toMatchObject({ shipSpeed: 'day', deliveryDay: 5 });
   });
 
   it('sends Buy Now’s product only for Buy Now', async () => {

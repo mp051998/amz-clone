@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancellableUntil, deliveryEta, deliveryOptions, isDelivered, orderStage, plannedSchedule, trackingSteps } from './tracking';
+import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, orderStage, plannedSchedule, trackingSteps } from './tracking';
 
 const placed = '2026-09-01T00:00:00.000Z';
 const at = (h: number) => new Date(Date.parse(placed) + h * 3_600_000);
@@ -114,14 +114,16 @@ describe('fast delivery', () => {
       standard: '2026-10-08T06:00:00.000Z',
       fast: '2026-10-07T14:00:00.000Z',
       fastBy: '2026-10-07T06:30:00.000Z', // order by noon IST
+      day: null,
     });
     // 15:00 IST: tomorrow 19:30 would be later than tomorrow 11:30
-    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({ standard: '2026-10-08T06:00:00.000Z', fast: null, fastBy: null });
+    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({ standard: '2026-10-08T06:00:00.000Z', fast: null, fastBy: null, day: null });
     // 21:00 IST: tomorrow 19:30 vs the day after, 11:30
     expect(deliveryOptions(new Date('2026-10-07T15:30:00.000Z'), IST)).toEqual({
       standard: '2026-10-09T06:00:00.000Z',
       fast: '2026-10-08T14:00:00.000Z',
       fastBy: '2026-10-08T06:30:00.000Z', // tomorrow's noon still gets tomorrow's run
+      day: null,
     });
   });
 
@@ -135,5 +137,49 @@ describe('fast delivery', () => {
       '2026-10-07T11:30:00.000Z',
       '2026-10-07T14:00:00.000Z',
     ]);
+  });
+});
+
+describe('Delivery Day', () => {
+  const NY = 'America/New_York';
+  // Wednesday Oct 7, 10:00 EDT: standard ships 20:00, arrives Thursday 11:30
+  const wed = '2026-10-07T14:00:00.000Z';
+
+  it('arrives on the first chosen weekday on or after standard delivery, shipping the evening before', () => {
+    expect(plannedSchedule(wed, NY).deliveredAt).toBe('2026-10-08T15:30:00.000Z');
+    // Friday: out 09:00, delivered 11:30, shipped 18:00 Thursday
+    expect(plannedSchedule(wed, NY, 'day', 5)).toEqual({
+      shippedAt: '2026-10-08T22:00:00.000Z',
+      outForDeliveryAt: '2026-10-09T13:00:00.000Z',
+      deliveredAt: '2026-10-09T15:30:00.000Z',
+    });
+    // Thursday is standard's own day: the same schedule as standard
+    expect(plannedSchedule(wed, NY, 'day', 4)).toEqual(plannedSchedule(wed, NY));
+    // Wednesday has passed: next week's
+    expect(plannedSchedule(wed, NY, 'day', 3).deliveredAt).toBe('2026-10-14T15:30:00.000Z');
+  });
+
+  it('keeps local times across a clock change', () => {
+    // Friday Oct 30, 10:00 EDT → standard Saturday; Monday Nov 2 is on EST
+    expect(deliveryDayAfter(Date.parse('2026-10-30T14:00:00.000Z'), 1, NY)).toEqual({
+      shipped: Date.parse('2026-11-01T23:00:00.000Z'), // 18:00 EST Sunday
+      outForDelivery: Date.parse('2026-11-02T14:00:00.000Z'),
+      delivered: Date.parse('2026-11-02T16:30:00.000Z'),
+    });
+  });
+
+  it('checkout quotes the day only with one', () => {
+    expect(deliveryOptions(new Date(wed), NY, 5)).toEqual({
+      standard: '2026-10-08T15:30:00.000Z',
+      fast: '2026-10-07T23:30:00.000Z',
+      fastBy: '2026-10-07T16:00:00.000Z',
+      day: '2026-10-09T15:30:00.000Z',
+    });
+    expect(deliveryOptions(new Date(wed), NY, null).day).toBeNull();
+  });
+
+  it('an unpaid Delivery Day order shows that plan', () => {
+    const steps = trackingSteps({ status: 'awaiting_payment', createdAt: wed, shipSpeed: 'day', deliveryDay: 5 }, new Date(wed), NY);
+    expect(steps.slice(2).map((x) => x.at)).toEqual(['2026-10-08T22:00:00.000Z', '2026-10-09T13:00:00.000Z', '2026-10-09T15:30:00.000Z']);
   });
 });

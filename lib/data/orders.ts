@@ -24,7 +24,7 @@ export interface PlaceOrderInput {
   shipping: AddressFieldsInput;
   /** mark the order as a gift, with an optional note for the recipient */
   gift?: { message?: unknown; wrap?: boolean };
-  /** delivery speed; 'fast' only when offered right now (see deliveryOptions) */
+  /** delivery speed; 'fast' only when offered right now (see deliveryOptions), 'day' only for a Plus member with a Delivery Day */
   speed?: ShipSpeed;
   /** Buy Now: order just this product (the cart is left as it is) */
   buyNow?: BuyNow;
@@ -37,7 +37,7 @@ export interface PlaceOrderInput {
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
-  return v === 'standard' || v === 'fast';
+  return v === 'standard' || v === 'fast' || v === 'day';
 }
 
 /** A gift note as typed: trimmed, blank is none. Longer than GIFT_NOTE_MAX is refused (invalid_input). */
@@ -81,7 +81,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       // sent only for gifts, so ordinary checkouts don't depend on the gift migration
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}), ...(input.gift.wrap ? { p_gift_wrap: true } : {}) } : {}),
       // likewise only for fast delivery
-      ...(input.speed === 'fast' ? { p_speed: 'fast' } : {}),
+      ...(input.speed === 'fast' || input.speed === 'day' ? { p_speed: input.speed } : {}),
       ...(input.buyNow
         ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}), ...(input.buyNow.size ? { size: input.buyNow.size } : {}) } }
         : {}),

@@ -21,6 +21,7 @@ import { orderAction } from '../actions';
 import { returnAction } from '../../returns/actions';
 import { ReturnRow } from '../../returns/ReturnRow';
 import { CANCEL_REASON, REFUND_CHIP, REFUND_LABEL, STAGE_CHIP, adminTime } from '../labels';
+import { weekdayName } from '@/lib/delivery-day';
 
 export const metadata: Metadata = { title: 'Order · Admin · Store' };
 
@@ -200,7 +201,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
               { label: 'Deliver to', value: [s.name, s.line1, s.line2, s.landmark, `${s.city}, ${s.state} ${s.postcode}`].filter(Boolean).join(', ') },
               { label: 'Phone', value: s.phone },
               ...(s.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{s.instructions}</span> }] : []),
-              { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : 'Standard' },
+              { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : order.shipSpeed === 'day' ? `Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` : 'Standard' },
               ...(order.gift ? [{ label: 'Gift note', value: order.gift.message ? <span className="whitespace-pre-line">{order.gift.message}</span> : 'Gift, no note' }] : []),
               ...(order.gift?.wrapped ? [{ label: 'Gift wrap', value: 'Wrap every item' }] : []),
               ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),

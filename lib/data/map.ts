@@ -249,7 +249,9 @@ export function toOrder(row: OrderWithItems): Order {
       : undefined,
     // absent on rows read before the gift migration lands
     ...(row.gift ? { gift: { ...(row.gift_message ? { message: row.gift_message } : {}), ...(row.gift_wrap ? { wrapped: true } : {}) } } : {}),
-    ...(row.ship_speed === 'fast' ? { shipSpeed: 'fast' as const } : {}),
+    ...(row.ship_speed === 'fast' || row.ship_speed === 'day' ? { shipSpeed: row.ship_speed } : {}),
+    // absent on rows read before the Delivery Day migration lands
+    ...(row.delivery_day ? { deliveryDay: row.delivery_day } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),
     ...(row.promo_code ? { promoCode: row.promo_code } : {}),
     // absent on rows read before the GST invoice migration lands
