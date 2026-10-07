@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { giftIdeas, mostWishedFor } from './catalog';
+import { chart, giftIdeas, isChartKind, mostWishedFor } from './catalog';
 
 const row = (id: string, group: string | null = null) => ({ id, market_id: 'US', title: id, category_slug: 'kitchen', price_minor: 1000, variant_group: group, variant_axis: group ? 'Color' : null, variant_label: group ? id : null });
 
@@ -45,5 +45,19 @@ describe('giftIdeas', () => {
     const chart = await giftIdeas(fakeDb({ data: ['g1'], error: null }, listed, listed, calls), 'US', { limit: 3 });
     expect(calls).toEqual(['gift_ideas']);
     expect(chart.map((p) => p.id)).toEqual(['g1', 'p1']);
+  });
+});
+
+describe('chart', () => {
+  it('serves each chart by its path', async () => {
+    const listed = [row('p1'), row('p2')];
+    for (const [kind, rpc] of [['bestsellers', []], ['new-releases', []], ['most-wished-for', ['most_wished_for']], ['gift-ideas', ['gift_ideas']]] as const) {
+      const calls: string[] = [];
+      const items = await chart(fakeDb({ data: [], error: null }, listed, listed, calls), 'US', kind, { limit: 2 });
+      expect(calls).toEqual(rpc);
+      expect(items.map((p) => p.id)).toEqual(['p1', 'p2']);
+    }
+    expect(isChartKind('gift-ideas')).toBe(true);
+    expect(isChartKind('movers-and-shakers')).toBe(false);
   });
 });

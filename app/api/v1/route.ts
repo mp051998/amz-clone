@@ -40,6 +40,7 @@ export function GET(): Response {
       'POST   /me/support/:id/messages',
       'POST   /me/support/:id/close',
       'GET    /categories',
+      'GET    /charts/:chart?dept=&limit=',
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
       'GET    /suggest?q=',
       'GET    /sellers?name=',
