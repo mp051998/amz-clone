@@ -61,3 +61,22 @@ describe('MoreFilters availability', () => {
     expect(on.getAttribute('href')).toBe(hrefWith({ oos: null }));
   });
 });
+
+describe('MoreFilters discount', () => {
+  const discount = () => within(screen.getByRole('heading', { name: 'Discount' }).parentElement!);
+  it('offers percentages off, each narrowing to at least that much', () => {
+    renderFilters();
+    const boxes = discount().getAllByRole('checkbox');
+    expect(boxes.map((b) => b.textContent)).toEqual(['10% off or more', '25% off or more', '50% off or more', '70% off or more']);
+    expect(boxes.every((b) => b.getAttribute('aria-checked') === 'false')).toBe(true);
+    expect(boxes[1].getAttribute('href')).toBe(hrefWith({ pct: '25' }));
+  });
+
+  it('checks the one picked, which clears it when clicked again', () => {
+    renderFilters({ minDiscount: 50 });
+    const on = discount().getByRole('checkbox', { name: '50% off or more' });
+    expect(on).toHaveAttribute('aria-checked', 'true');
+    expect(on.getAttribute('href')).toBe(hrefWith({ pct: null }));
+    expect(discount().getByRole('checkbox', { name: '10% off or more' }).getAttribute('href')).toBe(hrefWith({ pct: '10' }));
+  });
+});

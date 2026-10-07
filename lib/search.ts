@@ -30,6 +30,8 @@ export interface SearchQuery {
   maxPrice?: number;
   /** "Include Out of Stock": products with none left are left out unless this is set (`oos=1`) */
   includeOutOfStock?: boolean;
+  /** "Discount": only products on sale for at least this percentage off (`pct`) */
+  minDiscount?: number;
   sort: SortKey;
   page: number;
 }
@@ -69,6 +71,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
   const brandRaw = one(sp.brand);
   const sortRaw = one(sp.sort) as SortKey | undefined;
   const rating = Number(one(sp.rating));
+  const pct = Number(one(sp.pct));
   const price = (v: string | string[] | undefined) => {
     const n = Number(one(v));
     return Number.isSafeInteger(n) && n > 0 ? n : undefined;
@@ -82,10 +85,14 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     minPrice: price(sp.min),
     maxPrice: price(sp.max),
     includeOutOfStock: one(sp.oos) === '1' || undefined,
+    minDiscount: Number.isInteger(pct) && pct >= 1 && pct <= 99 ? pct : undefined,
     sort: SORTS.some((s) => s.key === sortRaw) ? (sortRaw as SortKey) : 'featured',
     page: Math.max(1, Number(one(sp.page)) || 1),
   };
 }
+
+/** The "Discount" filter's choices, percent off ("10% off or more"). */
+export const DISCOUNTS = [10, 25, 50, 70] as const;
 
 /** build an /s href from a params object (drops empty values, resets page unless kept) */
 export function buildHref(params: Record<string, string | number | undefined | null>): string {

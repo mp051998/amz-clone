@@ -78,6 +78,36 @@ describe('catalog', () => {
     expect(backwards.items).toEqual([]);
   });
 
+  it('search keeps products on sale for at least the discount picked', async () => {
+    // the database's own count of in-stock products on sale for at least `pct` off
+    const onSale = async (pct: number) => {
+      const { count, error } = await admin()
+        .from('catalog_products')
+        .select('id', { count: 'exact', head: true })
+        .eq('market_id', 'US')
+        .eq('deal', true)
+        .gte('deal_pct', pct)
+        .gt('stock', 0);
+      if (error) throw error;
+      return count ?? 0;
+    };
+    const deals = await searchCatalog(anon(), 'US', parseQuery({ deal: '1', sort: 'price-asc' }));
+    const pcts = deals.items.map((p) => p.dealPct ?? 0).filter((n) => n > 0);
+    expect(pcts.length).toBeGreaterThan(0);
+    const pct = Math.max(...pcts);
+
+    const off = await searchCatalog(anon(), 'US', parseQuery({ pct: String(pct) }));
+    expect(off.total).toBeGreaterThan(0);
+    expect(off.total).toBe(await onSale(pct));
+    expect(off.items.every((p) => p.deal && (p.dealPct ?? 0) >= pct)).toBe(true);
+    expect(off.query.minDiscount).toBe(pct);
+
+    const most = Math.max(pct, ...off.items.map((p) => p.dealPct ?? 0));
+    const none = await searchCatalog(anon(), 'US', parseQuery({ pct: String(most + 1) }));
+    expect(none.total).toBe(await onSale(most + 1));
+    expect(none.items.every((p) => (p.dealPct ?? 0) > most)).toBe(true);
+  });
+
   it('search leaves out products with none left unless asked, and says how many', async () => {
     // a product without options, so it alone is the match
     const { data, error } = await admin()

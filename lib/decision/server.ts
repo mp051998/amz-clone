@@ -33,6 +33,8 @@ export interface RankFilters {
   minPrice?: number;
   /** keep products with none left ("Include Out of Stock"); left out otherwise */
   includeOutOfStock?: boolean;
+  /** only products on sale for at least this percentage off */
+  minDiscount?: number;
   sort?: RankSort;
 }
 
@@ -74,6 +76,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     rating: f.rating,
     deal: f.deal || undefined,
     includeOutOfStock: f.includeOutOfStock || undefined,
+    minDiscount: f.minDiscount,
     sort: CANDIDATE_SORT[f.sort ?? 'match'],
   };
 }
@@ -121,6 +124,7 @@ export async function rankedSearch(
     if (filters.rating) products = products.filter((p) => p.rating >= filters.rating!);
     if (filters.brand?.length) products = products.filter((p) => p.brand && filters.brand!.includes(p.brand));
     if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
+    if (filters.minDiscount) products = products.filter((p) => p.deal && (p.dealPct ?? 0) >= filters.minDiscount!);
     if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
   }
   const insights = await getInsights(db, products.map((p) => p.id));
