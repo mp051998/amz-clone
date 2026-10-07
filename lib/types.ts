@@ -41,8 +41,10 @@ export interface Category {
 export interface OrderTotals {
   /** the items at their list price */
   subtotalMinor: number;
-  /** what applied coupons take off the items (0 or absent without one) */
+  /** what applied coupons and a promotion code take off the items (0 or absent without either) */
   discountMinor?: number;
+  /** the promotion code's part of discountMinor (absent without one) */
+  promoMinor?: number;
   shipMinor: number;
   taxMinor: number;
   /** gift wrap, per unit wrapped (absent or 0 without it) */
@@ -70,6 +72,17 @@ export interface CartLine {
   protection?: { unitMinor: number; added: boolean };
   /** the product's price when it was put in the cart (absent for lines from before that was kept) */
   addedPriceMinor?: number;
+  /** the promotion code's part of discountMinor at checkout (absent without one) */
+  promoMinor?: number;
+}
+
+/** A promotion code applied at checkout. */
+export interface AppliedPromo {
+  code: string;
+  percentOff: number;
+  description: string;
+  /** the one category it's for (absent for the whole store) */
+  category?: string;
 }
 
 export interface Cart {
@@ -82,6 +95,8 @@ export interface Cart {
   selectedCount: number;
   totals: OrderTotals;
   freeShipThresholdMinor: number;
+  /** the promotion code priced in (checkout quotes only) */
+  promo?: AppliedPromo;
 }
 
 export type OrderStatus = 'awaiting_payment' | 'placed' | 'cancelled';
@@ -154,8 +169,10 @@ export interface OrderItem {
   seller: string;
   unitPriceMinor: number;
   qty: number;
-  /** what a coupon took off each unit (absent without one) */
+  /** what a coupon and a promotion code took off each unit (absent without either) */
   unitDiscountMinor?: number;
+  /** the promotion code's part of unitDiscountMinor (absent without one) */
+  unitPromoMinor?: number;
   /** the protection plan bought with it, per unit (absent without one) */
   protectionMinor?: number;
 }
@@ -222,6 +239,8 @@ export interface Order {
   shipSpeed?: ShipSpeed;
   /** EMI orders: how many monthly payments the shopper chose. */
   emiMonths?: number;
+  /** the promotion code used at checkout (absent without one) */
+  promoCode?: string;
 }
 
 /**

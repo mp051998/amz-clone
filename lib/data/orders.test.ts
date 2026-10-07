@@ -165,6 +165,27 @@ describe('placeOrder gift and speed', () => {
     expect(buy.calls[0]).toMatchObject({ p_buy: { product_id: 'k1', qty: 2 } });
   });
 
+  it('sends a promotion code, tidied, only when there is one, and reads its part of each discount back', async () => {
+    const plain = fakeDb();
+    await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, promoCode: '   ' });
+    expect(plain.calls[0]).not.toHaveProperty('p_promo_code');
+    const promo = fakeDb({
+      ...row,
+      promo_code: 'SAVE10',
+      discount_minor: 700,
+      items: [
+        { line_no: 1, product_id: 'a', title: 'Kettle', image: '', seller: 'Store', unit_price_minor: 1500, qty: 2, unit_discount_minor: 285, unit_promo_minor: 135 },
+        { line_no: 2, product_id: 'b', title: 'Mug', image: '', seller: 'Store', unit_price_minor: 1300, qty: 1, unit_discount_minor: 130, unit_promo_minor: 130 },
+        { line_no: 3, product_id: 'c', title: 'Book', image: '', seller: 'Store', unit_price_minor: 900, qty: 1, unit_discount_minor: 0, unit_promo_minor: 0 },
+      ],
+    });
+    const placed = await placeOrder(promo.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, promoCode: ' save10 ' });
+    expect(promo.calls[0]).toMatchObject({ p_promo_code: 'SAVE10' });
+    expect(placed.promoCode).toBe('SAVE10');
+    expect(placed.totals).toMatchObject({ discountMinor: 700, promoMinor: 400 });
+    expect(placed.items.map((it) => it.unitPromoMinor)).toEqual([135, 130, undefined]);
+  });
+
   it('sends the EMI tenure only for EMI, and checks it first', async () => {
     const card = fakeDb();
     await placeOrder(card.db, 'US', { paymentMethod: 'upi', shipping: SHIPPING, emiMonths: 6 });
