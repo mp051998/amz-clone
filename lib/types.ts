@@ -233,7 +233,8 @@ export interface ShippingAddress {
 }
 
 /** Delivery speed chosen at checkout: standard, or the paid faster option. */
-export type ShipSpeed = 'standard' | 'fast';
+/** standard, faster (paid), or on the Plus member's Delivery Day */
+export type ShipSpeed = 'standard' | 'fast' | 'day';
 
 export interface Order {
   id: string;
@@ -263,6 +264,8 @@ export interface Order {
   gift?: { message?: string; wrapped?: boolean };
   /** delivery speed chosen at checkout (absent means standard). */
   shipSpeed?: ShipSpeed;
+  /** a Delivery Day order: the weekday it arrives on (ISO, 1 = Monday) */
+  deliveryDay?: number;
   /** EMI orders: how many monthly payments the shopper chose. */
   emiMonths?: number;
   /** the promotion code used at checkout (absent without one) */

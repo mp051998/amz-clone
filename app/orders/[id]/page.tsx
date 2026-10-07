@@ -36,6 +36,7 @@ import type { Db } from '@/lib/db/client';
 import type { Address, Order } from '@/lib/types';
 import { protectionPlanName } from '@/lib/protection';
 import { emiText } from '@/lib/emi';
+import { weekdayName } from '@/lib/delivery-day';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -251,6 +252,7 @@ export default async function OrderPage({
             { label: 'Deliver to', value: addressLine(order) },
             ...(order.shipTo.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{order.shipTo.instructions}</span> }] : []),
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
+            ...(order.shipSpeed === 'day' ? [{ label: 'Delivery', value: `Your Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
             ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),
             { label: 'Paid with', value: paidWithText(order) },

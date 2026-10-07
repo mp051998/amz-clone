@@ -22,6 +22,7 @@ import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
 import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
+import { weekdayName } from '@/lib/delivery-day';
 import { isBalanceMethod, storeBalance } from '@/lib/data/balance';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { DataError, messageFor } from '@/lib/data/errors';
@@ -154,8 +155,11 @@ export default async function CheckoutPage({
   const blocked = stockBlocked || sizeBlocked || overLimit.length > 0;
   const unavailable = lines.some((l) => !l.available);
   const now = new Date();
-  const options = deliveryOptions(now, store.dates.timeZone);
+  // Delivery Day: a Plus member's weekday, in a store that offers it; it costs what standard does
+  const dayStore = store.features.deliveryDay === true;
+  const options = deliveryOptions(now, store.dates.timeZone, dayStore ? plus?.deliveryDay : null);
   const eta = new Date(options.standard);
+  const onDay = options.day ? new Date(options.day) : null;
   // faster delivery is offered only while it beats standard (and once the store has a fee for it);
   // Plus members get it free, as place_order charges them
   const fast = options.fast && fastFee !== null ? { eta: new Date(options.fast), feeMinor: plus ? 0 : fastFee } : null;
@@ -167,7 +171,8 @@ export default async function CheckoutPage({
   const qtyDiscountMinor = totals.qtyDiscountMinor ?? 0;
   const couponMinor = discount - (totals.promoMinor ?? 0) - qtyDiscountMinor;
   const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
-  // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast)
+  // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast); Delivery
+  // Day (#ship-day) is priced like standard, so only the arrival changes
   const bySpeed = (standard: ReactNode, faster: ReactNode) =>
     fast ? (
       <>
@@ -175,6 +180,13 @@ export default async function CheckoutPage({
         <span className="hidden group-has-[#ship-fast:checked]/co:inline">{faster}</span>
       </>
     ) : standard;
+  const byArrival = (standard: ReactNode, faster: ReactNode, day: ReactNode) =>
+    onDay ? (
+      <>
+        <span className="group-has-[#ship-day:checked]/co:hidden">{bySpeed(standard, faster)}</span>
+        <span className="hidden group-has-[#ship-day:checked]/co:inline">{day}</span>
+      </>
+    ) : bySpeed(standard, faster);
   // gift wrap is priced per unit; the summary follows its box (#gift-wrap) like the speed
   const wrapMinor = wrapFee === null ? 0 : wrapFee * lines.reduce((n, l) => n + l.qty, 0);
   const byWrap = (plain: ReactNode, wrapped: ReactNode) =>
@@ -255,17 +267,28 @@ export default async function CheckoutPage({
           <StepCard
             n={3}
             title="Delivery"
-            value={bySpeed(arrivingText(eta, store, now), `Arriving ${lcFirst(fastWhen)}`)}
-            sub={fast ? undefined : totals.shipMinor === 0 ? (plus ? 'FREE delivery with Plus' : 'FREE delivery') : `Delivery ${money(totals.shipMinor)}${freeOver}`}
+            value={byArrival(arrivingText(eta, store, now), `Arriving ${lcFirst(fastWhen)}`, onDay ? arrivingText(onDay, store, now) : null)}
+            sub={fast || onDay ? undefined : totals.shipMinor === 0 ? (plus ? 'FREE delivery with Plus' : 'FREE delivery') : `Delivery ${money(totals.shipMinor)}${freeOver}`}
           >
-            {fast ? (
+            {fast || onDay ? (
               <DeliverySpeed
                 standard={{ label: 'Standard delivery', sub: `${arrivingText(eta, store, now)} · ${shipText}${freeOver}` }}
-                fast={{
-                  label: relativeDayName(fast.eta, store, now) === 'Today' ? 'Same-Day delivery' : 'One-Day delivery',
-                  sub: `Arriving ${lcFirst(fastWhen)} · ${fastFeeText}`,
-                }}
+                fast={
+                  fast
+                    ? {
+                        label: relativeDayName(fast.eta, store, now) === 'Today' ? 'Same-Day delivery' : 'One-Day delivery',
+                        sub: `Arriving ${lcFirst(fastWhen)} · ${fastFeeText}`,
+                      }
+                    : undefined
+                }
+                day={onDay ? { label: `Your Delivery Day · ${weekdayName(plus?.deliveryDay ?? 0)}`, sub: `${arrivingText(onDay, store, now)} · ${shipText} · fewer boxes, fewer trips` } : undefined}
               />
+            ) : null}
+            {dayStore && plus && !plus.deliveryDay ? (
+              <p className="m-0 text-[13px] text-ink-2">
+                Get your orders together on one day each week.{' '}
+                <a href={sp('/prime#delivery-day')} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">Choose your Delivery Day</a>
+              </p>
             ) : null}
             <GiftOption max={GIFT_NOTE_MAX} wrapFee={wrapFee === null ? undefined : money(wrapFee)} />
             {isIN ? <GstOption nameMax={GST_NAME_MAX} /> : null}

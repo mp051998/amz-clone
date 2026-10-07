@@ -22,3 +22,21 @@ it('defaults to standard and sends the chosen speed', () => {
   // the summary's CSS switch keys off this id
   expect(container.querySelector('#ship-fast')).toBeChecked();
 });
+
+it('offers the Delivery Day, with or without faster delivery', () => {
+  const { container } = render(
+    <form>
+      <DeliverySpeed
+        standard={{ label: 'Standard delivery', sub: 'Arriving tomorrow, October 8 · FREE' }}
+        day={{ label: 'Your Delivery Day · Friday', sub: 'Arriving Friday, October 9 · FREE · fewer boxes, fewer trips' }}
+      />
+    </form>,
+  );
+  const form = () => new FormData(container.querySelector('form')!);
+  expect(container.querySelector('#ship-fast')).toBeNull();
+  fireEvent.click(screen.getByLabelText(/Your Delivery Day/));
+  expect(form().get('shipSpeed')).toBe('day');
+  expect(container.querySelector('#ship-day')).toBeChecked();
+  fireEvent.click(screen.getByLabelText(/Standard delivery/));
+  expect(form().get('shipSpeed')).toBe('standard');
+});

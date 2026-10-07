@@ -8,6 +8,8 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { cn } from '@/components/lib/cn';
 import { Alert } from '@/components/primitives/Alert';
 import { JoinPlusButton, LeavePlusButton } from '@/components/prime/PlusMembership';
+import { DeliveryDayForm } from '@/components/prime/DeliveryDay';
+import { weekdayName } from '@/lib/delivery-day';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { readUser } from '@/lib/auth';
@@ -32,7 +34,7 @@ interface Benefit {
   cta: string;
 }
 
-export default async function PlusPage({ searchParams }: { searchParams: Promise<{ joined?: string; left?: string }> }) {
+export default async function PlusPage({ searchParams }: { searchParams: Promise<{ joined?: string; left?: string; day?: string }> }) {
   const [store, user, sp] = await Promise.all([getMarketplace(), readUser(), searchParams]);
   const plus = user ? await plusMembership(await db()) : null;
   const isIN = store.id === 'IN';
@@ -164,6 +166,23 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
             </p>
           </div>
         </div>
+
+        {plus && store.features.deliveryDay ? (
+          <Section id="delivery-day" title="Your Delivery Day" note="Fewer boxes, fewer trips">
+            <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
+              {sp.day === 'off' && !plus.deliveryDay ? <Alert tone="info">Delivery Day is off. Orders arrive as soon as they can.</Alert> : null}
+              {sp.day && sp.day !== 'off' && plus.deliveryDay ? <Alert tone="success">Your Delivery Day is {weekdayName(plus.deliveryDay)}. Choose it at checkout.</Alert> : null}
+              <p className="m-0 text-[15px] text-ink-2">
+                {plus.deliveryDay ? (
+                  <>Orders you send to your Delivery Day arrive together on <strong className="font-semibold text-ink">{weekdayName(plus.deliveryDay)}</strong>, the first one after standard delivery would. Pick it at checkout, order by order.</>
+                ) : (
+                  <>Pick a day of the week and get your orders together on it, in fewer boxes and trips. Checkout offers it next to standard delivery, FREE with Plus.</>
+                )}
+              </p>
+              <DeliveryDayForm current={plus.deliveryDay} />
+            </div>
+          </Section>
+        ) : null}
 
         <Section title="What's included" note="One membership, benefits across shopping and entertainment">
           <div className={cardGrid}>
