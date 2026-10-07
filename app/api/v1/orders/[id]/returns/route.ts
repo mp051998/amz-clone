@@ -3,9 +3,10 @@ import { DataError } from '@/lib/data/errors';
 import { getOrderReturns, requestReturn } from '@/lib/data/returns';
 
 /**
- * GET /api/v1/orders/:id/returns — the order's return window (`returnBy`, once delivered), what's
- * left to return per product (`returnable`), what can be replaced instead (`replaceable`) and its
- * returns, newest first.
+ * GET /api/v1/orders/:id/returns — the order's return window (`returnBy`, once delivered), each
+ * product's (`returnByItem`: a replacement's runs from its own delivery), what can be returned now
+ * per product (`returnable`), what can be replaced instead (`replaceable`) and its returns, newest
+ * first.
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   requireUser(ctx);

@@ -50,6 +50,16 @@ export function longDate(date: Date, store: StoreDates): string {
   return new Intl.DateTimeFormat(store.locale.default, { weekday: 'long', day: 'numeric', month: 'long', timeZone: store.dates.timeZone }).format(date);
 }
 
+/**
+ * "until Sunday, October 30", or "until Sunday, October 30; replacement items until Friday,
+ * November 11" when a replacement's own window (from its delivery) runs later.
+ */
+export function returnUntilText(w: { first: Date; last: Date }, store: StoreDates): string {
+  const first = longDate(w.first, store);
+  const last = longDate(w.last, store);
+  return first === last ? `until ${first}` : `until ${first}; replacement items until ${last}`;
+}
+
 /** "9:14 PM" (US) / "9:14 pm" (IN). */
 export function timeOfDay(date: Date, store: StoreDates): string {
   return new Intl.DateTimeFormat(store.locale.default, { hour: 'numeric', minute: '2-digit', timeZone: store.dates.timeZone }).format(date);

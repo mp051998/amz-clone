@@ -5,14 +5,14 @@ import { ProductFrame } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { fieldClass, selectClass } from '@/components/lib/controls';
-import { longDate } from '@/components/orders/format';
+import { longDate, returnUntilText, shortDate } from '@/components/orders/format';
 import { REASON_LABEL, refundTo } from '@/components/orders/Returns';
 import { startReturn } from '@/app/actions/returns';
 import { readUser } from '@/lib/auth';
 import { balanceMethod, isBalanceMethod } from '@/lib/data/balance';
 import { messageFor } from '@/lib/data/errors';
 import { getOrder } from '@/lib/data/orders';
-import { canStartReturn, getOrderReturns, RETURN_REASONS } from '@/lib/data/returns';
+import { canStartReturn, getOrderReturns, RETURN_REASONS, returnWindows } from '@/lib/data/returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -50,6 +50,9 @@ export default async function ReturnPage({
   const now = new Date();
   const money = (minor: number) => formatMoney(minor, order.currency);
   const open = canStartReturn(returns, now);
+  const windows = returnWindows(returns, now);
+  // a replacement's own window can end later than the rest of the order's: say each item's then
+  const perItem = !!windows && longDate(windows.first, store) !== longDate(windows.last, store);
   const lines = order.items.filter((it) => (returns.returnable[it.productId] ?? 0) > 0);
   const replaceable = lines.filter((it) => (returns.replaceable[it.productId] ?? 0) > 0);
   const original = refundTo(order.paymentMethod, order.paymentLabel);
@@ -83,7 +86,7 @@ export default async function ReturnPage({
         ) : (
           <form action={startReturn.bind(null, order.id)} className="flex flex-col gap-5">
             <p className="m-0 text-[15px] text-ink-2">
-              Eligible until {longDate(new Date(returns.returnBy!), store)}. Refunds go to {original}{balance ? `, or ${balance} if you’d rather,` : ''} once the items reach us.
+              Eligible {windows ? returnUntilText(windows, store) : `until ${longDate(new Date(returns.returnBy!), store)}`}. Refunds go to {original}{balance ? `, or ${balance} if you’d rather,` : ''} once the items reach us.
             </p>
             {errorText ? <Alert tone="error">{errorText}</Alert> : null}
 
@@ -92,6 +95,7 @@ export default async function ReturnPage({
               <h2 className="m-0 px-[18px] pb-1 pt-4 text-[16px] font-semibold">What are you returning?</h2>
               {lines.map((it) => {
                 const left = returns.returnable[it.productId];
+                const by = perItem && returns.returnByItem[it.productId] ? new Date(returns.returnByItem[it.productId]) : null;
                 const fieldId = `qty-${it.productId}`;
                 return (
                   <div key={it.productId} className="flex flex-wrap items-center gap-3.5 border-t border-line-2 px-[18px] py-3.5 first-of-type:border-t-0">
@@ -102,7 +106,7 @@ export default async function ReturnPage({
                       <label htmlFor={fieldId} className="line-clamp-2 text-[15px] font-semibold">{it.title}</label>
                       {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
                       <span className="text-[13px] text-ink-3">
-                        {money(it.unitPriceMinor - (it.unitDiscountMinor ?? 0))} each{it.unitDiscountMinor ? ' after coupon' : ''} · {left === it.qty ? `${it.qty} ordered` : `${left} of ${it.qty} left to return`}
+                        {money(it.unitPriceMinor - (it.unitDiscountMinor ?? 0))} each{it.unitDiscountMinor ? ' after coupon' : ''} · {left === it.qty ? `${it.qty} ordered` : `${left} of ${it.qty} left to return`}{by ? ` · return by ${shortDate(by, store)}` : ''}
                       </span>
                     </div>
                     <select id={fieldId} name={`qty:${it.productId}`} defaultValue={lines.length === 1 ? String(left) : '0'} className={selectClass}>

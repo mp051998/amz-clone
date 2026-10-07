@@ -5,7 +5,8 @@ import type { PublicMarketplace } from '@/lib/contracts';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
 
-const state = vi.hoisted(() => ({ order: null as unknown, store: null as unknown }));
+const ONE = { delivered: true, returnBy: '2099-01-01T12:00:00Z', returnByItem: { p1: '2099-01-01T12:00:00Z' }, returnable: { p1: 1 }, replaceable: {}, returns: [] };
+const state = vi.hoisted(() => ({ order: null as unknown, store: null as unknown, returns: null as unknown }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -20,7 +21,7 @@ vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ getOrder: async () => state.order }));
 vi.mock('@/lib/data/returns', async (original) => ({
   ...(await original<typeof import('@/lib/data/returns')>()),
-  getOrderReturns: async () => ({ delivered: true, returnBy: '2099-01-01T00:00:00Z', returnable: { p1: 1 }, replaceable: {}, returns: [] }),
+  getOrderReturns: async () => state.returns,
 }));
 vi.mock('@/app/actions/returns', () => ({ startReturn: async () => {} }));
 
@@ -53,6 +54,7 @@ async function show(o: Order, store: PublicMarketplace = amazon) {
 beforeEach(() => {
   state.order = null;
   state.store = amazon;
+  state.returns = ONE;
 });
 afterEach(cleanup);
 
@@ -78,4 +80,23 @@ it('doesn’t ask when the order was paid from the balance', async () => {
   expect(screen.getByText(/Refunds go to your gift card balance once the items reach us\./)).toBeTruthy();
   expect(screen.queryByRole('group', { name: 'Where should the refund go?' })).toBeNull();
   expect(screen.queryByRole('radio')).toBeNull();
+});
+
+it('gives one return-by date when every item shares it', async () => {
+  await show(order());
+  expect(screen.getByText(/^Eligible until Thursday, January 1\. Refunds go to/)).toBeTruthy();
+  expect(screen.queryByText(/return by/)).toBeNull();
+});
+
+it('gives a replacement its own, later return-by, item by item', async () => {
+  state.returns = {
+    ...ONE,
+    returnBy: '2099-02-01T12:00:00Z',
+    returnByItem: { p1: '2099-01-01T12:00:00Z', p2: '2099-02-01T12:00:00Z' },
+    returnable: { p1: 1, p2: 1 },
+  };
+  await show(order({ items: [...order().items, { productId: 'p2', title: 'Mug', image: '', seller: 'Store', unitPriceMinor: 900, qty: 2 }] }));
+  expect(screen.getByText(/^Eligible until Thursday, January 1; replacement items until Sunday, February 1\. Refunds go to/)).toBeTruthy();
+  expect(screen.getByText(/1 ordered · return by January 1/)).toBeTruthy();
+  expect(screen.getByText(/1 of 2 left to return · return by February 1/)).toBeTruthy();
 });

@@ -6,7 +6,7 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
-import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
+import { dayLabel, lcFirst, longDate, orderView, paidWithText, returnUntilText, stepTime } from '@/components/orders/format';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, reportMissing } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
@@ -16,7 +16,7 @@ import { CancelledItems } from '@/components/orders/CancelledItems';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
 import { deliveryFeedbackFor, deliveryFeedbackOpen, deliveryFeedbackOpenUntil, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
-import { canStartReturn, getOrderReturns, reportMissingUntil } from '@/lib/data/returns';
+import { canStartReturn, getOrderReturns, reportMissingUntil, returnWindows } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
 import { deliveryOptions, orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
@@ -130,6 +130,7 @@ export default async function OrderPage({
   const nowById = new Map(current.map((p) => [p.id, p]));
   const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
+  const windows = returns ? returnWindows(returns, now) : null;
   const missingUntil = reportMissingUntil(order, returns, now);
   const reportedMissing = returns?.returns.some((r) => r.reason === 'not_received' && r.status !== 'cancelled') ?? false;
   // a missing package can be sent again when every item is still on sale and in stock
@@ -389,7 +390,7 @@ export default async function OrderPage({
                   {reportedMissing
                     ? 'You told us this order didn’t arrive.'
                     : canStartReturn(returns, now)
-                      ? `Eligible for return until ${longDate(returnBy, store)}.`
+                      ? `Eligible for return ${windows ? returnUntilText(windows, store) : `until ${longDate(returnBy, store)}`}.`
                       : returnBy.getTime() < now.getTime()
                         ? `The return window closed on ${longDate(returnBy, store)}.`
                         : 'Every item in this order is being returned.'}

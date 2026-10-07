@@ -3,7 +3,7 @@ import { refundBreakdown, refundTo, returnChip, returnRefundTo } from '@/compone
 import type { Db } from '../db/client';
 import type { Order, OrderReturn } from '../types';
 import { DataError } from './errors';
-import { canStartReturn, isReturnReason, reportMissingUntil, requestReturn, toReturn, type OrderReturns } from './returns';
+import { canStartReturn, getOrderReturns, isReturnReason, reportMissingUntil, requestReturn, returnWindows, toReturn, type OrderReturns } from './returns';
 
 const row = {
   id: 'r1',
@@ -47,7 +47,7 @@ describe('toReturn', () => {
 });
 
 describe('return helpers', () => {
-  const base: OrderReturns = { delivered: true, returnBy: '2026-10-30T00:00:00Z', returnable: { p1: 1 }, replaceable: {}, returns: [] };
+  const base: OrderReturns = { delivered: true, returnBy: '2026-10-30T00:00:00Z', returnByItem: { p1: '2026-10-30T00:00:00Z' }, returnable: { p1: 1 }, replaceable: {}, returns: [] };
   const now = new Date('2026-10-01T00:00:00Z');
 
   it('opens only when delivered, inside the window, with something left', () => {
@@ -56,6 +56,41 @@ describe('return helpers', () => {
     expect(canStartReturn({ ...base, returnBy: undefined }, now)).toBe(false);
     expect(canStartReturn(base, new Date('2026-10-31T00:00:00Z'))).toBe(false);
     expect(canStartReturn({ ...base, returnable: { p1: 0 } }, now)).toBe(false);
+  });
+
+  it('gives the soonest and latest return-by of what can go back now', () => {
+    expect(returnWindows(base, now)).toEqual({ first: new Date('2026-10-30T00:00:00Z'), last: new Date('2026-10-30T00:00:00Z') });
+    // a replacement's own window runs later than the rest of the order's
+    const replaced = { ...base, returnByItem: { p1: '2026-10-30T00:00:00Z', p2: '2026-11-09T00:00:00Z' }, returnable: { p1: 1, p2: 1 } };
+    expect(returnWindows(replaced, now)).toEqual({ first: new Date('2026-10-30T00:00:00Z'), last: new Date('2026-11-09T00:00:00Z') });
+    // only what can go back counts, and only windows still open
+    expect(returnWindows({ ...replaced, returnable: { p1: 0, p2: 1 } }, now)?.first).toEqual(new Date('2026-11-09T00:00:00Z'));
+    expect(returnWindows(replaced, new Date('2026-11-01T00:00:00Z'))?.first).toEqual(new Date('2026-11-09T00:00:00Z'));
+    expect(returnWindows({ ...base, returnable: { p1: 0 } }, now)).toBeNull();
+    // a database without per-item windows falls back to the order's
+    expect(returnWindows({ ...base, returnByItem: {} }, now)?.last).toEqual(new Date('2026-10-30T00:00:00Z'));
+  });
+
+  it('reads each item’s return-by', async () => {
+    const json = {
+      delivered: true,
+      return_by: '2026-11-09T00:00:00+00:00',
+      return_by_item: [{ product_id: 'p1', return_by: '2026-10-30T00:00:00+00:00' }, { product_id: 'p2', return_by: '2026-11-09T00:00:00+00:00' }],
+      returnable: [{ product_id: 'p1', qty: 0 }, { product_id: 'p2', qty: 1 }],
+      replaceable: [],
+      returns: [],
+    };
+    const db = { rpc: async () => ({ data: json, error: null }) } as unknown as Db;
+    expect(await getOrderReturns(db, 'o1')).toEqual({
+      delivered: true,
+      returnBy: '2026-11-09T00:00:00+00:00',
+      returnByItem: { p1: '2026-10-30T00:00:00+00:00', p2: '2026-11-09T00:00:00+00:00' },
+      returnable: { p1: 0, p2: 1 },
+      replaceable: {},
+      returns: [],
+    });
+    const old = { rpc: async () => ({ data: { ...json, return_by_item: undefined }, error: null }) } as unknown as Db;
+    expect((await getOrderReturns(old, 'o1'))?.returnByItem).toEqual({});
   });
 
   it('knows the reasons', () => {
@@ -190,7 +225,7 @@ describe('package didn’t arrive', () => {
     deliveredAt: '2026-10-01T18:00:00Z',
     ...over,
   });
-  const none: OrderReturns = { delivered: true, returnBy: '2026-10-31T18:00:00Z', returnable: { p1: 2 }, replaceable: {}, returns: [] };
+  const none: OrderReturns = { delivered: true, returnBy: '2026-10-31T18:00:00Z', returnByItem: {}, returnable: { p1: 2 }, replaceable: {}, returns: [] };
   const at = (iso: string) => new Date(iso);
 
   it('can be reported from delivery until 30 days after, while nothing has been returned', () => {

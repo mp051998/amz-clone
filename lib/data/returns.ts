@@ -75,16 +75,21 @@ export function toReturn(json: unknown): OrderReturn {
 export interface OrderReturns {
   /** delivered (and not cancelled) */
   delivered: boolean;
-  /** last moment to start a return; absent until delivered */
+  /** last moment to start a return of anything still left; absent until delivered */
   returnBy?: string;
-  /** product id → how many can still be returned */
+  /**
+   * product id → the last moment it can be returned: the order's window, or a replacement's own
+   * window from when it was delivered, whichever ends later
+   */
+  returnByItem: Record<string, string>;
+  /** product id → how many can be returned now (inside their window) */
   returnable: Record<string, number>;
   /** product id → how many can be replaced instead (not replaced before, on sale, in stock) */
   replaceable: Record<string, number>;
   returns: OrderReturn[];
 }
 
-const NONE: OrderReturns = { delivered: false, returnable: {}, replaceable: {}, returns: [] };
+const NONE: OrderReturns = { delivered: false, returnByItem: {}, returnable: {}, replaceable: {}, returns: [] };
 
 const counts = (rows: unknown): Record<string, number> =>
   Object.fromEntries(((rows ?? []) as Row[]).map((it) => [String(it.product_id), Number(it.qty ?? 0)]));
@@ -99,6 +104,7 @@ export async function getOrderReturns(db: Db, orderId: string): Promise<OrderRet
   return {
     delivered: json.delivered === true,
     returnBy: str(json.return_by),
+    returnByItem: Object.fromEntries(((json.return_by_item ?? []) as Row[]).map((it) => [String(it.product_id), String(it.return_by)])),
     returnable: counts(json.returnable),
     replaceable: counts(json.replaceable),
     returns: ((json.returns ?? []) as Row[]).map(toReturn),
@@ -132,6 +138,18 @@ export function canStartReturn(r: OrderReturns, now: Date = new Date()): boolean
     Date.parse(r.returnBy) >= now.getTime() &&
     Object.values(r.returnable).some((n) => n > 0)
   );
+}
+
+/**
+ * When what can be returned now has to go back by, soonest and latest. They differ once a
+ * replacement, which gets its own window from its delivery, sits beside the order's other items.
+ */
+export function returnWindows(r: OrderReturns, now: Date = new Date()): { first: Date; last: Date } | null {
+  const ends = Object.entries(r.returnable)
+    .filter(([, n]) => n > 0)
+    .map(([id]) => Date.parse(r.returnByItem[id] ?? r.returnBy ?? ''))
+    .filter((t) => t >= now.getTime());
+  return ends.length ? { first: new Date(Math.min(...ends)), last: new Date(Math.max(...ends)) } : null;
 }
 
 /** How long after it's marked delivered a missing package can be reported. */
