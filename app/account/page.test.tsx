@@ -130,9 +130,10 @@ it('counts saved items, lists, things back in stock and price drops', async () =
   expect(within(tile('Collections')).getByText('2 saved items · 1 list · 1 back in stock · 1 price drop')).toBeInTheDocument();
 });
 
-it('links to your Q&A and transactions', async () => {
+it('links to your Q&A, payments and transactions', async () => {
   render(await AccountPage());
   expect(tile('Your Q&A')).toHaveAttribute('href', '/account/questions');
+  expect(tile('Your Payments')).toHaveAttribute('href', '/account/payments');
   expect(tile('Your transactions')).toHaveAttribute('href', '/account/transactions');
 });
 

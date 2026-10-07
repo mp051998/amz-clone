@@ -18,6 +18,7 @@ export const POST = route(async (ctx) => {
     purchase,
     { successUrl: sp('/gift-cards/success?for=reload'), cancelUrl: sp('/gift-cards?canceled=1&for=reload#balance') },
     ctx.market === 'IN' ? 'Add money to balance' : 'Balance reload',
+    ctx.user,
   );
   return json({ purchase, checkoutUrl }, { status: 201 });
 });

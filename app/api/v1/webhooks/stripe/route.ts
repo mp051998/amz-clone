@@ -32,7 +32,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object;
-        if (session.payment_status !== 'paid') break;
+        // adding a card ("Your Payments") is a setup session: nothing is paid
+        if (session.mode === 'setup' || session.payment_status !== 'paid') break;
         // both re-read the session from Stripe rather than trusting the event body
         if (isGiftCardSession(session)) await confirmGiftCardCheckout(session.id);
         else await confirmCheckoutSession(session.id);
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       }
       case 'checkout.session.expired':
       case 'checkout.session.async_payment_failed':
-        if (!isGiftCardSession(event.data.object)) await releaseSession(event.data.object.id);
+        // a gift card or an added card holds no stock to release
+        if (!isGiftCardSession(event.data.object) && event.data.object.mode !== 'setup') await releaseSession(event.data.object.id);
         break;
       case 'refund.created':
       case 'refund.updated':

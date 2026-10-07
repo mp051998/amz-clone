@@ -702,6 +702,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"stripe_customers": {
+                  Row: {
+                    "created_at": string,"customer_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"customer_id": string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"customer_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"store_balances": {
                   Row: {
                     "balance_minor": number,"market_id": string,"updated_at": string,"user_id": string

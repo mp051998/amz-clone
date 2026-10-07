@@ -54,7 +54,7 @@ export const POST = route(async (ctx) => {
   const sp = (path: string) => `${origin}${storePath({ id: ctx.market }, path)}`;
   try {
     const cancelUrl = sp(buyNow ? `/checkout/cancel?${buyNowQuery(buyNow)}` : '/checkout/cancel');
-    const checkoutUrl = await startCardCheckout(order, { successUrl: sp('/checkout/success'), cancelUrl }, origin);
+    const checkoutUrl = await startCardCheckout(order, { successUrl: sp('/checkout/success'), cancelUrl }, origin, ctx.user);
     return json({ order, checkoutUrl }, { status: 201 });
   } catch (err) {
     await cancelPendingOrder(ctx.db, order.id).catch(() => undefined);

@@ -15,7 +15,7 @@ export const POST = route<{ id: string }>(async (ctx, { id }) => {
   if (!order) throw new DataError('order_not_found');
   const origin = ctx.req.nextUrl.origin;
   const sp = (path: string) => `${origin}${storePath({ id: order.market }, path)}`;
-  const checkoutUrl = await resumeCardCheckout(order, { successUrl: sp('/checkout/success'), cancelUrl: sp('/checkout/cancel') }, origin);
+  const checkoutUrl = await resumeCardCheckout(order, { successUrl: sp('/checkout/success'), cancelUrl: sp('/checkout/cancel') }, origin, ctx.user);
   return checkoutUrl ? json({ checkoutUrl }) : json({ order: await getOrder(ctx.db, id) });
 });
 

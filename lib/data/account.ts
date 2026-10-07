@@ -4,6 +4,7 @@ import type { Database } from '@/lib/db/database.types';
 import type { Db } from '@/lib/db/client';
 import type { CurrencyCode } from '@/lib/contracts';
 import { authClient } from '@/lib/api/auth';
+import { deleteStripeCustomer } from './wallet';
 import { DataError, unwrap } from './errors';
 
 /**
@@ -217,6 +218,9 @@ export async function closeAccount(service: Service, db: Db, user: { id: string;
   await requirePassword(user.email, input.currentPassword);
   const blocked = closureMessage(await closureCheck(db));
   if (blocked) throw new DataError('account_not_closable', undefined, blocked);
+  // the saved cards go too: the Stripe Customer they're on is deleted once the account is
+  const { data: customer } = await service.from('stripe_customers').select('customer_id').eq('user_id', user.id).maybeSingle();
   const { error } = await service.auth.admin.deleteUser(user.id);
   if (error) throw new DataError('internal', `close account: ${error.code ?? ''} ${error.message}`);
+  await deleteStripeCustomer(customer?.customer_id);
 }

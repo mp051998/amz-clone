@@ -77,6 +77,7 @@ export async function buyGiftCardAction(_prev: BuyState, formData: FormData): Pr
       purchase,
       { successUrl: `${origin}${sp(`${PAGE}/success`)}`, cancelUrl: `${origin}${sp(`${PAGE}?canceled=1#buy`)}` },
       'Store gift card',
+      await readUser(),
     );
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
@@ -105,6 +106,7 @@ export async function reloadBalanceAction(_prev: BuyState, formData: FormData): 
       reload,
       { successUrl: `${origin}${sp(`${PAGE}/success?for=reload`)}`, cancelUrl: `${origin}${sp(`${PAGE}?canceled=1&for=reload#balance`)}` },
       store.id === 'IN' ? 'Add money to balance' : 'Balance reload',
+      await readUser(),
     );
   } catch (err) {
     if (!(err instanceof DataError)) throw err;

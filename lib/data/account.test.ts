@@ -5,6 +5,8 @@ const signIn = vi.fn();
 vi.mock('@/lib/api/auth', () => ({
   authClient: () => ({ auth: { signInWithPassword: signIn, signOut: vi.fn(async () => ({ error: null })) } }),
 }));
+const deleteStripeCustomer = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('./wallet', () => ({ deleteStripeCustomer }));
 
 import { closeAccount, closureBlockers, closureMessage, listPhrase, type ClosureCheck } from './account';
 import { DataError } from './errors';
@@ -50,13 +52,19 @@ describe('what keeps an account open', () => {
 describe('closeAccount', () => {
   const me = { id: 'u1', email: 'me@example.test' };
   const deleteUser = vi.fn(async () => ({ data: {}, error: null as null | { code?: string; message: string } }));
-  const service = { auth: { admin: { deleteUser } } } as never;
+  let customer: { customer_id: string } | null = null;
+  const service = {
+    auth: { admin: { deleteUser } },
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: customer, error: null }) }) }) }),
+  } as never;
   const dbWith = (check: Partial<ClosureCheck>) =>
     ({ rpc: vi.fn(async () => ({ data: { ...open(), ...check }, error: null })) }) as unknown as Db;
 
   beforeEach(() => {
     signIn.mockReset();
     deleteUser.mockClear();
+    deleteStripeCustomer.mockClear();
+    customer = null;
   });
 
   const failure = async (p: Promise<unknown>) => {
@@ -75,6 +83,14 @@ describe('closeAccount', () => {
     expect(signIn).toHaveBeenCalledWith({ email: 'me@example.test', password: 'secret-1' });
     expect(db.rpc).toHaveBeenCalledWith('account_closure_check');
     expect(deleteUser).toHaveBeenCalledWith('u1');
+    expect(deleteStripeCustomer).toHaveBeenCalledWith(undefined);
+  });
+
+  it('deletes their Stripe customer too, and with it the saved cards', async () => {
+    signIn.mockResolvedValue({ error: null });
+    customer = { customer_id: 'cus_123' };
+    await closeAccount(service, dbWith({}), me, { currentPassword: 'secret-1' });
+    expect(deleteStripeCustomer).toHaveBeenCalledWith('cus_123');
   });
 
   it('needs the current password', async () => {
@@ -98,5 +114,6 @@ describe('closeAccount', () => {
     signIn.mockResolvedValue({ error: null });
     deleteUser.mockResolvedValueOnce({ data: {}, error: { code: 'unexpected_failure', message: 'boom' } });
     expect(await failure(closeAccount(service, dbWith({}), me, { currentPassword: 'secret-1' }))).toMatch(/^internal:close account: unexpected_failure boom/);
+    expect(deleteStripeCustomer).not.toHaveBeenCalled();
   });
 });

@@ -20,7 +20,7 @@ export const POST = route(async (ctx) => {
   const purchase = await startGiftCardPurchase(ctx.db, ctx.market, { amountMinor: b.amountMinor, recipientName: b.recipientName, message: b.message });
   const origin = ctx.req.nextUrl.origin;
   const sp = (path: string) => `${origin}${storePath({ id: ctx.market }, path)}`;
-  const checkoutUrl = await startGiftCardCheckout(purchase, { successUrl: sp('/gift-cards/success'), cancelUrl: sp('/gift-cards?canceled=1#buy') }, 'Store gift card');
+  const checkoutUrl = await startGiftCardCheckout(purchase, { successUrl: sp('/gift-cards/success'), cancelUrl: sp('/gift-cards?canceled=1#buy') }, 'Store gift card', ctx.user);
   return json({ purchase, checkoutUrl }, { status: 201 });
 });
 
