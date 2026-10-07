@@ -3,8 +3,9 @@ import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'rea
 import { useRouter } from 'next/navigation';
 import type { ReviewFacets, ReviewFilter, ReviewSort, ReviewStars } from '@/lib/data/reviews';
 import type { CustomerImage } from '@/lib/data/review-photos';
+import { FIT_LABELS, REVIEW_FITS, type FitSummary } from '@/lib/review-fit';
 import { readReviewSearch, REVIEW_SEARCH_MAX } from '@/lib/review-search';
-import type { RatingSummary, Review } from '@/lib/types';
+import type { RatingSummary, Review, ReviewFit } from '@/lib/types';
 import { loadMoreReviews, removeReview, reportReview, submitReview, toggleReviewHelpful } from '@/app/actions/review';
 import { Kicker, SourceTag } from '../decision/Badges';
 import { Pill } from '../decision/Pill';
@@ -43,6 +44,10 @@ export interface ReviewsPanelProps {
   aiPending?: boolean;
   /** the newest photos from the product's reviews */
   customerImages?: CustomerImage[];
+  /** clothing and shoes: the form asks how it fits */
+  askFit?: boolean;
+  /** how its reviews say it fits (null with too few answers) */
+  fit?: FitSummary | null;
 }
 
 /** Review text with what was searched for in bold. */
@@ -97,7 +102,7 @@ function scrollToId(id: string) {
  * (so they cover every review, with exact counts); theme chips narrow the loaded reviews. Every
  * write (review, helpful, report, delete) goes through the server actions in app/actions/review.ts.
  */
-export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, insight, aiPending, customerImages = [] }: ReviewsPanelProps) {
+export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, insight, aiPending, customerImages = [], askFit = false, fit = null }: ReviewsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
@@ -112,7 +117,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
   const [active, setActive] = useState<string[]>([]);
   const [notice, setNotice] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName, photos: mine?.photos ?? [] });
+  const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName, photos: mine?.photos ?? [], fit: (mine?.fit ?? null) as ReviewFit | null });
   const [error, setError] = useState('');
 
   // fresh server data after router.refresh() replaces the local list (and it comes top-first, unfiltered)
@@ -222,7 +227,10 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     if (!form.rating) return setError('Please select a star rating.');
     if (!form.title.trim() || !form.body.trim()) return setError('Please add a headline and a review.');
     startTransition(async () => {
-      const res = await submitReview(productId, { rating: form.rating, title: form.title, body: form.body, authorName: form.name, photos: form.photos.map((p) => p.path) });
+      const res = await submitReview(productId, {
+        rating: form.rating, title: form.title, body: form.body, authorName: form.name, photos: form.photos.map((p) => p.path),
+        ...(askFit ? { fit: form.fit } : {}),
+      });
       if (!res.ok) return setError(res.message);
       setError('');
       setShowForm(false);
@@ -235,7 +243,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     startTransition(async () => {
       const res = await removeReview(productId, id);
       if (!res.ok) return setNotice((n) => ({ ...n, [id]: res.message }));
-      setForm({ rating: 0, title: '', body: '', name: defaultName, photos: [] });
+      setForm({ rating: 0, title: '', body: '', name: defaultName, photos: [], fit: null });
       toast('Your review was deleted');
       router.refresh();
     });
@@ -321,6 +329,25 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                 </li>
               ))}
             </ul>
+            {fit ? (
+              <div id="fit" className="mt-2 flex scroll-mt-[140px] flex-col gap-1.5 border-t border-line pt-3">
+                <span className="text-[14px]">
+                  <strong className="font-semibold">Fit: {FIT_LABELS[fit.verdict]}</strong>
+                  <span className="text-ink-2"> · {fit.pct[fit.verdict]}% of {num(fit.total)} shoppers who said</span>
+                </span>
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="How it fits">
+                  {REVIEW_FITS.map((f) => (
+                    <li key={f} className="flex min-h-6 items-center gap-2 text-[13px]" aria-label={`${FIT_LABELS[f]}: ${fit.pct[f]}%`}>
+                      <span aria-hidden className="w-[86px]">{FIT_LABELS[f]}</span>
+                      <span aria-hidden className="h-2 flex-1 overflow-hidden rounded-tag bg-surface-4">
+                        <span className="block h-full bg-ink" style={{ width: `${fit.pct[f]}%` }} />
+                      </span>
+                      <span aria-hidden className="w-[38px] text-right text-ink-2 tabular-nums">{fit.pct[f]}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-3.5 rounded-card border border-line bg-surface p-[18px]">
@@ -427,6 +454,30 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
               <span className="block text-[14px] font-semibold">Overall rating</span>
               <StarPicker value={form.rating} onChange={(n) => setForm((f) => ({ ...f, rating: n }))} />
             </div>
+            {askFit ? (
+              <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+                <legend className="mb-1.5 p-0 text-[14px] font-semibold">How does it fit? <span className="font-normal text-ink-3">(optional)</span></legend>
+                <div className="flex flex-wrap items-center gap-2">
+                  {REVIEW_FITS.map((f) => (
+                    <label
+                      key={f}
+                      className={cn(
+                        'inline-flex min-h-[36px] cursor-pointer items-center rounded-pill border px-3.5 text-[14px] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
+                        form.fit === f ? 'border-ink bg-ink text-on-ink' : 'border-line bg-surface text-ink hover:border-ink',
+                      )}
+                    >
+                      <input type="radio" name="rv-fit" value={f} checked={form.fit === f} onChange={() => setForm((x) => ({ ...x, fit: f }))} className="sr-only" />
+                      {FIT_LABELS[f]}
+                    </label>
+                  ))}
+                  {form.fit ? (
+                    <button type="button" onClick={() => setForm((x) => ({ ...x, fit: null }))} className="min-h-[36px] px-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink">
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </fieldset>
+            ) : null}
             <label className="flex flex-col gap-1.5 text-[14px] font-semibold" htmlFor="rv-name">
               Public name
               <input id="rv-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={60} className={cn(fieldClass, 'font-normal')} />
@@ -464,11 +515,12 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                     <span className="text-[12px] text-ink-3">{r.author}</span>
                   )}
                 </div>
-                {(r.verified || r.mine || themes.length) ? (
+                {(r.verified || r.mine || r.fit || themes.length) ? (
                   <div className="flex flex-wrap gap-1.5">
                     {r.mine ? <span className="rounded-[5px] bg-ink px-[7px] py-[3px] text-[12px] font-semibold text-on-ink">Your review</span> : null}
                     {r.hidden ? <span className="rounded-[5px] border border-line px-[7px] py-[3px] text-[12px] font-semibold text-bad">Hidden from shoppers</span> : null}
                     {r.verified ? <span className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">Verified purchase</span> : null}
+                    {r.fit ? <span className="rounded-[5px] border border-line px-[7px] py-[3px] text-[12px] font-semibold">Fit: {FIT_LABELS[r.fit]}</span> : null}
                     {reviewThemes(r, themes).map((t) => (
                       <span key={t} className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">{t}</span>
                     ))}

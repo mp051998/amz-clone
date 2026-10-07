@@ -2,18 +2,20 @@ import { body, intParam, json, preflight, requireUser, route } from '@/lib/api/h
 import { getProduct } from '@/lib/data/catalog';
 import { DataError } from '@/lib/data/errors';
 import { customerImages } from '@/lib/data/review-photos';
-import { listReviews, readReviewFilter, readReviewSort, upsertReview } from '@/lib/data/reviews';
+import { listReviews, readReviewFilter, readReviewSort, reviewFitCounts, upsertReview } from '@/lib/data/reviews';
+import { fitSummary } from '@/lib/review-fit';
 
 /**
  * GET /api/v1/products/:id/reviews?limit=10&offset=0&sort=top|recent&stars=&verified=&photos=&q= — most helpful
  * (or newest) first; the caller's own review pinned. stars: 1–5, positive (4–5★) or critical
  * (1–3★); verified=1 keeps verified purchases, photos=1 reviews with photos, q= ones
  * whose headline or text contains it (2–100 characters). `total` counts the filtered reviews. `images`: the
- * newest photos from its reviews.
+ * newest photos from its reviews. `fit`: how its reviews say it fits (clothing and shoes), null with
+ * fewer than 3 answers.
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const sp = ctx.req.nextUrl.searchParams;
-  const [page, images] = await Promise.all([
+  const [page, images, fit] = await Promise.all([
     listReviews(ctx.db, id, ctx.user?.id ?? null, {
       limit: intParam(sp.get('limit'), 10, 1, 50),
       offset: intParam(sp.get('offset'), 0, 0, 100_000),
@@ -21,12 +23,13 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
       filter: readReviewFilter(sp.get('stars'), sp.get('verified'), sp.get('photos'), sp.get('q')),
     }),
     customerImages(ctx.db, id),
+    reviewFitCounts(ctx.db, id).then(fitSummary),
   ]);
-  return json({ ...page, images });
+  return json({ ...page, images, fit });
 });
 
 /**
- * POST /api/v1/products/:id/reviews { rating, title, body, authorName?, photos? }
+ * POST /api/v1/products/:id/reviews { rating, title, body, authorName?, photos?, fit? }
  * Create or replace the caller's review (one per customer). "Verified Purchase"
  * is decided by the database: the caller has a delivered order containing it.
  */

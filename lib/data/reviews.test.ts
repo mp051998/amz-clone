@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { listReviews, matchesReviewFilter, readReviewFilter, reviewFacets } from './reviews';
+import { listReviews, matchesReviewFilter, readReviewFilter, reviewFacets, reviewFitCounts, upsertReview } from './reviews';
 
 type Reply = { data: unknown; error: unknown; count?: number | null };
 
@@ -12,7 +12,7 @@ function fakeDb(replies: Record<string, Reply[]>) {
       const call = { table, ops: [] as [string, unknown[]][] };
       calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'gte', 'lte', 'is', 'in', 'order', 'range', 'maybeSingle', 'filter', 'or']) {
+      for (const m of ['select', 'eq', 'gte', 'lte', 'is', 'in', 'not', 'order', 'range', 'maybeSingle', 'single', 'insert', 'update', 'filter', 'or']) {
         q[m] = (...args: unknown[]) => {
           call.ops.push([m, args]);
           return q;
@@ -108,4 +108,34 @@ it('counts visible written reviews per star: all, verified, with photos, verifie
   expect(facets[1]).toEqual({ all: 1, verified: 1, photos: 0, verifiedPhotos: 0 });
   expect(facets[3]).toEqual({ all: 0, verified: 0, photos: 0, verifiedPhotos: 0 });
   expect(calls[0].ops).toContainEqual(['is', ['hidden_at', null]]);
+});
+
+it('counts how visible reviews say it fits, ignoring anything else', async () => {
+  const { db, calls } = fakeDb({
+    reviews: [{ data: [{ fit: 'small' }, { fit: 'true_to_size' }, { fit: 'true_to_size' }, { fit: 'huge' }, { fit: 'large' }], error: null }],
+  });
+  expect(await reviewFitCounts(db, 'p1')).toEqual({ small: 1, true_to_size: 2, large: 1 });
+  expect(calls[0].ops).toContainEqual(['not', ['fit', 'is', null]]);
+  expect(calls[0].ops).toContainEqual(['is', ['hidden_at', null]]);
+  // before the fit migration (or on any error): nothing to show
+  const failing = fakeDb({ reviews: [{ data: null, error: { code: '42703', message: 'column reviews.fit does not exist' } }] });
+  expect(await reviewFitCounts(failing.db, 'p1')).toEqual({ small: 0, true_to_size: 0, large: 0 });
+});
+
+it('saves how it fits with a review, and refuses any other answer', async () => {
+  const input = { rating: 4, title: 'Snug', body: 'Order a size up.' };
+  await expect(upsertReview(fakeDb({}).db, 'p1', 'u1', { ...input, fit: 'tiny' })).rejects.toMatchObject({ code: 'invalid_input', detail: 'fit' });
+
+  const created = fakeDb({ reviews: [{ data: null, error: null }, { data: row('r1', 4, { fit: 'small' }), error: null }] });
+  const review = await upsertReview(created.db, 'p1', 'u1', { ...input, fit: 'small' });
+  expect(review.fit).toBe('small');
+  expect(created.calls[1].ops).toContainEqual(['insert', [expect.objectContaining({ fit: 'small' })]]);
+
+  // a rewrite without `fit` keeps it; null clears it
+  const kept = fakeDb({ reviews: [{ data: { id: 'r1', photos: [] }, error: null }, { data: row('r1', 4, { fit: 'small' }), error: null }] });
+  await upsertReview(kept.db, 'p1', 'u1', input);
+  expect(kept.calls[1].ops.find(([m]) => m === 'update')![1][0]).not.toHaveProperty('fit');
+  const cleared = fakeDb({ reviews: [{ data: { id: 'r1', photos: [] }, error: null }, { data: row('r1', 4), error: null }] });
+  expect((await upsertReview(cleared.db, 'p1', 'u1', { ...input, fit: null })).fit).toBeUndefined();
+  expect(cleared.calls[1].ops.find(([m]) => m === 'update')![1][0]).toMatchObject({ fit: null });
 });

@@ -761,13 +761,13 @@ isOneToOne: false
                   ]
                 },"reviews": {
                   Row: {
-                    "author_name": string,"body": string,"created_at": string,"helpful_count": number,"hidden_at": string | null,"hidden_reason": string | null,"id": string,"moderated_at": string | null,"photos": string[],"product_id": string,"rating": number,"seeded": boolean,"title": string,"updated_at": string,"user_id": string | null,"verified": boolean
+                    "author_name": string,"body": string,"created_at": string,"fit": string | null,"helpful_count": number,"hidden_at": string | null,"hidden_reason": string | null,"id": string,"moderated_at": string | null,"photos": string[],"product_id": string,"rating": number,"seeded": boolean,"title": string,"updated_at": string,"user_id": string | null,"verified": boolean
                   }
                   Insert: {
-                    "author_name": string,"body": string,"created_at"?: string,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id": string,"rating": number,"seeded"?: boolean,"title": string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name": string,"body": string,"created_at"?: string,"fit"?: string | null,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id": string,"rating": number,"seeded"?: boolean,"title": string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Update: {
-                    "author_name"?: string,"body"?: string,"created_at"?: string,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id"?: string,"rating"?: number,"seeded"?: boolean,"title"?: string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name"?: string,"body"?: string,"created_at"?: string,"fit"?: string | null,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id"?: string,"rating"?: number,"seeded"?: boolean,"title"?: string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Relationships: [
                     {

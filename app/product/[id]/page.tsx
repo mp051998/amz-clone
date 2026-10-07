@@ -67,6 +67,7 @@ import { activePromoCodes } from '@/lib/data/promo';
 import { promosFor } from '@/lib/promo';
 import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { unitsLeft } from '@/lib/purchase-limits';
+import { asksFit, FIT_LABELS } from '@/lib/review-fit';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -152,7 +153,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen] = await Promise.all([
     getInsight(p.id, client),
-    loadReviewData(client, p.id, user?.id ?? null),
+    loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
     user ? listChoices(client, store.id, p.id).catch((): ListChoice[] => []) : Promise.resolve(null),
     getProductInfo(client, p.id),
@@ -366,6 +367,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 />
               ) : null}
 
+              {reviews.fit ? (
+                <a href="#fit" className="self-start text-[14px] text-ink underline-offset-2 hover:underline">
+                  <strong className="font-semibold">Fit: {FIT_LABELS[reviews.fit.verdict]}</strong>
+                  <span className="text-ink-2"> · {reviews.fit.pct[reviews.fit.verdict]}% of {num(reviews.fit.total)} shoppers who said</span>
+                </a>
+              ) : null}
+
               {prosFor(p, insight, ranked.why).length ? (
                 <div className="flex flex-col gap-2">
                   <h2 className="m-0 text-[17px] font-semibold">Why people buy it</h2>
@@ -427,6 +435,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           timeZone={store.dates.timeZone}
           insight={insight ? { summary: insight.summary, praised: insight.praised, criticized: insight.criticized, source: insight.source } : null}
           aiPending={aiPending}
+          askFit={asksFit(p)}
         />
 
         <QuestionsPanel

@@ -288,7 +288,12 @@ export interface Review {
   hidden?: boolean;
   /** up to 5, in the author's order */
   photos: ReviewPhoto[];
+  /** clothing and shoes: how the author found it fits (absent when not answered) */
+  fit?: ReviewFit;
 }
+
+/** "How does it fit?" on a review of clothing or shoes. */
+export type ReviewFit = 'small' | 'true_to_size' | 'large';
 
 /** A photo on a review: its storage path (what a review lists) and public URL. */
 export interface ReviewPhoto {
