@@ -68,7 +68,7 @@ export default async function AccountPage() {
       href: '/gift-cards#balance',
     },
     { title: 'Your messages', meta: newMessages ? `${newMessages} new` : 'Order and return updates', desc: 'Shipping and delivery updates, refunds, our replies and answers to your questions.', href: '/account/messages' },
-    { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns and gift cards.', href: '/account/transactions' },
+    { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns, gift cards and balance reloads.', href: '/account/transactions' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, download your data, or close your account.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
     { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
