@@ -102,6 +102,24 @@ it('collects what has happened, newest first, linking to where each is dealt wit
   expect(by('answer:a1')).toMatchObject({ subject: 'Does it whistle?', detail: 'No, it clicks off.', from: 'Ravi', href: '/product/k#questions' });
 });
 
+it('says when items were cancelled from an order that kept coming, and when their refund went through', () => {
+  const mug = { ...ITEM, productId: 'm', title: 'Mug' };
+  const lid = { ...ITEM, productId: 'l', title: 'Lid' };
+  const o = order('P', '2026-10-04T08:00:00Z', {
+    cancellations: [
+      { id: 'c1', items: [mug, lid], itemsMinor: 5000, taxMinor: 400, refund: { status: 'succeeded', amountMinor: 5400, refundedAt: '2026-10-04T10:05:00Z' }, createdAt: '2026-10-04T10:00:00Z' },
+      // a card refund still going through
+      { id: 'c2', items: [mug], itemsMinor: 2500, taxMinor: 0, refund: { status: 'pending', amountMinor: 2500 }, createdAt: '2026-10-05T10:00:00Z' },
+      // pay on delivery: nothing was charged
+      { id: 'c3', items: [lid], itemsMinor: 2500, taxMinor: 0, refund: { status: 'not_charged', amountMinor: 2500 }, createdAt: '2026-10-05T11:00:00Z' },
+    ],
+  });
+  const inbox = buildInbox({ orders: [o], returns: [], replies: [], answers: [] }, NOW).filter((m) => m.kind.startsWith('items_'));
+  expect(inbox.map((m) => m.key)).toEqual(['items_cancelled:c3', 'items_cancelled:c2', 'items_refunded:c1', 'items_cancelled:c1']);
+  expect(inbox.find((m) => m.key === 'items_refunded:c1')).toMatchObject({ subject: 'Mug and 1 more', amountMinor: 5400, href: '/orders/P?placed=0', orderId: 'P' });
+  expect(inbox.find((m) => m.key === 'items_cancelled:c2')).toMatchObject({ subject: 'Mug', at: '2026-10-05T10:00:00Z' });
+});
+
 it('keeps the latest ones when there are too many', () => {
   const replies: InboxReply[] = Array.from({ length: INBOX_LIMIT + 5 }, (_, i) => ({
     id: `m${i}`,

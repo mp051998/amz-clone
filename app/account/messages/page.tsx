@@ -19,6 +19,8 @@ const HEAD: Record<InboxKind, string> = {
   delivered: 'Delivered',
   cancelled: 'Cancelled',
   refunded: 'Refund issued',
+  items_cancelled: 'Items cancelled',
+  items_refunded: 'Refund issued',
   return_received: 'Return received',
   return_refunded: 'Return refunded',
   return_rejected: 'Return not accepted',
@@ -39,6 +41,10 @@ function note(m: InboxMessage, money: (minor: number) => string): string {
       return 'Your order was cancelled.';
     case 'refunded':
       return `${money(m.amountMinor ?? 0)} back to how you paid.`;
+    case 'items_cancelled':
+      return 'Cancelled before they shipped. The rest of your order is still coming.';
+    case 'items_refunded':
+      return `${money(m.amountMinor ?? 0)} back to how you paid, for the items you cancelled.`;
     case 'return_received':
       return 'We have your return.';
     case 'return_refunded':

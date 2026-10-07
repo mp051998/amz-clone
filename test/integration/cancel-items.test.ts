@@ -3,6 +3,7 @@ import { setCartQty } from '@/lib/data/cart';
 import { canRetryRefund, getAdminOrder } from '@/lib/data/admin-orders';
 import { balanceHistory } from '@/lib/data/balance';
 import { DataError } from '@/lib/data/errors';
+import { listInbox } from '@/lib/data/inbox';
 import { cancelOrderItems, getOrder, listOrders, placeOrder } from '@/lib/data/orders';
 import { refundCancellation, type RefundStripe } from '@/lib/data/refunds';
 import { getOrderReturns } from '@/lib/data/returns';
@@ -81,6 +82,12 @@ describe('cancel items', () => {
     // what was charged is the order as placed, with the cancelled items refunded on their own
     const txns = (await listTransactions(buyer.db, 'US', buyer.id)).filter((t) => t.orderId === o.id);
     expect(txns.map((t) => `${t.kind} ${t.amountMinor}`).sort()).toEqual([`charge ${o.totals.totalMinor}`, `refund ${cx.refund.amountMinor}`].sort());
+
+    // the shopper's messages say which items went and what came back for them
+    const inbox = (await listInbox(buyer.db, 'US', buyer.id)).filter((m) => m.orderId === o.id && m.kind.startsWith('items_'));
+    expect(inbox.map((m) => m.kind).sort()).toEqual(['items_cancelled', 'items_refunded']);
+    expect(inbox.every((m) => m.subject === cx.items[0].title)).toBe(true);
+    expect(inbox.find((m) => m.kind === 'items_refunded')?.amountMinor).toBe(cx.refund.amountMinor);
 
     // the rest too: that's the whole order, refunded what was left
     const all = await cancelOrderItems(buyer.db, o.id, [a.id, c.id]);

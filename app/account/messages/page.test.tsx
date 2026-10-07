@@ -88,6 +88,20 @@ it('groups messages by day, each saying what happened and linking to it', async 
   expect(before[1]).toHaveTextContent('Ravi answered: “No, it clicks off.”');
 });
 
+it('says which items were cancelled and what came back for them', async () => {
+  state.list = [
+    msg({ key: 'items_refunded:c1', kind: 'items_refunded', at: '2026-10-06T06:05:00Z', subject: 'Mug and 1 more', amountMinor: 5400 }),
+    msg({ key: 'items_cancelled:c1', kind: 'items_cancelled', at: '2026-10-06T06:00:00Z', subject: 'Mug and 1 more' }),
+  ];
+  render(await MessagesPage());
+  const [refund, cancelled] = screen.getAllByRole('listitem');
+  expect(within(refund).getByText('Refund issued')).toBeInTheDocument();
+  expect(refund).toHaveTextContent('$54.00 back to how you paid, for the items you cancelled.');
+  expect(within(cancelled).getByText('Items cancelled')).toBeInTheDocument();
+  expect(within(cancelled).getByRole('link', { name: 'Mug and 1 more' })).toBeInTheDocument();
+  expect(cancelled).toHaveTextContent('The rest of your order is still coming.');
+});
+
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {
   state.store = amazonIn;
   state.seenAt = '2026-10-05T10:00:00Z';
