@@ -184,7 +184,7 @@ How `POST /orders` works:
 - **Non-card methods** return `201 {order}` with `status: "placed"`, and the ordered lines leave the cart.
 - **`card`** returns `201 {order, checkoutUrl}` with `status: "awaiting_payment"`. Send the customer to `checkoutUrl`, a Stripe-hosted page (test mode: card `4242 4242 4242 4242`). The cart is kept until payment succeeds.
 - **Delivery speed:** `speed: "fast"` ships within 3 hours and delivers on the evening run (out at 17:00, delivered by 19:30 store time): the same day for orders placed by noon, otherwise the next day. It's offered only when it arrives before standard delivery would; at other times, or for an unknown speed, the order fails with `422 delivery_option_unavailable`. The store's fast fee (`markets.fast_ship_fee_minor`: $9.99 / ₹99) replaces the delivery charge; it's free only for Plus members.
-- **Protection plans:** each cart line with its plan on (or `buyNow.protection: true`) buys the store's plan per unit with the item: the item has `protectionMinor` (per unit) and the order `totals.protectionMinor`, untaxed and outside free delivery. A line whose product is no longer covered goes without. Cancelling an item before it ships refunds its plan; a return refunds the item but not the plan.
+- **Protection plans:** each cart line with its plan on (or `buyNow.protection: true`) buys the store's plan per unit with the item: the item has `protectionMinor` (per unit) and the order `totals.protectionMinor`, untaxed and outside free delivery. A line whose product is no longer covered goes without. Cancelling an item before it ships refunds its plan, and so does returning it for a refund (a replacement keeps the plan).
 - **Buy Now:** send `buyNow: {productId, qty}` to order just that product (`qty` 1 up to the store's line limit) instead of the cart. The cart isn't needed and is left as it is, whatever the payment method; `404 product_not_found` if the product isn't in this store. A card order's cancel page returns to that product's checkout.
 - **Gifts:** send `gift: {message?}` (or `gift: true`) to mark the order as a gift. The note is trimmed and can be up to 240 characters (`422 invalid_input` beyond that); a blank one means no note. Add `wrap: true` to gift-wrap every item at the store's fee per item (US $3.99, India ₹30): it's `totals.wrapMinor`, untaxed and outside free delivery, and the order shows `gift.wrapped: true`. `422 invalid_input` (`detail` `gift_wrap`) for wrap without a gift.
 - **Delivery instructions:** `shipping.instructions` (up to 250 characters) goes on the order as `shipTo.instructions`. It's copied like the rest of the address, so editing a saved address later doesn't change orders already placed.
@@ -223,7 +223,8 @@ The refund is priced when the return starts:
 - `itemsMinor`: the returned units at the prices paid.
 - `taxMinor`: the items' share of the order's tax (US). The return that brings the order to fully returned gets whatever tax is left, so the shares add up to the tax charged.
 - `shipMinor`: the items' share of the delivery charge, but only for store-fault reasons.
-- `refundMinor = itemsMinor + taxMinor + shipMinor`.
+- `protectionMinor?`: the returned units' protection plans. Returning an item cancels its plan, so the plan is refunded with it (absent without one).
+- `refundMinor = itemsMinor + taxMinor + shipMinor + protectionMinor`.
 - A replacement is all zeros.
 
 `Return` has these fields:

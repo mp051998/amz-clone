@@ -126,6 +126,8 @@ export interface OrderReturn {
   itemsMinor: number;
   taxMinor: number;
   shipMinor: number;
+  /** the returned units' protection plans, cancelled with them (absent without any) */
+  protectionMinor?: number;
   refundMinor: number;
   /** set once the store has received the items */
   refund?: { status: 'pending' | 'succeeded' | 'failed'; refundedAt?: string };

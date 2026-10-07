@@ -117,6 +117,7 @@ export default async function ReturnPage({
               </select>
               <span className="text-[13px] text-ink-3">
                 If it arrived damaged, doesn’t work, is the wrong item, has parts missing or isn’t as described, we refund your share of the delivery charge too.
+                {order.items.some((it) => it.protectionMinor) ? ' Returning an item with a protection plan cancels the plan and refunds it with the item.' : null}
               </span>
             </div>
 

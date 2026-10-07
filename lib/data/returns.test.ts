@@ -41,6 +41,8 @@ describe('toReturn', () => {
     expect(r.replacement).toBeUndefined();
     expect(r.rejectNote).toBeUndefined();
     expect(toReturn({ ...row, status: 'requested', refund_status: null }).refund).toBeUndefined();
+    expect(toReturn(row).protectionMinor).toBeUndefined();
+    expect(toReturn({ ...row, protection_minor: 398, refund_minor: 4718 })).toMatchObject({ protectionMinor: 398, refundMinor: 4718 });
   });
 });
 
@@ -77,6 +79,7 @@ describe('return helpers', () => {
     expect(refundTo('upi', 'UPI · riley@okbank')).toBe('UPI · riley@okbank');
     expect(refundBreakdown(toReturn(row), 'USD')).toBe('Items $40.00 · tax $3.20');
     expect(refundBreakdown(toReturn({ ...row, tax_minor: 0, ship_minor: 599 }), 'USD')).toBe('Items $40.00 · delivery $5.99');
+    expect(refundBreakdown(toReturn({ ...row, protection_minor: 398 }), 'USD')).toBe('Items $40.00 · tax $3.20 · protection plan $3.98');
   });
 });
 
