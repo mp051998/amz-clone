@@ -107,3 +107,33 @@ describe('MoreFilters seller', () => {
     expect(screen.queryByRole('heading', { name: 'Seller' })).toBeNull();
   });
 });
+
+describe('MoreFilters size', () => {
+  const sizeList = () => within(screen.getByRole('heading', { name: 'Size' }).parentElement!);
+  const facets = [
+    { name: 'S', count: 2 },
+    { name: 'M', count: 3 },
+    { name: 'L', count: 1 },
+  ];
+
+  it('lists the sizes in the order given, each adding itself to the ones picked', () => {
+    renderFilters({ sizeFacets: facets, sizes: ['M'] });
+    const boxes = sizeList().getAllByRole('checkbox');
+    expect(boxes.map((b) => b.textContent)).toEqual(['S', 'M', 'L']);
+    expect(boxes[0]).toHaveAccessibleName('S (2)');
+    expect(boxes[0]).toHaveAttribute('aria-checked', 'false');
+    expect(boxes[0].getAttribute('href')).toBe(hrefWith({ size: 'M,S' }));
+    expect(boxes[1]).toHaveAttribute('aria-checked', 'true');
+    expect(boxes[1].getAttribute('href')).toBe(hrefWith({ size: null }));
+  });
+
+  it('has no Size section without sizes', () => {
+    renderFilters();
+    expect(screen.queryByRole('heading', { name: 'Size' })).toBeNull();
+  });
+
+  it('drops the sizes picked on a department change', () => {
+    renderFilters({ categories: [{ slug: 'shoes', name: 'Shoes' } as never], sizes: ['M'] });
+    expect(screen.getByRole('link', { name: 'Shoes' }).getAttribute('href')).toContain('"size":null');
+  });
+});

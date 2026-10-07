@@ -12,6 +12,9 @@ export interface MoreFiltersProps {
   /** sellers in the search's scope, with counts (empty = no Seller section) */
   sellerFacets?: { name: string; count: number }[];
   sellers?: string[];
+  /** sizes in the search's scope, with counts, in size-chart order (empty = no Size section) */
+  sizeFacets?: { name: string; count: number }[];
+  sizes?: string[];
   rating?: number;
   deal: boolean;
   /** "Discount": the percentage off picked (undefined = any) */
@@ -37,8 +40,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, seller, price, rating, deals, discount, availability) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], rating, deal, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, size, seller, price, rating, deals, discount, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], rating, deal, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -51,6 +54,12 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
     else set.add(name);
     return hrefWith({ seller: set.size ? [...set].join(SELLER_SEPARATOR) : null });
   };
+  const toggleSize = (name: string) => {
+    const set = new Set(sizes);
+    if (set.has(name)) set.delete(name);
+    else set.add(name);
+    return hrefWith({ size: set.size ? [...set].join(',') : null });
+  };
   // a picked seller stays listed even when it's past the first ten
   const sellerRows = [...sellerFacets.slice(0, 10), ...sellerFacets.slice(10).filter((s) => sellers.includes(s.name))];
   return (
@@ -59,11 +68,11 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
         <h3 className="m-0 mb-1 text-[14px] font-semibold">Department</h3>
         <ul className="m-0 flex list-none flex-col p-0">
           <li>
-            <a href={hrefWith({ dept: 'all', brand: null, w: null, preset: null })} aria-current={dept ? undefined : 'true'} className={cn(row, !dept && 'font-semibold')}>All departments</a>
+            <a href={hrefWith({ dept: 'all', brand: null, size: null, w: null, preset: null })} aria-current={dept ? undefined : 'true'} className={cn(row, !dept && 'font-semibold')}>All departments</a>
           </li>
           {categories.map((c) => (
             <li key={c.slug}>
-              <a href={hrefWith({ dept: c.slug, brand: null, w: null, preset: null, use: null })} aria-current={dept === c.slug ? 'true' : undefined} className={cn(row, dept === c.slug && 'font-semibold')}>
+              <a href={hrefWith({ dept: c.slug, brand: null, size: null, w: null, preset: null, use: null })} aria-current={dept === c.slug ? 'true' : undefined} className={cn(row, dept === c.slug && 'font-semibold')}>
                 {c.name}
               </a>
             </li>
@@ -83,6 +92,33 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
                     <Box on={on} />
                     <span className={on ? 'font-semibold' : undefined}>{b.name}</span>
                     <span className="ml-auto text-[12px] text-ink-3 tabular-nums">{b.count}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {sizeFacets.length ? (
+        <div>
+          <h3 className="m-0 mb-1 text-[14px] font-semibold">Size</h3>
+          <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+            {sizeFacets.map((z) => {
+              const on = sizes.includes(z.name);
+              return (
+                <li key={z.name}>
+                  <a
+                    href={toggleSize(z.name)}
+                    role="checkbox"
+                    aria-checked={on}
+                    aria-label={`${z.name} (${z.count})`}
+                    className={cn(
+                      'flex min-h-9 min-w-11 items-center justify-center rounded-input border bg-surface px-2.5 text-[13px] text-ink no-underline hover:border-ink hover:text-ink',
+                      on ? 'border-ink font-semibold ring-1 ring-ink' : 'border-line',
+                    )}
+                  >
+                    {z.name}
                   </a>
                 </li>
               );
