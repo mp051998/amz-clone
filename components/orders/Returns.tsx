@@ -18,6 +18,7 @@ export const REASON_LABEL: Record<ReturnReason, string> = {
   wrong_item: 'Wrong item was sent',
   missing_parts: 'Missing parts or accessories',
   not_as_described: 'Not as described',
+  not_received: 'Package didn’t arrive',
 };
 
 /** Where a refund goes, mid-sentence: the card, the balance paid with, or (pay on delivery) the bank. */
@@ -69,6 +70,7 @@ export function refundBreakdown(r: OrderReturn, currency: CurrencyCode): string 
     r.taxMinor ? `tax ${m(r.taxMinor)}` : '',
     r.shipMinor ? `delivery ${m(r.shipMinor)}` : '',
     r.protectionMinor ? `protection plan ${m(r.protectionMinor)}` : '',
+    r.wrapMinor ? `gift wrap ${m(r.wrapMinor)}` : '',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -96,6 +98,8 @@ export function ReturnCard({
   const money = formatMoney(r.refundMinor, currency);
   const to = refundTo(method, label);
   const code = <strong className="font-mono tracking-[0.06em]">{r.dropoffCode}</strong>;
+  // a missing package has nothing to send back, so nothing to receive
+  const got = r.reason === 'not_received' ? '' : 'We received your return. ';
   let lead: ReactNode;
   if (r.replacement && (r.status === 'requested' || r.status === 'received')) {
     const arrives = new Date(r.replacement.deliveredAt);
@@ -137,16 +141,16 @@ export function ReturnCard({
       </>
     );
   } else if (r.refund?.status === 'failed') {
-    lead = <>We received your return. The refund of {money} to {to} is delayed; we’re retrying it, so there’s nothing you need to do.</>;
+    lead = <>{got}The refund of {money} to {to} is delayed; we’re retrying it, so there’s nothing you need to do.</>;
   } else {
-    lead = <>We received your return. The refund of {money} to {to} is on its way.</>;
+    lead = <>{got}The refund of {money} to {to} is on its way.</>;
   }
 
   return (
     <article aria-label="Return" className="flex flex-col gap-2.5 rounded-panel border border-line bg-surface p-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusChip {...returnChip(r, now)} />
-        <span className="text-[13px] text-ink-3">Started {shortDate(new Date(r.createdAt), store)} · {REASON_LABEL[r.reason]}</span>
+        <span className="text-[13px] text-ink-3">{r.reason === 'not_received' ? 'Reported' : 'Started'} {shortDate(new Date(r.createdAt), store)} · {REASON_LABEL[r.reason]}</span>
       </div>
       <p className="m-0 text-[15px] font-semibold">{itemsText(r)}</p>
       <p className="m-0 text-[14px] leading-[1.5] text-ink-2">{lead}</p>

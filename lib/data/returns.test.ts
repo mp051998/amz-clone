@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { refundBreakdown, refundTo, returnChip } from '@/components/orders/Returns';
 import type { Db } from '../db/client';
-import type { OrderReturn } from '../types';
+import type { Order, OrderReturn } from '../types';
 import { DataError } from './errors';
-import { canStartReturn, isReturnReason, requestReturn, toReturn, type OrderReturns } from './returns';
+import { canStartReturn, isReturnReason, reportMissingUntil, requestReturn, toReturn, type OrderReturns } from './returns';
 
 const row = {
   id: 'r1',
@@ -133,5 +133,49 @@ describe('replacements', () => {
     await requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'refund' });
     await requestReturn(db, 'o1', { items, reason: 'better_price' });
     for (const [, args] of rpc.mock.calls as unknown as [string, Record<string, unknown>][]) expect(args).not.toHaveProperty('p_resolution');
+  });
+});
+
+describe('package didn’t arrive', () => {
+  const order = (over: Partial<Order> = {}): Order => ({
+    id: '114-0000000-0000000',
+    market: 'US',
+    currency: 'USD',
+    status: 'placed',
+    paymentMethod: 'card',
+    paymentLabel: 'Visa ending 4242',
+    totals: { subtotalMinor: 4000, shipMinor: 0, taxMinor: 320, totalMinor: 4320 },
+    shipTo: { name: 'Asha Rao', phone: '5550100', line1: '1 Main St', city: 'Austin', state: 'TX', postcode: '78701' },
+    items: [],
+    createdAt: '2026-09-28T00:00:00Z',
+    deliveredAt: '2026-10-01T18:00:00Z',
+    ...over,
+  });
+  const none: OrderReturns = { delivered: true, returnBy: '2026-10-31T18:00:00Z', returnable: { p1: 2 }, replaceable: {}, returns: [] };
+  const at = (iso: string) => new Date(iso);
+
+  it('can be reported from delivery until 30 days after, while nothing has been returned', () => {
+    expect(reportMissingUntil(order(), none, at('2026-10-02T00:00:00Z'))?.toISOString()).toBe('2026-10-31T18:00:00.000Z');
+    expect(reportMissingUntil(order(), none, at('2026-10-01T17:00:00Z'))).toBeNull();
+    expect(reportMissingUntil(order(), none, at('2026-10-31T19:00:00Z'))).toBeNull();
+    expect(reportMissingUntil(order({ deliveredAt: undefined }), none, at('2026-10-02T00:00:00Z'))).toBeNull();
+    expect(reportMissingUntil(order(), null, at('2026-10-02T00:00:00Z'))).toBeNull();
+  });
+
+  it('not once something came back or it was reported, nor for cash on delivery', () => {
+    const now = at('2026-10-02T00:00:00Z');
+    const r = toReturn(row);
+    expect(reportMissingUntil(order(), { ...none, returns: [r] }, now)).toBeNull();
+    expect(reportMissingUntil(order(), { ...none, returns: [{ ...r, status: 'cancelled' }] }, now)).not.toBeNull();
+    expect(reportMissingUntil(order({ paymentMethod: 'cod', paymentLabel: 'Cash on Delivery' }), none, now)).toBeNull();
+    expect(reportMissingUntil(order({ status: 'cancelled' }), none, now)).toBeNull();
+  });
+
+  it('refunds the gift wrap too, and can’t be asked for as a return reason', () => {
+    const r = toReturn({ ...row, reason: 'not_received', wrap_minor: 399, refund_minor: 4719 });
+    expect(r).toMatchObject({ reason: 'not_received', wrapMinor: 399, refundMinor: 4719 });
+    expect(refundBreakdown(r, 'USD')).toBe('Items $40.00 · tax $3.20 · gift wrap $3.99');
+    expect(toReturn(row).wrapMinor).toBeUndefined();
+    expect(isReturnReason('not_received')).toBe(false);
   });
 });

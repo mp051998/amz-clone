@@ -672,13 +672,13 @@ isOneToOne: false
                   ]
                 },"returns": {
                   Row: {
-                    "cancelled_at": string | null,"comment": string | null,"created_at": string,"dropoff_by": string,"dropoff_code": string,"id": string,"items_minor": number,"order_id": string,"reason": string,"received_at": string | null,"refund_minor": number,"refund_status": string | null,"refunded_at": string | null,"reject_note": string | null,"rejected_at": string | null,"replacement_delivered_at": string | null,"replacement_shipped_at": string | null,"resolution": string,"ship_minor": number,"status": string,"stripe_refund_id": string | null,"tax_minor": number,"user_id": string | null,"protection_minor": number
+                    "cancelled_at": string | null,"comment": string | null,"created_at": string,"dropoff_by": string,"dropoff_code": string,"id": string,"items_minor": number,"order_id": string,"reason": string,"received_at": string | null,"refund_minor": number,"refund_status": string | null,"refunded_at": string | null,"reject_note": string | null,"rejected_at": string | null,"replacement_delivered_at": string | null,"replacement_shipped_at": string | null,"resolution": string,"ship_minor": number,"status": string,"stripe_refund_id": string | null,"tax_minor": number,"user_id": string | null,"protection_minor": number,"wrap_minor": number
                   }
                   Insert: {
-                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by": string,"dropoff_code": string,"id"?: string,"items_minor": number,"order_id": string,"reason": string,"received_at"?: string | null,"refund_status"?: string | null,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor": number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor": number,"user_id"?: string | null,"protection_minor"?: number
+                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by": string,"dropoff_code": string,"id"?: string,"items_minor": number,"order_id": string,"reason": string,"received_at"?: string | null,"refund_status"?: string | null,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor": number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor": number,"user_id"?: string | null,"protection_minor"?: number,"wrap_minor"?: number
                   }
                   Update: {
-                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by"?: string,"dropoff_code"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"reason"?: string,"received_at"?: string | null,"refund_status"?: string | null,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor"?: number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor"?: number,"user_id"?: string | null,"protection_minor"?: number
+                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by"?: string,"dropoff_code"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"reason"?: string,"received_at"?: string | null,"refund_status"?: string | null,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor"?: number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor"?: number,"user_id"?: string | null,"protection_minor"?: number,"wrap_minor"?: number
                   }
                   Relationships: [
                     {
@@ -971,6 +971,9 @@ isOneToOne: false
                            },
 "request_return":
 { Args: { "p_comment"?: string,"p_items": Json,"p_order_id": string,"p_reason": string,"p_resolution"?: string }; Returns: Json
+                           },
+"report_not_received":
+{ Args: { "p_order_id": string }; Returns: Json
                            },
 "product_return_signal":
 { Args: { "p_product": string }; Returns: Json

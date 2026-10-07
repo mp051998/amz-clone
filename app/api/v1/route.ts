@@ -81,6 +81,7 @@ export function GET(): Response {
       'POST   /orders/:id/cancel-items',
       'GET    /orders/:id/returns',
       'POST   /orders/:id/returns',
+      'POST   /orders/:id/not-received',
       'GET    /orders/:id/seller-feedback',
       'PUT    /orders/:id/seller-feedback',
       'DELETE /orders/:id/seller-feedback',

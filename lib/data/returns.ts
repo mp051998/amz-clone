@@ -1,5 +1,5 @@
 import type { Db } from '../db/client';
-import type { OrderReturn, ReturnReason, ReturnResolution, ReturnStatus } from '../types';
+import type { Order, OrderReturn, ReturnReason, ReturnResolution, ReturnStatus } from '../types';
 import { DataError, unwrap } from './errors';
 
 /**
@@ -57,6 +57,7 @@ export function toReturn(json: unknown): OrderReturn {
     taxMinor: Number(r.tax_minor ?? 0),
     shipMinor: Number(r.ship_minor ?? 0),
     ...(Number(r.protection_minor ?? 0) ? { protectionMinor: Number(r.protection_minor) } : {}),
+    ...(Number(r.wrap_minor ?? 0) ? { wrapMinor: Number(r.wrap_minor) } : {}),
     refundMinor: Number(r.refund_minor ?? 0),
     refund: refund ? { status: refund, refundedAt: str(r.refunded_at) } : undefined,
     dropoffCode: String(r.dropoff_code ?? ''),
@@ -129,6 +130,21 @@ export function canStartReturn(r: OrderReturns, now: Date = new Date()): boolean
     Date.parse(r.returnBy) >= now.getTime() &&
     Object.values(r.returnable).some((n) => n > 0)
   );
+}
+
+/** How long after it's marked delivered a missing package can be reported. */
+export const NOT_RECEIVED_DAYS = 30;
+
+/**
+ * The last moment to report the order missing, or null when it can't be: not delivered yet, past
+ * the window, something's been returned, or it was cash on delivery (nothing paid without it).
+ */
+export function reportMissingUntil(order: Order, r: OrderReturns | null, now: Date = new Date()): Date | null {
+  if (order.status !== 'placed' || order.paymentMethod === 'cod' || !order.deliveredAt || !r) return null;
+  const delivered = Date.parse(order.deliveredAt);
+  const until = new Date(delivered + NOT_RECEIVED_DAYS * 86_400_000);
+  if (delivered > now.getTime() || until.getTime() < now.getTime()) return null;
+  return r.returns.every((x) => x.status === 'cancelled') ? until : null;
 }
 
 export interface ReturnInput {
