@@ -338,7 +338,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                       <ResultCard
                         ranked={r}
                         store={store}
-                        top={page === 1 && i === 0 && sort === 'match'}
+                        top={page === 1 && i === 0 && sort === 'match' && r.product.stock > 0}
                         saved={saved.has(r.product.id)}
                         bestForFallback={presetSpec?.bestFor}
                         priority={page === 1 && i < 3}

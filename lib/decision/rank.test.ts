@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { product } from '@/test/fixtures/decision';
 import { decisionConfig } from './attributes';
 import { rankOne, rankProducts, strength, warn, why } from './rank';
+import { foldVariants } from '../variants';
 import type { ProductInsight } from './types';
 
 const cfg = decisionConfig('electronics');
@@ -32,6 +33,30 @@ describe('rank', () => {
     const sound = rankProducts([a, b], ins, { sound: 5, battery: 0, comfort: 1, anc: 5, value: 0 });
     expect(sound.map((r) => r.product.id)).toEqual(['b', 'a']);
     expect(sound[0].match).toBeGreaterThan(sound[1].match);
+  });
+
+  it('puts products in stock first, whatever the sort', () => {
+    const gone = product({ id: 'gone', title: 'Gamma Headphones 60h battery', priceMinor: 1000, rating: 4.9, stock: 0 });
+    const all = new Map([...ins, ['gone', insight('gone', { sound: 5, battery: 5, comfort: 5, anc: 5, value: 5 })]]);
+    for (const sort of ['match', 'price-asc', 'price-desc', 'rating'] as const) {
+      const ids = rankProducts([gone, a, b], all, cfg.defaultWeights, { sort }).map((r) => r.product.id);
+      expect(ids.at(-1)).toBe('gone');
+    }
+    // among themselves, the sort still applies
+    const ids = rankProducts([gone, a, b], all, cfg.defaultWeights, { sort: 'price-desc' }).map((r) => r.product.id);
+    expect(ids).toEqual(['b', 'a', 'gone']);
+  });
+
+  it('so folding variants keeps the best option that is in stock', () => {
+    const v = (id: string, label: string, stock: number) => product({ id, priceMinor: 5000, stock, variant: { group: 'g1', axis: 'Color', label } });
+    const black = v('black', 'Black', 0);
+    const white = v('white', 'White', 9);
+    const scores = { sound: 4, battery: 4, comfort: 4, anc: 4, value: 4 };
+    const all = new Map([
+      ['black', insight('black', { ...scores, sound: 5 })],
+      ['white', insight('white', scores)],
+    ]);
+    expect(foldVariants(rankProducts([black, white], all, cfg.defaultWeights), (r) => r.product).map((r) => r.product.id)).toEqual(['white']);
   });
 
   it('filters to the budget and supports price sorts', () => {

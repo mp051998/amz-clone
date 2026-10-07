@@ -101,6 +101,9 @@ export function rankOne(
 /**
  * Rank products against weights: filters to the budget, scores each (insight
  * or rules estimate), and sorts. Ties on match break by rating, then price.
+ * Whatever the sort, products in stock come before those that aren't, so a
+ * list never leads with something the shopper can't buy (and folding variants
+ * keeps a group's best option that is in stock).
  */
 export function rankProducts(
   products: Product[],
@@ -120,5 +123,6 @@ export function rankProducts(
     'price-desc': (a, b) => b.product.priceMinor - a.product.priceMinor || b.match - a.match,
     rating: (a, b) => b.product.rating - a.product.rating || b.product.reviewCount - a.product.reviewCount,
   };
-  return ranked.sort(cmp[sort]);
+  const unbuyable = (r: RankedProduct) => (r.product.stock > 0 ? 0 : 1);
+  return ranked.sort((a, b) => unbuyable(a) - unbuyable(b) || cmp[sort](a, b));
 }
