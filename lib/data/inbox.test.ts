@@ -3,6 +3,7 @@ import type { Order } from '../types';
 import { buildInbox, INBOX_LIMIT, isNewMessage, orderSubject, type InboxAnswer, type InboxReply, type InboxReturn } from './inbox';
 
 vi.mock('./orders', () => ({ listOrders: async () => [] }));
+vi.mock('./reviews', () => ({ awaitingReview: async () => [] }));
 
 const NOW = new Date('2026-10-06T12:00:00Z');
 
@@ -118,6 +119,20 @@ it('says when items were cancelled from an order that kept coming, and when thei
   expect(inbox.map((m) => m.key)).toEqual(['items_cancelled:c3', 'items_cancelled:c2', 'items_refunded:c1', 'items_cancelled:c1']);
   expect(inbox.find((m) => m.key === 'items_refunded:c1')).toMatchObject({ subject: 'Mug and 1 more', amountMinor: 5400, href: '/orders/P?placed=0', orderId: 'P' });
   expect(inbox.find((m) => m.key === 'items_cancelled:c2')).toMatchObject({ subject: 'Mug', at: '2026-10-05T10:00:00Z' });
+});
+
+it('asks for a review two days after something arrives, until it is reviewed', () => {
+  const toReview = [
+    { product: { id: 'k', title: 'Electric Kettle 1.7L' }, orderId: 'D', deliveredAt: '2026-10-03T09:00:00Z' },
+    // arrived yesterday: not yet
+    { product: { id: 'm', title: 'Mug' }, orderId: 'E', deliveredAt: '2026-10-05T12:00:00Z' },
+    // too long ago
+    { product: { id: 'o', title: 'Old' }, orderId: 'F', deliveredAt: '2026-06-01T09:00:00Z' },
+  ];
+  const inbox = buildInbox({ orders: [], returns: [], replies: [], answers: [], toReview }, NOW);
+  expect(inbox).toEqual([
+    { key: 'review_request:k', kind: 'review_request', at: '2026-10-05T09:00:00.000Z', subject: 'Electric Kettle 1.7L', href: '/product/k#write-review', orderId: 'D' },
+  ]);
 });
 
 it('keeps the latest ones when there are too many', () => {

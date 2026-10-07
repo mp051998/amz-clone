@@ -102,6 +102,15 @@ it('says which items were cancelled and what came back for them', async () => {
   expect(cancelled).toHaveTextContent('The rest of your order is still coming.');
 });
 
+it('asks for a review of what arrived, linking to the review form', async () => {
+  state.list = [msg({ key: 'review_request:k', kind: 'review_request', at: '2026-10-06T06:00:00Z', subject: 'Electric Kettle', href: '/product/k#write-review' })];
+  render(await MessagesPage());
+  const [row] = screen.getAllByRole('listitem');
+  expect(within(row).getByText('How was it?')).toBeInTheDocument();
+  expect(within(row).getByRole('link', { name: 'Electric Kettle' })).toHaveAttribute('href', '/product/k#write-review');
+  expect(row).toHaveTextContent('Rate it and tell other shoppers what you think.');
+});
+
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {
   state.store = amazonIn;
   state.seenAt = '2026-10-05T10:00:00Z';

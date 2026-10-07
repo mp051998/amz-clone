@@ -4,6 +4,7 @@ import { inboxSeenAt, listInbox, markInboxSeen } from '@/lib/data/inbox';
 import { cancelOrder, placeOrder } from '@/lib/data/orders';
 import { answerQuestion, askQuestion } from '@/lib/data/questions';
 import { requestReturn } from '@/lib/data/returns';
+import { upsertReview } from '@/lib/data/reviews';
 import { openCase, replyToCase } from '@/lib/data/support';
 import { admin, anon, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, type TestUser } from './helpers';
 
@@ -111,5 +112,25 @@ describe('your messages', () => {
     expect(call.error).not.toBeNull();
     const read = await anon().from('inbox_reads').select('seen_at');
     expect(read.data ?? []).toEqual([]);
+  });
+
+  it('asks for a review a couple of days after something arrives, until it is reviewed', async () => {
+    const reviewer = await newUser('Inbox Reviewer');
+    try {
+      const p = await pickProduct('IN', 53);
+      const o = await placeOrder(reviewer.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 1 } });
+      await deliveredDaysAgo(o.id, 1);
+      // arrived yesterday: too soon to ask
+      expect((await inbox(reviewer)).filter((m) => m.kind === 'review_request')).toEqual([]);
+      await deliveredDaysAgo(o.id, 3);
+      const [ask] = (await inbox(reviewer)).filter((m) => m.kind === 'review_request');
+      expect(ask).toMatchObject({ key: `review_request:${p.id}`, orderId: o.id, href: `/product/${p.id}#write-review` });
+      // the US store's messages don't ask about it
+      expect((await inbox(reviewer, 'US')).filter((m) => m.kind === 'review_request')).toEqual([]);
+      await upsertReview(reviewer.db, p.id, reviewer.id, { rating: 5, title: 'Works well', body: 'Does what it says, every day.' });
+      expect((await inbox(reviewer)).filter((m) => m.kind === 'review_request')).toEqual([]);
+    } finally {
+      await deleteUser(reviewer);
+    }
   });
 });
