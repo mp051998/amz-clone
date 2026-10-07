@@ -29,6 +29,12 @@ vi.mock('./admin-questions', () => ({
   },
 }));
 const support = vi.hoisted(() => ({ cases: [{ updatedAt: '2026-10-01T09:00:00Z' }, { updatedAt: '2026-10-02T09:00:00Z' }] as { updatedAt: string }[], waiting: 2 }));
+vi.mock('./product-reports', () => ({
+  listProductReportQueue: async (_db: unknown, _market: unknown, opts: unknown) => {
+    calls.push(['reports', opts]);
+    return { reports: [], total: 9, counts: { open: 9, closed: 1, all: 10 } };
+  },
+}));
 vi.mock('./support', () => ({
   listCaseQueue: async (_db: unknown, _market: unknown, opts: unknown) => {
     calls.push(['support', opts]);
@@ -58,6 +64,7 @@ describe('adminOverview', () => {
       returns: { open: 2, refundIssues: 0 },
       reportedReviews: 3,
       unansweredQuestions: 5,
+      productReports: 9,
       support: { waiting: 2, oldestWaiting: '2026-10-01T09:00:00Z' },
       stock: { out: 6, low: 8 },
     });
@@ -66,6 +73,7 @@ describe('adminOverview', () => {
       returns: { filter: 'open' },
       reviews: { view: 'reported' },
       questions: { view: 'unanswered' },
+      reports: { view: 'open' },
       support: { view: 'waiting' },
       stock: 'IN',
     });
@@ -84,6 +92,7 @@ describe('attentionCount', () => {
     returns: { open: 0, refundIssues: 0 },
     reportedReviews: 0,
     unansweredQuestions: 0,
+    productReports: 0,
     support: { waiting: 0, oldestWaiting: null },
     stock: { out: 0, low: 0 },
   };
@@ -98,9 +107,10 @@ describe('attentionCount', () => {
       returns: { open: 3, refundIssues: 4 },
       reportedReviews: 5,
       unansweredQuestions: 6,
+      productReports: 8,
       support: { waiting: 7, oldestWaiting: '2026-10-01T09:00:00Z' },
       stock: { out: 9, low: 9 },
     };
-    expect(attentionCount(o)).toBe(28);
+    expect(attentionCount(o)).toBe(36);
   });
 });

@@ -19,6 +19,7 @@ import { RecordView } from '@/components/product/RecordView';
 import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { QuestionsPanel } from '@/components/product/QuestionsPanel';
+import { ReportIssue } from '@/components/product/ReportIssue';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
@@ -51,6 +52,7 @@ import { plusMembership } from '@/lib/data/plus';
 import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/data/questions';
+import { myOpenReport } from '@/lib/data/product-reports';
 import type { Product } from '@/lib/types';
 
 type SP = Record<string, string | string[] | undefined>;
@@ -135,7 +137,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -150,6 +152,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     listQuestions(client, p.id, user?.id ?? null, { limit: 10 }).catch((): QuestionPage => ({ items: [], total: 0 })),
     countAnsweredQuestions(client, p.id),
     sellerRatings(client, store.id, [p.seller]).catch(() => new Map<string, SellerRating>()),
+    user && !p.archived ? myOpenReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -430,6 +433,19 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             <p className="m-0 whitespace-pre-line text-[15px] leading-relaxed text-ink-2 text-pretty">{info.description}</p>
           </section>
         ) : null}
+
+        {p.archived ? null : (
+          <section id="report" aria-label="Report an issue" className="flex max-w-[860px] flex-col gap-2 border-t border-line pt-4">
+            <ReportIssue
+              productId={p.id}
+              signedIn={Boolean(user)}
+              signinHref={storePath(store, `/signin?next=${encodeURIComponent(`${here}#report`)}`)}
+              open={myReport}
+              locale={store.locale.default}
+              timeZone={store.dates.timeZone}
+            />
+          </section>
+        )}
 
         <BrowsingHistory products={recent} store={store} />
       </div>

@@ -20,6 +20,7 @@ const SECTIONS = [
   { path: '/admin/returns', label: 'Returns' },
   { path: '/admin/reviews', label: 'Reviews' },
   { path: '/admin/questions', label: 'Questions' },
+  { path: '/admin/product-reports', label: 'Reports' },
   { path: '/admin/support', label: 'Support' },
 ] as const;
 

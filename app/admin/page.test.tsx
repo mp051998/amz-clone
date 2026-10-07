@@ -25,6 +25,7 @@ const quiet = (): AdminOverview => ({
   returns: { open: 0, refundIssues: 0 },
   reportedReviews: 0,
   unansweredQuestions: 0,
+  productReports: 0,
   support: { waiting: 0, oldestWaiting: null },
   stock: { out: 0, low: 0 },
 });
@@ -46,6 +47,7 @@ it('counts each queue and links to it in this store', async () => {
     returns: { open: 2, refundIssues: 0 },
     reportedReviews: 3,
     unansweredQuestions: 0,
+    productReports: 5,
     support: { waiting: 2, oldestWaiting: '2026-10-01T09:00:00Z' },
     stock: { out: 6, low: 8 },
   } satisfies AdminOverview;
@@ -53,7 +55,7 @@ it('counts each queue and links to it in this store', async () => {
 
   expect(state.markets).toEqual(['IN']);
   expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeTruthy();
-  expect(screen.getByText('12 things need doing in this store.')).toBeTruthy();
+  expect(screen.getByText('17 things need doing in this store.')).toBeTruthy();
 
   const expected: [string, string, string][] = [
     ['Orders to ship', '4', '/in/admin/orders?filter=preparing'],
@@ -64,6 +66,7 @@ it('counts each queue and links to it in this store', async () => {
     ['Support cases waiting', '2', '/in/admin/support'],
     ['Reported reviews', '3', '/in/admin/reviews'],
     ['Unanswered questions', '0', '/in/admin/questions'],
+    ['Product reports', '5', '/in/admin/product-reports'],
     ['Out of stock', '6', '/in/admin/products?stock=out'],
     ['Low stock', '8', '/in/admin/products?stock=low'],
   ];
