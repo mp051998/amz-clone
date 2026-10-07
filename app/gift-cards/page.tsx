@@ -27,6 +27,12 @@ const DENOMS: Record<'US' | 'IN', number[]> = {
   IN: [100, 250, 500, 1000, 5000],
 };
 
+/** Reload presets, whole currency units. */
+const RELOADS: Record<'US' | 'IN', number[]> = {
+  US: [25, 50, 100, 200],
+  IN: [500, 1000, 2000, 5000],
+};
+
 const FORMATS = [
   { title: 'eGift card', desc: 'Delivered by email in minutes — good for last-minute gifting.' },
   { title: 'Print at home', desc: 'Personalise it, print it, and hand it over yourself.' },
@@ -46,11 +52,13 @@ const OCCASIONS: Record<'US' | 'IN', Record<string, string>> = {
   },
 };
 
-type SP = { claimed?: string; bought?: string; canceled?: string; error?: string; occasion?: string };
+/** `for=reload`: a reload's return trip (its cancel or error shows by the balance, not the gift cards). */
+type SP = { claimed?: string; bought?: string; reloaded?: string; canceled?: string; error?: string; occasion?: string; for?: string };
 
-function entryText(e: BalanceEntry): string {
+function entryText(e: BalanceEntry, reloadText: string): string {
   switch (e.kind) {
     case 'gift_card': return e.giftCardCode ? `Gift card ${e.giftCardCode}` : 'Gift card';
+    case 'reload': return reloadText;
     case 'order': return e.orderId ? `Order ${e.orderId}` : 'Order';
     default: return e.orderId ? `Refund for order ${e.orderId}` : 'Refund';
   }
@@ -77,7 +85,16 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
   const occasions = OCCASIONS[isIN ? 'IN' : 'US'];
   const limits = GIFT_CARD_LIMITS[store.id];
   const whole = (minor: number) => wholeMoney(minor, store.currency.code);
-  const bought = sp0.bought ? purchases.find((p) => p.id === sp0.bought) : undefined;
+  const giftCards = purchases.filter((p) => !p.reload);
+  const bought = sp0.bought ? giftCards.find((p) => p.id === sp0.bought) : undefined;
+  const reloaded = sp0.reloaded ? purchases.find((p) => p.id === sp0.reloaded && p.reload && p.status === 'paid') : undefined;
+  const forReload = sp0.for === 'reload';
+  // amazon.in adds money to the balance; amazon.com reloads it
+  const reloadTitle = isIN ? 'Add money to your balance' : 'Reload your balance';
+  const reloadVerb = isIN ? 'Add' : 'Reload';
+  const reloadText = isIN ? 'Money added by card' : 'Reload by card';
+  const errorAlert = sp0.error ? <Alert tone="error">{messageFor(sp0.error) ?? 'Something went wrong. Please try again.'}</Alert> : null;
+  const canceledAlert = sp0.canceled ? <Alert tone="info">Payment canceled. You haven’t been charged.</Alert> : null;
   const buyNext = (occasion?: string) => `/gift-cards${occasion ? `?occasion=${encodeURIComponent(occasion)}` : ''}#buy`;
   const signinToBuy = (occasion?: string) => sp(`/signin?next=${encodeURIComponent(buyNext(occasion))}`);
 
@@ -108,8 +125,8 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
         </div>
 
         <Section id="buy" title="Buy a gift card" note={`${whole(limits.minMinor)}–${whole(limits.maxMinor)}, paid by card`}>
-          {sp0.canceled ? <Alert tone="info">Payment canceled. You haven’t been charged.</Alert> : null}
-          {sp0.error ? <Alert tone="error">{messageFor(sp0.error) ?? 'Something went wrong. Please try again.'}</Alert> : null}
+          {forReload ? null : canceledAlert}
+          {forReload ? null : errorAlert}
           {user && stripeConfigured ? (
             <Card>
               <BuyForm
@@ -153,7 +170,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
           )}
         </Section>
 
-        {user && purchases.length ? (
+        {user && giftCards.length ? (
           <Section id="purchases" title="Gift cards you bought" note="Give the code, or redeem it yourself below">
             {bought?.code ? (
               <Alert tone="success">
@@ -162,7 +179,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
               </Alert>
             ) : null}
             <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-2">
-              {purchases.map((p) => (
+              {giftCards.map((p) => (
                 <li key={p.id}>
                   <Card className="flex flex-col gap-2">
                     <div className="flex items-baseline justify-between gap-3">
@@ -197,6 +214,9 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
           {sp0.claimed && demo && !demo.redeemed ? (
             <Alert tone="success">Your demo gift card is ready: <b className="font-mono">{demo.code}</b>. Redeem it below, or give the code to someone.</Alert>
           ) : null}
+          {reloaded ? <Alert tone="success">{whole(reloaded.amountMinor)} added to your balance.</Alert> : null}
+          {forReload ? canceledAlert : null}
+          {forReload ? errorAlert : null}
           {user && balance !== null ? (
             <div className="grid gap-3.5 md:grid-cols-2">
               <Card className="flex flex-col gap-3">
@@ -228,7 +248,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
                     {history.map((e) => (
                       <li key={e.id} className="flex items-baseline justify-between gap-3 text-[14px]">
                         <span className="min-w-0">
-                          <span className="block truncate text-ink">{entryText(e)}</span>
+                          <span className="block truncate text-ink">{entryText(e, reloadText)}</span>
                           <span className="text-[13px] text-ink-3">{shortDate(new Date(e.at), store)}</span>
                         </span>
                         <span className={cn('flex-none font-semibold tabular-nums', e.amountMinor > 0 ? 'text-good' : 'text-ink')}>
@@ -238,9 +258,22 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
                     ))}
                   </ul>
                 ) : (
-                  <p className="m-0 text-[14px] text-ink-2">Nothing yet. Redeemed cards, orders and refunds show up here.</p>
+                  <p className="m-0 text-[14px] text-ink-2">Nothing yet. Redeemed cards, reloads, orders and refunds show up here.</p>
                 )}
               </Card>
+              {stripeConfigured ? (
+                <div id="reload" className="scroll-mt-28 md:col-span-2">
+                  <Card className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-0.5">
+                      <h3 className="m-0 text-[17px] font-semibold text-ink">{reloadTitle}</h3>
+                      <p className="m-0 text-[14px] text-ink-2">
+                        Pay by card and it goes straight onto your balance, no code to redeem. {whole(limits.minMinor)}–{whole(limits.maxMinor)} at a time.
+                      </p>
+                    </div>
+                    <BuyForm kind="reload" reloadVerb={reloadVerb} denoms={RELOADS[isIN ? 'IN' : 'US']} min={limits.minMinor / 100} max={limits.maxMinor / 100} symbol={sym} locale={store.locale.default} />
+                  </Card>
+                </div>
+              ) : null}
             </div>
           ) : user ? (
             <Card>

@@ -7,16 +7,16 @@ import { listOrders } from './orders';
 /**
  * "Your transactions": every charge and refund in a store, newest first, built from what the
  * store already keeps: orders (charged when placed, or on delivery for cash on delivery),
- * refunds for cancelled orders, cancelled items and received returns, and gift card purchases.
+ * refunds for cancelled orders, cancelled items and received returns, gift card purchases and balance reloads.
  */
 
 export type TransactionStatus = 'completed' | 'pending' | 'failed' | 'due';
 
 export interface Transaction {
-  /** stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `return:<id>` or `gift:<id>` */
+  /** stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `return:<id>` or `gift:<id>` (gift cards and reloads) */
   key: string;
   kind: 'charge' | 'refund';
-  source: 'order' | 'cancellation' | 'return' | 'gift_card';
+  source: 'order' | 'cancellation' | 'return' | 'gift_card' | 'reload';
   amountMinor: number;
   at: string;
   /** `due`: cash on delivery not delivered yet */
@@ -101,7 +101,7 @@ export function buildTransactions(orders: Order[], returns: ReturnRefund[], gift
       .map((g): Transaction => ({
         key: `gift:${g.id}`,
         kind: 'charge',
-        source: 'gift_card',
+        source: g.reload ? 'reload' : 'gift_card',
         amountMinor: g.amountMinor,
         at: g.paidAt ?? g.createdAt,
         status: 'completed',

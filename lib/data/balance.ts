@@ -3,7 +3,7 @@ import type { Market, PaymentMethod } from '../types';
 import { DataError, unwrap } from './errors';
 
 /**
- * Gift card balance, per shopper and store. Redeeming a gift card code tops it up; paying
+ * Gift card balance, per shopper and store. Redeeming a gift card code or reloading it by card tops it up; paying
  * with the store balance (`giftcard` in the US, `amazonpay` in India) takes the order total
  * when the order is placed, and refunds of those orders go back to it. The database does
  * all the arithmetic (place_order fails with insufficient_balance); this module reads it.
@@ -24,9 +24,9 @@ export interface GiftCard {
 
 export interface BalanceEntry {
   id: number;
-  /** positive for money in (a redeemed card, a refund), negative for an order */
+  /** positive for money in (a redeemed card, a reload, a refund), negative for an order */
   amountMinor: number;
-  kind: 'gift_card' | 'order' | 'refund';
+  kind: 'gift_card' | 'order' | 'refund' | 'reload';
   orderId: string | null;
   giftCardCode: string | null;
   at: string;

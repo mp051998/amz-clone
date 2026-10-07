@@ -8,6 +8,7 @@ import { DataError, unwrap } from './errors';
  * Buying gift cards. The database records the purchase as awaiting payment; the shopper pays by
  * card on Stripe hosted Checkout (lib/data/payments.ts), and only a session Stripe reports as
  * paid issues the code. Bought codes can be given away or redeemed into the buyer's own balance.
+ * A reload ("Reload Your Balance") is paid the same way and goes straight onto the buyer's balance.
  */
 
 /** What a store sells, in minor units; whole currency units only (the database checks the same). */
@@ -35,6 +36,8 @@ export interface GiftCardPurchase {
   /** set once paid */
   code: string | null;
   redeemed: boolean;
+  /** a reload of the buyer's own balance: no code, no recipient */
+  reload: boolean;
   createdAt: string;
   paidAt: string | null;
 }
@@ -49,6 +52,8 @@ export interface PurchaseRow {
   status: string;
   code: string | null;
   redeemed: boolean;
+  /** absent before the balance-reload migration */
+  reload?: boolean;
   created_at: string;
   paid_at: string | null;
 }
@@ -64,6 +69,7 @@ export function toPurchase(r: PurchaseRow): GiftCardPurchase {
     status: r.status === 'paid' ? 'paid' : 'awaiting_payment',
     code: r.code,
     redeemed: r.redeemed,
+    reload: r.reload ?? false,
     createdAt: r.created_at,
     paidAt: r.paid_at,
   };
@@ -106,7 +112,14 @@ export async function startGiftCardPurchase(db: Db, market: Market, input: Purch
   return toPurchase(row);
 }
 
-/** The caller's paid gift card purchases in a store, newest first (empty before the migration). */
+/** Record a reload of the caller's balance awaiting payment (signed in), within the gift card limits. */
+export async function startBalanceReload(db: Db, market: Market, amountMinor: unknown): Promise<GiftCardPurchase> {
+  const p = checkPurchase(market, { amountMinor });
+  const row = unwrap(await db.rpc('start_balance_reload', { p_market: market, p_amount_minor: p.amountMinor })) as unknown as PurchaseRow;
+  return toPurchase(row);
+}
+
+/** The caller's paid gift card purchases and reloads in a store, newest first (empty before the migration). */
 export async function listGiftCardPurchases(db: Db, market: Market, limit = 20): Promise<GiftCardPurchase[]> {
   const res = await db.rpc('my_gift_card_purchases', { p_market: market, p_limit: limit });
   if (res.error) return [];

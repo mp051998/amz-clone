@@ -18,6 +18,7 @@ const TITLE: Record<Transaction['source'], string> = {
   cancellation: 'Refund: cancelled order',
   return: 'Refund: return',
   gift_card: 'Gift card purchase',
+  reload: 'Balance reload',
 };
 
 const STATUS: Partial<Record<Transaction['status'], string>> = {
@@ -52,7 +53,7 @@ export default async function TransactionsPage() {
         <div className="flex flex-col gap-1.5">
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your transactions</h1>
-          <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns and gift cards.</span>
+          <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns, gift cards and balance reloads.</span>
         </div>
 
         {!list.length ? (

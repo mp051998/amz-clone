@@ -1,7 +1,7 @@
 'use client';
-import { useActionState, useState } from 'react';
+import { useActionState, useId, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { buyGiftCardAction, type BuyState } from '@/app/actions/gift-cards';
+import { buyGiftCardAction, reloadBalanceAction, type BuyState } from '@/app/actions/gift-cards';
 import { GIFT_MESSAGE_MAX, RECIPIENT_MAX } from '@/lib/data/gift-card-purchases';
 import { Alert } from '../primitives/Alert';
 import { Button } from '../primitives/Button';
@@ -18,6 +18,12 @@ export interface BuyFormProps {
   locale: string;
   /** prefilled from an occasion ("Happy birthday!") */
   defaultMessage?: string;
+  /**
+   * `reload`: the amount goes onto the shopper's own balance (no recipient or message), with
+   * `reloadVerb` on the button ("Reload $50", amazon.in's "Add ₹1,000").
+   */
+  kind?: 'gift' | 'reload';
+  reloadVerb?: string;
 }
 
 function Submit({ label, disabled }: { label: string; disabled: boolean }) {
@@ -29,9 +35,11 @@ function Submit({ label, disabled }: { label: string; disabled: boolean }) {
   );
 }
 
-/** Pick an amount (or type one), who it's for and a message, then pay by card on Stripe. */
-export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '' }: BuyFormProps) {
-  const [state, action] = useActionState<BuyState, FormData>(buyGiftCardAction, {});
+/** Pick an amount (or type one), who it's for and a message, then pay by card on Stripe. A reload asks for the amount only. */
+export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '', kind = 'gift', reloadVerb = 'Reload' }: BuyFormProps) {
+  const reload = kind === 'reload';
+  const [state, action] = useActionState<BuyState, FormData>(reload ? reloadBalanceAction : buyGiftCardAction, {});
+  const id = useId();
   const [choice, setChoice] = useState<number | 'custom'>(denoms[1] ?? denoms[0]);
   const [custom, setCustom] = useState('');
   const [message, setMessage] = useState(defaultMessage);
@@ -48,7 +56,7 @@ export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '' 
       <input type="hidden" name="amountMinor" value={inRange ? amount * 100 : ''} />
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-2 p-0 text-[14px] font-semibold text-ink">Amount</legend>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3', reload ? 'lg:grid-cols-5' : 'lg:grid-cols-6')}>
           {denoms.map((d) => (
             <label
               key={d}
@@ -73,49 +81,57 @@ export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '' 
           </label>
         </div>
         {choice === 'custom' ? (
-          <label htmlFor="gift-amount" className="flex max-w-[240px] flex-col gap-1.5 text-[14px] font-semibold">
+          <label htmlFor={`${id}-amount`} className="flex max-w-[240px] flex-col gap-1.5 text-[14px] font-semibold">
             Custom amount ({symbol})
             <input
-              id="gift-amount"
+              id={`${id}-amount`}
               inputMode="numeric"
               autoFocus
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
               placeholder={String(min * 10)}
               aria-invalid={amountError ? true : undefined}
-              aria-describedby={amountError ? 'gift-amount-error' : undefined}
+              aria-describedby={amountError ? `${id}-amount-error` : undefined}
               className={cn(fieldClass, 'font-normal tabular-nums')}
             />
           </label>
         ) : null}
-        {amountError ? <p id="gift-amount-error" role="alert" className="m-0 text-[13px] text-bad">⚠ {amountError}</p> : null}
+        {amountError ? <p id={`${id}-amount-error`} role="alert" className="m-0 text-[13px] text-bad">⚠ {amountError}</p> : null}
       </fieldset>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <label htmlFor="gift-to" className="flex flex-col gap-1.5 text-[14px] font-semibold">
-          To <span className="font-normal text-ink-3">(optional)</span>
-          <input id="gift-to" name="recipientName" maxLength={RECIPIENT_MAX} autoComplete="off" placeholder="Their name" className={cn(fieldClass, 'font-normal')} />
-        </label>
-        <label htmlFor="gift-message" className="flex flex-col gap-1.5 text-[14px] font-semibold md:row-span-2">
-          Message <span className="font-normal text-ink-3">(optional)</span>
-          <textarea
-            id="gift-message"
-            name="message"
-            rows={3}
-            maxLength={GIFT_MESSAGE_MAX}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Enjoy!"
-            className={cn(fieldClass, 'h-auto py-2.5 font-normal leading-normal')}
-          />
-          <span className="text-[12px] font-normal text-ink-3 tabular-nums">{message.length}/{GIFT_MESSAGE_MAX}</span>
-        </label>
-      </div>
+      {reload ? null : (
+        <div className="grid gap-3 md:grid-cols-2">
+          <label htmlFor="gift-to" className="flex flex-col gap-1.5 text-[14px] font-semibold">
+            To <span className="font-normal text-ink-3">(optional)</span>
+            <input id="gift-to" name="recipientName" maxLength={RECIPIENT_MAX} autoComplete="off" placeholder="Their name" className={cn(fieldClass, 'font-normal')} />
+          </label>
+          <label htmlFor="gift-message" className="flex flex-col gap-1.5 text-[14px] font-semibold md:row-span-2">
+            Message <span className="font-normal text-ink-3">(optional)</span>
+            <textarea
+              id="gift-message"
+              name="message"
+              rows={3}
+              maxLength={GIFT_MESSAGE_MAX}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Enjoy!"
+              className={cn(fieldClass, 'h-auto py-2.5 font-normal leading-normal')}
+            />
+            <span className="text-[12px] font-normal text-ink-3 tabular-nums">{message.length}/{GIFT_MESSAGE_MAX}</span>
+          </label>
+        </div>
+      )}
 
       {state.error && state.field !== 'amount' ? <Alert tone="error">{state.error}</Alert> : null}
       <div className="flex flex-wrap items-center gap-3">
-        <Submit label={inRange ? `Buy ${fmt(amount)} gift card` : 'Buy gift card'} disabled={!inRange} />
-        <span className="text-[13px] text-ink-3">You’ll pay by card on Stripe’s secure page. The code appears here once it’s paid.</span>
+        {reload ? (
+          <Submit label={inRange ? `${reloadVerb} ${fmt(amount)}` : reloadVerb} disabled={!inRange} />
+        ) : (
+          <Submit label={inRange ? `Buy ${fmt(amount)} gift card` : 'Buy gift card'} disabled={!inRange} />
+        )}
+        <span className="text-[13px] text-ink-3">
+          {reload ? 'You’ll pay by card on Stripe’s secure page. It’s added to your balance once it’s paid.' : 'You’ll pay by card on Stripe’s secure page. The code appears here once it’s paid.'}
+        </span>
       </div>
     </form>
   );

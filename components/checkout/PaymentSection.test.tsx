@@ -22,6 +22,13 @@ it('points to redeeming a gift card when the balance is short', () => {
   expect(screen.getByRole('link', { name: 'Redeem a gift card' })).toHaveAttribute('href', '/in/gift-cards#balance');
 });
 
+it('offers adding money to the balance when card payments are set up', () => {
+  render(<PaymentSection {...base} methods={['giftcard']} balance={{ text: '$5.00', short: true, redeemHref: '/gift-cards#balance', reloadHref: '/gift-cards#reload' }} />);
+  fireEvent.click(screen.getByLabelText(/Gift card balance/));
+  expect(screen.getByRole('link', { name: 'add money to your balance' })).toHaveAttribute('href', '/gift-cards#reload');
+  expect(screen.getByText(/doesn.t cover this order/)).toHaveTextContent(/Redeem a gift card, add money to your balance, or choose another payment method\.$/);
+});
+
 it('without a readable balance, it doesn’t invent one', () => {
   render(<PaymentSection {...base} methods={['giftcard']} />);
   expect(screen.queryByText(/Available balance/)).toBeNull();

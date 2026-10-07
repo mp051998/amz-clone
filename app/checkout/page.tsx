@@ -193,7 +193,7 @@ export default async function CheckoutPage({
     .filter((m) => (m !== 'card' || stripeConfigured) && (m !== 'emi' || totals.totalMinor >= EMI_MIN_MINOR));
   // balance methods pay the whole order from the gift card balance (null before balances exist)
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
-    ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance') }
+    ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance'), reloadHref: stripeConfigured ? sp('/gift-cards#reload') : undefined }
     : undefined;
 
   return shell(

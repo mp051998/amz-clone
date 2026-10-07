@@ -29,6 +29,13 @@ it('maps a purchase row', () => {
     }),
   ).toEqual({
     id: 'p1', market: 'IN', amountMinor: 50_000, currency: 'INR', recipientName: null, message: 'Happy Diwali!',
-    status: 'paid', code: 'A1B2-C3D4E5-F6A7', redeemed: true, createdAt: 'c', paidAt: 'p',
+    status: 'paid', code: 'A1B2-C3D4E5-F6A7', redeemed: true, reload: false, createdAt: 'c', paidAt: 'p',
   });
+  // a balance reload: paid into the buyer's own balance, so no code
+  expect(
+    toPurchase({
+      id: 'r1', market_id: 'US', amount_minor: 5_000, currency: 'USD', recipient_name: null, message: null,
+      status: 'paid', code: null, redeemed: false, reload: true, created_at: 'c', paid_at: 'p',
+    }),
+  ).toMatchObject({ reload: true, code: null });
 });
