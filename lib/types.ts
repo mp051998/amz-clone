@@ -255,6 +255,8 @@ export interface Order {
   emiMonths?: number;
   /** the promotion code used at checkout (absent without one) */
   promoCode?: string;
+  /** India: the business buyer's GSTIN and name for a GST invoice (absent without one) */
+  gst?: { gstin: string; name: string };
 }
 
 /**

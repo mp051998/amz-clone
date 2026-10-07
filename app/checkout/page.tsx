@@ -9,6 +9,8 @@ import { AddressStep } from '@/components/checkout/AddressStep';
 import { BuyNowQty } from '@/components/checkout/BuyNowQty';
 import { DeliverySpeed } from '@/components/checkout/DeliverySpeed';
 import { GiftOption } from '@/components/checkout/GiftOption';
+import { GstOption } from '@/components/checkout/GstOption';
+import { GST_NAME_MAX } from '@/lib/gst';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StepCard } from '@/components/checkout/StepCard';
@@ -265,6 +267,7 @@ export default async function CheckoutPage({
               />
             ) : null}
             <GiftOption max={GIFT_NOTE_MAX} wrapFee={wrapFee === null ? undefined : money(wrapFee)} />
+            {isIN ? <GstOption nameMax={GST_NAME_MAX} /> : null}
           </StepCard>
           <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">
             <h2 id="co-items-h" className="m-0 text-[13px] font-normal text-ink-3">Items ({count})</h2>

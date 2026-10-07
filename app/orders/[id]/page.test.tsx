@@ -231,6 +231,16 @@ it('no gift row for an ordinary order', async () => {
   expect(screen.queryByText('Gift', { selector: 'dt' })).toBeNull();
 });
 
+it('a GST invoice order shows the business and its GSTIN', async () => {
+  state.order = order({ gst: { gstin: '27AAPFU0939F1ZV', name: 'Acme Traders' } });
+  await show();
+  expect(screen.getByText('GST invoice', { selector: 'dt' }).nextElementSibling).toHaveTextContent('Acme Traders · GSTIN 27AAPFU0939F1ZV');
+  cleanup();
+  state.order = order();
+  await show();
+  expect(screen.queryByText('GST invoice', { selector: 'dt' })).toBeNull();
+});
+
 it('an unpaid card order offers to finish paying or cancel', async () => {
   state.order = order({ status: 'awaiting_payment', paymentLabel: undefined });
   await show();

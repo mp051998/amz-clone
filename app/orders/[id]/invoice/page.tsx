@@ -89,14 +89,25 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
         </dl>
 
-        <section aria-labelledby="ship-h" className="flex flex-col gap-1.5 text-[14px]">
-          <h2 id="ship-h" className="m-0 text-[15px] font-semibold">Shipping address</h2>
-          <address className="not-italic leading-relaxed text-ink-2">
-            {addressLines(order.shipTo).map((l) => (
-              <span key={l} className="block">{l}</span>
-            ))}
-          </address>
-        </section>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-6">
+          {order.gst ? (
+            <section aria-labelledby="bill-h" className="flex flex-col gap-1.5 text-[14px]">
+              <h2 id="bill-h" className="m-0 text-[15px] font-semibold">Billed to</h2>
+              <p className="m-0 leading-relaxed text-ink-2">
+                <span className="block">{order.gst.name}</span>
+                <span className="block">GSTIN <span className="font-mono">{order.gst.gstin}</span></span>
+              </p>
+            </section>
+          ) : null}
+          <section aria-labelledby="ship-h" className="flex flex-col gap-1.5 text-[14px]">
+            <h2 id="ship-h" className="m-0 text-[15px] font-semibold">Shipping address</h2>
+            <address className="not-italic leading-relaxed text-ink-2">
+              {addressLines(order.shipTo).map((l) => (
+                <span key={l} className="block">{l}</span>
+              ))}
+            </address>
+          </section>
+        </div>
 
         <section aria-labelledby="items-h" className="flex flex-col gap-2">
           <h2 id="items-h" className="m-0 text-[15px] font-semibold">Items</h2>

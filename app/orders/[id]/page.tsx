@@ -251,6 +251,7 @@ export default async function OrderPage({
             ...(order.shipTo.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{order.shipTo.instructions}</span> }] : []),
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
+            ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),
             { label: 'Paid with', value: paidWithText(order) },
             ...(order.emiMonths ? [{ label: 'EMI', value: emiText(order.totals.totalMinor, order.emiMonths, money) }] : []),
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
