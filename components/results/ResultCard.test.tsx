@@ -46,6 +46,14 @@ it('leaves them out when the product has none', () => {
   expect(card).not.toHaveTextContent(/Best Seller|bought in past month|Limited-time deal/);
 });
 
+it('puts the unit price beside the price when the product says how much it holds', () => {
+  const card = show({ priceMinor: 5899, listMinor: undefined, unit: { qty: 3, kind: 'fl_oz' } });
+  expect(screen.getByRole('text', { name: '$58.99 ($19.66 / Fl Oz)' })).toBeInTheDocument();
+  expect(card).toHaveTextContent('$58.99($19.66 / Fl Oz)');
+  cleanup();
+  expect(show({ listMinor: undefined })).not.toHaveTextContent(/ \/ /);
+});
+
 it('a deal badge is not repeated as a second deal label', () => {
   const card = show({ badge: 'Limited time deal', deal: true });
   expect(card).toHaveTextContent('Limited time deal');

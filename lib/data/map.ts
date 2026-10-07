@@ -1,5 +1,6 @@
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
+import { isUnitKind } from '../unit-price';
 import type { Address, CancelReason, Cart, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus } from '../types';
 
 type ProductRow = Database['public']['Views']['catalog_products_all']['Row'];
@@ -38,6 +39,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     maxPerCustomer: opt(row.max_per_customer),
     // absent on rows read before the sizes migration lands
     ...(row.sizes?.length ? { sizes: row.sizes } : {}),
+    // absent on rows read before the unit price migration lands
+    ...(row.unit_qty != null && isUnitKind(row.unit_kind) ? { unit: { qty: Number(row.unit_qty), kind: row.unit_kind } } : {}),
   };
 }
 

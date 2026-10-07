@@ -1,4 +1,5 @@
 import type { CurrencyCode } from './contracts';
+import type { ProductUnit } from './unit-price';
 
 /** Storefront id — amazon.com (US) or amazon.in (IN). */
 export type Market = 'US' | 'IN';
@@ -35,6 +36,8 @@ export interface Product {
   maxPerCustomer?: number;
   /** the sizes it comes in (clothes, shoes): one is picked before it goes in the cart (absent: no sizes). */
   sizes?: string[];
+  /** how much it holds (3 fl oz, 150 ml), for the unit price beside its price (absent: none). */
+  unit?: ProductUnit;
 }
 
 export interface Category {

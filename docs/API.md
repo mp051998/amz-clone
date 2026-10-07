@@ -118,6 +118,7 @@ Postgres as that user, so RLS decides what each caller can see.
 - Fulfilment: `seller, shipsFrom, stock, maxPerCustomer?`. `maxPerCustomer` is the product's "Limit N per customer", when it has one (see *Purchase limits* under Orders)
 - Content: `bullets[], badge?, boughtPastMonth?`
 - Variant: `variant?: {group, axis, label}` when the product is one option of a variant group (`/products/:id` lists the others)
+- Unit price: `unit?: {qty, kind}` says how much a product sold by measure holds (`{qty: 3, kind: "fl_oz"}`, `{qty: 150, kind: "ml"}`, `{qty: 30, kind: "count"}`); `kind` is one of `count`, `oz`, `fl_oz`, `lb`, `g`, `kg`, `ml`, `l` and `qty` has up to 2 decimals. The storefront shows the price per unit beside the price, as Amazon does: per one count, ounce, fluid ounce, pound, kilogram or litre, or per 100 g / 100 ml (`$58.99 ($19.66 / Fl Oz)`, `₹178 (₹118.67 / 100 ml)`)
 - Sizes: `sizes?: string[]` for clothes and shoes that come in sizes (`["7", "7.5", …]`, `["UK 6", …]`, `["S", "M", …]`), in the order the size chart lists them. One of them is picked before it goes in the cart or is bought with Buy Now; all sizes share the product's `stock`
 - Status: `archived?`, true when an admin has taken it off sale. Archived products never appear in search and browse (`/products`), deals or compare. Their page and reviews stay, and carts and collections that already hold one keep it.
 
@@ -404,13 +405,14 @@ Catalog and order management for store admins. You must be signed in **and** lis
 | PATCH | `/admin/products/:id` | any `ProductInput` fields, and/or `archived` | `{product}`. Fields you leave out keep their values. `archived: true` takes it off sale; `false` puts it back. Archiving an archived product keeps its original `archivedAt`. |
 | DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 
-`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, couponPct?, maxPerCustomer?, sizes?, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, couponPct?, maxPerCustomer?, sizes?, unit?, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
 - `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
 - `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.
 - `couponPct`: the product's coupon, a whole percent from 5 to 50; null or left out on create: none. Changing it keeps shoppers' coupons applied at the new percent; null removes the coupon and takes it off their carts.
 - `maxPerCustomer`: "Limit N per customer", a whole number from 1 to 99; null or left out on create: no limit. Lowering it doesn't touch orders already placed, but shoppers who've bought that many can't buy more.
 - `sizes`: the sizes it comes in, in size-chart order: 1 to 20 different sizes, each up to 12 characters (`["S", "M", "L"]`, `["UK 6", "UK 7"]`); null or left out on create: it doesn't come in sizes. Shoppers pick one before it goes in the cart. Cart lines in a size it no longer comes in need a new one before checkout; orders keep the size they were placed in.
+- `unit`: how much it holds, `{qty, kind}` as on `Product.unit` (`qty` above 0 and up to 100,000, rounded to 2 decimals; `422 invalid_input`, `detail: "unit"`, otherwise); null or left out on create: none, and no unit price. The admin form takes it as text, like `3 fl oz`, `150 ml` or `30 count`.
 - `bullets`: up to 10, each up to 300 characters.
 - `description`: the product page's "Product description", up to 2,000 characters (blank or left out: none).
 - `details`: the "Product information" table, up to 20 `[label, value]` rows (labels up to 40 characters, values up to 200). Left out on create: empty. The admin form edits it as one `Label: value` per line.
@@ -626,6 +628,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | promo codes | `promo_codes` (no client access): a store's codes, a percent off the order or one category, with a minimum spend, uses per customer and dates; `orders.promo_code` and `order_items.unit_promo_minor` (inside `unit_discount_minor`); `checkout_quote()` prices the caller's checkout with a code, `active_promo_codes()` (anyone) lists the running ones, and `place_order()` takes `p_promo_code` |
 | purchase limits | `products.max_per_customer` (in `catalog_products`); a before-insert trigger on `order_items` refuses a line that takes the customer past it, counting their orders that aren't cancelled; `purchase_allowance()` (caller) says how many of each limited product they've bought |
 | also viewed | `product_coviews` (no client access): views per pair of products in a store; `record_product_view()` (anyone) counts a view with up to 5 products seen before it, and `also_viewed()` (anyone) lists the products most viewed with one, as ids and counts |
+| unit price | `products.unit_qty` and `unit_kind` (both or neither; admin-writable, in `catalog_products`), what a product sold by measure holds; for databases seeded earlier, the sized beauty products and multi-packs. The storefront works out the price per unit |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.
@@ -644,6 +647,7 @@ Tests: `npm run test:db` runs `test/integration/*` against the local stack. It c
 - related searches: only searches that find something are counted, the three-search threshold, shared-word ranking, reordered words and store isolation
 - missing packages: the whole-order refund, the 30-day window, one report per order, cash on delivery, and sending it again (stock out now, nothing refunded, no second replacement, still returnable for a refund, refused without taking stock when sold out)
 - replacement return windows: nothing changes until the replacement arrives, then its window runs from that day; after the order's window only the replacement units can go back, for a refund and never another swap, and both windows closing shuts the order
+- unit price: an admin sets, changes and clears what a product holds (rounded to 2 decimals), shoppers read it off the catalog and search, an unknown unit is refused, the database refuses half a unit, and only admins write it
 - bought together: pairs from placed orders only, the two-shopper threshold, sold-out products left out, and the product page's pick (order pairs first, then accessories)
 - admin catalog: product writes (including the description and spec table), archiving (listings, carts, checkout, saved lists), insights on save, and categories (create, rename, store navs, reorder, delete guards)
 - buy again: one entry per product across orders, newest first, cancelled orders left out, per store and per shopper, sold-out and archived products last, and the API route

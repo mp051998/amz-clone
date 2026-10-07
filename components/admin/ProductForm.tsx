@@ -26,6 +26,8 @@ export interface ProductFormValues {
   limit: string;
   /** the sizes it comes in, comma-separated ("S, M, L"), blank for none. */
   sizes: string;
+  /** how much it holds ("3 fl oz"), blank for none. */
+  unit: string;
   badge: string;
   boughtPastMonth: string;
   seller: string;
@@ -181,6 +183,17 @@ export function ProductForm({
               hint="Optional, for clothes and shoes: up to 20, comma-separated, in size-chart order. Shoppers pick one before adding it to their cart; every size shares the stock."
               autoCapitalize="none"
               spellCheck={false}
+            />
+            <Input
+              label="Unit count"
+              name="unit"
+              defaultValue={val('unit')}
+              error={e.unit}
+              placeholder="3 fl oz"
+              hint="Optional: how much it holds, in count, oz, fl oz, lb, g, kg, ml or l. Shoppers see the price per unit beside the price, like ($6.55 / Fl Oz)."
+              autoCapitalize="none"
+              spellCheck={false}
+              className="sm:max-w-[240px]"
             />
             <div className="flex flex-col gap-1">
               <Checkbox label="Show on Today’s Deals" name="deal" defaultChecked={v ? v.deal === 'on' : initial.deal} />

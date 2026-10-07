@@ -13,6 +13,7 @@ const good: ProductInput = {
   couponPct: null,
   maxPerCustomer: null,
   sizes: null,
+  unit: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Acme Store',
@@ -76,6 +77,17 @@ describe('validateProduct', () => {
     }
     const { sizes: _, ...noSizes } = good;
     expect(validateProduct(noSizes)).toMatchObject({ ok: true, data: { sizes: null } });
+  });
+
+  it('takes how much it holds in a known unit, rounded to 2 decimals, and none by default', () => {
+    expect(validateProduct({ ...good, unit: { qty: 1.856, kind: 'oz' } })).toMatchObject({ ok: true, data: { unit: { qty: 1.86, kind: 'oz' } } });
+    expect(validateProduct({ ...good, unit: { qty: 150, kind: 'ml' } })).toMatchObject({ ok: true, data: { unit: { qty: 150, kind: 'ml' } } });
+    for (const bad of [{ qty: 0, kind: 'ml' }, { qty: 0.001, kind: 'ml' }, { qty: -3, kind: 'oz' }, { qty: 100_001, kind: 'g' }, { qty: 3, kind: 'cup' }, { qty: 3 }]) {
+      const res = validateProduct({ ...good, unit: bad });
+      expect(!res.ok && res.errors.unit).toBeTruthy();
+    }
+    const { unit: _, ...noUnit } = good;
+    expect(validateProduct(noUnit)).toMatchObject({ ok: true, data: { unit: null } });
   });
 
   it('takes site paths and https URLs only', () => {

@@ -3,6 +3,7 @@ import { shortTitle } from '@/lib/decision/verdict';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { toStoreMinor } from '@/lib/fx';
+import { unitPriceText } from '@/lib/unit-price';
 import type { VariantSummary } from '@/lib/variants';
 import { cn } from '../lib/cn';
 import type { Store } from '../lib/store';
@@ -79,7 +80,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
       </div>
       {variants ? <VariantSwatches variants={variants} currentId={p.id} store={store} /> : null}
       <div className="flex flex-col gap-0.5">
-        <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} />
+        <Price minor={price} currency={cur} listMinor={list} listLabel={store.id === 'IN' ? store.pricing.listLabel : undefined} size={22} unitText={p.unit ? unitPriceText(price, cur, p.unit) : undefined} />
         {p.deal && !/deal/i.test(p.badge ?? '') ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
         {couponPct ? (
           <span className="flex items-center gap-1.5 text-[13px] text-ink-2">

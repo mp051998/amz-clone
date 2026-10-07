@@ -13,6 +13,8 @@ export interface PriceProps {
   listLabel?: string;
   /** font size of the price in px (default 22). */
   size?: number;
+  /** the unit price beside it, e.g. "$6.55 / Fl Oz" (lib/unit-price). */
+  unitText?: string;
   className?: string;
 }
 
@@ -20,14 +22,15 @@ export interface PriceProps {
  * Bold whole price, struck list/MRP in ink-3, green "% off" (design.md §5 Price). Store-aware through
  * `currency` (formatMoney: $1,299.00 vs ₹1,29,999). One accessible label carries the full sentence.
  */
-export function Price({ minor, currency, listMinor, showSavings = true, listLabel, size = 22, className }: PriceProps) {
+export function Price({ minor, currency, listMinor, showSavings = true, listLabel, size = 22, unitText, className }: PriceProps) {
   const full = formatMoney(minor, currency);
   const hasList = listMinor != null && listMinor > minor;
   const savings = hasList ? Math.round((1 - minor / listMinor!) * 100) : 0;
-  const label = hasList ? `${full}, was ${formatMoney(listMinor!, currency)}${savings > 0 ? `, ${savings}% off` : ''}` : full;
+  const label = (hasList ? `${full}, was ${formatMoney(listMinor!, currency)}${savings > 0 ? `, ${savings}% off` : ''}` : full) + (unitText ? ` (${unitText})` : '');
   return (
     <span role="text" aria-label={label} className={cn('inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5', className)}>
       <strong aria-hidden className="font-bold leading-none tracking-[-0.01em] text-ink tabular-nums" style={{ fontSize: size }}>{full}</strong>
+      {unitText ? <span aria-hidden className="text-[13px] text-ink-2 tabular-nums">({unitText})</span> : null}
       {hasList ? (
         <s aria-hidden className="text-[14px] text-ink-3 tabular-nums">
           {listLabel ? `${listLabel} ` : ''}{formatMoney(listMinor!, currency)}

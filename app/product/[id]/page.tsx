@@ -49,6 +49,7 @@ import { recentProducts } from '@/lib/recent-products';
 import { bestsellerRank } from '@/lib/bestseller-rank';
 import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
+import { unitPriceText, unitSizeText } from '@/lib/unit-price';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
 import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
@@ -252,6 +253,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       rows: [
         ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
+        ...(p.unit ? [{ k: 'Unit count', v: unitSizeText(p.unit) }] : []),
         ...(info.details.length ? [] : rankRow),
         {
           k: 'Sold by',
@@ -339,7 +341,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
               {p.archived ? null : (
                 <div className="flex flex-col gap-1 border-t border-line pt-4">
-                  <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} />
+                  <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} unitText={p.unit ? unitPriceText(priceMinor, cur, p.unit) : undefined} />
                   {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
                   <EmiOffer plans={emiPlans(store.id, priceMinor)} currency={cur} />
                   {coupon ? (
