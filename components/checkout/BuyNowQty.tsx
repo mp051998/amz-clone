@@ -7,7 +7,8 @@ export const BUY_NOW_MAX = 10;
  * −/+ quantity for Buy Now's one line at checkout. Each step is a link that reopens checkout
  * at the new quantity (no JS, and nothing typed into the order form travels in the URL).
  * Stops at 1 and at the stock on hand, capped at BUY_NOW_MAX; when there's less stock than
- * the quantity asked for, − stays open so it can come back down. A protection plan stays on.
+ * the quantity asked for, − stays open so it can come back down. A protection plan and a
+ * promotion code stay on.
  */
 export function BuyNowQty({
   checkoutHref,
@@ -16,6 +17,7 @@ export function BuyNowQty({
   stock,
   name,
   protection,
+  promo,
 }: {
   checkoutHref: string;
   productId: string;
@@ -23,9 +25,10 @@ export function BuyNowQty({
   stock: number;
   name: string;
   protection?: boolean;
+  promo?: string;
 }) {
   const max = Math.min(BUY_NOW_MAX, Math.max(stock, 1));
-  const at = (n: number) => `${checkoutHref}?${buyNowQuery({ productId, qty: n, protection })}`;
+  const at = (n: number) => `${checkoutHref}?${buyNowQuery({ productId, qty: n, protection })}${promo ? `&promo=${encodeURIComponent(promo)}` : ''}`;
   const btn = 'flex h-9 w-9 items-center justify-center bg-surface text-[17px] leading-none text-ink no-underline transition-colors hover:bg-surface-2 hover:text-ink';
   const off = 'flex h-9 w-9 items-center justify-center bg-surface text-[17px] leading-none text-ink-4 cursor-not-allowed';
   const step = (to: number, label: string, glyph: string, ok: boolean) =>

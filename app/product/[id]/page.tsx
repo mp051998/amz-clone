@@ -60,6 +60,9 @@ import { protectionOffer } from '@/lib/data/cart';
 import { protectionPlanName } from '@/lib/protection';
 import { emiPlans } from '@/lib/emi';
 import { EmiOffer } from '@/components/product/EmiOffer';
+import { PromoOffers } from '@/components/product/PromoOffers';
+import { activePromoCodes } from '@/lib/data/promo';
+import { promosFor } from '@/lib/promo';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -143,7 +146,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -161,6 +164,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     user && !p.archived ? myOpenReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : frequentlyReturned(client, p.id).catch(() => null),
     p.archived ? Promise.resolve(null) : protectionOffer(client, p.id).catch(() => null),
+    p.archived ? Promise.resolve([]) : activePromoCodes(client, store.id),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -339,6 +343,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                       next={`/product/${encodeURIComponent(p.id)}`}
                     />
                   ) : null}
+                  <PromoOffers promos={promosFor(promos, p.category)} currency={cur} allHref={storePath(store, '/coupons#promo-codes')} />
                   {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
                 </div>
               )}

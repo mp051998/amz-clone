@@ -15,3 +15,8 @@ export function promoProblem(code: string, detail: string | undefined, money: (m
   }
   return fallback;
 }
+
+/** The promotions that take money off a product in `category`: the store-wide ones and its department's, biggest first. */
+export function promosFor<T extends { percentOff: number; category?: { slug: string } }>(promos: readonly T[], category: string): T[] {
+  return promos.filter((p) => !p.category || p.category.slug === category).sort((x, y) => y.percentOff - x.percentOff);
+}
