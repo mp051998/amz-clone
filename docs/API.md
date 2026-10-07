@@ -110,9 +110,10 @@ Postgres as that user, so RLS decides what each caller can see.
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/products/:id/reviews?limit=10&offset=0&sort=top&stars=&verified=` | | `{items: Review[], total, mine}`. `sort=top` (default): most helpful first, then newest. `sort=recent`: newest first. `stars`: `1`–`5`, `positive` (4–5★) or `critical` (1–3★); `verified=1` keeps verified purchases; `total` counts the filtered reviews. With auth, your own review is pinned to the top of page 1 when it passes the filter. |
-| POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body}` | `201 {review}`. Creates or replaces your one review of the product. The DB sets `author`, `verified` (true when an order of yours containing it has been delivered, worked out on every write) and keeps the product's rating rollup current. |
-| DELETE 🔒 | `/reviews/:id` | | `204`. Only works on your own review (`404` otherwise). |
+| GET | `/products/:id/reviews?limit=10&offset=0&sort=top&stars=&verified=` | | `{items: Review[], total, mine, images}`. `sort=top` (default): most helpful first, then newest. `sort=recent`: newest first. `stars`: `1`–`5`, `positive` (4–5★) or `critical` (1–3★); `verified=1` keeps verified purchases; `total` counts the filtered reviews. With auth, your own review is pinned to the top of page 1 when it passes the filter. `images`: "Customer images", the newest photos across its visible reviews, `[{reviewId, path, url, rating, author}]` (up to 12). |
+| POST 🔒 | `/products/:id/reviews` | `{rating: 1..5, title, body, photos?}` | `201 {review}`. Creates or replaces your one review of the product. `photos`: up to 5 `path`s from `POST /me/review-photos`, in order; leave it out to keep the ones it has, `[]` to clear them (`422 invalid_input`, `detail` `photos`, for more than 5, repeats, or a photo that isn't one of yours). Photos taken off are deleted. The DB sets `author`, `verified` (true when an order of yours containing it has been delivered, worked out on every write) and keeps the product's rating rollup current. |
+| POST 🔒 | `/me/review-photos` | `multipart/form-data`, image in `photo` | `201 {photo: {path, url}}`. JPEG, PNG or WebP up to 3 MB (`422 invalid_input`, `detail` `photo`). It shows once a review of yours lists its `path`. |
+| DELETE 🔒 | `/reviews/:id` | | `204`. Only works on your own review (`404` otherwise). Its photos are deleted too. |
 | POST 🔒 | `/reviews/:id/helpful` | | Toggle. Returns `{reviewId, helpful, helpfulCount}`. Returns `409 own_review` on your own review. |
 | POST 🔒 | `/reviews/:id/report` | `{reason: spam\|offensive\|off_topic\|other}` | `204`. Idempotent. Three open reports (from different shoppers, since an admin last looked) hide the review until an admin keeps it. |
 
@@ -120,6 +121,7 @@ Postgres as that user, so RLS decides what each caller can see.
 - Content: `id, author, initial, rating, title, body, createdAt`
 - Status: `verified, helpful`
 - Viewer state: `mine, votedHelpful, reported`
+- `photos: [{path, url}]`: up to 5, in the author's order. `url` is public.
 - `hidden: true` only on your own review while it's hidden (by reports or an admin). Hidden reviews are left out of `items` and `total` for everyone else, and out of the star rating.
 
 ## Questions & answers
@@ -413,10 +415,10 @@ Reviews of this store's products that shoppers reported, or that are hidden. A r
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/reviews?view=&page=` | | `{reviews: [{id, productId, productTitle, author, rating, title, body, verified, seeded, helpful, createdAt, hiddenAt, hiddenReason, moderatedAt, openReports, lastReportedAt, reasons}], total, page, pageSize, counts: {reported, hidden}}`. 25 a page. `view`: `reported` (the default: open reports, most reported first) or `hidden` (hidden by `reports` or `admin`, newest first). `reasons` counts open reports by reason, e.g. `{spam: 2, offensive: 1}`. |
+| GET | `/admin/reviews?view=&page=` | | `{reviews: [{id, productId, productTitle, author, rating, title, body, verified, seeded, helpful, createdAt, hiddenAt, hiddenReason, moderatedAt, openReports, lastReportedAt, reasons, photos}], total, page, pageSize, counts: {reported, hidden}}`. 25 a page. `view`: `reported` (the default: open reports, most reported first) or `hidden` (hidden by `reports` or `admin`, newest first). `reasons` counts open reports by reason, e.g. `{spam: 2, offensive: 1}`. |
 | POST | `/admin/reviews/:id/keep` | | `{review: {id, deleted, hiddenAt, hiddenReason, moderatedAt}}`. Visible again; the reports so far are resolved, so it takes three new ones to hide it again. |
 | POST | `/admin/reviews/:id/hide` | | `{review}`. Hidden by an admin until kept; also resolves the open reports. |
-| DELETE | `/admin/reviews/:id` | | `{review: {id, deleted: true}}`. Removes the review with its votes and reports. |
+| DELETE | `/admin/reviews/:id` | | `{review: {id, deleted: true}}`. Removes the review with its votes, reports and photos. |
 
 Another store's review is `404 review_not_found`. Shoppers can't change the moderation fields, not even on their own review: editing a hidden review keeps it hidden.
 
@@ -546,6 +548,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | support seen | `support_cases.customer_seen_at`: when the shopper last opened the case or wrote on it (a trigger on their messages). `my_unread_support_cases()` lists their cases with a store reply since, and `mark_support_case_seen()` (owner) records a visit |
 | saved stock | `collection_items.saved_in_stock`: whether the product was in stock when saved, stamped by the insert trigger with the saved price and kept by `move_collection_item()` |
 | inbox seen | `inbox_reads`: when each shopper last read their messages, per store (theirs to read). `mark_inbox_seen()` records a visit and never moves it back |
+| review photos | `reviews.photos` (up to 5 storage paths) and the public `review-photos` bucket: shoppers upload to and delete from their own folder only, admins can delete any. A trigger (`reviews_photos_check`) lets a shopper's review list only files in their folder, no repeats. `admin_review_queue()` returns `photos`, and `admin_moderate_review()` returns them on delete so the app clears the files |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

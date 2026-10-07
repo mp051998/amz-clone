@@ -100,6 +100,17 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                 </div>
                 <strong id={`rv-${r.id}`} className="text-[17px] font-semibold leading-[1.3]">{r.title}</strong>
                 <p className="m-0 line-clamp-6 whitespace-pre-line text-[15px] leading-[1.55] text-ink-2">{r.body}</p>
+                {r.photos.length ? (
+                  <ul className="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Photos on this review">
+                    {r.photos.map((p, i) => (
+                      <li key={p.path}>
+                        <a href={p.url} target="_blank" rel="noreferrer" className="block size-16 overflow-hidden rounded-image border border-line hover:border-ink">
+                          <img src={p.url} alt={`Photo ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-2 pt-3">
                   <span className="text-[13px] text-ink-3">
                     {r.openReports ? <>Reasons: {reasonsText(r)}{r.lastReportedAt ? ` · last ${adminTime(r.lastReportedAt, store)}` : ''}</> : r.hiddenAt ? <>Hidden {adminTime(r.hiddenAt, store)}</> : null}

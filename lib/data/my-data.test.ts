@@ -47,11 +47,11 @@ describe('shaping the export', () => {
   it('keeps a review and the product it is about', () => {
     const review = {
       id: 'r1', author: 'Asha', initial: 'A', rating: 4, title: 'Boils fast', body: 'Quiet too.', createdAt: '2026-09-10T00:00:00Z',
-      verified: true, helpful: 3, mine: true, votedHelpful: false, reported: false,
+      verified: true, helpful: 3, mine: true, votedHelpful: false, reported: false, photos: [{ path: 'u1/a.jpg', url: 'https://x.test/a.jpg' }],
     };
     expect(reviewRecord({ review, product: kettle })).toEqual({
       id: 'r1', productId: 'kettle', productTitle: 'Electric Kettle 1.7L', rating: 4, title: 'Boils fast', body: 'Quiet too.',
-      verified: true, createdAt: '2026-09-10T00:00:00Z',
+      verified: true, createdAt: '2026-09-10T00:00:00Z', photos: ['https://x.test/a.jpg'],
     });
   });
 

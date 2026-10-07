@@ -1,7 +1,9 @@
 import 'server-only';
 import type { Db } from '../db/client';
-import type { Market } from '../types';
+import { reviewPhoto } from '../review-photos';
+import type { Market, ReviewPhoto } from '../types';
 import { DataError, unwrap } from './errors';
+import { removeReviewPhotos } from './review-photos';
 
 /**
  * Review moderation for store admins (/admin/reviews, /api/v1/admin/reviews). Three open reports
@@ -45,6 +47,7 @@ export interface QueuedReview {
   lastReportedAt?: string;
   /** open reports by reason, e.g. { spam: 2, offensive: 1 } */
   reasons: Record<string, number>;
+  photos: ReviewPhoto[];
 }
 
 export interface ReviewQueuePage {
@@ -65,6 +68,7 @@ export interface ModerationResult {
 
 type Row = Record<string, unknown>;
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
+const paths = (v: unknown): string[] => (Array.isArray(v) ? v.filter((p): p is string => typeof p === 'string') : []);
 
 function toQueued(r: Row): QueuedReview {
   return {
@@ -85,6 +89,7 @@ function toQueued(r: Row): QueuedReview {
     openReports: Number(r.open_reports ?? 0),
     lastReportedAt: str(r.last_reported_at),
     reasons: Object.fromEntries(Object.entries((r.reasons ?? {}) as Row).map(([k, n]) => [k, Number(n)])),
+    photos: paths(r.photos).map(reviewPhoto),
   };
 }
 
@@ -121,9 +126,10 @@ export async function assertStoreReview(db: Db, market: Market, id: string): Pro
   if (!row) throw new DataError('review_not_found');
 }
 
-/** keep: visible again, reports so far resolved. hide: hidden by an admin. delete: gone. */
+/** keep: visible again, reports so far resolved. hide: hidden by an admin. delete: gone, photos too. */
 export async function moderateReview(db: Db, id: string, action: ModerationAction): Promise<ModerationResult> {
   const r = unwrap(await db.rpc('admin_moderate_review', { p_review_id: id, p_action: action })) as Row;
+  if (r.deleted === true) await removeReviewPhotos(db, paths(r.photos));
   return {
     id: String(r.id),
     deleted: r.deleted === true,

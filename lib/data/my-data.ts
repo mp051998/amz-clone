@@ -71,6 +71,8 @@ export interface ReviewRecord {
   body: string;
   verified: boolean;
   createdAt: string;
+  /** public URLs of its photos */
+  photos: string[];
 }
 
 export interface ReturnRecord {
@@ -113,6 +115,7 @@ export function reviewRecord({ review, product }: MyReview): ReviewRecord {
     body: review.body,
     verified: review.verified,
     createdAt: review.createdAt,
+    photos: review.photos.map((p) => p.url),
   };
 }
 

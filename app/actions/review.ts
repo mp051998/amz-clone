@@ -3,8 +3,9 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/supabase/server';
 import { readUser } from '@/lib/auth';
 import * as reviews from '@/lib/data/reviews';
+import { uploadReviewPhoto as storeReviewPhoto } from '@/lib/data/review-photos';
 import { DataError } from '@/lib/data/errors';
-import type { Review } from '@/lib/types';
+import type { Review, ReviewPhoto } from '@/lib/types';
 
 export type ActionResult<T> = ({ ok: true } & T) | { ok: false; code: string; message: string };
 
@@ -25,13 +26,23 @@ async function requireUser() {
 
 export async function submitReview(
   productId: string,
-  input: { rating: number; title: string; body: string; authorName?: string },
+  input: { rating: number; title: string; body: string; authorName?: string; photos?: string[] },
 ): Promise<ActionResult<{ review: Review }>> {
   return run(async () => {
     const user = await requireUser();
     const review = await reviews.upsertReview(await db(), productId, user.id, input);
     revalidatePath(`/product/${productId}`);
     return { review };
+  });
+}
+
+/** Upload one photo (form field `photo`) for the caller's review; it shows once they submit the review. */
+export async function uploadReviewPhoto(form: FormData): Promise<ActionResult<{ photo: ReviewPhoto }>> {
+  return run(async () => {
+    const user = await requireUser();
+    const file = form.get('photo');
+    if (!(file instanceof File)) throw new DataError('invalid_input', 'photo', 'Choose a photo to add.');
+    return { photo: await storeReviewPhoto(await db(), user.id, file) };
   });
 }
 

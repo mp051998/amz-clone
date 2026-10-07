@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-const loads = vi.hoisted(() => ({ calls: [] as unknown[][], items: [] as unknown[] }));
+const loads = vi.hoisted(() => ({ calls: [] as unknown[][], items: [] as unknown[], submitted: [] as unknown[][], uploads: 0 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 vi.mock('@/app/actions/review', () => ({
   loadMoreReviews: async (...args: unknown[]) => {
@@ -10,7 +10,15 @@ vi.mock('@/app/actions/review', () => ({
   },
   removeReview: async () => ({ ok: true }),
   reportReview: async () => ({ ok: true }),
-  submitReview: async () => ({ ok: true }),
+  submitReview: async (...args: unknown[]) => {
+    loads.submitted.push(args);
+    return { ok: true };
+  },
+  uploadReviewPhoto: async (form: FormData) => {
+    loads.uploads += 1;
+    const name = (form.get('photo') as File).name;
+    return { ok: true, photo: { path: `u1/${name}`, url: `https://cdn.test/u1/${name}` } };
+  },
   toggleReviewHelpful: async () => ({ ok: true }),
 }));
 
@@ -27,7 +35,7 @@ const none = facetsOf([0, 0], [0, 0], [0, 0], [0, 0], [0, 0]);
 
 const review = (id: string, rating: number, title: string, over: Record<string, unknown> = {}) => ({
   id, author: 'A', initial: 'A', rating, title, body: 'Body', createdAt: '2026-09-01T00:00:00Z',
-  verified: true, helpful: 0, mine: false, votedHelpful: false, reported: false, ...over,
+  verified: true, helpful: 0, mine: false, votedHelpful: false, reported: false, photos: [], ...over,
 });
 const titles = () => screen.queryAllByRole('article').map((a) => a.querySelector('strong')!.textContent);
 
@@ -51,6 +59,8 @@ const scrolled = vi.fn();
 beforeEach(() => {
   loads.calls = [];
   loads.items = [];
+  loads.submitted = [];
+  loads.uploads = 0;
   scrolled.mockClear();
   Element.prototype.scrollIntoView = scrolled;
   window.history.replaceState(null, '', '/product/p1');
@@ -198,4 +208,64 @@ it('sorts reviews by most recent, reloading as many as were showing', async () =
 it('no sort control for a single review', () => {
   render(<ReviewsPanel {...props({ total: 1 })} />);
   expect(screen.queryByRole('combobox', { name: 'Sort reviews' })).toBeNull();
+});
+
+it('shows customer images and the photos on each review, opening them full size', () => {
+  const photo = (n: number) => ({ path: `u2/${n}.jpg`, url: `https://cdn.test/u2/${n}.jpg` });
+  render(
+    <ReviewsPanel
+      {...props({
+        initial: [review('r1', 5, 'Great kettle', { author: 'Ravi', photos: [photo(1), photo(2)] })],
+        total: 1,
+        customerImages: [{ ...photo(1), reviewId: 'r1', rating: 5, author: 'Ravi' }, { ...photo(2), reviewId: 'r1', rating: 5, author: 'Ravi' }],
+      })}
+    />,
+  );
+  const strip = screen.getByRole('region', { name: 'Customer images' });
+  expect(strip.querySelectorAll('img')).toHaveLength(2);
+  expect(screen.getByRole('button', { name: 'Open photo 1 of 2, from Ravi’s 5-star review' })).toBeInTheDocument();
+
+  const article = screen.getByRole('article');
+  expect(article.querySelectorAll('img')[1]).toHaveAttribute('src', 'https://cdn.test/u2/2.jpg');
+  fireEvent.click(screen.getByRole('button', { name: 'Open photo 2 of 2 from Ravi' }));
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+});
+
+it('has no customer images section when no review has photos', () => {
+  render(<ReviewsPanel {...props({ initial: [review('r1', 5, 'Great kettle')], total: 1 })} />);
+  expect(screen.queryByRole('region', { name: 'Customer images' })).not.toBeInTheDocument();
+});
+
+it('adds photos to a review as they are picked, and sends them in order', async () => {
+  render(<ReviewsPanel {...props()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Write a review' }));
+  const input = screen.getByLabelText('Add photos');
+  const file = (name: string, type = 'image/jpeg', size = 1000) => new File([new Uint8Array(size)], name, { type });
+
+  // the wrong kind of file never uploads
+  fireEvent.change(input, { target: { files: [file('notes.pdf', 'application/pdf')] } });
+  expect(screen.getByRole('alert')).toHaveTextContent('Use a JPEG, PNG or WebP photo.');
+  expect(loads.uploads).toBe(0);
+
+  await act(async () => {
+    fireEvent.change(input, { target: { files: [file('a.jpg'), file('b.png', 'image/png')] } });
+  });
+  expect(screen.getByAltText('Your photo 1')).toHaveAttribute('src', 'https://cdn.test/u1/a.jpg');
+  expect(screen.getByAltText('Your photo 2')).toHaveAttribute('src', 'https://cdn.test/u1/b.png');
+
+  // too many at once: 3 more is the most that fits
+  fireEvent.change(input, { target: { files: [file('c.jpg'), file('d.jpg'), file('e.jpg'), file('f.jpg')] } });
+  expect(screen.getByRole('alert')).toHaveTextContent('You can add 3 more photos (up to 5).');
+  expect(loads.uploads).toBe(2);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Remove photo 1' }));
+  expect(screen.queryByAltText('Your photo 2')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('radio', { name: '5 stars' }));
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'Lovely' } });
+  fireEvent.change(screen.getByLabelText('Your review'), { target: { value: 'Boils fast.' } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Submit review' }));
+  });
+  expect(loads.submitted).toEqual([['p1', expect.objectContaining({ rating: 5, photos: ['u1/b.png'] })]]);
 });

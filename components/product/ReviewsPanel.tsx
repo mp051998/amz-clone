@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ReviewFacets, ReviewFilter, ReviewSort, ReviewStars } from '@/lib/data/reviews';
+import type { CustomerImage } from '@/lib/data/review-photos';
 import type { RatingSummary, Review } from '@/lib/types';
 import { loadMoreReviews, removeReview, reportReview, submitReview, toggleReviewHelpful } from '@/app/actions/review';
 import { Kicker, SourceTag } from '../decision/Badges';
@@ -10,6 +11,7 @@ import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
 import { fieldClass, selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
+import { CustomerImages, PhotoPicker, ReviewPhotoThumbs } from './ReviewPhotos';
 import { applyFilters, buildFilters, chipCount, facetCount, REVIEW_PAGE, reviewThemes, serverLabels, starsLabel, toggleStars } from './reviewFilters';
 
 export interface ThemeCount { theme: string; count: number }
@@ -36,6 +38,8 @@ export interface ReviewsPanelProps {
   } | null;
   /** an AI summary is being generated in the background (provider on, stored summary is rules) */
   aiPending?: boolean;
+  /** the newest photos from the product's reviews */
+  customerImages?: CustomerImage[];
 }
 
 /** Clickable 1–5 star picker for the write-review form. */
@@ -79,7 +83,7 @@ function scrollToId(id: string) {
  * (so they cover every review, with exact counts); theme chips narrow the loaded reviews. Every
  * write (review, helpful, report, delete) goes through the server actions in app/actions/review.ts.
  */
-export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, locale, timeZone, insight, aiPending }: ReviewsPanelProps) {
+export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, locale, timeZone, insight, aiPending, customerImages = [] }: ReviewsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
@@ -92,7 +96,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
   const [active, setActive] = useState<string[]>([]);
   const [notice, setNotice] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName });
+  const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName, photos: mine?.photos ?? [] });
   const [error, setError] = useState('');
 
   // fresh server data after router.refresh() replaces the local list (and it comes top-first, unfiltered)
@@ -181,7 +185,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     if (!form.rating) return setError('Please select a star rating.');
     if (!form.title.trim() || !form.body.trim()) return setError('Please add a headline and a review.');
     startTransition(async () => {
-      const res = await submitReview(productId, { rating: form.rating, title: form.title, body: form.body, authorName: form.name });
+      const res = await submitReview(productId, { rating: form.rating, title: form.title, body: form.body, authorName: form.name, photos: form.photos.map((p) => p.path) });
       if (!res.ok) return setError(res.message);
       setError('');
       setShowForm(false);
@@ -194,7 +198,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     startTransition(async () => {
       const res = await removeReview(productId, id);
       if (!res.ok) return setNotice((n) => ({ ...n, [id]: res.message }));
-      setForm({ rating: 0, title: '', body: '', name: defaultName });
+      setForm({ rating: 0, title: '', body: '', name: defaultName, photos: [] });
       toast('Your review was deleted');
       router.refresh();
     });
@@ -317,6 +321,8 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
           </div>
         </div>
 
+        <CustomerImages images={customerImages} />
+
         <div className="flex flex-wrap items-center gap-2">
           {written || items.length ? (
             <>
@@ -376,6 +382,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                 placeholder="What did you like or dislike? What did you use it for, and for how long?"
                 className={cn(fieldClass, 'h-auto py-2.5 font-normal leading-normal')} />
             </label>
+            <PhotoPicker photos={form.photos} onChange={(photos) => setForm((f) => ({ ...f, photos }))} disabled={pending} />
             {error ? <p role="alert" className="m-0 text-[13px] text-bad">⚠ {error}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="primary" loading={pending} onClick={onSubmit}>{mine ? 'Update review' : 'Submit review'}</Button>
@@ -405,6 +412,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                 ) : null}
                 <strong className="text-[17px] font-semibold leading-[1.3]">{r.title}</strong>
                 <p className="m-0 whitespace-pre-line text-[15px] leading-[1.55] text-ink-2 text-pretty">{r.body}</p>
+                <ReviewPhotoThumbs photos={r.photos} author={r.author} />
                 {r.hidden ? (
                   <p className="m-0 text-[12px] text-ink-3">Only you can see this review. It was hidden after reports from other shoppers, or by our team, and doesn’t count toward the rating.</p>
                 ) : null}
