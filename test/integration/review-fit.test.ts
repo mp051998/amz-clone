@@ -28,7 +28,7 @@ describe('how it fits, on reviews', () => {
     const counts = await reviewFitCounts(anon(), productId);
     expect(counts).toEqual({ small: 1, true_to_size: 2, large: 0 });
     expect(fitSummary(counts)?.verdict).toBe('true_to_size');
-    const { items } = await listReviews(anon(), productId, null, { limit: 10 });
+    const { items } = await listReviews(anon(), productId, null, { limit: 10, sort: 'recent' });
     expect(Object.fromEntries(items.filter((r) => r.title === 'Fits').map((r) => [r.author, r.fit ?? null]))).toEqual({
       'Fit One': 'small', 'Fit Two': 'true_to_size', 'Fit Three': 'true_to_size', 'Fit Four': null,
     });
