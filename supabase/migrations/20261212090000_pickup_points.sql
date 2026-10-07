@@ -49,7 +49,7 @@ insert into public.pickup_points (id, market_id, kind, name, line1, city, state,
 alter table public.orders
   add column pickup_point_id text references public.pickup_points (id),
   add column pickup_code text check (pickup_code ~ '^[0-9]{6}$'),
-  add constraint orders_pickup_code_check check ((pickup_point_id is null) = (pickup_code is null));
+  add constraint orders_pickup_pair_check check ((pickup_point_id is null) = (pickup_code is null));
 
 -- ---------------------------------------------------------------------------
 -- set_my_order_address (as in 20261101090000_order_address): sending a pickup order to an address
