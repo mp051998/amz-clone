@@ -46,6 +46,7 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   maxPerCustomer: null,
   sizes: null,
   unit: null,
+  qtyDiscount: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Lumen Store',

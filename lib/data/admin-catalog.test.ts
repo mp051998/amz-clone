@@ -14,6 +14,7 @@ const good: ProductInput = {
   maxPerCustomer: null,
   sizes: null,
   unit: null,
+  qtyDiscount: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Acme Store',
@@ -88,6 +89,17 @@ describe('validateProduct', () => {
     }
     const { unit: _, ...noUnit } = good;
     expect(validateProduct(noUnit)).toMatchObject({ ok: true, data: { unit: null } });
+  });
+
+  it('takes a quantity discount of 1–50% from 2–99 units, and none by default', () => {
+    expect(validateProduct({ ...good, qtyDiscount: { percentOff: 5, minQty: 2 } })).toMatchObject({ ok: true, data: { qtyDiscount: { percentOff: 5, minQty: 2 } } });
+    expect(validateProduct({ ...good, qtyDiscount: { percentOff: 50, minQty: 99 } }).ok).toBe(true);
+    for (const bad of [{ percentOff: 0, minQty: 2 }, { percentOff: 51, minQty: 2 }, { percentOff: 2.5, minQty: 2 }, { percentOff: 5, minQty: 1 }, { percentOff: 5, minQty: 100 }, { percentOff: 5 }, { percentOff: NaN, minQty: 2 }]) {
+      const res = validateProduct({ ...good, qtyDiscount: bad });
+      expect(!res.ok && res.errors.qtyDiscount).toBeTruthy();
+    }
+    const { qtyDiscount: _, ...none } = good;
+    expect(validateProduct(none)).toMatchObject({ ok: true, data: { qtyDiscount: null } });
   });
 
   it('takes site paths and https URLs only', () => {

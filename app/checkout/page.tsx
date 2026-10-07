@@ -163,8 +163,9 @@ export default async function CheckoutPage({
   const fastWhen = fast ? byTimeText(fast.eta, store, now) : '';
   const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
   const discount = totals.discountMinor ?? 0;
-  // coupons and the promotion code are shown apart; the discount covers both
-  const couponMinor = discount - (totals.promoMinor ?? 0);
+  // coupons, quantity discounts and the promotion code are shown apart; the discount covers all three
+  const qtyDiscountMinor = totals.qtyDiscountMinor ?? 0;
+  const couponMinor = discount - (totals.promoMinor ?? 0) - qtyDiscountMinor;
   const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
   // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast)
   const bySpeed = (standard: ReactNode, faster: ReactNode) =>
@@ -288,8 +289,11 @@ export default async function CheckoutPage({
                     {l.product.maxPerCustomer ? (
                       <span className={`block text-[13px]${overLimit.includes(l) ? ' font-semibold text-warn' : ' text-ink-3'}`}>{limitNote(l.product.maxPerCustomer, leftOf(l))}</span>
                     ) : null}
-                    {l.discountMinor && l.discountMinor > (l.promoMinor ?? 0) ? (
-                      <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor - (l.promoMinor ?? 0))}</span>
+                    {l.discountMinor && l.discountMinor > (l.promoMinor ?? 0) + (l.qtyDiscountMinor ?? 0) ? (
+                      <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor - (l.promoMinor ?? 0) - (l.qtyDiscountMinor ?? 0))}</span>
+                    ) : null}
+                    {l.qtyDiscountMinor ? (
+                      <span className="block text-[13px] font-semibold text-good-strong">{l.product.qtyDiscount?.percentOff}% quantity discount · −{money(l.qtyDiscountMinor)}</span>
                     ) : null}
                     {l.promoMinor ? <span className="block text-[13px] font-semibold text-good-strong">{promo?.code} · −{money(l.promoMinor)}</span> : null}
                     {l.protection?.added ? (
@@ -322,6 +326,9 @@ export default async function CheckoutPage({
             <div className="flex justify-between gap-3"><dt>Items</dt><dd className="m-0 tabular-nums">{money(totals.subtotalMinor)}</dd></div>
             {couponMinor > 0 ? (
               <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 tabular-nums">−{money(couponMinor)}</dd></div>
+            ) : null}
+            {qtyDiscountMinor > 0 ? (
+              <div className="flex justify-between gap-3 text-good-strong"><dt>Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(qtyDiscountMinor)}</dd></div>
             ) : null}
             {promoMinor > 0 ? (
               <div className="flex justify-between gap-3 text-good-strong"><dt>Promotion ({promo?.code})</dt><dd className="m-0 tabular-nums">−{money(promoMinor)}</dd></div>

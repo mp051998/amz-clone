@@ -28,6 +28,9 @@ export interface ProductFormValues {
   sizes: string;
   /** how much it holds ("3 fl oz"), blank for none. */
   unit: string;
+  /** quantity discount percent and the units it starts at, both blank for none. */
+  qtyPct: string;
+  qtyMin: string;
   badge: string;
   boughtPastMonth: string;
   seller: string;
@@ -195,6 +198,25 @@ export function ProductForm({
               spellCheck={false}
               className="sm:max-w-[240px]"
             />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Quantity discount (% off)"
+                name="qtyPct"
+                inputMode="numeric"
+                defaultValue={val('qtyPct')}
+                error={e.qtyDiscount}
+                placeholder="5"
+                hint="Optional, 1 to 50, off each unit once a shopper buys enough"
+              />
+              <Input
+                label="When buying at least"
+                name="qtyMin"
+                inputMode="numeric"
+                defaultValue={val('qtyMin')}
+                placeholder="2"
+                hint="2 to 99 of it in one order. Shoppers see “Save 5% when you buy 2 or more”."
+              />
+            </div>
             <div className="flex flex-col gap-1">
               <Checkbox label="Show on Today’s Deals" name="deal" defaultChecked={v ? v.deal === 'on' : initial.deal} />
               {e.deal ? <span className="text-[13px] text-bad">⚠ {e.deal}</span> : <span className="text-[13px] text-ink-3">The discount is worked out from the list price.</span>}

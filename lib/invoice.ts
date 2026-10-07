@@ -12,6 +12,8 @@ export interface InvoiceLine {
   amountMinor: number;
   /** what a coupon took off the line (0 without one) */
   discountMinor: number;
+  /** what the quantity discount took off the line (0 without one) */
+  qtyDiscountMinor: number;
   /** what the promotion code took off the line (0 without one) */
   promoMinor: number;
   /** the protection plans bought with the line (0 without one) */
@@ -34,6 +36,8 @@ export interface Invoice {
   subtotalMinor: number;
   /** what coupons took off the items */
   discountMinor: number;
+  /** what quantity discounts took off them (0 without any) */
+  qtyDiscountMinor: number;
   /** what the promotion code took off them (0 without one), and the code */
   promoMinor: number;
   promoCode?: string;
@@ -68,7 +72,8 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,
-    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0)) * it.qty,
+    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0)) * it.qty,
+    qtyDiscountMinor: (it.unitQtyDiscountMinor ?? 0) * it.qty,
     promoMinor: (it.unitPromoMinor ?? 0) * it.qty,
     protectionMinor: (it.protectionMinor ?? 0) * it.qty,
   }));
@@ -96,7 +101,8 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     kind: order.status === 'cancelled' ? 'cancelled' : 'invoice',
     lines,
     subtotalMinor: order.totals.subtotalMinor,
-    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0),
+    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0),
+    qtyDiscountMinor: order.totals.qtyDiscountMinor ?? 0,
     promoMinor: order.totals.promoMinor ?? 0,
     ...(order.promoCode ? { promoCode: order.promoCode } : {}),
     shipMinor: order.totals.shipMinor,

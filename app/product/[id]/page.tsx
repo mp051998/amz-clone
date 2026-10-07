@@ -49,6 +49,7 @@ import { recentProducts } from '@/lib/recent-products';
 import { bestsellerRank } from '@/lib/bestseller-rank';
 import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
+import { qtyDiscountText } from '@/lib/qty-discount';
 import { unitPriceText, unitSizeText } from '@/lib/unit-price';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
@@ -354,6 +355,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                       savingText={formatMoney(couponUnitSavings(priceMinor, coupon.percentOff), cur)}
                       next={`/product/${encodeURIComponent(p.id)}`}
                     />
+                  ) : null}
+                  {p.qtyDiscount ? (
+                    <span className="flex items-center gap-1.5 text-[14px] text-ink-2">
+                      <span className="rounded-tag bg-good-bg px-1.5 py-0.5 text-[12px] font-bold text-good-strong">Buy more, save</span>
+                      {qtyDiscountText(p.qtyDiscount)}
+                    </span>
                   ) : null}
                   <PromoOffers promos={promosFor(promos, p.category)} currency={cur} allHref={storePath(store, '/coupons#promo-codes')} />
                   {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}

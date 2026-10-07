@@ -122,6 +122,8 @@ export function productFormValues(p: AdminProduct): ProductFormValues {
     limit: p.maxPerCustomer == null ? '' : String(p.maxPerCustomer),
     sizes: p.sizes?.join(', ') ?? '',
     unit: p.unit ? unitSizeText(p.unit) : '',
+    qtyPct: p.qtyDiscount ? String(p.qtyDiscount.percentOff) : '',
+    qtyMin: p.qtyDiscount ? String(p.qtyDiscount.minQty) : '',
     badge: p.badge ?? '',
     boughtPastMonth: p.boughtPastMonth ?? '',
     seller: p.seller,
