@@ -896,6 +896,9 @@ isOneToOne: false
 "set_my_order_instructions":
 { Args: { "p_instructions": string,"p_order_id": string }; Returns: Json
                            },
+"set_my_order_address":
+{ Args: { "p_address_id": string,"p_order_id": string }; Returns: Json
+                           },
 "leave_seller_feedback":
 { Args: { "p_as_described"?: boolean,"p_comment"?: string,"p_on_time"?: boolean,"p_order_id": string,"p_rating": number,"p_seller": string }; Returns: Json
                            },

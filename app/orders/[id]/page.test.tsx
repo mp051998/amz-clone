@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][] }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0 }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -16,6 +16,12 @@ vi.mock('@/lib/marketplace-server', () => ({ getMarketplace: async () => amazon 
 vi.mock('@/lib/auth', () => ({ readUser: async () => ({ id: 'u1', email: 'a@b.test' }), firstName: () => 'Asha' }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ getOrder: async () => state.order }));
+vi.mock('@/lib/data/addresses', () => ({
+  listAddresses: async () => {
+    state.addressReads++;
+    return state.addresses;
+  },
+}));
 vi.mock('@/lib/data/reviews', () => ({ reviewedProductIds: async () => new Set(state.reviewed) }));
 vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US' })) }));
 vi.mock('@/lib/decision/server', () => ({
@@ -30,6 +36,7 @@ vi.mock('@/app/actions/order', () => ({
   cancelMyOrder: async () => {},
   payForOrder: async () => {},
   updateOrderInstructions: async () => {},
+  changeOrderAddress: async () => {},
   rateSeller: async () => {},
   removeSellerRating: async () => {},
 }));
@@ -73,6 +80,8 @@ beforeEach(() => {
   state.paired = [];
   state.reviewed = [];
   state.feedback = [];
+  state.addresses = [];
+  state.addressReads = 0;
 });
 
 it('offers a review for each item once the order is delivered', async () => {
@@ -219,6 +228,59 @@ it('says why a change did not go through', async () => {
   state.order = order({ deliveredAt: '2026-09-04T10:00:00Z' });
   await show({ error: 'order_not_editable' });
   expect(screen.getByText('This order is already out for delivery, so its delivery instructions can’t change now.')).toBeInTheDocument();
+});
+
+const home = { id: 'a-home', name: 'Asha Rao', phone: '5550100', line1: '1 Main St', city: 'Austin', state: 'TX', zip: '78701', isDefault: true };
+const office = { id: 'a-office', name: 'Asha Rao', phone: '5550100', line1: '500 Congress Ave', line2: 'Suite 300', city: 'Austin', state: 'TX', zip: '78701', instructions: 'Front desk' };
+const mom = { id: 'a-mom', name: 'Meera Rao', phone: '5550199', line1: '9 Elm St', city: 'Dallas', state: 'TX', zip: '75201' };
+
+it('the address can change to another saved one while the order is being prepared', async () => {
+  state.order = order(FUTURE);
+  state.addresses = [home, office, mom];
+  await show();
+  expect(screen.getByText('Change delivery address')).toBeInTheDocument();
+  const picks = screen.getAllByRole('radio');
+  // where it already goes isn't offered
+  expect(picks.map((r) => (r as HTMLInputElement).value)).toEqual(['a-office', 'a-mom']);
+  expect(picks[0]).toBeChecked();
+  expect(screen.getByRole('radio', { name: /500 Congress Ave, Suite 300, Austin 78701/ })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Deliver here' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Add or edit addresses' })).toHaveAttribute('href', '/account/addresses');
+});
+
+it('with no other saved address, points to the address book', async () => {
+  state.order = order(FUTURE);
+  state.addresses = [home];
+  await show();
+  expect(screen.queryByRole('button', { name: 'Deliver here' })).toBeNull();
+  expect(screen.getByText(/Your address book has no other address in this store/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Add an address' })).toHaveAttribute('href', '/account/addresses');
+});
+
+it('not once it has shipped, and without reading the address book', async () => {
+  state.addresses = [home, office];
+  for (const o of [
+    order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' }),
+    order({ deliveredAt: '2026-09-04T10:00:00Z' }),
+    order({ status: 'awaiting_payment' }),
+    order({ status: 'cancelled' }),
+  ]) {
+    state.order = o;
+    await show();
+    expect(screen.queryByText('Change delivery address')).toBeNull();
+    cleanup();
+  }
+  expect(state.addressReads).toBe(0);
+});
+
+it('confirms the new address, or says why it could not change', async () => {
+  state.order = order({ ...FUTURE, shipTo: { name: 'Meera Rao', phone: '5550199', line1: '9 Elm St', city: 'Dallas', state: 'TX', postcode: '75201' } });
+  await show({ address: 'changed' });
+  expect(screen.getByText('Delivery address changed. We’ll deliver this order to Meera Rao, 9 Elm St, Dallas 75201.')).toBeInTheDocument();
+  cleanup();
+  state.order = order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
+  await show({ error: 'order_address_locked' });
+  expect(screen.getByText('This order’s delivery address can’t change now: it has shipped, or it isn’t placed.')).toBeInTheDocument();
 });
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();

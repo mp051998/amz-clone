@@ -5,7 +5,7 @@ vi.mock('./refunds', () => ({ refundOrder: async () => undefined }));
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { archiveOrder, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderInstructions } from './orders';
+import { archiveOrder, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderAddress, setOrderInstructions } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -101,6 +101,25 @@ describe('setOrderInstructions', () => {
   it('refuses a note over the limit before asking the database', async () => {
     const db = fakeDb();
     await expect(setOrderInstructions(db.db, row.id, 'x'.repeat(251))).rejects.toMatchObject({ code: 'invalid_input', detail: 'instructions' });
+    expect(db.calls).toHaveLength(0);
+  });
+});
+
+describe('setOrderAddress', () => {
+  const addressId = '00000000-0000-4000-8000-00000000000a';
+
+  it('sends the saved address id and reads the moved order back', async () => {
+    const moved = fakeDb({ ...row, ship_name: 'Sam Lee', ship_line1: '1 Pine St', ship_instructions: 'Front desk' });
+    const order = await setOrderAddress(moved.db, row.id, addressId);
+    expect(moved.calls[0]).toEqual({ p_order_id: row.id, p_address_id: addressId });
+    expect(order.shipTo).toMatchObject({ name: 'Sam Lee', line1: '1 Pine St', instructions: 'Front desk' });
+  });
+
+  it('a missing or malformed id is not found, without asking the database', async () => {
+    const db = fakeDb();
+    for (const bad of [undefined, null, '', 'home', 42, `${addressId}x`]) {
+      await expect(setOrderAddress(db.db, row.id, bad)).rejects.toMatchObject({ code: 'address_not_found' });
+    }
     expect(db.calls).toHaveLength(0);
   });
 });

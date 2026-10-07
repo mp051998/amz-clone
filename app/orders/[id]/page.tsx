@@ -7,7 +7,7 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, stepTime } from '@/components/orders/format';
-import { archiveMyOrder, cancelMyOrder, payForOrder, rateSeller, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
+import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateSeller, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
@@ -20,6 +20,7 @@ import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
+import { listAddresses } from '@/lib/data/addresses';
 import { getProducts } from '@/lib/data/catalog';
 import { reviewedProductIds } from '@/lib/data/reviews';
 import { feedbackOpen, feedbackOpenUntil, orderFeedback, orderSellers, type SellerFeedback } from '@/lib/data/seller-feedback';
@@ -29,7 +30,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import type { Db } from '@/lib/db/client';
-import type { Order } from '@/lib/types';
+import type { Address, Order } from '@/lib/types';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -39,6 +40,13 @@ const JUST_PLACED_MS = 10 * 60_000;
 function addressLine(o: Order): string {
   const s = o.shipTo;
   return [s.name, s.line1, s.line2, `${s.city} ${s.postcode}`].filter(Boolean).join(', ');
+}
+
+/** Whether a saved address is where the order already goes (its note aside). */
+function sameAddress(a: Address, s: Order['shipTo']): boolean {
+  const eq = (x?: string, y?: string) => (x ?? '').trim().toLowerCase() === (y ?? '').trim().toLowerCase();
+  return eq(a.name, s.name) && eq(a.phone, s.phone) && eq(a.line1, s.line1) && eq(a.line2, s.line2) && eq(a.landmark, s.landmark)
+    && eq(a.city, s.city) && eq(a.state, s.state) && eq(a.zip, s.postcode);
 }
 
 /** The gift row: the note as written (line breaks kept), or that there is none. */
@@ -68,10 +76,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string; feedback?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string; address?: string; feedback?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, archived, instructions, feedback } = await searchParams;
+  const { placed, cancelled, error, return: returned, archived, instructions, address, feedback } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -91,18 +99,21 @@ export default async function OrderPage({
   // the sellers can be rated once it arrives, for 90 days
   const feedbackUntil = feedbackOpenUntil(order, now);
   const noFeedback = new Map<string, SellerFeedback>();
-  const [returns, current, reviewed, sellerFeedback] = confirming
-    ? [null, [], new Set<string>(), noFeedback]
+  // the address can change until the order ships; delivery instructions until it's out for delivery
+  const stage = orderStage(order, now, store.dates.timeZone);
+  const addressOpen = stage === 'preparing';
+  const instructionsOpen = stage === 'preparing' || stage === 'shipped';
+  const [returns, current, reviewed, sellerFeedback, saved] = confirming
+    ? [null, [], new Set<string>(), noFeedback, []]
     : await Promise.all([
         getOrderReturns(client, order.id),
         getProducts(client, productIds, { includeArchived: true }).catch(() => []),
         view.delivered ? reviewedProductIds(client, user.id, productIds).catch(() => new Set<string>()) : new Set<string>(),
         feedbackUntil ? orderFeedback(client, order.id).catch(() => noFeedback) : noFeedback,
+        addressOpen ? listAddresses(client, store.id).catch((): Address[] => []) : [],
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
-  // delivery instructions can change until the order is out for delivery
-  const stage = orderStage(order, now, store.dates.timeZone);
-  const instructionsOpen = stage === 'preparing' || stage === 'shipped';
+  const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
 
   if (confirming) {
@@ -170,6 +181,8 @@ export default async function OrderPage({
           </Alert>
         ) : archived === '0' && !order.archivedAt ? (
           <Alert tone="success">Order unarchived. It’s back in your order list.</Alert>
+        ) : address === 'changed' ? (
+          <Alert tone="success">Delivery address changed. We’ll deliver this order to {addressLine(order)}.</Alert>
         ) : instructions === 'saved' ? (
           <Alert tone="success">Delivery instructions updated for this order.</Alert>
         ) : instructions === 'cleared' ? (
@@ -200,6 +213,39 @@ export default async function OrderPage({
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}
         />
+
+        {addressOpen ? (
+          <details className="rounded-panel border border-line bg-surface px-[18px] py-3.5" open={error === 'address_not_found' || undefined}>
+            <summary className="cursor-pointer text-[15px] font-semibold text-ink">Change delivery address</summary>
+            {otherAddresses.length ? (
+              <form action={changeOrderAddress.bind(null, order.id)} className="mt-3 flex flex-col gap-3">
+                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                  <legend className="mb-2 p-0 text-[14px] text-ink-2">
+                    Until it ships. The order takes the address’s delivery instructions too; the total stays the same.
+                  </legend>
+                  {otherAddresses.map((a, i) => (
+                    <label key={a.id} className="flex cursor-pointer items-start gap-2.5 rounded-input border border-line px-3 py-2.5 text-[14px] has-[:checked]:border-ink">
+                      <input type="radio" name="addressId" value={a.id} defaultChecked={i === 0} required className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink" />
+                      <span>
+                        <strong className="font-semibold">{a.name}</strong>
+                        {`, ${[a.line1, a.line2, `${a.city} ${a.zip}`].filter(Boolean).join(', ')}`}
+                        {a.isDefault ? <span className="text-ink-3"> · Default</span> : null}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+                <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Deliver here</button>
+              </form>
+            ) : (
+              <p className="mb-0 mt-3 text-[14px] text-ink-2">
+                Your address book has no other address in this store. Add one, then come back here to send this order there before it ships.
+              </p>
+            )}
+            <a href={sp('/account/addresses')} className="mt-3 inline-block text-[14px] text-ink underline underline-offset-2">
+              {otherAddresses.length ? 'Add or edit addresses' : 'Add an address'}
+            </a>
+          </details>
+        ) : null}
 
         {instructionsOpen ? (
           <details className="rounded-panel border border-line bg-surface px-[18px] py-3.5" open={error === 'invalid_input' || undefined}>

@@ -80,6 +80,7 @@ export async function fastShipFee(db: Db, market: Market): Promise<number | null
 }
 
 const ORDER_SELECT = '*, order_items(*)';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Orders that were placed or charged: placed ones (cancelled later or not) and card
 // payments that arrived after their stock sold out. Abandoned checkouts are left out.
@@ -127,6 +128,18 @@ export async function setOrderInstructions(db: Db, id: string, raw: unknown): Pr
     throw new DataError('invalid_input', 'instructions', `Keep delivery instructions under ${INSTRUCTIONS_MAX} characters.`);
   }
   const json = unwrap(await db.rpc('set_my_order_instructions', { p_order_id: id, p_instructions: text }));
+  if (!json) throw new DataError('order_not_found');
+  return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
+/**
+ * Owner sends an order to another address in their address book for the same store, while it's
+ * being prepared (`order_address_locked` once it ships). The order takes that address's delivery
+ * instructions too; totals don't change.
+ */
+export async function setOrderAddress(db: Db, id: string, addressId: unknown): Promise<Order> {
+  if (typeof addressId !== 'string' || !UUID.test(addressId)) throw new DataError('address_not_found');
+  const json = unwrap(await db.rpc('set_my_order_address', { p_order_id: id, p_address_id: addressId }));
   if (!json) throw new DataError('order_not_found');
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
 }
