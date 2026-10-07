@@ -1037,7 +1037,7 @@ isOneToOne: false
 { Args: { "p_comment"?: string,"p_items": Json,"p_order_id": string,"p_reason": string,"p_resolution"?: string }; Returns: Json
                            },
 "report_not_received":
-{ Args: { "p_order_id": string }; Returns: Json
+{ Args: { "p_order_id": string,"p_resolution"?: string }; Returns: Json
                            },
 "product_return_signal":
 { Args: { "p_product": string }; Returns: Json

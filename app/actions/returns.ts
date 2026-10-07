@@ -68,8 +68,11 @@ export async function cancelMyReturn(orderId: string, returnId: string): Promise
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'return=cancelled'}`));
 }
 
-/** "Package didn't arrive" on an order page (bound to the order id, checked): the whole order is refunded. */
-export async function reportMissing(orderId: string): Promise<void> {
+/**
+ * "Package didn't arrive" on an order page (bound to the order id and the shopper's choice, both
+ * checked): the whole order is refunded, or sent again at no charge.
+ */
+export async function reportMissing(orderId: string, resolution: string): Promise<void> {
   const market = await getMarket();
   const sp = (path: string) => storePath({ id: market }, path);
   if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
@@ -77,11 +80,11 @@ export async function reportMissing(orderId: string): Promise<void> {
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
   let code: string | null = null;
   try {
-    await reportNotReceived(await db(), orderId);
+    await reportNotReceived(await db(), orderId, resolution === 'replacement' ? 'replacement' : 'refund');
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
     code = err.code;
   }
   revalidatePath('/', 'layout');
-  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'return=missing'}`));
+  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : `return=${resolution === 'replacement' ? 'missing-replacement' : 'missing'}`}`));
 }

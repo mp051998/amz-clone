@@ -61,3 +61,17 @@ it('a missing package was refunded without anything coming back', () => {
   expect(screen.getByText('Refunded')).toBeTruthy();
   expect(screen.getByText(/\$21\.60 refunded to Visa ending 4242 on/)).toBeTruthy();
 });
+
+it('a missing package sent again has nothing to drop off or refund', () => {
+  const resent: OrderReturn = { ...swap, status: 'received', reason: 'not_received', refund: { status: 'succeeded' }, receivedAt: '2026-10-07T17:00:00Z' };
+  card(resent, '2026-10-07T18:00:00Z');
+  expect(screen.getByText(/^Reported .+ · Package didn’t arrive$/)).toBeTruthy();
+  expect(screen.getByText('Replacement on its way')).toBeTruthy();
+  expect(screen.getByText(/Your replacement arrives by/).textContent).toMatch(/arrives by .+, at no charge\. There’s nothing to send back\.$/);
+  expect(screen.queryByText(/Drop the original|AB12-CD34|received the original/)).toBeNull();
+  expect(screen.getByText('Replacement · no charge')).toBeTruthy();
+  cleanup();
+  card(resent, '2026-10-10T12:00:00Z');
+  expect(screen.getByText('Replacement delivered')).toBeTruthy();
+  expect(screen.getByText(/Your replacement was delivered on .+ There’s nothing to send back\./)).toBeTruthy();
+});

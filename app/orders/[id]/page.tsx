@@ -18,7 +18,7 @@ import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
 import { deliveryFeedbackFor, deliveryFeedbackOpen, deliveryFeedbackOpenUntil, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { canStartReturn, getOrderReturns, reportMissingUntil } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
-import { orderStage } from '@/lib/decision/tracking';
+import { deliveryOptions, orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
@@ -132,6 +132,14 @@ export default async function OrderPage({
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
   const missingUntil = reportMissingUntil(order, returns, now);
   const reportedMissing = returns?.returns.some((r) => r.reason === 'not_received' && r.status !== 'cancelled') ?? false;
+  // a missing package can be sent again when every item is still on sale and in stock
+  const replaceMissing =
+    missingUntil && order.items.every((i) => {
+      const p = nowById.get(i.productId);
+      return p != null && !p.archived && p.stock >= i.qty;
+    })
+      ? new Date(deliveryOptions(now, store.dates.timeZone).standard)
+      : null;
 
   if (confirming) {
     const pairs = await pairsFor(client, order);
@@ -202,6 +210,8 @@ export default async function OrderPage({
           <Alert tone="success">Your return is cancelled.</Alert>
         ) : returned === 'missing' && reportedMissing ? (
           <Alert tone="success">Sorry your order didn’t arrive. We’ve refunded it, as shown below.</Alert>
+        ) : returned === 'missing-replacement' && reportedMissing ? (
+          <Alert tone="success">Sorry your order didn’t arrive. We’re sending it again at no charge, as shown below.</Alert>
         ) : archived === '1' && order.archivedAt ? (
           <Alert tone="success">
             Order archived. It’s no longer in your order list; find it under{' '}
@@ -343,17 +353,30 @@ export default async function OrderPage({
               <h2 id="missing-h" className="m-0 text-[16px] font-semibold">Package didn’t arrive?</h2>
               <p className="m-0 text-[14px] text-ink-2">
                 If it says delivered but you can’t find it, look around your door and ask anyone nearby who might have taken it in.
-                Still missing? Report it by {longDate(missingUntil, store)} and we’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}.
+                Still missing? Report it by {longDate(missingUntil, store)} and{' '}
+                {replaceMissing ? 'we’ll send it again at no charge, or ' : ''}we’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}.
               </p>
             </div>
-            <ConfirmAction
-              action={reportMissing.bind(null, order.id)}
-              label="Report it missing"
-              prompt={<>Report this order as not arrived? We’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}, and you won’t be able to return anything from it.</>}
-              confirmLabel="Yes, it didn’t arrive"
-              pendingLabel="Reporting…"
-              cancelLabel="Keep looking"
-            />
+            <div className="flex flex-wrap items-center gap-2.5">
+              {replaceMissing ? (
+                <ConfirmAction
+                  action={reportMissing.bind(null, order.id, 'replacement')}
+                  label="Send a replacement"
+                  prompt={<>Send everything in this order again, at no charge? It would arrive by {longDate(replaceMissing, store)}. There’s nothing to send back.</>}
+                  confirmLabel="Yes, send it again"
+                  pendingLabel="Sending…"
+                  cancelLabel="Keep looking"
+                />
+              ) : null}
+              <ConfirmAction
+                action={reportMissing.bind(null, order.id, 'refund')}
+                label={replaceMissing ? 'Get a refund' : 'Report it missing'}
+                prompt={<>Report this order as not arrived? We’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}, and you won’t be able to return anything from it.</>}
+                confirmLabel="Yes, it didn’t arrive"
+                pendingLabel="Reporting…"
+                cancelLabel="Keep looking"
+              />
+            </div>
           </section>
         ) : null}
 

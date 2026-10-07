@@ -4,7 +4,7 @@ import { DataError } from '@/lib/data/errors';
 import { reportNotReceived } from '@/lib/data/not-received';
 import { placeOrder } from '@/lib/data/orders';
 import { getOrderReturns, requestReturn } from '@/lib/data/returns';
-import { deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, US_SHIPPING, type TestUser } from './helpers';
+import { deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, setStock, stockOf, US_SHIPPING, type TestUser } from './helpers';
 
 /** What a call failed with, as `code:detail` (or 'no error'). */
 const failure = async (p: Promise<unknown>) => {
@@ -67,5 +67,57 @@ describe('reporting a package that didn’t arrive', () => {
     const order = await placeOrder(buyer.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: inProduct.id, qty: 1 } });
     await deliveredDaysAgo(order.id, 1);
     expect(await failure(reportNotReceived(buyer.db, order.id))).toBe('return_not_allowed:cash_on_delivery');
+  });
+});
+
+describe('sending a missing package again', () => {
+  let item: { id: string };
+  const buyIn = (qty = 1) => placeOrder(buyer.db, 'IN', { paymentMethod: 'giftcard', shipping: IN_SHIPPING, buyNow: { productId: item.id, qty } });
+
+  beforeAll(async () => {
+    // high in the pool: running it out of stock below can't move another test's product
+    item = await pickProduct('IN', 110);
+  });
+
+  it('ships every item again at no charge, out of stock now, with nothing to send back', async () => {
+    const order = await buyIn(2);
+    await deliveredDaysAgo(order.id, 1);
+    expect(await failure(reportNotReceived(buyer.db, order.id, 'exchange'))).toBe('invalid_input:resolution');
+    const stock = await stockOf(item.id);
+    const balance = await storeBalance(buyer.db, 'IN');
+
+    const r = await reportNotReceived(buyer.db, order.id, 'replacement');
+    expect(r).toMatchObject({ reason: 'not_received', resolution: 'replacement', status: 'received', refundMinor: 0 });
+    expect(r.items).toEqual([expect.objectContaining({ productId: item.id, qty: 2 })]);
+    expect(Date.parse(r.replacement!.shippedAt)).toBeGreaterThan(Date.now());
+    expect(Date.parse(r.replacement!.deliveredAt)).toBeGreaterThan(Date.parse(r.replacement!.shippedAt));
+    expect(await stockOf(item.id)).toBe(stock - 2);
+    expect(await storeBalance(buyer.db, 'IN')).toBe(balance);
+
+    // reported once; the new units can't be replaced again, but can still go back for a refund
+    expect(await failure(reportNotReceived(buyer.db, order.id))).toBe('return_not_allowed:returned');
+    expect(await failure(requestReturn(buyer.db, order.id, { items: [{ productId: item.id, qty: 1 }], reason: 'damaged', resolution: 'replacement' }))).toBe(
+      'replacement_unavailable:already_replaced',
+    );
+    const back = await requestReturn(buyer.db, order.id, { items: [{ productId: item.id, qty: 1 }], reason: 'damaged' });
+    expect(back).toMatchObject({ resolution: 'refund', status: 'requested' });
+    expect(back.refundMinor).toBeGreaterThan(0);
+  });
+
+  it('not when something is sold out, which takes no stock and leaves the refund open', async () => {
+    const order = await buyIn(1);
+    await deliveredDaysAgo(order.id, 1);
+    const stock = await stockOf(item.id);
+    await setStock(item.id, 0);
+    try {
+      expect(await failure(reportNotReceived(buyer.db, order.id, 'replacement'))).toBe('replacement_unavailable:out_of_stock');
+      expect(await stockOf(item.id)).toBe(0);
+      expect((await getOrderReturns(buyer.db, order.id))?.returns).toHaveLength(0);
+    } finally {
+      await setStock(item.id, stock);
+    }
+    const r = await reportNotReceived(buyer.db, order.id);
+    expect(r).toMatchObject({ resolution: 'refund', refund: { status: 'succeeded' } });
+    expect(r.refundMinor).toBe(order.totals.totalMinor);
   });
 });

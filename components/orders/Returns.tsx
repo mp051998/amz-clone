@@ -108,7 +108,9 @@ export function ReturnCard({
         ? <>Your replacement was delivered on {shortDate(arrives, store)}.</>
         : <>Your replacement {Date.parse(r.replacement.shippedAt) <= now.getTime() ? 'has shipped and ' : ''}arrives by <strong>{longDate(arrives, store)}</strong>, at no charge.</>;
     lead =
-      r.status === 'requested' ? (
+      r.reason === 'not_received' ? (
+        <>{swap} There’s nothing to send back.</>
+      ) : r.status === 'requested' ? (
         <>
           {swap} Drop the original off by <strong>{longDate(new Date(r.dropoffBy), store)}</strong> at any drop-off point and show this code: {code}.
         </>

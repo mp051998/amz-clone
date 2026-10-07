@@ -1,9 +1,9 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number> }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -23,7 +23,7 @@ vi.mock('@/lib/data/addresses', () => ({
   },
 }));
 vi.mock('@/lib/data/reviews', () => ({ reviewedProductIds: async () => new Set(state.reviewed) }));
-vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US' })) }));
+vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US', stock: state.stock[id] })) }));
 vi.mock('@/lib/decision/server', () => ({
   accessoriesFor: async (bought: { id: string }[]) => {
     state.paired.push(bought.map((p) => p.id));
@@ -86,6 +86,7 @@ async function show(params: Record<string, string> = {}) {
 afterEach(cleanup);
 beforeEach(() => {
   state.order = order();
+  state.stock = {};
   state.pairs = [];
   state.paired = [];
   state.reviewed = [];
@@ -541,6 +542,40 @@ it('a delivered order that never turned up can be reported for 30 days, until so
   cleanup();
   state.order = order({ deliveredAt: delivered, paymentMethod: 'cod', paymentLabel: 'Cash on Delivery' });
   await show();
+  expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
+});
+
+it('offers to send a missing order again when everything is still in stock', async () => {
+  const delivered = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  state.order = order({ deliveredAt: delivered });
+  state.stock = { 'k 1': 5, m: 1 };
+  await show();
+  const section = screen.getByRole('region', { name: 'Package didn’t arrive?' });
+  expect(section).toHaveTextContent(/and we’ll send it again at no charge, or we’ll refund \$30\.00 to Visa ending 4242\./);
+  fireEvent.click(screen.getByRole('button', { name: 'Send a replacement' }));
+  expect(screen.getByRole('group', { name: 'Send a replacement' })).toHaveTextContent(/Send everything in this order again, at no charge\? It would arrive by .+\. There’s nothing to send back\./);
+  expect(screen.getByRole('button', { name: 'Get a refund' })).toBeInTheDocument();
+  cleanup();
+  // one item sold out: only the refund
+  state.stock = { 'k 1': 5, m: 0 };
+  await show();
+  expect(screen.queryByRole('button', { name: 'Send a replacement' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Report it missing' })).toBeInTheDocument();
+});
+
+it('once a replacement is on its way, says so', async () => {
+  const delivered = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  const arrives = new Date(Date.now() + 2 * 86_400_000).toISOString();
+  state.order = order({ deliveredAt: delivered });
+  state.returns = [{
+    id: 'r1', orderId: 'ORD-9', status: 'received', reason: 'not_received', resolution: 'replacement',
+    replacement: { shippedAt: new Date(Date.now() + 3_600_000).toISOString(), deliveredAt: arrives },
+    items: [{ productId: 'm', title: 'Mug', image: '', unitPriceMinor: 2000, qty: 1 }],
+    itemsMinor: 0, taxMinor: 0, shipMinor: 0, refundMinor: 0, dropoffCode: 'AB12-CD34', dropoffBy: delivered,
+    createdAt: delivered, receivedAt: delivered, refund: { status: 'succeeded', refundedAt: delivered },
+  }];
+  await show({ return: 'missing-replacement' });
+  expect(screen.getByText('Sorry your order didn’t arrive. We’re sending it again at no charge, as shown below.')).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
 });
 
