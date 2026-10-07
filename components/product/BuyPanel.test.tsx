@@ -56,14 +56,14 @@ it('offers the store’s protection plan, which Buy Now and Add to Cart both tak
   fireEvent.click(box);
   expect(new FormData(form).get('protection')).toBe('1');
   fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
-  await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, true));
+  await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, true, null));
 });
 
 it('has no plan box for a product the store doesn’t cover', async () => {
   show();
   expect(screen.queryByRole('checkbox')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
-  await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, false));
+  await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, false, null));
 });
 
 it('says the limit per customer, and caps the quantity at what’s left of it', () => {
@@ -84,4 +84,28 @@ it('offers nothing more to buy once the limit is reached', () => {
   expect(screen.getByText('You’ve bought as many of this item as one customer can.')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Buy Now' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Add to Cart' })).toBeNull();
+});
+
+it('asks for a size before Add to Cart or Buy Now, then both take it', async () => {
+  addToCartInline.mockClear();
+  show({}, { sizes: ['S', 'M', 'L'] });
+  expect(screen.getByText(/^Size:/)).toHaveTextContent('Size: Select');
+  fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Select a size first.');
+  expect(addToCartInline).not.toHaveBeenCalled();
+  const form = screen.getByRole('button', { name: 'Buy Now' }).closest('form')!;
+  expect(fireEvent.submit(form)).toBe(false); // held back until there's a size
+
+  fireEvent.click(screen.getByRole('radio', { name: 'M' }));
+  expect(screen.getByText(/^Size:/)).toHaveTextContent('Size: M');
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(new FormData(form).get('size')).toBe('M');
+  fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
+  await waitFor(() => expect(addToCartInline).toHaveBeenLastCalledWith('p1', 1, false, 'M'));
+});
+
+it('has no size to pick for a product without sizes', () => {
+  show();
+  expect(screen.queryByText(/^Size:/)).toBeNull();
+  expect(screen.queryByRole('radio')).toBeNull();
 });

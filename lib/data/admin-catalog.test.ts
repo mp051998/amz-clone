@@ -12,6 +12,7 @@ const good: ProductInput = {
   deal: true,
   couponPct: null,
   maxPerCustomer: null,
+  sizes: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Acme Store',
@@ -65,6 +66,16 @@ describe('validateProduct', () => {
     }
     const { maxPerCustomer: _, ...noLimit } = good;
     expect(validateProduct(noLimit)).toMatchObject({ ok: true, data: { maxPerCustomer: null } });
+  });
+
+  it('takes 1 to 20 different sizes of up to 12 characters, and none by default', () => {
+    expect(validateProduct({ ...good, sizes: [' S', 'M ', 'UK 10'] })).toMatchObject({ ok: true, data: { sizes: ['S', 'M', 'UK 10'] } });
+    for (const bad of [[], ['S', 'S'], [''], ['x'.repeat(13)], Array.from({ length: 21 }, (_, i) => String(i))]) {
+      const res = validateProduct({ ...good, sizes: bad });
+      expect(!res.ok && res.errors.sizes).toBeTruthy();
+    }
+    const { sizes: _, ...noSizes } = good;
+    expect(validateProduct(noSizes)).toMatchObject({ ok: true, data: { sizes: null } });
   });
 
   it('takes site paths and https URLs only', () => {

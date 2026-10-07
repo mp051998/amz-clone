@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState, ProductFrame } from '@/components/decision';
 import { AddFromList } from '@/components/collections/AddFromList';
+import { SeeOptions } from '@/components/product/SeeOptions';
 import { GiftMark } from '@/components/collections/GiftMark';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
@@ -82,7 +83,11 @@ export default async function SharedListPage({ params }: { params: Params }) {
                     {cut ? <s className="text-[13px] text-ink-3 tabular-nums">{formatMoney(cut, p.curBase)}</s> : null}
                   </span>
                   <div className="mt-auto flex flex-col gap-2">
-                    <AddFromList productId={p.id} productName={p.title} inStock={p.stock > 0} />
+                    {p.sizes && p.stock > 0 ? (
+                      <SeeOptions href={href} name={p.title} variant="primary" size="md" />
+                    ) : (
+                      <AddFromList productId={p.id} productName={p.title} inStock={p.stock > 0} />
+                    )}
                     {list.mine ? null : <GiftMark token={token} productId={p.id} productName={p.title} mark={list.bought[p.id]} signInHref={signInHref} />}
                   </div>
                 </li>

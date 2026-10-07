@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { buyNowQuote, selectCartLines, setCartProtection } from './cart';
+import { addToCart, buyNowQuote, selectCartLines, setCartProtection, setCartSize } from './cart';
 import { toCart } from './map';
 
 const json = (extra: object = {}, lineExtra: object = {}) => ({
@@ -53,5 +53,32 @@ it('sets a line’s plan, and asks Buy Now for one only when wanted', async () =
     ['cart_set_protection', { p_market: 'US', p_product_id: 'a', p_on: true, p_guest_token: 'tok' }],
     ['buy_now_quote', { p_market: 'US', p_product: 'a', p_qty: 2 }],
     ['buy_now_quote', { p_market: 'US', p_product: 'a', p_qty: 1, p_protection: true }],
+  ]);
+});
+
+it('maps a line’s size and whether it still needs one, and the sizes a product comes in', () => {
+  const cart = toCart(json({}, { product: { id: 'a', price_minor: 2000, sizes: ['S', 'M'] }, size: 'M', needs_size: false }));
+  expect(cart.lines[0]).toMatchObject({ size: 'M', product: { sizes: ['S', 'M'] } });
+  expect(cart.lines[0].needsSize).toBeUndefined();
+  const unsized = toCart(json({}, { product: { id: 'a', price_minor: 2000, sizes: ['S', 'M'] }, size: null, needs_size: true }));
+  expect(unsized.lines[0]).toMatchObject({ needsSize: true });
+  expect(unsized.lines[0].size).toBeUndefined();
+  // a product without sizes, or a line read before sizes
+  const plain = toCart(json());
+  expect([plain.lines[0].size, plain.lines[0].needsSize, plain.lines[0].product.sizes]).toEqual([undefined, undefined, undefined]);
+});
+
+it('adds, re-sizes and buys now in a size, sending one only when there is one', async () => {
+  const calls: [string, object][] = [];
+  const db = { rpc: async (fn: string, args: object) => (calls.push([fn, args]), { data: json(), error: null }) } as unknown as Db;
+  await addToCart(db, 'IN', 'a', 1, 'tok', 'UK 8');
+  await addToCart(db, 'IN', 'b', 2, null);
+  await setCartSize(db, 'IN', 'a', 'UK 9', 'tok');
+  await buyNowQuote(db, 'IN', 'a', 1, false, 'UK 7');
+  expect(calls).toEqual([
+    ['cart_set_qty', { p_market: 'IN', p_product_id: 'a', p_qty: 1, p_mode: 'add', p_guest_token: 'tok', p_size: 'UK 8' }],
+    ['cart_set_qty', { p_market: 'IN', p_product_id: 'b', p_qty: 2, p_mode: 'add', p_guest_token: undefined }],
+    ['cart_set_size', { p_market: 'IN', p_product_id: 'a', p_size: 'UK 9', p_guest_token: 'tok' }],
+    ['buy_now_quote', { p_market: 'IN', p_product: 'a', p_qty: 1, p_size: 'UK 7' }],
   ]);
 });

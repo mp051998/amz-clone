@@ -62,7 +62,7 @@ export default async function BuyAgainPage() {
                     {p && x.availability === 'available' ? (
                       <>
                         <strong className="text-[16px] tabular-nums">{formatMoney(toStoreMinor(p.priceMinor, cur, p.curBase), cur)}</strong>
-                        <BuyAgainButton productId={p.id} title={title} label="Add to cart" block />
+                        <BuyAgainButton productId={p.id} title={title} label="Add to cart" block optionsHref={p.sizes ? sp(`/product/${encodeURIComponent(p.id)}`) : undefined} />
                       </>
                     ) : (
                       <>

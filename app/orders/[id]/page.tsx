@@ -429,6 +429,7 @@ export default async function OrderPage({
               </a>
               <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
+                {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
                 <span className="text-[13px] text-ink-3">
                   Qty {it.qty} · Sold by{' '}
                   <a href={sp(`/seller?name=${encodeURIComponent(it.seller)}`)} className="text-ink-3 underline underline-offset-2">{it.seller}</a>
@@ -459,7 +460,7 @@ export default async function OrderPage({
               <div className="flex flex-none flex-col items-end gap-1.5">
                 <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
                 {order.status === 'awaiting_payment' ? null : availabilityOf(nowById.get(it.productId)) === 'available' ? (
-                  <BuyAgainButton productId={it.productId} title={it.title} />
+                  <BuyAgainButton productId={it.productId} title={it.title} size={it.size} />
                 ) : (
                   <span className="text-[12px] text-ink-3">Currently unavailable</span>
                 )}

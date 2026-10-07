@@ -154,6 +154,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                             unavailable={p.archived}
                             market={store.id}
                             moveTo={moveTargets}
+                            optionsHref={p.sizes ? href : undefined}
                           />
                         </li>
                       );

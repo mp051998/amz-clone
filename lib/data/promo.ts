@@ -19,7 +19,7 @@ export async function checkoutQuote(db: Db, market: Market, code: string, buyNow
     await db.rpc('checkout_quote', {
       p_market: market,
       p_promo_code: code,
-      ...(buyNow ? { p_buy: { product_id: buyNow.productId, qty: buyNow.qty, ...(buyNow.protection ? { protection: true } : {}) } } : {}),
+      ...(buyNow ? { p_buy: { product_id: buyNow.productId, qty: buyNow.qty, ...(buyNow.protection ? { protection: true } : {}), ...(buyNow.size ? { size: buyNow.size } : {}) } } : {}),
     }),
   ) as { cart: unknown; promo_error: string | null; promo_error_detail: string | null };
   return {

@@ -23,9 +23,10 @@ async function scope() {
 export async function addToCart(formData: FormData): Promise<void> {
   const { client, market, token } = await scope();
   const id = String(formData.get('id') ?? '');
+  const size = formData.get('size');
   let code: string | null = null;
   try {
-    await cart.addToCart(client, market, id, Math.max(1, qtyOf(formData)), token);
+    await cart.addToCart(client, market, id, Math.max(1, qtyOf(formData)), token, typeof size === 'string' ? size : null);
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
     code = err.code;
@@ -38,7 +39,7 @@ export async function addToCart(formData: FormData): Promise<void> {
 /** Buy Now: checkout for just this product at the picked quantity; the cart is left as it is. */
 export async function buyNow(formData: FormData): Promise<void> {
   const market = await getMarket();
-  const buy = readBuyNow(formData.get('id'), formData.get('qty'), formData.get('protection'));
+  const buy = readBuyNow(formData.get('id'), formData.get('qty'), formData.get('protection'), formData.get('size'));
   redirect(storePath({ id: market }, buy ? `/checkout?${buyNowQuery(buy)}` : '/cart'));
 }
 
@@ -107,6 +108,20 @@ export async function selectItems(formData: FormData): Promise<void> {
   let code: string | null = null;
   try {
     await cart.selectCartLines(client, market, id || null, formData.get('selected') === '1', token);
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    code = err.code;
+  }
+  revalidatePath('/', 'layout');
+  if (code) redirect(storePath({ id: market }, `/cart?error=${code}`));
+}
+
+/** Change a line (`id`) to another size (`size`); when that fails, back to the cart saying why. */
+export async function setSize(formData: FormData): Promise<void> {
+  const { client, market, token } = await scope();
+  let code: string | null = null;
+  try {
+    await cart.setCartSize(client, market, String(formData.get('id') ?? ''), String(formData.get('size') ?? ''), token);
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
     code = err.code;

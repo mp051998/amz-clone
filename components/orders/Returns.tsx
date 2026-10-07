@@ -59,7 +59,7 @@ export function returnChip(r: OrderReturn, now: Date = new Date()): { label: str
 }
 
 export function itemsText(r: OrderReturn): string {
-  return r.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ');
+  return r.items.map((i) => `${i.title}${i.size ? ` (size ${i.size})` : ''}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ');
 }
 
 /** "Items $20.00 · tax $1.60 · delivery $5.99 · protection plan $7.99" (parts that are zero are left out). */

@@ -79,6 +79,7 @@ export default async function GiftReceiptPage({ params, searchParams }: { params
                 <tr key={l.productId}>
                   <td className={cell}>
                     <span className="block font-medium">{l.title}</span>
+                    {l.size ? <span className="block text-[13px] text-ink-2">Size: {l.size}</span> : null}
                     <span className="block text-[13px] text-ink-3">Sold by {l.seller}</span>
                   </td>
                   <td className={`${cell} text-right tabular-nums`}>{l.qty}</td>

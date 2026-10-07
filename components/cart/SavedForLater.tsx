@@ -49,7 +49,7 @@ export function SavedForLater({ collectionId, items, sp }: SavedForLaterProps) {
                   <span className="self-start rounded-chip bg-good-bg px-2 py-1 text-[13px] font-semibold text-good-strong">↓ {money(drop)} less than when you saved it</span>
                 ) : null}
                 <div className="mt-1 flex flex-wrap items-center gap-2.5">
-                  <SavedItemActions collectionId={collectionId} productId={p.id} name={p.title} canMove={canMove} />
+                  <SavedItemActions collectionId={collectionId} productId={p.id} name={p.title} canMove={canMove} optionsHref={p.sizes ? href : undefined} />
                 </div>
               </div>
             </li>

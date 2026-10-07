@@ -24,6 +24,8 @@ export interface ProductFormValues {
   coupon: string;
   /** limit per customer, blank for none. */
   limit: string;
+  /** the sizes it comes in, comma-separated ("S, M, L"), blank for none. */
+  sizes: string;
   badge: string;
   boughtPastMonth: string;
   seller: string;
@@ -169,6 +171,16 @@ export function ProductForm({
               placeholder="3"
               hint="Optional, 1 to 99: the most one shopper can buy across their orders. Cancelled orders don’t count."
               className="sm:max-w-[240px]"
+            />
+            <Input
+              label="Sizes"
+              name="sizes"
+              defaultValue={val('sizes')}
+              error={e.sizes}
+              placeholder="S, M, L, XL"
+              hint="Optional, for clothes and shoes: up to 20, comma-separated, in size-chart order. Shoppers pick one before adding it to their cart; every size shares the stock."
+              autoCapitalize="none"
+              spellCheck={false}
             />
             <div className="flex flex-col gap-1">
               <Checkbox label="Show on Today’s Deals" name="deal" defaultChecked={v ? v.deal === 'on' : initial.deal} />

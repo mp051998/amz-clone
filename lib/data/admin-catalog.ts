@@ -52,6 +52,8 @@ export interface ProductInput {
   couponPct: number | null;
   /** "Limit 3 per customer": the most units one shopper can buy (1–99), or null for no limit. */
   maxPerCustomer: number | null;
+  /** the sizes it comes in, in size-chart order (clothes, shoes), or null when it doesn't. */
+  sizes: string[] | null;
   badge: string | null;
   boughtPastMonth: string | null;
   seller: string;
@@ -78,6 +80,9 @@ export const COUPON_MIN = 5;
 export const COUPON_MAX = 50;
 /** A limit per customer's range (products_max_per_customer_check). */
 export const LIMIT_MAX = 99;
+/** How many sizes a product can come in (products_sizes_check), and how long each can be (cart_items_size_check). */
+export const SIZES_MAX = 20;
+export const SIZE_LENGTH = 12;
 /** Option names the form suggests; any short name works. */
 export const VARIANT_AXES = ['Color', 'Size', 'Style', 'Capacity', 'Configuration', 'Pattern', 'Pack size'];
 
@@ -113,6 +118,13 @@ const ProductInputSchema = z
       .int('Enter a whole number')
       .min(1, `Limits are 1 to ${LIMIT_MAX} per customer`)
       .max(LIMIT_MAX, `Limits are 1 to ${LIMIT_MAX} per customer`)
+      .nullable()
+      .default(null),
+    sizes: z
+      .array(z.string().trim().min(1, 'Sizes can’t be blank').max(SIZE_LENGTH, `Keep each size to ${SIZE_LENGTH} characters`))
+      .min(1, 'Add a size, or leave it blank')
+      .max(SIZES_MAX, `Up to ${SIZES_MAX} sizes`)
+      .refine((v) => new Set(v).size === v.length, 'List each size once')
       .nullable()
       .default(null),
     badge: optional(40),
@@ -212,6 +224,7 @@ function toRow(p: ProductInput) {
     deal_pct: dealPct(p.priceMinor, p.listMinor),
     deal: p.deal,
     max_per_customer: p.maxPerCustomer,
+    sizes: p.sizes,
     badge: p.badge,
     bought_past_month: p.boughtPastMonth,
     seller: p.seller,
@@ -376,6 +389,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     couponPct: coupon.error ? null : coupon.data?.percent_off ?? null,
     // absent before the purchase limits migration
     maxPerCustomer: r.max_per_customer ?? null,
+    // absent before the sizes migration
+    sizes: r.sizes ?? null,
     badge: r.badge,
     boughtPastMonth: r.bought_past_month,
     seller: r.seller,

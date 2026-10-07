@@ -25,7 +25,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 /** Field errors the data layer can raise after validation. */
 const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
@@ -55,6 +55,8 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   const couponPct = !couponText ? null : /^\d+$/.test(couponText) ? Number(couponText) : NaN;
   const limitText = values.limit.trim();
   const maxPerCustomer = !limitText ? null : /^\d+$/.test(limitText) ? Number(limitText) : NaN;
+  // "S, M, L": blank for a product that doesn't come in sizes
+  const sizeList = values.sizes.split(',').map((s) => s.trim()).filter(Boolean);
   const details = parseDetailLines(values.details);
   const input = {
     title: values.title,
@@ -67,6 +69,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     deal: values.deal === 'on',
     couponPct,
     maxPerCustomer,
+    sizes: sizeList.length ? sizeList : null,
     badge: values.badge,
     boughtPastMonth: values.boughtPastMonth,
     seller: values.seller,

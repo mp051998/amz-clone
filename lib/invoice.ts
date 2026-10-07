@@ -4,6 +4,8 @@ export interface InvoiceLine {
   productId: string;
   title: string;
   seller: string;
+  /** the size ordered, for a product that comes in sizes */
+  size?: string;
   qty: number;
   unitMinor: number;
   /** at the list price */
@@ -62,6 +64,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     productId: it.productId,
     title: it.title,
     seller: it.seller,
+    ...(it.size ? { size: it.size } : {}),
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,

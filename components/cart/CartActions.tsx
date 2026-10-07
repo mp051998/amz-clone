@@ -5,6 +5,7 @@ import { moveCartItemToSaved, moveSavedToCart, removeFromCollection } from '@/ap
 import { swapCartLine } from '@/app/cart/actions';
 import { useToast } from '../decision/Toast';
 import { Button } from '../primitives/Button';
+import { SeeOptions } from '../product/SeeOptions';
 import { storeHref, type MarketId } from '../lib/store';
 
 const textBtn = 'min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink disabled:cursor-progress disabled:text-ink-4';
@@ -64,7 +65,14 @@ export function SwapButton({ fromId, toId, amount }: { fromId: string; toId: str
 }
 
 /** "Move to cart" / "Delete" on a "Saved for later" item. */
-export function SavedItemActions({ collectionId, productId, name, canMove }: { collectionId: string; productId: string; name: string; canMove: boolean }) {
+export function SavedItemActions({ collectionId, productId, name, canMove, optionsHref }: {
+  collectionId: string;
+  productId: string;
+  name: string;
+  canMove: boolean;
+  /** it comes in sizes: "See options" on its page, where one is picked, in place of Move to cart */
+  optionsHref?: string;
+}) {
   const [pending, start] = useTransition();
   const router = useRouter();
   const { toast } = useToast();
@@ -85,7 +93,9 @@ export function SavedItemActions({ collectionId, productId, name, canMove }: { c
 
   return (
     <>
-      {canMove ? (
+      {canMove && optionsHref ? (
+        <SeeOptions href={optionsHref} name={name} />
+      ) : canMove ? (
         <button
           type="button"
           disabled={pending}

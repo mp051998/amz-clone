@@ -1,11 +1,14 @@
 import { addToCart } from '@/app/actions/cart';
 import { cn } from '../lib/cn';
+import { SeeOptions } from '../product/SeeOptions';
 
 /**
  * 44px round "+" that adds one unit to the cart (server action, works without JS). Secondary styling so
- * the card's only accent stays the deal tag (design.md §1.4).
+ * the card's only accent stays the deal tag (design.md §1.4). With `optionsHref` (a product that comes
+ * in sizes) it's "See options" instead.
  */
-export function QuickAdd({ productId, name, className }: { productId: string; name: string; className?: string }) {
+export function QuickAdd({ productId, name, className, optionsHref }: { productId: string; name: string; className?: string; optionsHref?: string }) {
+  if (optionsHref) return <SeeOptions href={optionsHref} name={name} className={cn('flex-none', className)} />;
   return (
     <form action={addToCart} className={cn('flex-none', className)}>
       <input type="hidden" name="id" value={productId} />

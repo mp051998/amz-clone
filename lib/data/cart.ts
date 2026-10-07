@@ -14,10 +14,22 @@ export async function getCart(db: Db, market: Market, guestToken?: string | null
   return toCart(unwrap(await db.rpc('cart_get', { p_market: market, p_guest_token: guestToken ?? undefined })));
 }
 
-/** Buy Now's checkout summary: just this product at `qty` (1..the store's line limit), priced like a cart of it, with its protection plan when asked. */
-export async function buyNowQuote(db: Db, market: Market, productId: string, qty: number, protection = false): Promise<Cart> {
+/**
+ * Buy Now's checkout summary: just this product at `qty` (1..the store's line limit), priced like a
+ * cart of it, with its protection plan when asked, in the size picked (its line says needsSize when
+ * the product comes in sizes and that isn't one).
+ */
+export async function buyNowQuote(db: Db, market: Market, productId: string, qty: number, protection = false, size?: string | null): Promise<Cart> {
   return toCart(
-    unwrap(await db.rpc('buy_now_quote', { p_market: market, p_product: productId, p_qty: qty, ...(protection ? { p_protection: true } : {}) })),
+    unwrap(
+      await db.rpc('buy_now_quote', {
+        p_market: market,
+        p_product: productId,
+        p_qty: qty,
+        ...(protection ? { p_protection: true } : {}),
+        ...(size ? { p_size: size } : {}),
+      }),
+    ),
   );
 }
 
@@ -26,8 +38,12 @@ export async function protectionOffer(db: Db, productId: string): Promise<number
   return unwrap(await db.rpc('protection_offer', { p_product: productId })) ?? null;
 }
 
-/** Increment a line (creates the cart on first add). Capped at stock and the per-line max. */
-export async function addToCart(db: Db, market: Market, productId: string, qty: number, guestToken?: string | null): Promise<Cart> {
+/**
+ * Increment a line (creates the cart on first add). Capped at stock and the per-line max. A product
+ * that comes in sizes needs one of them (`size_required`, `invalid_input`); it's in the cart in one
+ * size at a time (`size_in_cart`, detail: the size in the cart).
+ */
+export async function addToCart(db: Db, market: Market, productId: string, qty: number, guestToken?: string | null, size?: string | null): Promise<Cart> {
   return toCart(
     unwrap(
       await db.rpc('cart_set_qty', {
@@ -35,6 +51,21 @@ export async function addToCart(db: Db, market: Market, productId: string, qty: 
         p_product_id: productId,
         p_qty: qty,
         p_mode: 'add',
+        p_guest_token: guestToken ?? undefined,
+        ...(size ? { p_size: size } : {}),
+      }),
+    ),
+  );
+}
+
+/** Change a cart line to another size its product comes in (`invalid_input` otherwise, `not_in_cart` without the line). */
+export async function setCartSize(db: Db, market: Market, productId: string, size: string, guestToken?: string | null): Promise<Cart> {
+  return toCart(
+    unwrap(
+      await db.rpc('cart_set_size', {
+        p_market: market,
+        p_product_id: productId,
+        p_size: size,
         p_guest_token: guestToken ?? undefined,
       }),
     ),

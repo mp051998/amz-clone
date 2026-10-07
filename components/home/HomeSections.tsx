@@ -214,7 +214,7 @@ export function BuyAgainGrid({ items, store }: { items: (BuyAgainItem & { produc
               {orders > 1 ? <span className="text-[12px] text-ink-3">Bought {orders} times</span> : null}
             </span>
             <div className="mt-auto flex">
-              <BuyAgainButton productId={p.id} title={p.title} label="Add to cart" block />
+              <BuyAgainButton productId={p.id} title={p.title} label="Add to cart" block optionsHref={p.sizes ? href : undefined} />
             </div>
           </li>
         );
