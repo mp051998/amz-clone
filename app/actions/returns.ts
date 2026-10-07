@@ -7,12 +7,13 @@ import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { DataError } from '@/lib/data/errors';
 import { cancelReturn, requestReturn } from '@/lib/data/returns';
+import type { OrderReturn } from '@/lib/types';
 
 const ORDER_ID = /^\d{3}-\d{7}-\d{7}$/;
 
 /**
- * The return form (bound to the order id): one `qty:<productId>` field per item, a reason and an
- * optional comment. The database checks the window and what's left to return, and prices the
+ * The return form (bound to the order id): one `qty:<productId>` field per item, a reason, an
+ * optional comment and the resolution (refund, or a replacement for a store-fault reason). The database checks the window and what's left to return, and prices the
  * refund; back to the order on success, or to the form with the error.
  */
 export async function startReturn(orderId: string, formData: FormData): Promise<void> {
@@ -27,8 +28,14 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
     .map(([k, v]) => ({ productId: k.slice(4), qty: Number(v) }))
     .filter((it) => it.qty > 0);
   let failure: DataError | null = null;
+  let returned: OrderReturn | null = null;
   try {
-    await requestReturn(await db(), orderId, { items, reason: formData.get('reason'), comment: formData.get('comment') });
+    returned = await requestReturn(await db(), orderId, {
+      items,
+      reason: formData.get('reason'),
+      comment: formData.get('comment'),
+      resolution: formData.get('resolution'),
+    });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
     failure = err;
@@ -39,7 +46,7 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
     redirect(sp(`${page}/return?${qs}`));
   }
   revalidatePath('/', 'layout');
-  redirect(sp(`${page}?placed=0&return=started`));
+  redirect(sp(`${page}?placed=0&return=${returned?.resolution === 'replacement' ? 'replacement' : 'started'}`));
 }
 
 /** "Cancel return" on an order page (bound to the order and return ids, both checked). */

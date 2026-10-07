@@ -23,6 +23,7 @@ const FIELD_ERROR: Record<string, string> = {
   items: 'Choose at least one item to return, up to the quantity that’s left.',
   reason: 'Choose why you’re returning it.',
   comment: 'Keep the comment under 1,000 characters.',
+  resolution: 'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described. Choose one of those reasons, or a refund.',
 };
 
 /** /orders/:id/return: pick items and quantities, say why, start the return. */
@@ -48,6 +49,7 @@ export default async function ReturnPage({
   const money = (minor: number) => formatMoney(minor, order.currency);
   const open = canStartReturn(returns, now);
   const lines = order.items.filter((it) => (returns.returnable[it.productId] ?? 0) > 0);
+  const replaceable = lines.filter((it) => (returns.replaceable[it.productId] ?? 0) > 0);
   const errorText = error ? (error === 'invalid_input' && field && FIELD_ERROR[field]) || messageFor(error) || 'Something went wrong. Please try again.' : null;
 
   return (
@@ -117,6 +119,29 @@ export default async function ReturnPage({
                 If it arrived damaged, doesn’t work, is the wrong item, has parts missing or isn’t as described, we refund your share of the delivery charge too.
               </span>
             </div>
+
+            {replaceable.length ? (
+              <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                <legend className="mb-1.5 p-0 text-[14px] font-semibold">What would you like?</legend>
+                <label className="flex items-start gap-2.5 text-[14px]">
+                  <input type="radio" name="resolution" value="refund" defaultChecked className="mt-0.5 size-4 flex-none accent-ink" />
+                  <span>
+                    <span className="font-semibold">A refund</span>
+                    <span className="block text-[13px] text-ink-3">To {refundTo(order.paymentMethod, order.paymentLabel)}, once the items reach us.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2.5 text-[14px]">
+                  <input type="radio" name="resolution" value="replacement" className="mt-0.5 size-4 flex-none accent-ink" />
+                  <span>
+                    <span className="font-semibold">A replacement</span>
+                    <span className="block text-[13px] text-ink-3">
+                      The same item again at no charge, sent right away. Only if it arrived damaged, doesn’t work, is the wrong item, has parts missing or isn’t as described
+                      {replaceable.length < lines.length ? `; available for ${replaceable.map((it) => it.title).join(', ')}` : ''}.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+            ) : null}
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="return-comment" className="text-[14px] font-semibold">Anything else? <span className="font-normal text-ink-3">(optional)</span></label>

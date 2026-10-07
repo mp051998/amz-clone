@@ -94,6 +94,9 @@ export type ReturnReason =
   | 'missing_parts'
   | 'not_as_described';
 
+/** refund: money back once the items arrive; replacement: the same items again, sent now at no charge. */
+export type ReturnResolution = 'refund' | 'replacement';
+
 export interface ReturnItem {
   productId: string;
   title: string;
@@ -109,8 +112,11 @@ export interface OrderReturn {
   status: ReturnStatus;
   reason: ReturnReason;
   comment?: string;
+  resolution: ReturnResolution;
+  /** a replacement's delivery: ships, then arrives (absent for a refund) */
+  replacement?: { shippedAt: string; deliveredAt: string };
   items: ReturnItem[];
-  /** the refund: items, their share of tax, and of delivery when the store was at fault */
+  /** the refund: items, their share of tax, and of delivery when the store was at fault (zero for a replacement) */
   itemsMinor: number;
   taxMinor: number;
   shipMinor: number;

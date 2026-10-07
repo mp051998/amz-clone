@@ -180,6 +180,8 @@ export default async function OrderPage({
           <Alert tone="success">Items cancelled. The rest of your order is still on its way.</Alert>
         ) : returned === 'started' ? (
           <Alert tone="success">Return started. Drop the items off with the code below.</Alert>
+        ) : returned === 'replacement' ? (
+          <Alert tone="success">Your replacement is on its way. Drop the original items off with the code below.</Alert>
         ) : returned === 'cancelled' ? (
           <Alert tone="success">Your return is cancelled.</Alert>
         ) : archived === '1' && order.archivedAt ? (
@@ -326,7 +328,9 @@ export default async function OrderPage({
                 </p>
               </div>
               {canStartReturn(returns, now) ? (
-                <a href={sp(`/orders/${encodeURIComponent(order.id)}/return`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Return items</a>
+                <a href={sp(`/orders/${encodeURIComponent(order.id)}/return`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>
+                  {Object.values(returns.replaceable).some((n) => n > 0) ? 'Return or replace items' : 'Return items'}
+                </a>
               ) : null}
             </div>
             {returns.returns.map((r) => (
@@ -337,7 +341,12 @@ export default async function OrderPage({
                 method={order.paymentMethod}
                 label={order.paymentLabel}
                 store={store}
-                cancel={r.status === 'requested' ? cancelMyReturn.bind(null, order.id, r.id) : undefined}
+                now={now}
+                cancel={
+                  r.status === 'requested' && (!r.replacement || Date.parse(r.replacement.shippedAt) > now.getTime())
+                    ? cancelMyReturn.bind(null, order.id, r.id)
+                    : undefined
+                }
               />
             ))}
           </section>
