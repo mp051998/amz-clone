@@ -47,10 +47,10 @@ describe('buildInvoice', () => {
     const inv = buildInvoice(order())!;
     expect(inv.kind).toBe('invoice');
     expect(inv.lines).toEqual([
-      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, promoMinor: 0, protectionMinor: 0 },
-      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, promoMinor: 0, protectionMinor: 0 },
+      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, protectionMinor: 0 },
+      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, protectionMinor: 0 },
     ]);
-    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, promoMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
+    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
   });
 
   it('carries the gift wrap', () => {
@@ -80,6 +80,19 @@ describe('buildInvoice', () => {
     }))!;
     expect(inv.lines.map((l) => [l.amountMinor, l.discountMinor])).toEqual([[3000, 300], [2000, 0]]);
     expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 300, totalMinor: 5076, netMinor: 5076 });
+  });
+
+  it('splits a quantity discount out of the coupon savings', () => {
+    // 10% coupon (150 a kettle), then 5% off the rest for buying 2 (67 a kettle)
+    const inv = buildInvoice(order({
+      totals: { subtotalMinor: 5000, discountMinor: 434, qtyDiscountMinor: 134, shipMinor: 0, taxMinor: 365, totalMinor: 4931 },
+      items: [
+        { productId: 'a', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1500, qty: 2, unitDiscountMinor: 217, unitQtyDiscountMinor: 67 },
+        { productId: 'b', title: 'Mug', image: '', seller: 'Mugs Inc', unitPriceMinor: 2000, qty: 1 },
+      ],
+    }))!;
+    expect(inv.lines.map((l) => [l.discountMinor, l.qtyDiscountMinor])).toEqual([[300, 134], [0, 0]]);
+    expect(inv).toMatchObject({ discountMinor: 300, qtyDiscountMinor: 134, promoMinor: 0, totalMinor: 4931 });
   });
 
   it('splits a promotion code out of the coupon savings', () => {

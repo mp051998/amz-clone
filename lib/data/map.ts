@@ -41,6 +41,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     ...(row.sizes?.length ? { sizes: row.sizes } : {}),
     // absent on rows read before the unit price migration lands
     ...(row.unit_qty != null && isUnitKind(row.unit_kind) ? { unit: { qty: Number(row.unit_qty), kind: row.unit_kind } } : {}),
+    // absent on rows read before the quantity discounts migration lands
+    ...(row.qty_discount_pct && row.qty_discount_min ? { qtyDiscount: { percentOff: row.qty_discount_pct, minQty: row.qty_discount_min } } : {}),
   };
 }
 
@@ -63,10 +65,11 @@ interface CartJson {
     protection?: boolean;
     added_price_minor?: number | null;
     promo_minor?: number;
+    qty_discount_minor?: number;
     size?: string | null;
     needs_size?: boolean;
   }[];
-  totals: { subtotal_minor: number; discount_minor?: number; promo_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
+  totals: { subtotal_minor: number; discount_minor?: number; qty_discount_minor?: number; promo_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
   promo?: { code: string; percent_off: number; description: string; category_slug: string | null } | null;
 }
 
@@ -97,6 +100,8 @@ export function toCart(json: unknown): Cart {
       ...(l.added_price_minor != null ? { addedPriceMinor: l.added_price_minor } : {}),
       // checkout quotes with a promotion code only
       ...(l.promo_minor ? { promoMinor: l.promo_minor } : {}),
+      // absent before the quantity discounts migration
+      ...(l.qty_discount_minor ? { qtyDiscountMinor: l.qty_discount_minor } : {}),
       // absent before the sizes migration
       ...(l.size ? { size: l.size } : {}),
       ...(l.needs_size ? { needsSize: true } : {}),
@@ -104,6 +109,7 @@ export function toCart(json: unknown): Cart {
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
       discountMinor: c.totals.discount_minor ?? 0,
+      ...(c.totals.qty_discount_minor ? { qtyDiscountMinor: c.totals.qty_discount_minor } : {}),
       ...(c.totals.promo_minor ? { promoMinor: c.totals.promo_minor } : {}),
       shipMinor: c.totals.ship_minor,
       taxMinor: c.totals.tax_minor,
@@ -164,6 +170,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       ...(it.unit_discount_minor ? { unitDiscountMinor: it.unit_discount_minor } : {}),
       // absent on rows read before the promo codes migration lands
       ...(it.unit_promo_minor ? { unitPromoMinor: it.unit_promo_minor } : {}),
+      // absent on rows read before the quantity discounts migration lands
+      ...(it.unit_qty_discount_minor ? { unitQtyDiscountMinor: it.unit_qty_discount_minor } : {}),
       ...(it.protection_minor ? { protectionMinor: it.protection_minor } : {}),
       // absent on rows read before the sizes migration lands
       ...(it.size ? { size: it.size } : {}),
@@ -190,6 +198,8 @@ export function toOrder(row: OrderWithItems): Order {
   const items = toOrderItems(row.items ?? row.order_items ?? []);
   // the promotion's part of the discount, over the items still in the order
   const promoMinor = items.reduce((s, it) => s + (it.unitPromoMinor ?? 0) * it.qty, 0);
+  // and the quantity discounts' part
+  const qtyDiscountMinor = items.reduce((s, it) => s + (it.unitQtyDiscountMinor ?? 0) * it.qty, 0);
   const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
@@ -205,6 +215,7 @@ export function toOrder(row: OrderWithItems): Order {
       subtotalMinor: row.subtotal_minor,
       // absent on rows read before the coupons migration lands
       discountMinor: row.discount_minor ?? 0,
+      ...(qtyDiscountMinor ? { qtyDiscountMinor } : {}),
       ...(promoMinor ? { promoMinor } : {}),
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,

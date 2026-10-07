@@ -5,6 +5,7 @@ import { decisionConfig } from '../decision/attributes';
 import { deriveInsight, pricePercentiles } from '../decision/derive';
 import { DETAIL_LIMITS, toDetailRows, type DetailRow } from '../product-details';
 import type { Market } from '../types';
+import { QTY_DISCOUNT_MAX_QTY, QTY_DISCOUNT_MIN_QTY, QTY_DISCOUNT_PCT_MAX, type QtyDiscount } from '../qty-discount';
 import { isUnitKind, UNIT_KINDS, UNIT_QTY_MAX, type ProductUnit } from '../unit-price';
 import { getProduct } from './catalog';
 import { DataError, fromPostgrest, unwrap } from './errors';
@@ -57,6 +58,8 @@ export interface ProductInput {
   sizes: string[] | null;
   /** how much it holds (3 fl oz, 150 ml, 30 count), for its unit price; null when it isn't sold by measure. */
   unit: ProductUnit | null;
+  /** "Save 5% when you buy 2 or more": percent off (1–50) each unit of a line of at least minQty (2–99), or null for none. */
+  qtyDiscount: QtyDiscount | null;
   badge: string | null;
   boughtPastMonth: string | null;
   seller: string;
@@ -139,6 +142,21 @@ const ProductInputSchema = z
           .transform((q) => Math.round(q * 100) / 100)
           .refine((q) => q > 0, 'Enter how much it holds, like 3 fl oz'),
         kind: z.enum(UNIT_KINDS, 'Pick a unit like oz, ml or count'),
+      })
+      .nullable()
+      .default(null),
+    qtyDiscount: z
+      .object({
+        percentOff: z
+          .number()
+          .int('Enter a whole percent')
+          .min(1, `Quantity discounts are 1% to ${QTY_DISCOUNT_PCT_MAX}% off`)
+          .max(QTY_DISCOUNT_PCT_MAX, `Quantity discounts are 1% to ${QTY_DISCOUNT_PCT_MAX}% off`),
+        minQty: z
+          .number()
+          .int('Enter a whole number')
+          .min(QTY_DISCOUNT_MIN_QTY, `Quantity discounts start at ${QTY_DISCOUNT_MIN_QTY} to ${QTY_DISCOUNT_MAX_QTY} units`)
+          .max(QTY_DISCOUNT_MAX_QTY, `Quantity discounts start at ${QTY_DISCOUNT_MIN_QTY} to ${QTY_DISCOUNT_MAX_QTY} units`),
       })
       .nullable()
       .default(null),
@@ -242,6 +260,8 @@ function toRow(p: ProductInput) {
     sizes: p.sizes,
     unit_qty: p.unit?.qty ?? null,
     unit_kind: p.unit?.kind ?? null,
+    qty_discount_pct: p.qtyDiscount?.percentOff ?? null,
+    qty_discount_min: p.qtyDiscount?.minQty ?? null,
     badge: p.badge,
     bought_past_month: p.boughtPastMonth,
     seller: p.seller,
@@ -410,6 +430,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     sizes: r.sizes ?? null,
     // absent before the unit price migration
     unit: r.unit_qty != null && isUnitKind(r.unit_kind) ? { qty: Number(r.unit_qty), kind: r.unit_kind } : null,
+    // absent before the quantity discounts migration
+    qtyDiscount: r.qty_discount_pct && r.qty_discount_min ? { percentOff: r.qty_discount_pct, minQty: r.qty_discount_min } : null,
     badge: r.badge,
     boughtPastMonth: r.bought_past_month,
     seller: r.seller,

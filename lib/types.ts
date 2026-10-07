@@ -1,4 +1,5 @@
 import type { CurrencyCode } from './contracts';
+import type { QtyDiscount } from './qty-discount';
 import type { ProductUnit } from './unit-price';
 
 /** Storefront id — amazon.com (US) or amazon.in (IN). */
@@ -38,6 +39,8 @@ export interface Product {
   sizes?: string[];
   /** how much it holds (3 fl oz, 150 ml), for the unit price beside its price (absent: none). */
   unit?: ProductUnit;
+  /** "Save 5% when you buy 2 or more": a percent off each unit of a line of at least minQty (absent: none). */
+  qtyDiscount?: QtyDiscount;
 }
 
 export interface Category {
@@ -48,8 +51,10 @@ export interface Category {
 export interface OrderTotals {
   /** the items at their list price */
   subtotalMinor: number;
-  /** what applied coupons and a promotion code take off the items (0 or absent without either) */
+  /** what applied coupons, quantity discounts and a promotion code take off the items (0 or absent without any) */
   discountMinor?: number;
+  /** the quantity discounts' part of discountMinor (absent without one) */
+  qtyDiscountMinor?: number;
   /** the promotion code's part of discountMinor (absent without one) */
   promoMinor?: number;
   shipMinor: number;
@@ -67,8 +72,10 @@ export interface CartLine {
   lineTotalMinor: number;
   /** the product's coupon, applied (clipped) by this shopper or not */
   coupon?: { percentOff: number; clipped: boolean };
-  /** what the applied coupon takes off this line (0 when it isn't applied) */
+  /** what the applied coupon, the quantity discount and a promotion code take off this line (0 without any) */
   discountMinor?: number;
+  /** the quantity discount's part of discountMinor, when the line holds enough (absent otherwise) */
+  qtyDiscountMinor?: number;
   /** false when stock dropped below the quantity in the cart, or the product was archived. */
   inStock: boolean;
   /** false when the product was archived: it must be removed before checkout. */
@@ -184,8 +191,10 @@ export interface OrderItem {
   seller: string;
   unitPriceMinor: number;
   qty: number;
-  /** what a coupon and a promotion code took off each unit (absent without either) */
+  /** what a coupon, a quantity discount and a promotion code took off each unit (absent without any) */
   unitDiscountMinor?: number;
+  /** the quantity discount's part of unitDiscountMinor (absent without one) */
+  unitQtyDiscountMinor?: number;
   /** the promotion code's part of unitDiscountMinor (absent without one) */
   unitPromoMinor?: number;
   /** the protection plan bought with it, per unit (absent without one) */

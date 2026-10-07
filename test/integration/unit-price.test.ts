@@ -27,6 +27,7 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   maxPerCustomer: null,
   sizes: null,
   unit: { qty: 150, kind: 'ml' },
+  qtyDiscount: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Lather Store',

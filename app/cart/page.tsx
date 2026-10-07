@@ -33,6 +33,7 @@ import { cartPriceChanges } from '@/lib/cart-price-changes';
 import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { limitNote, unitsLeft } from '@/lib/purchase-limits';
 import { protectionPlanName } from '@/lib/protection';
+import { qtyDiscountShortfall } from '@/lib/qty-discount';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
@@ -155,6 +156,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
   const discount = totals.discountMinor ?? 0;
+  // coupons and quantity discounts are shown apart; the discount covers both
+  const qtyDiscountMinor = totals.qtyDiscountMinor ?? 0;
+  const couponMinor = discount - qtyDiscountMinor;
   // the free-delivery threshold goes by what's paid for the items, after coupons
   const toFree = cart.freeShipThresholdMinor - (totals.subtotalMinor - discount);
 
@@ -226,7 +230,16 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                             compact
                           />
                         ) : null}
-                        {l.discountMinor ? <span className="text-[13px] font-semibold text-good-strong">You save {money(l.discountMinor)} with the coupon</span> : null}
+                        {l.discountMinor && l.discountMinor > (l.qtyDiscountMinor ?? 0) ? (
+                          <span className="text-[13px] font-semibold text-good-strong">You save {money(l.discountMinor - (l.qtyDiscountMinor ?? 0))} with the coupon</span>
+                        ) : null}
+                        {l.available && p.qtyDiscount ? (
+                          l.qtyDiscountMinor ? (
+                            <span className="text-[13px] font-semibold text-good-strong">You save {money(l.qtyDiscountMinor)} with {p.qtyDiscount.percentOff}% off {p.qtyDiscount.minQty} or more</span>
+                          ) : (
+                            <span className="text-[13px] text-ink-2">Add {qtyDiscountShortfall(p.qtyDiscount, l.qty)} more to save {p.qtyDiscount.percentOff}%</span>
+                          )
+                        ) : null}
                         {l.available && l.protection ? (
                           <CartProtection
                             id={p.id}
@@ -299,8 +312,11 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
             ) : null}
             <dl className="m-0 flex flex-col gap-2 text-[15px]">
               <div className="flex justify-between gap-3"><dt>Subtotal ({count} {count === 1 ? 'item' : 'items'})</dt><dd className="m-0 font-bold tabular-nums">{money(totals.subtotalMinor)}</dd></div>
-              {discount > 0 ? (
-                <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 font-bold tabular-nums">−{money(discount)}</dd></div>
+              {couponMinor > 0 ? (
+                <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 font-bold tabular-nums">−{money(couponMinor)}</dd></div>
+              ) : null}
+              {qtyDiscountMinor > 0 ? (
+                <div className="flex justify-between gap-3 text-good-strong"><dt>Quantity discounts</dt><dd className="m-0 font-bold tabular-nums">−{money(qtyDiscountMinor)}</dd></div>
               ) : null}
               <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 font-bold tabular-nums">{freeShip ? 'FREE' : money(totals.shipMinor)}</dd></div>
               {totals.protectionMinor ? (

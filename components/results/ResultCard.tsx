@@ -3,6 +3,7 @@ import { shortTitle } from '@/lib/decision/verdict';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { toStoreMinor } from '@/lib/fx';
+import { qtyDiscountText } from '@/lib/qty-discount';
 import { unitPriceText } from '@/lib/unit-price';
 import type { VariantSummary } from '@/lib/variants';
 import { cn } from '../lib/cn';
@@ -88,6 +89,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
             Save {couponPct}% with coupon
           </span>
         ) : null}
+        {p.qtyDiscount ? <span className="text-[13px] text-ink-2">{qtyDiscountText(p.qtyDiscount)}</span> : null}
       </div>
       <span className="text-[13px] text-ink-2">
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
