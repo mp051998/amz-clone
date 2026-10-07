@@ -8,6 +8,17 @@ import { CompareToggle } from '../decision/Compare';
 import { SaveButton } from '../decision/SaveButton';
 import { QuickAdd } from '../deals/QuickAdd';
 
+/** Where a product sells: its sales rank this week, and last week's (null: it didn't sell then). */
+export interface Move {
+  rank: number;
+  wasRank: number | null;
+}
+
+/** How far it climbed, as a share of where it is now: from #40 to #4 is 900%. */
+export function climbPct(m: Move): number | null {
+  return m.wasRank == null ? null : Math.round(((m.wasRank - m.rank) / m.rank) * 100);
+}
+
 export interface RankCardProps {
   product: Product;
   store: Store;
@@ -15,6 +26,8 @@ export interface RankCardProps {
   rank?: number;
   /** mono kicker shown when there is no rank (e.g. "New"). */
   tag?: string;
+  /** movers & shakers: the climb, and the sales rank now and before */
+  move?: Move;
   saved?: boolean;
 }
 
@@ -23,7 +36,7 @@ export interface RankCardProps {
  * "#N" rank, name, ★ rating, Price, accent "N% off" when on deal, then Compare · Save · quick add.
  * Horizontal on phones (image left) so a 40-item list stays scannable; stacked from `sm`.
  */
-export function RankCard({ product: p, store, rank, tag, saved = false }: RankCardProps) {
+export function RankCard({ product: p, store, rank, tag, move, saved = false }: RankCardProps) {
   const href = storePath(store, `/product/${p.id}`);
   const cur = store.currency.code;
   const price = toStoreMinor(p.priceMinor, cur, p.curBase);
@@ -54,6 +67,7 @@ export function RankCard({ product: p, store, rank, tag, saved = false }: RankCa
             <span aria-hidden className="text-star">★</span> {p.rating.toFixed(1)}
             <span className="text-ink-3"> · {p.reviewCount.toLocaleString('en-US')} ratings</span>
           </span>
+          {move ? <MoveLine move={move} /> : null}
           <Price minor={price} currency={cur} listMinor={list} showSavings={false} size={18} />
         </div>
       </div>
@@ -63,5 +77,21 @@ export function RankCard({ product: p, store, rank, tag, saved = false }: RankCa
         <QuickAdd productId={p.id} name={p.title} optionsHref={p.sizes ? href : undefined} />
       </div>
     </article>
+  );
+}
+
+/** "▲ 900% · Sales rank 4 (was 40)", or "▲ New · Sales rank 4 (previously unranked)". */
+function MoveLine({ move }: { move: Move }) {
+  const pct = climbPct(move);
+  return (
+    <span className="text-[13px] text-ink-2">
+      <span className="font-semibold text-good">
+        <span aria-hidden>▲ </span>
+        {pct == null ? 'New' : <><span className="sr-only">Up </span>{pct.toLocaleString('en-US')}%</>}
+      </span>
+      <span className="text-ink-3">
+        {' '}· Sales rank {move.rank.toLocaleString('en-US')} ({move.wasRank == null ? 'previously unranked' : `was ${move.wasRank.toLocaleString('en-US')}`})
+      </span>
+    </span>
   );
 }

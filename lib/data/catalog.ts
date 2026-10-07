@@ -174,10 +174,36 @@ export function giftIdeas(db: Db, market: Market, opts: ChartOptions = {}): Prom
   return rankedChart(db, 'gift_ideas', market, opts);
 }
 
+/** A product climbing the store's sales ranks: its rank this week, and last week's (null: it didn't sell). */
+export interface Mover {
+  product: Product;
+  rank: number;
+  wasRank: number | null;
+}
+
+/**
+ * "Movers & Shakers": the products climbing the store's sales ranks fastest, this week's against
+ * last week's, the biggest climb first (ranked in the database; units sold never leave it). Unlike
+ * the other charts it isn't filled up with bestsellers: only what climbed is listed.
+ */
+export async function moversAndShakers(db: Db, market: Market, opts: ChartOptions = {}): Promise<Mover[]> {
+  const limit = opts.limit ?? 40;
+  const res = await db.rpc('movers_and_shakers', { p_market: market, p_limit: limit, ...(opts.category ? { p_category: opts.category } : {}) });
+  if (res.error?.code === 'PGRST202') return []; // the ranking isn't deployed yet
+  const rows = (unwrap(res) ?? []) as { product_id: string; rank: number; was_rank: number | null }[];
+  const products = new Map((await getProducts(db, rows.map((r) => r.product_id))).map((p) => [p.id, p]));
+  const movers = rows.flatMap((r): Mover[] => {
+    const product = products.get(r.product_id);
+    return product ? [{ product, rank: Number(r.rank), wasRank: r.was_rank == null ? null : Number(r.was_rank) }] : [];
+  });
+  // a variant group shows once, at its biggest climber
+  return foldVariants(movers, (m) => m.product).slice(0, limit);
+}
+
 type ChartOptions = { category?: string; limit?: number };
 
 /** The store's charts, by the path each lives at (`/bestsellers`, …). */
-export const CHART_KINDS = ['bestsellers', 'new-releases', 'most-wished-for', 'gift-ideas'] as const;
+export const CHART_KINDS = ['bestsellers', 'new-releases', 'movers-and-shakers', 'most-wished-for', 'gift-ideas'] as const;
 export type ChartKind = (typeof CHART_KINDS)[number];
 
 export function isChartKind(v: string): v is ChartKind {
@@ -192,6 +218,8 @@ export function chart(db: Db, market: Market, kind: ChartKind, opts: ChartOption
       return listProducts(db, market, { category: opts.category, order: 'popular', limit });
     case 'new-releases':
       return listProducts(db, market, { category: opts.category, order: 'fresh', limit });
+    case 'movers-and-shakers':
+      return moversAndShakers(db, market, { ...opts, limit }).then((movers) => movers.map((m) => m.product));
     case 'most-wished-for':
       return mostWishedFor(db, market, { ...opts, limit });
     case 'gift-ideas':
