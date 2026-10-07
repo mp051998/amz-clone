@@ -46,7 +46,11 @@ export function CancelledItems({ order, store, href }: { order: Order; store: St
           ))}
           <p className="m-0 border-t border-line-2 px-[18px] py-3 text-[14px] leading-[1.5] text-ink-2">
             {cancellationRefundText(order, c, store)}
-            {c.taxMinor ? <span className="text-ink-3"> Includes {money(c.taxMinor)} tax.</span> : null}
+            {c.taxMinor || c.wrapMinor ? (
+              <span className="text-ink-3">
+                {' '}Includes {[c.taxMinor ? `${money(c.taxMinor)} tax` : '', c.wrapMinor ? `${money(c.wrapMinor)} gift wrap` : ''].filter(Boolean).join(' and ')}.
+              </span>
+            ) : null}
           </p>
         </article>
       ))}

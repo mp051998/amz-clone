@@ -52,7 +52,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         addressType: formData.get('addressType'),
         instructions: formData.get('instructions'),
       },
-      gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage') } : undefined,
+      gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage'), wrap: formData.get('giftWrap') === 'on' } : undefined,
       speed: formData.get('shipSpeed') === 'fast' ? 'fast' : undefined,
       buyNow,
     });

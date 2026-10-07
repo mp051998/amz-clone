@@ -20,7 +20,7 @@ export interface PlaceOrderInput {
   paymentMethod: PaymentMethod;
   shipping: AddressFieldsInput;
   /** mark the order as a gift, with an optional note for the recipient */
-  gift?: { message?: unknown };
+  gift?: { message?: unknown; wrap?: boolean };
   /** delivery speed; 'fast' only when offered right now (see deliveryOptions) */
   speed?: ShipSpeed;
   /** Buy Now: order just this product (the cart is left as it is) */
@@ -64,13 +64,19 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
         instructions: a.instructions ?? null,
       },
       // sent only for gifts, so ordinary checkouts don't depend on the gift migration
-      ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}) } : {}),
+      ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}), ...(input.gift.wrap ? { p_gift_wrap: true } : {}) } : {}),
       // likewise only for fast delivery
       ...(input.speed === 'fast' ? { p_speed: 'fast' } : {}),
       ...(input.buyNow ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty } } : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
+/** The store's gift wrap fee per item (minor units); null when it doesn't wrap, or until the gift wrap migration lands. */
+export async function giftWrapFee(db: Db, market: Market): Promise<number | null> {
+  const { data, error } = await db.from('markets').select('gift_wrap_minor').eq('id', market).maybeSingle();
+  return error || !data ? null : data.gift_wrap_minor;
 }
 
 /** The store's fee for faster delivery (minor units); null until the delivery-speed migration lands. */

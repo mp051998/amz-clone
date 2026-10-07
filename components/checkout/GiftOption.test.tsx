@@ -25,3 +25,18 @@ it('an unticked box sends nothing', () => {
   expect(form.get('gift')).toBeNull();
   expect(form.get('giftMessage')).toBeNull();
 });
+
+it('offers gift wrap with its fee when the store wraps, sent only for a gift', () => {
+  const { container, rerender } = render(<form><GiftOption max={240} /></form>);
+  fireEvent.click(screen.getByLabelText('This order contains a gift'));
+  expect(screen.queryByLabelText(/Gift-wrap/)).toBeNull();
+
+  rerender(<form><GiftOption max={240} wrapFee="$3.99" /></form>);
+  const wrap = screen.getByLabelText('Gift-wrap the items ($3.99 per item)');
+  expect(wrap).toHaveAttribute('id', 'gift-wrap');
+  fireEvent.click(wrap);
+  expect(new FormData(container.querySelector('form')!).get('giftWrap')).toBe('on');
+
+  fireEvent.click(screen.getByLabelText('This order contains a gift'));
+  expect(new FormData(container.querySelector('form')!).get('giftWrap')).toBeNull();
+});

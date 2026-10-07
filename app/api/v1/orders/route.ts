@@ -14,7 +14,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? } }
+ * POST /api/v1/orders { paymentMethod, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? } }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to.
@@ -24,7 +24,8 @@ export const POST = route(async (ctx) => {
   const b = await body(ctx.req);
   if (!isPaymentMethod(b.paymentMethod)) throw new DataError('payment_method_unavailable');
   const shipping = (b.shipping && typeof b.shipping === 'object' ? b.shipping : {}) as AddressFieldsInput;
-  const gift = b.gift && typeof b.gift === 'object' ? { message: (b.gift as { message?: unknown }).message } : b.gift === true ? {} : undefined;
+  const g = b.gift && typeof b.gift === 'object' ? (b.gift as { message?: unknown; wrap?: unknown }) : null;
+  const gift = g ? { message: g.message, wrap: g.wrap === true } : b.gift === true ? {} : undefined;
   if (b.speed !== undefined && !isShipSpeed(b.speed)) throw new DataError('delivery_option_unavailable');
   let buyNow: BuyNow | undefined;
   if (b.buyNow !== undefined) {

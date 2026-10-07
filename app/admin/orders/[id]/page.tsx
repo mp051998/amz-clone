@@ -144,6 +144,9 @@ export default async function AdminOrderPage({ params, searchParams }: {
                 <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.discountMinor)}</dd></div>
               ) : null}
               <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
+              {order.totals.wrapMinor ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(order.totals.wrapMinor)}</dd></div>
+              ) : null}
               <div className="flex justify-between"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(order.totals.taxMinor)}</dd></div>
               <div className="flex justify-between font-bold"><dt>Total</dt><dd className="m-0 tabular-nums">{money(order.totals.totalMinor)}</dd></div>
             </dl>
@@ -177,6 +180,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
               ...(s.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{s.instructions}</span> }] : []),
               { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : 'Standard' },
               ...(order.gift ? [{ label: 'Gift note', value: order.gift.message ? <span className="whitespace-pre-line">{order.gift.message}</span> : 'Gift, no note' }] : []),
+              ...(order.gift?.wrapped ? [{ label: 'Gift wrap', value: 'Wrap every item' }] : []),
             ]}
           />
           <FactsCard

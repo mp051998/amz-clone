@@ -131,6 +131,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(inv.discountMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between gap-4"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{inv.shipMinor === 0 ? 'FREE' : money(inv.shipMinor)}</dd></div>
+            {inv.wrapMinor > 0 ? (
+              <div className="flex justify-between gap-4"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(inv.wrapMinor)}</dd></div>
+            ) : null}
             {inv.taxMinor > 0 ? (
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(inv.taxMinor)}</dd></div>
             ) : (

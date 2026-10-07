@@ -18,7 +18,7 @@ import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
-import { fastShipFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
+import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
 import { isBalanceMethod, storeBalance } from '@/lib/data/balance';
 import { deliveryOptions } from '@/lib/decision/tracking';
@@ -61,10 +61,11 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [cart, addresses, fastFee, plus, balanceMinor] = await Promise.all([
+  const [cart, addresses, fastFee, wrapFee, plus, balanceMinor] = await Promise.all([
     buy ? quote(client, store.id, buy) : viewerCart(),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
+    giftWrapFee(client, store.id),
     plusMembership(client),
     storeBalance(client, store.id),
   ]);
@@ -132,6 +133,16 @@ export default async function CheckoutPage({
         <span className="hidden group-has-[#ship-fast:checked]/co:inline">{faster}</span>
       </>
     ) : standard;
+  // gift wrap is priced per unit; the summary follows its box (#gift-wrap) like the speed
+  const wrapMinor = wrapFee === null ? 0 : wrapFee * lines.reduce((n, l) => n + l.qty, 0);
+  const byWrap = (plain: ReactNode, wrapped: ReactNode) =>
+    wrapMinor > 0 ? (
+      <>
+        <span className="group-has-[#gift-wrap:checked]/co:hidden">{plain}</span>
+        <span className="hidden group-has-[#gift-wrap:checked]/co:inline">{wrapped}</span>
+      </>
+    ) : plain;
+  const fastTotal = fast ? totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor : 0;
   const methods = store.payments.map((pm) => pm.method).filter((m) => m !== 'card' || stripeConfigured);
   // balance methods pay the whole order from the gift card balance (null before balances exist)
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
@@ -190,7 +201,7 @@ export default async function CheckoutPage({
                 }}
               />
             ) : null}
-            <GiftOption max={GIFT_NOTE_MAX} />
+            <GiftOption max={GIFT_NOTE_MAX} wrapFee={wrapFee === null ? undefined : money(wrapFee)} />
           </StepCard>
           <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">
             <h2 id="co-items-h" className="m-0 text-[13px] font-normal text-ink-3">Items ({count})</h2>
@@ -229,6 +240,9 @@ export default async function CheckoutPage({
               <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 tabular-nums">−{money(discount)}</dd></div>
             ) : null}
             <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
+            {wrapMinor > 0 ? (
+              <div className="hidden justify-between gap-3 group-has-[#gift-wrap:checked]/co:flex"><dt>Gift wrap</dt><dd className="m-0 tabular-nums">{money(wrapMinor)}</dd></div>
+            ) : null}
             {store.pricing.taxInclusive ? (
               <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
             ) : (
@@ -236,7 +250,10 @@ export default async function CheckoutPage({
             )}
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-line pt-3">
               <dt className="text-[18px] font-semibold">Total</dt>
-              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{bySpeed(money(totals.totalMinor), fast ? money(totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor) : null)}</dd>
+              <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{byWrap(
+                bySpeed(money(totals.totalMinor), money(fastTotal)),
+                bySpeed(money(totals.totalMinor + wrapMinor), money(fastTotal + wrapMinor)),
+              )}</dd>
             </div>
           </dl>
           {blocked ? (
