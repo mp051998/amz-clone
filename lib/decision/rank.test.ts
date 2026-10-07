@@ -38,7 +38,7 @@ describe('rank', () => {
   it('puts products in stock first, whatever the sort', () => {
     const gone = product({ id: 'gone', title: 'Gamma Headphones 60h battery', priceMinor: 1000, rating: 4.9, stock: 0 });
     const all = new Map([...ins, ['gone', insight('gone', { sound: 5, battery: 5, comfort: 5, anc: 5, value: 5 })]]);
-    for (const sort of ['match', 'price-asc', 'price-desc', 'rating', 'newest'] as const) {
+    for (const sort of ['match', 'price-asc', 'price-desc', 'rating', 'newest', 'bestsellers'] as const) {
       const ids = rankProducts([gone, a, b], all, cfg.defaultWeights, { sort }).map((r) => r.product.id);
       expect(ids.at(-1)).toBe('gone');
     }
@@ -62,6 +62,15 @@ describe('rank', () => {
   it('newest keeps the order the products came in', () => {
     const c = product({ id: 'c', title: 'Gamma Headphones', priceMinor: 9000 });
     expect(rankProducts([b, c, a], ins, cfg.defaultWeights, { sort: 'newest' }).map((r) => r.product.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('best sellers are the most reviewed, then the best rated, then in the order they came', () => {
+    const many = product({ id: 'many', reviewCount: 900, rating: 3.9 });
+    const top = product({ id: 'top', reviewCount: 400, rating: 4.8 });
+    const tieA = product({ id: 'tieA', reviewCount: 400, rating: 4.1 });
+    const tieB = product({ id: 'tieB', reviewCount: 400, rating: 4.1 });
+    const ranked = rankProducts([tieB, tieA, top, many], ins, cfg.defaultWeights, { sort: 'bestsellers' });
+    expect(ranked.map((r) => r.product.id)).toEqual(['many', 'top', 'tieB', 'tieA']);
   });
 
   it('filters to the budget and supports price sorts', () => {

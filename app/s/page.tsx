@@ -49,6 +49,7 @@ const SORT_OPTIONS: { value: RankSort; label: string }[] = [
   { value: 'price-desc', label: 'Highest price' },
   { value: 'rating', label: 'Rating' },
   { value: 'newest', label: 'Newest arrivals' },
+  { value: 'bestsellers', label: 'Best sellers' },
 ];
 
 const RANK_NOTE: Record<RankSort, string> = {
@@ -57,6 +58,7 @@ const RANK_NOTE: Record<RankSort, string> = {
   'price-desc': 'Highest price first',
   rating: 'Highest rated first',
   newest: 'Newest arrivals first',
+  bestsellers: 'Best sellers first',
 };
 
 function one(sp: SP, key: string): string | undefined {
@@ -74,7 +76,7 @@ function one(sp: SP, key: string): string | undefined {
  *   preset refine preset id, or `ai` = weights tuned by the quiz (summary in the `tuned_profile` cookie)
  *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
  *   spell  `0` = search exactly as typed, no spelling correction
- *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|price-desc|rating|newest  ·  page
+ *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|price-desc|rating|newest|bestsellers  ·  page
  *   brand, rating, deal — "More filters" facets  ·  oos  `1` = include out of stock
  */
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {

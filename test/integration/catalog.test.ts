@@ -25,6 +25,12 @@ describe('catalog', () => {
     const prices = cheap.items.map((p) => p.priceMinor);
     expect(prices).toEqual([...prices].sort((a, b) => a - b));
 
+    // Best Sellers: most reviewed, then best rated, the Bestsellers page's order
+    const selling = await searchCatalog(anon(), 'US', parseQuery({ sort: 'bestsellers' }));
+    expect(selling.query.sort).toBe('bestsellers');
+    const ranks = selling.items.map((p) => [p.reviewCount, p.rating]);
+    expect(ranks).toEqual([...ranks].sort((a, b) => b[0] - a[0] || b[1] - a[1]));
+
     const dept = 'electronics';
     const inDept = await searchCatalog(anon(), 'US', parseQuery({ dept }));
     expect(inDept.items.every((p) => p.category === dept)).toBe(true);

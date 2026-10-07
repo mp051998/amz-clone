@@ -10,8 +10,11 @@ import type { ProductInsight, RankedProduct, Weights } from './types';
 
 export { matchScores };
 
-/** `newest` keeps the order the products came in (the catalog's newest arrivals first). */
-export type RankSort = 'match' | 'price-asc' | 'price-desc' | 'rating' | 'newest';
+/**
+ * `newest` keeps the order the products came in (the catalog's newest arrivals first).
+ * `bestsellers` is the Bestsellers page's order: most reviewed, then best rated.
+ */
+export type RankSort = 'match' | 'price-asc' | 'price-desc' | 'rating' | 'newest' | 'bestsellers';
 
 export interface RankOptions {
   /** Drop products priced above this (minor units). null/undefined = no ceiling. */
@@ -125,6 +128,8 @@ export function rankProducts(
     'price-desc': (a, b) => b.product.priceMinor - a.product.priceMinor || b.match - a.match,
     rating: (a, b) => b.product.rating - a.product.rating || b.product.reviewCount - a.product.reviewCount,
     newest: (a, b) => arrived.get(a.product.id)! - arrived.get(b.product.id)!,
+    bestsellers: (a, b) =>
+      b.product.reviewCount - a.product.reviewCount || b.product.rating - a.product.rating || arrived.get(a.product.id)! - arrived.get(b.product.id)!,
   };
   const unbuyable = (r: RankedProduct) => (r.product.stock > 0 ? 0 : 1);
   return ranked.sort((a, b) => unbuyable(a) - unbuyable(b) || cmp[sort](a, b));

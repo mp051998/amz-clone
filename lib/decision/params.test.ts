@@ -26,6 +26,7 @@ describe('decision params', () => {
 
   it('reads the newest-arrivals sort; anything unknown is best match', () => {
     expect(readDecisionParams(new URLSearchParams('sort=newest'), null, 'US').sort).toBe('newest');
+    expect(readDecisionParams(new URLSearchParams('sort=bestsellers'), null, 'US').sort).toBe('bestsellers');
     expect(readDecisionParams(new URLSearchParams('sort=oldest'), null, 'US').sort).toBe('match');
   });
 
