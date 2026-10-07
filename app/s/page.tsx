@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { AppShell } from '@/components/AppShell';
 import { Pagination } from '@/components/commerce/Pagination';
 import { EmptyState, Kicker } from '@/components/decision/Badges';
@@ -27,8 +28,9 @@ import { storePath } from '@/lib/marketplace';
 import { parseQuery as parseFacets, pricePresets, SELLER_SEPARATOR } from '@/lib/search';
 import { searchMetadata } from '@/lib/seo';
 import { storeCategories } from '@/lib/storefront';
-import { db } from '@/lib/supabase/server';
+import { anonClient, db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
+import { recordSearch, relatedSearches } from '@/lib/data/search-terms';
 import { couponPercents } from '@/lib/data/coupons';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { dayLabel } from '@/components/orders/format';
@@ -116,12 +118,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   );
 
   const client = await db();
-  const [result, scope, saved, jar, plus] = await Promise.all([
+  const [result, scope, saved, jar, plus, related] = await Promise.all([
     rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, rating: facets.rating, deal: facets.deal, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, includeOutOfStock: facets.includeOutOfStock, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
     plusMembership(client),
+    k ? relatedSearches(client, store.id, k) : Promise.resolve([]),
   ]);
   // the same standard-delivery day the product page and checkout promise
   const now = new Date();
@@ -204,6 +207,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const facetFilters = brands.length + sellers.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
+  // count the search as typed (for related searches), not each page, re-sort or filter of it
+  if (k && total > 0 && !one(sp, 'page') && !one(sp, 'sort') && !one(sp, 'w') && !one(sp, 'preset') && !facetFilters && !facets.includeOutOfStock) {
+    after(() => recordSearch(anonClient(), store.id, k));
+  }
   const [variants, coupons] = await Promise.all([
     variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : []))),
     couponPercents(client, items.map((r) => r.product.id)),
@@ -380,6 +387,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               </>
             )}
             {pageCount > 1 ? <Pagination page={page} pageCount={pageCount} hrefFor={(n) => hrefWith({ page: n === 1 ? null : String(n) }, true)} /> : null}
+            {related.length ? (
+              <section aria-labelledby="related-h" className="flex flex-col gap-3 border-t border-line pt-4">
+                <h2 id="related-h" className="m-0 text-[18px] font-semibold">Related searches</h2>
+                <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+                  {related.map((term) => (
+                    <li key={term}>
+                      <Pill size="sm" tone="soft" href={storePath(store, `/s?k=${encodeURIComponent(term)}`)}>{term}</Pill>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
           </section>
         </div>
       </div>

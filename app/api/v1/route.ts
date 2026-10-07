@@ -43,6 +43,8 @@ export function GET(): Response {
       'GET    /charts/:chart?dept=&limit=',
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
       'GET    /suggest?q=',
+      'POST   /searches',
+      'GET    /searches/related?q=',
       'GET    /sellers?name=',
       'GET    /profiles/:id?page=',
       'GET    /products/:id',

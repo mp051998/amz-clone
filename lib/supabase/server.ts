@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '@/lib/db/database.types';
 import type { Db } from '@/lib/db/client';
@@ -36,3 +37,14 @@ export async function createClient(): Promise<Db> {
 
 /** One cookie-bound client per request (React cache is request-scoped on the server). */
 export const db = cache(createClient);
+
+/**
+ * A signed-out client that never touches the request: for work a Server Component schedules
+ * with `after()`, which runs once the response is sent and can't read cookies any more.
+ */
+export function anonClient(): Db {
+  assertSupabaseEnv();
+  return createSupabaseClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}

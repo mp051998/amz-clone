@@ -543,6 +543,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"search_terms": {
+                  Row: {
+                    "last_searched_at": string,"market_id": string,"searches": number,"term": string,"words": string[] | null
+                  }
+                  Insert: {
+                    "last_searched_at"?: string,"market_id": string,"searches"?: number,"term": string
+                  }
+                  Update: {
+                    "last_searched_at"?: string,"market_id"?: string,"searches"?: number,"term"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"plus_members": {
                   Row: {
                     "joined_at": string,"user_id": string
@@ -1034,6 +1047,15 @@ isOneToOne: false
                            },
 "search_suggest":
 { Args: { "p_market": string,"p_q": string }; Returns: Json
+                           },
+"record_search":
+{ Args: { "p_market": string,"p_q": string }; Returns: undefined
+                           },
+"related_searches":
+{ Args: { "p_limit"?: number,"p_market": string,"p_q": string }; Returns: Json
+                           },
+"search_term":
+{ Args: { "p_q": string }; Returns: string
                            },
 "to_prefix_tsquery":
 { Args: { "p_text": string }; Returns: unknown
