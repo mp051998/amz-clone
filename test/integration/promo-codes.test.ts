@@ -48,7 +48,7 @@ beforeAll(async () => {
     { market_id: 'US', code: CODES.min, percent_off: 10, min_spend_minor: a.price_minor * 3, description: '10% off big orders' },
     { market_id: 'US', code: CODES.old, percent_off: 10, starts_at: new Date(now - 2 * DAY).toISOString(), ends_at: new Date(now - DAY).toISOString(), description: 'Gone' },
     { market_id: 'US', code: CODES.cat, percent_off: 20, category_slug: a.category_slug, description: '20% off one department' },
-  ]);
+  ], { defaultToNull: false });
   if (error) throw error;
 });
 
