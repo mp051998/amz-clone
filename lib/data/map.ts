@@ -52,8 +52,10 @@ interface CartJson {
     coupon?: { percent_off: number; clipped: boolean } | null;
     discount_minor?: number;
     selected?: boolean;
+    protection_unit_minor?: number | null;
+    protection?: boolean;
   }[];
-  totals: { subtotal_minor: number; discount_minor?: number; ship_minor: number; tax_minor: number; total_minor: number };
+  totals: { subtotal_minor: number; discount_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
 }
 
 /** JSON returned by the cart RPCs → Cart. */
@@ -77,12 +79,15 @@ export function toCart(json: unknown): Cart {
       ...(l.coupon ? { coupon: { percentOff: l.coupon.percent_off, clipped: l.coupon.clipped } } : {}),
       discountMinor: l.discount_minor ?? 0,
       selected: l.selected ?? true,
+      // absent before the protection plans migration
+      ...(l.protection_unit_minor ? { protection: { unitMinor: l.protection_unit_minor, added: l.protection === true } } : {}),
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
       discountMinor: c.totals.discount_minor ?? 0,
       shipMinor: c.totals.ship_minor,
       taxMinor: c.totals.tax_minor,
+      ...(c.totals.protection_minor ? { protectionMinor: c.totals.protection_minor } : {}),
       totalMinor: c.totals.total_minor,
     },
   };
@@ -127,6 +132,7 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       unitPriceMinor: it.unit_price_minor ?? 0,
       qty: it.qty ?? 0,
       ...(it.unit_discount_minor ? { unitDiscountMinor: it.unit_discount_minor } : {}),
+      ...(it.protection_minor ? { protectionMinor: it.protection_minor } : {}),
     }));
 }
 
@@ -138,6 +144,7 @@ function toCancellation(row: CancellationWithItems): OrderCancellation {
     taxMinor: row.tax_minor,
     // absent on rows read before the gift wrap migration lands
     ...(row.wrap_minor ? { wrapMinor: row.wrap_minor } : {}),
+    ...(row.protection_minor ? { protectionMinor: row.protection_minor } : {}),
     refund: { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor, refundedAt: opt(row.refunded_at) },
     createdAt: row.created_at,
   };
@@ -165,6 +172,7 @@ export function toOrder(row: OrderWithItems): Order {
       taxMinor: row.tax_minor,
       // absent on rows read before the gift wrap migration lands
       ...(row.wrap_minor ? { wrapMinor: row.wrap_minor } : {}),
+      ...(row.protection_minor ? { protectionMinor: row.protection_minor } : {}),
       totalMinor: row.total_minor,
     },
     shipTo: {

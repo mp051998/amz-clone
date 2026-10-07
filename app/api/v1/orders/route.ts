@@ -29,8 +29,8 @@ export const POST = route(async (ctx) => {
   if (b.speed !== undefined && !isShipSpeed(b.speed)) throw new DataError('delivery_option_unavailable');
   let buyNow: BuyNow | undefined;
   if (b.buyNow !== undefined) {
-    const raw = (b.buyNow && typeof b.buyNow === 'object' ? b.buyNow : {}) as { productId?: unknown; qty?: unknown };
-    buyNow = readBuyNow(raw.productId, raw.qty ?? 1) ?? undefined;
+    const raw = (b.buyNow && typeof b.buyNow === 'object' ? b.buyNow : {}) as { productId?: unknown; qty?: unknown; protection?: unknown };
+    buyNow = readBuyNow(raw.productId, raw.qty ?? 1, raw.protection === true) ?? undefined;
     if (!buyNow) throw new DataError('invalid_input', 'buyNow.productId', 'Say which product to buy.');
   }
 

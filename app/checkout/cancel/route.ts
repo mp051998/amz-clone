@@ -12,6 +12,6 @@ export async function GET(req: NextRequest): Promise<Response> {
   const q = req.nextUrl.searchParams;
   const orderId = q.get('order');
   if (orderId) await cancelPendingOrder(await db(), orderId).catch(() => undefined);
-  const buy = readBuyNow(q.get('buy'), q.get('qty'));
+  const buy = readBuyNow(q.get('buy'), q.get('qty'), q.get('protection'));
   redirect(storePath({ id: market }, `/checkout?canceled=1${buy ? `&${buyNowQuery(buy)}` : ''}`));
 }

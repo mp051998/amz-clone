@@ -32,6 +32,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import type { Db } from '@/lib/db/client';
 import type { Address, Order } from '@/lib/types';
+import { protectionPlanName } from '@/lib/protection';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -373,6 +374,7 @@ export default async function OrderPage({
                   <a href={sp(`/seller?name=${encodeURIComponent(it.seller)}`)} className="text-ink-3 underline underline-offset-2">{it.seller}</a>
                 </span>
                 {it.unitDiscountMinor ? <span className="text-[13px] font-semibold text-good-strong">Coupon −{money(it.unitDiscountMinor * it.qty)}</span> : null}
+                {it.protectionMinor ? <span className="text-[13px] text-ink-2">+ {protectionPlanName(order.market)} · {money(it.protectionMinor * it.qty)}</span> : null}
                 {view.delivered ? (
                   reviewed.has(it.productId) ? (
                     <a href={sp(`/product/${encodeURIComponent(it.productId)}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Edit your review: ${it.title}`}>
@@ -412,6 +414,9 @@ export default async function OrderPage({
             <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
             {order.totals.wrapMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(order.totals.wrapMinor)}</dd></div>
+            ) : null}
+            {order.totals.protectionMinor ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Protection plans</dt><dd className="m-0 tabular-nums">{money(order.totals.protectionMinor)}</dd></div>
             ) : null}
             {order.totals.taxMinor > 0 ? (
               <div className="flex justify-between"><dt className="text-ink-2">Tax</dt><dd className="m-0 tabular-nums">{money(order.totals.taxMinor)}</dd></div>

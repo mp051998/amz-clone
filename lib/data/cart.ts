@@ -14,9 +14,16 @@ export async function getCart(db: Db, market: Market, guestToken?: string | null
   return toCart(unwrap(await db.rpc('cart_get', { p_market: market, p_guest_token: guestToken ?? undefined })));
 }
 
-/** Buy Now's checkout summary: just this product at `qty` (1..the store's line limit), priced like a cart of it. */
-export async function buyNowQuote(db: Db, market: Market, productId: string, qty: number): Promise<Cart> {
-  return toCart(unwrap(await db.rpc('buy_now_quote', { p_market: market, p_product: productId, p_qty: qty })));
+/** Buy Now's checkout summary: just this product at `qty` (1..the store's line limit), priced like a cart of it, with its protection plan when asked. */
+export async function buyNowQuote(db: Db, market: Market, productId: string, qty: number, protection = false): Promise<Cart> {
+  return toCart(
+    unwrap(await db.rpc('buy_now_quote', { p_market: market, p_product: productId, p_qty: qty, ...(protection ? { p_protection: true } : {}) })),
+  );
+}
+
+/** A product's protection plan price per unit, or null when the store doesn't cover it. */
+export async function protectionOffer(db: Db, productId: string): Promise<number | null> {
+  return unwrap(await db.rpc('protection_offer', { p_product: productId })) ?? null;
 }
 
 /** Increment a line (creates the cart on first add). Capped at stock and the per-line max. */
@@ -57,6 +64,20 @@ export async function selectCartLines(db: Db, market: Market, productId: string 
         p_market: market,
         p_selected: selected,
         p_product_id: productId ?? undefined,
+        p_guest_token: guestToken ?? undefined,
+      }),
+    ),
+  );
+}
+
+/** Add or drop the store's protection plan on a cart line (`invalid_input` when the product has none). */
+export async function setCartProtection(db: Db, market: Market, productId: string, on: boolean, guestToken?: string | null): Promise<Cart> {
+  return toCart(
+    unwrap(
+      await db.rpc('cart_set_protection', {
+        p_market: market,
+        p_product_id: productId,
+        p_on: on,
         p_guest_token: guestToken ?? undefined,
       }),
     ),

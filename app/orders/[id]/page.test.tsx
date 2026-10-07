@@ -166,6 +166,35 @@ it('a gift-wrapped order says so, with the wrap in its totals and in a cancellat
   expect(screen.getByRole('article', { name: 'Cancelled items' })).toHaveTextContent('Includes $0.80 tax and $3.99 gift wrap.');
 });
 
+it('shows a protection plan bought with an item, in the totals, and refunded with a cancelled item', async () => {
+  const [kettle, mug] = order().items;
+  state.order = order({
+    totals: { subtotalMinor: 2000, shipMinor: 0, taxMinor: 160, protectionMinor: 398, totalMinor: 2558 },
+    items: [{ ...kettle, protectionMinor: 199 }, mug],
+  });
+  await show();
+  expect(screen.getByText(/^\+ 2-Year Protection Plan/)).toHaveTextContent(`+ 2-Year Protection Plan · $${(199 * kettle.qty / 100).toFixed(2)}`);
+  expect(screen.getByText('Protection plans', { selector: 'dt' }).nextElementSibling).toHaveTextContent('$3.98');
+  cleanup();
+  state.order = order({
+    items: [mug],
+    cancellations: [
+      {
+        id: 'c1',
+        items: [{ ...kettle, protectionMinor: 199 }],
+        itemsMinor: 1000,
+        taxMinor: 80,
+        wrapMinor: 399,
+        protectionMinor: 199,
+        refund: { status: 'succeeded', amountMinor: 1678, refundedAt: '2026-09-01T11:00:00Z' },
+        createdAt: '2026-09-01T11:00:00Z',
+      },
+    ],
+  });
+  await show();
+  expect(screen.getByRole('article', { name: 'Cancelled items' })).toHaveTextContent('Includes $0.80 tax, $3.99 gift wrap and $1.99 protection plans.');
+});
+
 it('links a gift receipt for the order, and for each item of a several-item order', async () => {
   await show();
   expect(screen.getByRole('link', { name: 'Gift receipt' })).toHaveAttribute('href', '/orders/ORD-9/gift-receipt');

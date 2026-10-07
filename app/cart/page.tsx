@@ -26,6 +26,8 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import type { Collection } from '@/lib/decision/types';
 import type { CartLine, Market } from '@/lib/types';
+import { CartProtection } from '@/components/cart/CartProtection';
+import { protectionPlanName } from '@/lib/protection';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
@@ -192,6 +194,15 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                           />
                         ) : null}
                         {l.discountMinor ? <span className="text-[13px] font-semibold text-good-strong">You save {money(l.discountMinor)} with the coupon</span> : null}
+                        {l.available && l.protection ? (
+                          <CartProtection
+                            id={p.id}
+                            added={l.protection.added}
+                            plan={protectionPlanName(store.id)}
+                            price={l.qty > 1 ? `${money(l.protection.unitMinor)} each` : money(l.protection.unitMinor)}
+                            name={p.title}
+                          />
+                        ) : null}
                         {drop > 0 ? (
                           <span className="self-start rounded-chip bg-good-bg px-2 py-1 text-[14px] font-semibold text-good-strong">
                             ↓ Price dropped {money(drop)} since you saved it
@@ -256,6 +267,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                 <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 font-bold tabular-nums">−{money(discount)}</dd></div>
               ) : null}
               <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 font-bold tabular-nums">{freeShip ? 'FREE' : money(totals.shipMinor)}</dd></div>
+              {totals.protectionMinor ? (
+                <div className="flex justify-between gap-3"><dt>Protection plans</dt><dd className="m-0 font-bold tabular-nums">{money(totals.protectionMinor)}</dd></div>
+              ) : null}
               {store.pricing.taxInclusive ? (
                 <div className="flex justify-between gap-3 text-ink-3"><dt>Tax</dt><dd className="m-0">{store.pricing.taxNote ?? 'Inclusive of all taxes'}</dd></div>
               ) : (
