@@ -64,7 +64,8 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     refunds.push({ label: 'Order cancelled', amountMinor: r.amountMinor, status: r.status, at: r.status === 'succeeded' ? r.refundedAt : undefined });
   }
   for (const ret of returns) {
-    if (!ret.refund) continue;
+    // a replacement gives nothing back
+    if (!ret.refund || ret.resolution === 'replacement') continue;
     const n = ret.items.reduce((sum, it) => sum + it.qty, 0);
     refunds.push({
       label: `Return of ${n} ${n === 1 ? 'item' : 'items'}`,

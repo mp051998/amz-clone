@@ -30,7 +30,7 @@ vi.mock('@/lib/decision/server', () => ({
     return state.pairs;
   },
 }));
-vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, returns: [] }), canStartReturn: () => false }));
+vi.mock('@/lib/data/returns', () => ({ getOrderReturns: async () => ({ delivered: true, returnable: {}, replaceable: {}, returns: [] }), canStartReturn: () => false }));
 vi.mock('@/app/actions/order', () => ({
   archiveMyOrder: async () => {},
   cancelMyOrder: async () => {},

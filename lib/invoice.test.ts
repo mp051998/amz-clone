@@ -28,6 +28,7 @@ function ret(over: Partial<OrderReturn> = {}): OrderReturn {
     orderId: 'ORD-1',
     status: 'received',
     reason: 'damaged',
+    resolution: 'refund',
     items: [{ productId: 'a', title: 'Kettle', image: '/products/a.jpg', unitPriceMinor: 1500, qty: 2 }],
     itemsMinor: 3000,
     taxMinor: 240,
@@ -73,6 +74,8 @@ describe('buildInvoice', () => {
       ret(),
       ret({ id: 'RET-2', items: [{ productId: 'b', title: 'Mug', image: '', unitPriceMinor: 2000, qty: 1 }], refundMinor: 2160, refund: { status: 'pending' } }),
       ret({ id: 'RET-3', status: 'requested', refund: undefined }),
+      // a received replacement gives nothing back, so it isn't a refund line
+      ret({ id: 'RET-4', resolution: 'replacement', itemsMinor: 0, taxMinor: 0, shipMinor: 0, refundMinor: 0 }),
     ])!;
     expect(inv.refunds).toEqual([
       { label: 'Return of 2 items', amountMinor: 3839, status: 'succeeded', at: '2026-10-05T09:00:00Z' },

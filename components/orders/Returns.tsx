@@ -31,12 +31,18 @@ export function refundTo(method: PaymentMethod, label: string): string {
 /** The orders-list chip for an order's most pressing return (see `returnSummaries`). */
 export const RETURN_SUMMARY_CHIP: Record<ReturnSummary, { label: string; tone: ChipTone }> = {
   requested: { label: 'Return started', tone: 'warn' },
+  replacement: { label: 'Replacement', tone: 'good' },
   refund_pending: { label: 'Return received', tone: 'warn' },
   refunded: { label: 'Return refunded', tone: 'good' },
 };
 
 /** One chip for where a return stands. */
-export function returnChip(r: OrderReturn): { label: string; tone: ChipTone } {
+export function returnChip(r: OrderReturn, now: Date = new Date()): { label: string; tone: ChipTone } {
+  if (r.replacement && (r.status === 'requested' || r.status === 'received')) {
+    return Date.parse(r.replacement.deliveredAt) <= now.getTime()
+      ? { label: 'Replacement delivered', tone: 'good' }
+      : { label: 'Replacement on its way', tone: 'warn' };
+  }
   switch (r.status) {
     case 'requested':
       return { label: 'Return started', tone: 'warn' };
@@ -70,6 +76,7 @@ export function ReturnCard({
   method,
   label,
   store,
+  now = new Date(),
   cancel,
 }: {
   r: OrderReturn;
@@ -77,24 +84,45 @@ export function ReturnCard({
   method: PaymentMethod;
   label: string;
   store: StoreDates;
+  now?: Date;
   /** bound "cancel return" action, while it can be cancelled */
   cancel?: () => Promise<void>;
 }) {
   const money = formatMoney(r.refundMinor, currency);
   const to = refundTo(method, label);
+  const code = <strong className="font-mono tracking-[0.06em]">{r.dropoffCode}</strong>;
   let lead: ReactNode;
-  if (r.status === 'requested') {
+  if (r.replacement && (r.status === 'requested' || r.status === 'received')) {
+    const arrives = new Date(r.replacement.deliveredAt);
+    const swap =
+      arrives.getTime() <= now.getTime()
+        ? <>Your replacement was delivered on {shortDate(arrives, store)}.</>
+        : <>Your replacement {Date.parse(r.replacement.shippedAt) <= now.getTime() ? 'has shipped and ' : ''}arrives by <strong>{longDate(arrives, store)}</strong>, at no charge.</>;
+    lead =
+      r.status === 'requested' ? (
+        <>
+          {swap} Drop the original off by <strong>{longDate(new Date(r.dropoffBy), store)}</strong> at any drop-off point and show this code: {code}.
+        </>
+      ) : (
+        <>{swap} We’ve received the original, so there’s nothing more to do.</>
+      );
+  } else if (r.status === 'requested') {
     lead = (
       <>
-        Drop it off by <strong>{longDate(new Date(r.dropoffBy), store)}</strong> at any drop-off point and show this code:{' '}
-        <strong className="font-mono tracking-[0.06em]">{r.dropoffCode}</strong>. We’ll refund {money} to {to} once it reaches us.
+        Drop it off by <strong>{longDate(new Date(r.dropoffBy), store)}</strong> at any drop-off point and show this code: {code}. We’ll refund{' '}
+        {money} to {to} once it reaches us.
       </>
     );
   } else if (r.status === 'rejected') {
     const note = r.rejectNote && !/[.!?]$/.test(r.rejectNote) ? `${r.rejectNote}.` : r.rejectNote;
     lead = <>We couldn’t accept this return{note ? <>: {note}</> : '.'} Contact customer service if you think that’s wrong.</>;
   } else if (r.status === 'cancelled') {
-    lead = <>You cancelled this return{r.cancelledAt ? ` on ${shortDate(new Date(r.cancelledAt), store)}` : ''}. Nothing was refunded.</>;
+    lead = (
+      <>
+        You cancelled this {r.resolution === 'replacement' ? 'replacement' : 'return'}
+        {r.cancelledAt ? ` on ${shortDate(new Date(r.cancelledAt), store)}` : ''}. {r.resolution === 'replacement' ? 'Nothing was sent.' : 'Nothing was refunded.'}
+      </>
+    );
   } else if (r.refund?.status === 'succeeded') {
     lead = (
       <>
@@ -112,23 +140,29 @@ export function ReturnCard({
   return (
     <article aria-label="Return" className="flex flex-col gap-2.5 rounded-panel border border-line bg-surface p-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StatusChip {...returnChip(r)} />
+        <StatusChip {...returnChip(r, now)} />
         <span className="text-[13px] text-ink-3">Started {shortDate(new Date(r.createdAt), store)} · {REASON_LABEL[r.reason]}</span>
       </div>
       <p className="m-0 text-[15px] font-semibold">{itemsText(r)}</p>
       <p className="m-0 text-[14px] leading-[1.5] text-ink-2">{lead}</p>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-2 pt-2.5 text-[13px] text-ink-3">
         <span className="tabular-nums">
-          {r.status === 'rejected' || r.status === 'cancelled' ? `Not refunded (${money})` : `Refund ${money}`} · {refundBreakdown(r, currency)}
+          {r.resolution === 'replacement'
+            ? 'Replacement · no charge'
+            : `${r.status === 'rejected' || r.status === 'cancelled' ? `Not refunded (${money})` : `Refund ${money}`} · ${refundBreakdown(r, currency)}`}
         </span>
         {cancel ? (
           <ConfirmAction
             action={cancel}
-            label="Cancel return"
-            prompt="Cancel this return? You can start a new one while the return window is open."
+            label={r.resolution === 'replacement' ? 'Cancel replacement' : 'Cancel return'}
+            prompt={
+              r.resolution === 'replacement'
+                ? 'Cancel this replacement? We won’t send it, and you can start a new return while the return window is open.'
+                : 'Cancel this return? You can start a new one while the return window is open.'
+            }
             confirmLabel="Yes, cancel it"
             pendingLabel="Cancelling…"
-            cancelLabel="Keep return"
+            cancelLabel={r.resolution === 'replacement' ? 'Keep replacement' : 'Keep return'}
           />
         ) : null}
       </div>

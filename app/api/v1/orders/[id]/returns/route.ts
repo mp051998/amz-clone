@@ -4,7 +4,8 @@ import { getOrderReturns, requestReturn } from '@/lib/data/returns';
 
 /**
  * GET /api/v1/orders/:id/returns — the order's return window (`returnBy`, once delivered), what's
- * left to return per product (`returnable`) and its returns, newest first.
+ * left to return per product (`returnable`), what can be replaced instead (`replaceable`) and its
+ * returns, newest first.
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   requireUser(ctx);
@@ -14,11 +15,13 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
 });
 
 /**
- * POST /api/v1/orders/:id/returns `{ items: [{ productId, qty }], reason, comment? }` — start a
- * return (201). The refund is priced now: the items, their share of the tax and, when the store is
- * at fault (damaged, defective, wrong_item, missing_parts, not_as_described), of the delivery.
- * `return_not_allowed` (409, detail not_delivered | window_closed); `invalid_input` (detail
- * items | reason | comment).
+ * POST /api/v1/orders/:id/returns `{ items: [{ productId, qty }], reason, comment?, resolution? }` —
+ * start a return (201). `resolution` 'refund' (default): priced now, the items, their share of the
+ * tax and, when the store is at fault (damaged, defective, wrong_item, missing_parts,
+ * not_as_described), of the delivery. 'replacement' (store-fault reasons only): the same items ship
+ * now at no charge. `return_not_allowed` (409, detail not_delivered | window_closed);
+ * `replacement_unavailable` (409, detail already_replaced | out_of_stock); `invalid_input` (detail
+ * items | reason | comment | resolution).
  */
 export const POST = route<{ id: string }>(async (ctx, { id }) => {
   requireUser(ctx);
@@ -26,7 +29,7 @@ export const POST = route<{ id: string }>(async (ctx, { id }) => {
   const items = Array.isArray(b.items)
     ? b.items.map((it) => ({ productId: String((it as Record<string, unknown>)?.productId ?? ''), qty: Number((it as Record<string, unknown>)?.qty) }))
     : [];
-  return json({ return: await requestReturn(ctx.db, id, { items, reason: b.reason, comment: b.comment }) }, { status: 201 });
+  return json({ return: await requestReturn(ctx.db, id, { items, reason: b.reason, comment: b.comment, resolution: b.resolution }) }, { status: 201 });
 });
 
 export const OPTIONS = preflight;

@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { refundBreakdown, refundTo, returnChip } from '@/components/orders/Returns';
+import type { Db } from '../db/client';
 import type { OrderReturn } from '../types';
-import { canStartReturn, isReturnReason, toReturn, type OrderReturns } from './returns';
+import { DataError } from './errors';
+import { canStartReturn, isReturnReason, requestReturn, toReturn, type OrderReturns } from './returns';
 
 const row = {
   id: 'r1',
@@ -35,13 +37,15 @@ describe('toReturn', () => {
       receivedAt: '2026-10-02T00:00:00Z',
     });
     expect(r.comment).toBeUndefined();
+    expect(r.resolution).toBe('refund');
+    expect(r.replacement).toBeUndefined();
     expect(r.rejectNote).toBeUndefined();
     expect(toReturn({ ...row, status: 'requested', refund_status: null }).refund).toBeUndefined();
   });
 });
 
 describe('return helpers', () => {
-  const base: OrderReturns = { delivered: true, returnBy: '2026-10-30T00:00:00Z', returnable: { p1: 1 }, returns: [] };
+  const base: OrderReturns = { delivered: true, returnBy: '2026-10-30T00:00:00Z', returnable: { p1: 1 }, replaceable: {}, returns: [] };
   const now = new Date('2026-10-01T00:00:00Z');
 
   it('opens only when delivered, inside the window, with something left', () => {
@@ -73,5 +77,58 @@ describe('return helpers', () => {
     expect(refundTo('upi', 'UPI · riley@okbank')).toBe('UPI · riley@okbank');
     expect(refundBreakdown(toReturn(row), 'USD')).toBe('Items $40.00 · tax $3.20');
     expect(refundBreakdown(toReturn({ ...row, tax_minor: 0, ship_minor: 599 }), 'USD')).toBe('Items $40.00 · delivery $5.99');
+  });
+});
+
+describe('replacements', () => {
+  const swap = {
+    ...row,
+    status: 'requested',
+    resolution: 'replacement',
+    items_minor: 0,
+    tax_minor: 0,
+    refund_minor: 0,
+    refund_status: null,
+    replacement_shipped_at: '2026-10-01T10:00:00Z',
+    replacement_delivered_at: '2026-10-03T18:30:00Z',
+  };
+
+  it('maps the resolution and the replacement’s delivery', () => {
+    expect(toReturn(swap)).toMatchObject({
+      resolution: 'replacement',
+      replacement: { shippedAt: '2026-10-01T10:00:00Z', deliveredAt: '2026-10-03T18:30:00Z' },
+      refundMinor: 0,
+    });
+  });
+
+  it('labels a replacement by where the new item is, until the return closes', () => {
+    const r = toReturn(swap);
+    expect(returnChip(r, new Date('2026-10-02T00:00:00Z'))).toEqual({ label: 'Replacement on its way', tone: 'warn' });
+    expect(returnChip(r, new Date('2026-10-04T00:00:00Z'))).toEqual({ label: 'Replacement delivered', tone: 'good' });
+    expect(returnChip({ ...r, status: 'received', refund: { status: 'succeeded' } }, new Date('2026-10-04T00:00:00Z')).label).toBe('Replacement delivered');
+    expect(returnChip({ ...r, status: 'cancelled' }).label).toBe('Cancelled');
+  });
+
+  function fakeDb() {
+    const rpc = vi.fn(async () => ({ data: swap, error: null }));
+    return { db: { rpc } as unknown as Db, rpc };
+  }
+  const items = [{ productId: 'p1', qty: 1 }];
+  const code = (p: Promise<unknown>) => p.then(() => 'ok', (e: DataError) => `${e.code}:${e.detail}`);
+
+  it('asks for one only with a store-fault reason', async () => {
+    const { db, rpc } = fakeDb();
+    expect(await code(requestReturn(db, 'o1', { items, reason: 'no_longer_needed', resolution: 'replacement' }))).toBe('invalid_input:resolution');
+    expect(await code(requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'exchange' }))).toBe('invalid_input:resolution');
+    expect(rpc).not.toHaveBeenCalled();
+    expect(await requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'replacement' })).toMatchObject({ resolution: 'replacement' });
+    expect(rpc).toHaveBeenLastCalledWith('request_return', expect.objectContaining({ p_reason: 'damaged', p_resolution: 'replacement' }));
+  });
+
+  it('leaves the resolution out for a refund', async () => {
+    const { db, rpc } = fakeDb();
+    await requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'refund' });
+    await requestReturn(db, 'o1', { items, reason: 'better_price' });
+    for (const [, args] of rpc.mock.calls as unknown as [string, Record<string, unknown>][]) expect(args).not.toHaveProperty('p_resolution');
   });
 });

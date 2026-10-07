@@ -79,7 +79,7 @@ it('prints the order: number, address, each line, totals, payment', async () => 
 it('lists return refunds and what was paid after them', async () => {
   state.returns = [
     {
-      id: 'R1', orderId: 'ORD-77', status: 'received', reason: 'damaged',
+      id: 'R1', orderId: 'ORD-77', status: 'received', reason: 'damaged', resolution: 'refund',
       items: [{ productId: 'a', title: 'Kettle', image: '', unitPriceMinor: 1500, qty: 1 }],
       itemsMinor: 1500, taxMinor: 124, shipMinor: 0, refundMinor: 1624,
       refund: { status: 'succeeded', refundedAt: '2026-10-04T12:00:00Z' }, dropoffCode: 'X', dropoffBy: '2026-10-10',

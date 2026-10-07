@@ -33,6 +33,7 @@ export function ReturnRow({
   const fault = (STORE_FAULT_REASONS as readonly string[]).includes(r.reason);
   // rejected or cancelled: nothing was refunded
   const unpaid = r.status === 'rejected' || r.status === 'cancelled';
+  const swap = r.replacement;
   const when =
     r.status === 'requested'
       ? `Started ${adminTime(r.createdAt, store)} · drop off by ${adminTime(r.dropoffBy, store)}`
@@ -59,6 +60,7 @@ export function ReturnRow({
         <span className="flex flex-wrap gap-1.5">
           <StatusChip {...returnChip(r)} />
           <StatusChip label={REASON_LABEL[r.reason]} tone={fault ? 'warn' : 'neutral'} />
+          {swap ? <StatusChip label="Replacement" tone="neutral" /> : null}
         </span>
       </div>
 
@@ -66,9 +68,21 @@ export function ReturnRow({
       {r.rejectNote ? <p className="m-0 text-[14px] text-ink-2">Note to shopper: {r.rejectNote}</p> : null}
 
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-x-5 gap-y-2 text-[14px]">
-        <div className="flex flex-col"><dt className="text-[13px] text-ink-3">{unpaid ? 'Asked for' : 'Refund'}</dt><dd className={`m-0 font-semibold tabular-nums ${unpaid ? 'text-ink-3 line-through' : ''}`}>{refund}</dd></div>
-        <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Refund to</dt><dd className="m-0">{dest}</dd></div>
-        <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Breakdown</dt><dd className="m-0 tabular-nums">{refundBreakdown(r, r.order.currency)}</dd></div>
+        {swap ? (
+          <>
+            <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Resolution</dt><dd className="m-0 font-semibold">Replacement, no charge</dd></div>
+            <div className="flex flex-col">
+              <dt className="text-[13px] text-ink-3">Replacement</dt>
+              <dd className="m-0">{r.status === 'cancelled' ? 'Not sent' : `Ships ${adminTime(swap.shippedAt, store)} · arrives ${adminTime(swap.deliveredAt, store)}`}</dd>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col"><dt className="text-[13px] text-ink-3">{unpaid ? 'Asked for' : 'Refund'}</dt><dd className={`m-0 font-semibold tabular-nums ${unpaid ? 'text-ink-3 line-through' : ''}`}>{refund}</dd></div>
+            <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Refund to</dt><dd className="m-0">{dest}</dd></div>
+            <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Breakdown</dt><dd className="m-0 tabular-nums">{refundBreakdown(r, r.order.currency)}</dd></div>
+          </>
+        )}
         <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Drop-off code</dt><dd className="m-0 font-mono tracking-[0.06em]">{r.dropoffCode}</dd></div>
         {r.stripeRefundId ? (
           <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Stripe refund</dt><dd className="m-0 break-all font-mono text-[13px]">{r.stripeRefundId}</dd></div>
@@ -82,9 +96,9 @@ export function ReturnRow({
             <ConfirmAction
               action={act(r.id, 'receive')}
               label="Mark received"
-              prompt={<>Items back? This restocks them and refunds {refund} ({dest}).</>}
-              confirmLabel="Yes, refund"
-              pendingLabel="Refunding…"
+              prompt={swap ? <>Items back? This restocks them. The shopper already has their replacement, so nothing is refunded.</> : <>Items back? This restocks them and refunds {refund} ({dest}).</>}
+              confirmLabel={swap ? 'Yes, received' : 'Yes, refund'}
+              pendingLabel={swap ? 'Saving…' : 'Refunding…'}
               cancelLabel="Not yet"
             />
             <details className="group">
