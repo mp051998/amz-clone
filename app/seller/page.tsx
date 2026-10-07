@@ -7,6 +7,7 @@ import { viewerSavedIds } from '@/components/deals/viewerSaved';
 import { SellerRatings } from '@/components/seller/SellerRatings';
 import { listProducts } from '@/lib/data/catalog';
 import { sellerProfile } from '@/lib/data/seller-feedback';
+import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { db } from '@/lib/supabase/server';
 
@@ -41,7 +42,20 @@ export default async function SellerPage({ searchParams }: { searchParams: Searc
         <Section>
           <SellerRatings profile={profile} store={store} />
         </Section>
-        <Section title={`Products from ${seller}`} note={products.length > 1 ? 'Most popular first' : undefined}>
+        <Section
+          title={`Products from ${seller}`}
+          note={
+            products.length ? (
+              <>
+                {products.length > 1 ? 'Most popular first · ' : null}
+                {/* everything they sell, with search's filters and sorts */}
+                <a href={storePath(store, `/s?seller=${encodeURIComponent(seller)}`)} className="text-ink underline underline-offset-2">
+                  Search all their products
+                </a>
+              </>
+            ) : undefined
+          }
+        >
           {products.length ? (
             <ul className={`${cardGrid} m-0 list-none p-0`}>
               {products.map((p) => (

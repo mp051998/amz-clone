@@ -1,4 +1,4 @@
-import { DISCOUNTS, type PricePreset } from '@/lib/search';
+import { DISCOUNTS, SELLER_SEPARATOR, type PricePreset } from '@/lib/search';
 import type { Category } from '@/lib/types';
 import { cn } from '../lib/cn';
 import { Stars } from '../primitives/Stars';
@@ -9,6 +9,9 @@ export interface MoreFiltersProps {
   dept: string | null;
   brandFacets: { name: string; count: number }[];
   brands: string[];
+  /** sellers in the search's scope, with counts (empty = no Seller section) */
+  sellerFacets?: { name: string; count: number }[];
+  sellers?: string[];
   rating?: number;
   deal: boolean;
   /** "Discount": the percentage off picked (undefined = any) */
@@ -34,14 +37,22 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, price, rating, deals, discount, availability) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, seller, price, rating, deals, discount, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], rating, deal, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
     else set.add(name);
     return hrefWith({ brand: set.size ? [...set].join(',') : null });
   };
+  const toggleSeller = (name: string) => {
+    const set = new Set(sellers);
+    if (set.has(name)) set.delete(name);
+    else set.add(name);
+    return hrefWith({ seller: set.size ? [...set].join(SELLER_SEPARATOR) : null });
+  };
+  // a picked seller stays listed even when it's past the first ten
+  const sellerRows = [...sellerFacets.slice(0, 10), ...sellerFacets.slice(10).filter((s) => sellers.includes(s.name))];
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -72,6 +83,26 @@ export function MoreFilters({ categories, dept, brandFacets, brands, rating, dea
                     <Box on={on} />
                     <span className={on ? 'font-semibold' : undefined}>{b.name}</span>
                     <span className="ml-auto text-[12px] text-ink-3 tabular-nums">{b.count}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {sellerRows.length ? (
+        <div>
+          <h3 className="m-0 mb-1 text-[14px] font-semibold">Seller</h3>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {sellerRows.map((s) => {
+              const on = sellers.includes(s.name);
+              return (
+                <li key={s.name}>
+                  <a href={toggleSeller(s.name)} role="checkbox" aria-checked={on} className={row}>
+                    <Box on={on} />
+                    <span className={on ? 'font-semibold' : undefined}>{s.name}</span>
+                    <span className="ml-auto text-[12px] text-ink-3 tabular-nums">{s.count}</span>
                   </a>
                 </li>
               );

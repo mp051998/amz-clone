@@ -78,6 +78,33 @@ describe('catalog', () => {
     expect(backwards.items).toEqual([]);
   });
 
+  it('search narrows to the sellers picked, with seller facets over the whole scope', async () => {
+    const all = await searchCatalog(anon(), 'US', parseQuery({}));
+    expect(all.sellerFacets.length).toBeGreaterThan(1);
+    const [first, second] = all.sellerFacets;
+    expect(first.count).toBeGreaterThanOrEqual(second.count);
+
+    const one = await searchCatalog(anon(), 'US', parseQuery({ seller: first.name }));
+    expect(one.items.length).toBeGreaterThan(0);
+    expect(one.items.every((p) => p.seller === first.name)).toBe(true);
+    // facets count each variant group once, as the storefront's cards do
+    expect(one.groups).toBe(first.count);
+    // the facets don't narrow by the seller picked, so the others can still be added
+    expect(one.sellerFacets).toEqual(all.sellerFacets);
+
+    const two = await searchCatalog(anon(), 'US', parseQuery({ seller: `${first.name}|${second.name}` }));
+    const other = await searchCatalog(anon(), 'US', parseQuery({ seller: second.name }));
+    expect(two.total).toBe(one.total + other.total);
+    expect(two.items.every((p) => p.seller === first.name || p.seller === second.name)).toBe(true);
+
+    const nobody = await searchCatalog(anon(), 'US', parseQuery({ seller: 'No Such Seller' }));
+    expect(nobody.total).toBe(0);
+    // a seller from the other store matches nothing here
+    const india = await searchCatalog(anon(), 'IN', parseQuery({}));
+    const onlyIndia = india.sellerFacets.find((s) => !all.sellerFacets.some((u) => u.name === s.name));
+    if (onlyIndia) expect((await searchCatalog(anon(), 'US', parseQuery({ seller: onlyIndia.name }))).total).toBe(0);
+  });
+
   it('search keeps products on sale for at least the discount picked', async () => {
     // the database's own count of in-stock products on sale for at least `pct` off
     const onSale = async (pct: number) => {

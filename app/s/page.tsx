@@ -24,7 +24,7 @@ import { spellFix } from '@/lib/data/spell';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { parseQuery as parseFacets, pricePresets } from '@/lib/search';
+import { parseQuery as parseFacets, pricePresets, SELLER_SEPARATOR } from '@/lib/search';
 import { searchMetadata } from '@/lib/seo';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
@@ -77,7 +77,7 @@ function one(sp: SP, key: string): string | undefined {
  *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
  *   spell  `0` = search exactly as typed, no spelling correction
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|price-desc|rating|newest|bestsellers  ·  page
- *   brand, rating, deal, pct (percent off or more) — "More filters" facets  ·  oos  `1` = include out of stock
+ *   brand, seller (`|`-separated), rating, deal, pct (percent off or more) — "More filters" facets  ·  oos  `1` = include out of stock
  */
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -103,6 +103,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const sort = decision.sort;
   const facets = parseFacets(sp);
   const brands = facets.brand ?? [];
+  const sellers = facets.seller ?? [];
   const cfg = decisionConfig(category);
 
   const overridden = category !== (parsed?.category ?? null) || budgetMinor !== (parsed?.budgetMinor ?? null) || use !== (parsed?.use ?? null);
@@ -116,7 +117,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const client = await db();
   const [result, scope, saved, jar, plus] = await Promise.all([
-    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, rating: facets.rating, deal: facets.deal, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
+    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, rating: facets.rating, deal: facets.deal, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, includeOutOfStock: facets.includeOutOfStock, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
@@ -141,7 +142,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   };
   // nothing matched the words as typed: retry with typos corrected (only when that finds something)
   const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
-  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !facets.rating && !facets.deal && !facets.minDiscount) {
+  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !facets.rating && !facets.deal && !facets.minDiscount) {
     const fix = await spellFix(client, store.id, k, pq.keywords, category);
     if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
   }
@@ -160,6 +161,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const chips: { label: string; href?: string }[] = pq.intents.map((i) => ({ label: i.label, href: i.removable ? removeHref[i.param] : undefined }));
   if (tuned) chips.push({ label: 'Tuned from your answers', href: hrefWith({ preset: null, w: null }) });
   for (const b of brands) chips.push({ label: b, href: hrefWith({ brand: brands.filter((x) => x !== b).join(',') || null }) });
+  for (const s of sellers) chips.push({ label: `Sold by ${s}`, href: hrefWith({ seller: sellers.filter((x) => x !== s).join(SELLER_SEPARATOR) || null }) });
   if (facets.rating) chips.push({ label: `${facets.rating}★ & up`, href: hrefWith({ rating: null }) });
   if (facets.deal) chips.push({ label: 'On sale', href: hrefWith({ deal: null }) });
   if (facets.minDiscount) chips.push({ label: `${facets.minDiscount}% off or more`, href: hrefWith({ pct: null }) });
@@ -199,7 +201,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   // nothing found: something to go on instead of a dead end (not in a price range — these could cost anything)
   const popular = items.length || budgetMinor || facets.minPrice ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
-  const facetFilters = brands.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0);
+  const facetFilters = brands.length + sellers.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
   const [variants, coupons] = await Promise.all([
@@ -315,6 +317,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   dept={category}
                   brandFacets={scope?.brandFacets ?? []}
                   brands={brands}
+                  sellerFacets={scope?.sellerFacets ?? []}
+                  sellers={sellers}
                   rating={facets.rating}
                   deal={!!facets.deal}
                   minDiscount={facets.minDiscount}
