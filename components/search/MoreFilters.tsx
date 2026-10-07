@@ -1,4 +1,4 @@
-import type { PricePreset } from '@/lib/search';
+import { DISCOUNTS, type PricePreset } from '@/lib/search';
 import type { Category } from '@/lib/types';
 import { cn } from '../lib/cn';
 import { Stars } from '../primitives/Stars';
@@ -11,6 +11,8 @@ export interface MoreFiltersProps {
   brands: string[];
   rating?: number;
   deal: boolean;
+  /** "Discount": the percentage off picked (undefined = any) */
+  minDiscount?: number;
   /** price buckets for the department (empty = no Price section) */
   pricePresets?: PricePreset[];
   /** current price range, minor units (null = open-ended) */
@@ -32,8 +34,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, price, rating, deals, availability) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, price, rating, deals, discount, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, rating, deal, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -122,6 +124,20 @@ export function MoreFilters({ categories, dept, brandFacets, brands, rating, dea
           <Box on={deal} />
           <span>On sale now</span>
         </a>
+      </div>
+
+      <div>
+        <h3 className="m-0 mb-1 text-[14px] font-semibold">Discount</h3>
+        <ul className="m-0 flex list-none flex-col p-0">
+          {DISCOUNTS.map((n) => (
+            <li key={n}>
+              <a href={hrefWith({ pct: minDiscount === n ? null : String(n) })} role="checkbox" aria-checked={minDiscount === n} className={row}>
+                <Box on={minDiscount === n} />
+                <span className={minDiscount === n ? 'font-semibold' : undefined}>{n}% off or more</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div>

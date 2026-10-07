@@ -213,6 +213,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       p_min_price: query.minPrice ?? undefined,
       p_max_price: query.maxPrice ?? undefined,
       p_in_stock: !query.includeOutOfStock,
+      p_min_discount: query.minDiscount ?? undefined,
     }),
   ) as unknown as SearchJson;
 

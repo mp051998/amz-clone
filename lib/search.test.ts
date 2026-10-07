@@ -61,3 +61,10 @@ describe('parseQuery sort', () => {
     expect(parseQuery({ sort: 'popularity' }).sort).toBe('featured');
   });
 });
+
+describe('parseQuery discount', () => {
+  it('reads a percentage off, ignoring anything outside 1–99', () => {
+    expect(parseQuery({ pct: '25' }).minDiscount).toBe(25);
+    for (const v of ['0', '100', '12.5', 'abc', undefined]) expect(parseQuery({ pct: v }).minDiscount).toBeUndefined();
+  });
+});
