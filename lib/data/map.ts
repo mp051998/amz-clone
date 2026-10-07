@@ -55,8 +55,10 @@ interface CartJson {
     protection_unit_minor?: number | null;
     protection?: boolean;
     added_price_minor?: number | null;
+    promo_minor?: number;
   }[];
-  totals: { subtotal_minor: number; discount_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
+  totals: { subtotal_minor: number; discount_minor?: number; promo_minor?: number; ship_minor: number; tax_minor: number; protection_minor?: number; total_minor: number };
+  promo?: { code: string; percent_off: number; description: string; category_slug: string | null } | null;
 }
 
 /** JSON returned by the cart RPCs → Cart. */
@@ -84,15 +86,28 @@ export function toCart(json: unknown): Cart {
       ...(l.protection_unit_minor ? { protection: { unitMinor: l.protection_unit_minor, added: l.protection === true } } : {}),
       // absent before the cart price changes migration, and for Buy Now's line
       ...(l.added_price_minor != null ? { addedPriceMinor: l.added_price_minor } : {}),
+      // checkout quotes with a promotion code only
+      ...(l.promo_minor ? { promoMinor: l.promo_minor } : {}),
     })),
     totals: {
       subtotalMinor: c.totals.subtotal_minor,
       discountMinor: c.totals.discount_minor ?? 0,
+      ...(c.totals.promo_minor ? { promoMinor: c.totals.promo_minor } : {}),
       shipMinor: c.totals.ship_minor,
       taxMinor: c.totals.tax_minor,
       ...(c.totals.protection_minor ? { protectionMinor: c.totals.protection_minor } : {}),
       totalMinor: c.totals.total_minor,
     },
+    ...(c.promo
+      ? {
+          promo: {
+            code: c.promo.code,
+            percentOff: c.promo.percent_off,
+            description: c.promo.description,
+            ...(c.promo.category_slug ? { category: c.promo.category_slug } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -135,6 +150,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       unitPriceMinor: it.unit_price_minor ?? 0,
       qty: it.qty ?? 0,
       ...(it.unit_discount_minor ? { unitDiscountMinor: it.unit_discount_minor } : {}),
+      // absent on rows read before the promo codes migration lands
+      ...(it.unit_promo_minor ? { unitPromoMinor: it.unit_promo_minor } : {}),
       ...(it.protection_minor ? { protectionMinor: it.protection_minor } : {}),
     }));
 }
@@ -156,6 +173,9 @@ function toCancellation(row: CancellationWithItems): OrderCancellation {
 /** orders row with embedded items (PostgREST embed or RPC JSON) → Order. */
 export function toOrder(row: OrderWithItems): Order {
   // absent on rows read before the cancel-items migration lands
+  const items = toOrderItems(row.items ?? row.order_items ?? []);
+  // the promotion's part of the discount, over the items still in the order
+  const promoMinor = items.reduce((s, it) => s + (it.unitPromoMinor ?? 0) * it.qty, 0);
   const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
@@ -171,6 +191,7 @@ export function toOrder(row: OrderWithItems): Order {
       subtotalMinor: row.subtotal_minor,
       // absent on rows read before the coupons migration lands
       discountMinor: row.discount_minor ?? 0,
+      ...(promoMinor ? { promoMinor } : {}),
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
       // absent on rows read before the gift wrap migration lands
@@ -189,7 +210,7 @@ export function toOrder(row: OrderWithItems): Order {
       postcode: row.ship_postcode,
       instructions: opt(row.ship_instructions) ?? undefined,
     },
-    items: toOrderItems(row.items ?? row.order_items ?? []),
+    items,
     createdAt: row.created_at,
     placedAt: opt(row.placed_at),
     // the lifecycle columns are absent on rows read before that migration lands
@@ -205,6 +226,7 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.gift ? { gift: { ...(row.gift_message ? { message: row.gift_message } : {}), ...(row.gift_wrap ? { wrapped: true } : {}) } } : {}),
     ...(row.ship_speed === 'fast' ? { shipSpeed: 'fast' as const } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),
+    ...(row.promo_code ? { promoCode: row.promo_code } : {}),
     // absent on rows read before the archive migration lands
     ...(row.archived_at ? { archivedAt: row.archived_at } : {}),
     ...(cancellations.length ? { cancellations } : {}),

@@ -32,8 +32,21 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { protectionPlanName } from '@/lib/protection';
 import { EMI_MIN_MINOR, emiPlans } from '@/lib/emi';
+import { PromoCode } from '@/components/checkout/PromoCode';
+import { checkoutQuote, type CheckoutQuote } from '@/lib/data/promo';
+import { promoProblem, readPromoCode } from '@/lib/promo';
 
 export const metadata: Metadata = { title: 'Checkout · Store' };
+
+/** The checkout priced with a promotion code; null when Buy Now's product isn't sold here (any more). */
+async function promoQuote(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], code: string, buy: BuyNow | null): Promise<CheckoutQuote | null> {
+  try {
+    return await checkoutQuote(client, market, code, buy ?? undefined);
+  } catch (err) {
+    if (err instanceof DataError) return null;
+    throw err;
+  }
+}
 
 /** Buy Now's one line, priced; null when the product isn't sold here (any more). */
 async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], buy: BuyNow): Promise<Cart | null> {
@@ -48,9 +61,10 @@ async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['marke
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; msg?: string; canceled?: string; buy?: string; qty?: string; protection?: string }>;
+  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; promo?: string }>;
 }) {
-  const { error, msg, canceled, buy: buyId, qty: buyQty, protection } = await searchParams;
+  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, promo: promoParam } = await searchParams;
+  const promoCode = readPromoCode(promoParam);
   // Buy Now: checkout for just this product; the cart is left as it is
   const buy = readBuyNow(buyId, buyQty, protection);
   const store = await getMarketplace();
@@ -63,8 +77,8 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [cart, addresses, fastFee, wrapFee, plus, balanceMinor] = await Promise.all([
-    buy ? quote(client, store.id, buy) : viewerCart(),
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor] = await Promise.all([
+    promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
     giftWrapFee(client, store.id),
@@ -72,6 +86,7 @@ export default async function CheckoutPage({
     storeBalance(client, store.id),
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
+  const cart = priced?.cart ?? null;
 
   const shell = (children: ReactNode) => (
     <AppShell>
@@ -113,7 +128,17 @@ export default async function CheckoutPage({
   }
 
   // invalid_input carries the specific field message from validation
-  const problem = error ? (error === 'invalid_input' && msg ? msg : messageFor(error) ?? 'Something went wrong. Please try again.') : null;
+  const problem = error
+    ? error === 'invalid_input' && msg
+      ? msg
+      : promoProblem(error, detail, money, messageFor(error) ?? 'Something went wrong. Please try again.')
+    : null;
+  // the code in the summary, or the one that was tried and why it didn't apply
+  const promo = cart.promo;
+  const promoMinor = totals.promoMinor ?? 0;
+  const promoTried = promoCode && priced?.promoError
+    ? { code: promoCode, problem: promoProblem(priced.promoError.code, priced.promoError.detail, money, messageFor(priced.promoError.code) ?? 'That promotion code can’t be used here.') }
+    : undefined;
   const blocked = lines.some((l) => !l.inStock);
   const unavailable = lines.some((l) => !l.available);
   const now = new Date();
@@ -126,6 +151,8 @@ export default async function CheckoutPage({
   const fastWhen = fast ? byTimeText(fast.eta, store, now) : '';
   const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
   const discount = totals.discountMinor ?? 0;
+  // coupons and the promotion code are shown apart; the discount covers both
+  const couponMinor = discount - (totals.promoMinor ?? 0);
   const freeOver = totals.shipMinor === 0 ? '' : ` · FREE over ${money(cart.freeShipThresholdMinor)}`;
   // the summary follows the chosen speed with CSS alone (the fast radio is #ship-fast)
   const bySpeed = (standard: ReactNode, faster: ReactNode) =>
@@ -229,7 +256,10 @@ export default async function CheckoutPage({
                     ) : (
                       <span className="text-ink-3"> × {l.qty}</span>
                     )}
-                    {l.discountMinor ? <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor)}</span> : null}
+                    {l.discountMinor && l.discountMinor > (l.promoMinor ?? 0) ? (
+                      <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor - (l.promoMinor ?? 0))}</span>
+                    ) : null}
+                    {l.promoMinor ? <span className="block text-[13px] font-semibold text-good-strong">{promo?.code} · −{money(l.promoMinor)}</span> : null}
                     {l.protection?.added ? (
                       <span className="block text-[13px] text-ink-2">+ {protectionPlanName(store.id)} · {money(l.protection.unitMinor * l.qty)}</span>
                     ) : null}
@@ -248,10 +278,19 @@ export default async function CheckoutPage({
 
         <aside className="flex flex-[1_1_300px] flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px] md:sticky md:top-[128px]" aria-labelledby="summary-h">
           <h2 id="summary-h" className="m-0 mb-1 text-[18px] font-semibold">Order summary</h2>
+          <PromoCode
+            checkoutPath={sp('/checkout')}
+            query={buy ? buyNowQuery(buy) : ''}
+            applied={promo ? { code: promo.code, description: promo.description, savings: money(promoMinor) } : undefined}
+            tried={promoTried}
+          />
           <dl className="m-0 flex flex-col gap-2.5 text-[15px]">
             <div className="flex justify-between gap-3"><dt>Items</dt><dd className="m-0 tabular-nums">{money(totals.subtotalMinor)}</dd></div>
-            {discount > 0 ? (
-              <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 tabular-nums">−{money(discount)}</dd></div>
+            {couponMinor > 0 ? (
+              <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 tabular-nums">−{money(couponMinor)}</dd></div>
+            ) : null}
+            {promoMinor > 0 ? (
+              <div className="flex justify-between gap-3 text-good-strong"><dt>Promotion ({promo?.code})</dt><dd className="m-0 tabular-nums">−{money(promoMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
             {planMinor > 0 ? (

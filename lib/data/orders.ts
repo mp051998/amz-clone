@@ -8,6 +8,7 @@ import { DataError, unwrap } from './errors';
 import { toOrder } from './map';
 import { expireCardCheckout } from './payments';
 import { refundCancellation, refundOrder } from './refunds';
+import { readPromoCode } from '../promo';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -28,6 +29,8 @@ export interface PlaceOrderInput {
   buyNow?: BuyNow;
   /** EMI only: how many monthly payments (3, 6, 9 or 12; the store takes 3 when not said) */
   emiMonths?: number;
+  /** a promotion code typed at checkout (blank is none) */
+  promoCode?: string | null;
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
@@ -53,6 +56,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
   const note = input.gift ? readGiftNote(input.gift.message) : undefined;
   const emi = input.paymentMethod === 'emi' ? input.emiMonths : undefined;
   if (emi !== undefined && !isEmiMonths(emi)) throw new DataError('invalid_input', 'emiMonths', 'Choose 3, 6, 9 or 12 monthly payments.');
+  const promo = readPromoCode(input.promoCode);
   const json = unwrap(
     await db.rpc('place_order', {
       p_market: market,
@@ -76,6 +80,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
         ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}) } }
         : {}),
       ...(emi !== undefined ? { p_emi_months: emi } : {}),
+      ...(promo ? { p_promo_code: promo } : {}),
     }),
   );
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);

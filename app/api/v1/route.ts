@@ -74,6 +74,7 @@ export function GET(): Response {
       'POST   /orders',
       'GET    /orders/buy-again?limit=',
       'GET    /orders/buy-now?productId=&qty=',
+      'GET    /orders/quote?promo=&productId=&qty=',
       'GET    /orders/:id',
       'PATCH  /orders/:id',
       'POST   /orders/:id/pay',

@@ -436,8 +436,11 @@ export default async function OrderPage({
           ))}
           <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">
             <div className="flex justify-between"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(order.totals.subtotalMinor)}</dd></div>
-            {order.totals.discountMinor ? (
-              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.discountMinor)}</dd></div>
+            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0))}</dd></div>
+            ) : null}
+            {order.totals.promoMinor ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Promotion{order.promoCode ? ` (${order.promoCode})` : ''}</dt><dd className="m-0 tabular-nums">−{money(order.totals.promoMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
             {order.totals.wrapMinor ? (

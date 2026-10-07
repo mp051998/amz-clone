@@ -11,6 +11,7 @@ import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
 import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
+import { readPromoCode } from '@/lib/promo';
 import type { Order } from '@/lib/types';
 
 /**
@@ -29,11 +30,13 @@ export async function submitCheckout(formData: FormData): Promise<void> {
     return q ? `/checkout?${q}` : '/checkout';
   };
   const back = (extra?: Record<string, string>) => sp(checkout(extra));
+  // a promotion code applied at checkout stays applied when something else goes wrong
+  const promo = readPromoCode(formData.get('promo'));
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(checkout())}`));
   const client = await db();
 
   const method = formData.get('payMethod');
-  if (!isPaymentMethod(method)) redirect(back({ error: 'payment_method_unavailable' }));
+  if (!isPaymentMethod(method)) redirect(back({ ...(promo ? { promo } : {}), error: 'payment_method_unavailable' }));
 
   let order: Order | null = null;
   let failure: DataError | null = null;
@@ -56,6 +59,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       speed: formData.get('shipSpeed') === 'fast' ? 'fast' : undefined,
       buyNow,
       emiMonths: method === 'emi' ? Number(formData.get('emiTenure')) || undefined : undefined,
+      promoCode: promo,
     });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
@@ -63,7 +67,9 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   }
   if (!order) {
     const code = failure?.code ?? 'internal';
-    redirect(back(code === 'invalid_input' && failure?.message ? { error: code, msg: failure.message } : { error: code }));
+    if (code.startsWith('promo_')) redirect(back({ error: code, ...(failure?.detail ? { detail: failure.detail } : {}) }));
+    const keep: Record<string, string> = promo ? { promo } : {};
+    redirect(back(code === 'invalid_input' && failure?.message ? { ...keep, error: code, msg: failure.message } : { ...keep, error: code }));
   }
 
   revalidatePath('/', 'layout');

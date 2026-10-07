@@ -47,10 +47,10 @@ describe('buildInvoice', () => {
     const inv = buildInvoice(order())!;
     expect(inv.kind).toBe('invoice');
     expect(inv.lines).toEqual([
-      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, protectionMinor: 0 },
-      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, protectionMinor: 0 },
+      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, promoMinor: 0, protectionMinor: 0 },
+      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, promoMinor: 0, protectionMinor: 0 },
     ]);
-    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
+    expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, promoMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
   });
 
   it('carries the gift wrap', () => {
@@ -80,6 +80,19 @@ describe('buildInvoice', () => {
     }))!;
     expect(inv.lines.map((l) => [l.amountMinor, l.discountMinor])).toEqual([[3000, 300], [2000, 0]]);
     expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 300, totalMinor: 5076, netMinor: 5076 });
+  });
+
+  it('splits a promotion code out of the coupon savings', () => {
+    const inv = buildInvoice(order({
+      promoCode: 'SAVE10',
+      totals: { subtotalMinor: 5000, discountMinor: 770, promoMinor: 470, shipMinor: 0, taxMinor: 338, totalMinor: 4568 },
+      items: [
+        { productId: 'a', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1500, qty: 2, unitDiscountMinor: 285, unitPromoMinor: 135 },
+        { productId: 'b', title: 'Mug', image: '', seller: 'Mugs Inc', unitPriceMinor: 2000, qty: 1, unitDiscountMinor: 200, unitPromoMinor: 200 },
+      ],
+    }))!;
+    expect(inv.lines.map((l) => [l.discountMinor, l.promoMinor])).toEqual([[300, 270], [0, 200]]);
+    expect(inv).toMatchObject({ discountMinor: 300, promoMinor: 470, promoCode: 'SAVE10', totalMinor: 4568 });
   });
 
   it('has nothing for an order still waiting for payment', () => {

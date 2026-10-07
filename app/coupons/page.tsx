@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { CouponCard } from '@/components/coupons/CouponCard';
+import { PromoCodes } from '@/components/coupons/PromoCodes';
 import { Page, PageHead, Section, cardGrid } from '@/components/brand/Page';
 import { Pill } from '@/components/decision/Pill';
 import { EmptyState } from '@/components/decision/Badges';
@@ -8,6 +9,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listCouponOffers } from '@/lib/data/coupons';
+import { activePromoCodes } from '@/lib/data/promo';
 import { storeCategories } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -20,7 +22,8 @@ export default async function CouponsPage({ searchParams }: { searchParams: Prom
   const store = await getMarketplace();
   const user = await readUser();
   const applied = Boolean(user) && sp.applied === '1';
-  const [all, categories] = await Promise.all([listCouponOffers(await db(), store.id, user != null), storeCategories()]);
+  const client = await db();
+  const [all, categories, promos] = await Promise.all([listCouponOffers(client, store.id, user != null), storeCategories(), activePromoCodes(client, store.id)]);
   const present = new Set(all.map((o) => o.product.category));
   const chips = categories.filter((cat) => present.has(cat.slug));
   const categoryName = (slug: string) => categories.find((x) => x.slug === slug)?.name ?? slug;
@@ -86,6 +89,12 @@ export default async function CouponsPage({ searchParams }: { searchParams: Prom
             </EmptyState>
           )}
         </Section>
+
+        {applied ? null : (
+          <Section>
+            <PromoCodes promos={promos} store={store} />
+          </Section>
+        )}
       </Page>
     </AppShell>
   );

@@ -14,7 +14,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? } }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? }, promoCode? }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to.
@@ -34,8 +34,20 @@ export const POST = route(async (ctx) => {
     if (!buyNow) throw new DataError('invalid_input', 'buyNow.productId', 'Say which product to buy.');
   }
 
+  if (b.promoCode !== undefined && b.promoCode !== null && typeof b.promoCode !== 'string') {
+    throw new DataError('invalid_input', 'promoCode', 'Enter a promotion code.');
+  }
+
   const emiMonths = b.emiMonths === undefined ? undefined : Number(b.emiMonths);
-  const order = await placeOrder(ctx.db, ctx.market, { paymentMethod: b.paymentMethod, shipping, gift, speed: isShipSpeed(b.speed) ? b.speed : undefined, buyNow, emiMonths });
+  const order = await placeOrder(ctx.db, ctx.market, {
+    paymentMethod: b.paymentMethod,
+    shipping,
+    gift,
+    speed: isShipSpeed(b.speed) ? b.speed : undefined,
+    buyNow,
+    emiMonths,
+    promoCode: typeof b.promoCode === 'string' ? b.promoCode : null,
+  });
   if (order.status === 'placed') return json({ order }, { status: 201 });
 
   const origin = ctx.req.nextUrl.origin;
