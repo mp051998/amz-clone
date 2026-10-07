@@ -194,6 +194,8 @@ interface SearchJson {
   page: number;
   page_count: number;
   brands: { name: string; count: number }[];
+  /** absent before the search-sellers migration */
+  sellers?: { name: string; count: number }[];
   items: Parameters<typeof toProduct>[0][];
 }
 
@@ -205,6 +207,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       p_q: query.k ?? undefined,
       p_dept: query.dept ?? undefined,
       p_brands: query.brand?.length ? query.brand : undefined,
+      p_sellers: query.seller?.length ? query.seller : undefined,
       p_min_rating: query.rating ?? undefined,
       p_deal: query.deal ?? false,
       p_sort: query.sort,
@@ -231,6 +234,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     groups: json.groups ?? json.total,
     pageCount: json.page_count,
     brandFacets: json.brands,
+    sellerFacets: json.sellers ?? [],
     unavailable: json.unavailable ?? 0,
     headingLabel,
   };

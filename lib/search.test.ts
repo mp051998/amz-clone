@@ -68,3 +68,12 @@ describe('parseQuery discount', () => {
     for (const v of ['0', '100', '12.5', 'abc', undefined]) expect(parseQuery({ pct: v }).minDiscount).toBeUndefined();
   });
 });
+
+describe('parseQuery seller', () => {
+  it('reads |-separated sellers, keeping commas inside a name', () => {
+    expect(parseQuery({ seller: 'Amazon.com|Acme, Inc.' }).seller).toEqual(['Amazon.com', 'Acme, Inc.']);
+    expect(parseQuery({ seller: ' Amazon.com || Amazon.com ' }).seller).toEqual(['Amazon.com']);
+    expect(parseQuery({ seller: '|' }).seller).toBeUndefined();
+    expect(parseQuery({}).seller).toBeUndefined();
+  });
+});

@@ -22,6 +22,8 @@ export interface SearchQuery {
   k?: string;
   dept?: string;
   brand?: string[];
+  /** "Seller": sold by any of these (`seller=a|b`; names can hold commas) */
+  seller?: string[];
   rating?: number;
   deal?: boolean;
   /** lowest price, minor units */
@@ -45,6 +47,8 @@ export interface SearchResult {
   pageCount: number;
   /** brands available in the query+dept scope, with counts */
   brandFacets: { name: string; count: number }[];
+  /** sellers in the same scope, with counts */
+  sellerFacets: { name: string; count: number }[];
   /** matches with no option in stock, each variant group once (left out unless `includeOutOfStock`) */
   unavailable: number;
   headingLabel: string;
@@ -69,6 +73,7 @@ export const SUGGEST_MIN = 2;
 export function parseQuery(sp: Record<string, string | string[] | undefined>): SearchQuery {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const brandRaw = one(sp.brand);
+  const sellerRaw = one(sp.seller);
   const sortRaw = one(sp.sort) as SortKey | undefined;
   const rating = Number(one(sp.rating));
   const pct = Number(one(sp.pct));
@@ -80,6 +85,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     k: one(sp.k)?.trim() || undefined,
     dept: one(sp.dept) || undefined,
     brand: brandRaw ? brandRaw.split(',').filter(Boolean) : undefined,
+    seller: sellerRaw ? readSellers(sellerRaw) : undefined,
     rating: Number.isFinite(rating) && rating >= 1 && rating <= 5 ? rating : undefined,
     deal: one(sp.deal) === '1' || undefined,
     minPrice: price(sp.min),
@@ -89,6 +95,14 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     sort: SORTS.some((s) => s.key === sortRaw) ? (sortRaw as SortKey) : 'featured',
     page: Math.max(1, Number(one(sp.page)) || 1),
   };
+}
+
+/** Separates sellers in `seller=` (seller names can hold commas, unlike brands). */
+export const SELLER_SEPARATOR = '|';
+
+function readSellers(raw: string): string[] | undefined {
+  const names = [...new Set(raw.split(SELLER_SEPARATOR).map((s) => s.trim().slice(0, 120)).filter(Boolean))].slice(0, 20);
+  return names.length ? names : undefined;
 }
 
 /** The "Discount" filter's choices, percent off ("10% off or more"). */

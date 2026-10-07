@@ -52,12 +52,15 @@ it("shows the seller's ratings and what they sell in this store", async () => {
   expect(screen.getByRole('heading', { name: 'Products from Kettle Co' })).toBeInTheDocument();
   expect(screen.getByText('Electric Kettle 1.7L')).toBeInTheDocument();
   expect(state.asked).toEqual([['US', { seller: 'Kettle Co', order: 'popular', limit: 40 }]]);
+  // search narrowed to them, with its filters and sorts
+  expect(screen.getByRole('link', { name: 'Search all their products' })).toHaveAttribute('href', '/s?seller=Kettle%20Co');
 });
 
 it('says so when nothing of theirs is on sale', async () => {
   state.products = [];
   await show('Kettle Co');
   expect(screen.getByText('Nothing from this seller is on sale here right now.')).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Search all their products' })).toBeNull();
 });
 
 it('is not found without a name, or for a seller the store does not know', async () => {

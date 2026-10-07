@@ -80,3 +80,30 @@ describe('MoreFilters discount', () => {
     expect(discount().getByRole('checkbox', { name: '10% off or more' }).getAttribute('href')).toBe(hrefWith({ pct: '10' }));
   });
 });
+
+describe('MoreFilters seller', () => {
+  const sellerList = () => within(screen.getByRole('heading', { name: 'Seller' }).parentElement!);
+  const facets = Array.from({ length: 12 }, (_, i) => ({ name: i === 1 ? 'Acme, Inc.' : `Seller ${i}`, count: 20 - i }));
+
+  it('lists the top ten sellers with counts, each adding itself to the ones picked', () => {
+    renderFilters({ sellerFacets: facets, sellers: ['Seller 0'] });
+    const boxes = sellerList().getAllByRole('checkbox');
+    expect(boxes).toHaveLength(10);
+    expect(boxes[0]).toHaveAttribute('aria-checked', 'true');
+    expect(boxes[0].getAttribute('href')).toBe(hrefWith({ seller: null }));
+    expect(boxes[1]).toHaveTextContent('Acme, Inc.19');
+    expect(boxes[1].getAttribute('href')).toBe(hrefWith({ seller: 'Seller 0|Acme, Inc.' }));
+  });
+
+  it('keeps a picked seller listed past the top ten', () => {
+    renderFilters({ sellerFacets: facets, sellers: ['Seller 11'] });
+    const picked = sellerList().getByRole('checkbox', { name: /Seller 11/ });
+    expect(picked).toHaveAttribute('aria-checked', 'true');
+    expect(sellerList().queryByRole('checkbox', { name: /Seller 10/ })).toBeNull();
+  });
+
+  it('has no Seller section without sellers', () => {
+    renderFilters();
+    expect(screen.queryByRole('heading', { name: 'Seller' })).toBeNull();
+  });
+});

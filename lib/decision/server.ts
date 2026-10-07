@@ -26,6 +26,8 @@ export const CANDIDATE_LIMIT = 48;
 
 export interface RankFilters {
   brand?: string[];
+  /** sold by any of these */
+  seller?: string[];
   /** minimum star rating 1..5 */
   rating?: number;
   deal?: boolean;
@@ -73,6 +75,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     k: q.keywords || undefined,
     dept: q.category ?? undefined,
     brand: f.brand?.length ? f.brand : undefined,
+    seller: f.seller?.length ? f.seller : undefined,
     rating: f.rating,
     deal: f.deal || undefined,
     includeOutOfStock: f.includeOutOfStock || undefined,
@@ -123,6 +126,7 @@ export async function rankedSearch(
     if (!filters.includeOutOfStock) products = products.filter((p) => p.stock > 0);
     if (filters.rating) products = products.filter((p) => p.rating >= filters.rating!);
     if (filters.brand?.length) products = products.filter((p) => p.brand && filters.brand!.includes(p.brand));
+    if (filters.seller?.length) products = products.filter((p) => filters.seller!.includes(p.seller));
     if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
     if (filters.minDiscount) products = products.filter((p) => p.deal && (p.dealPct ?? 0) >= filters.minDiscount!);
     if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
