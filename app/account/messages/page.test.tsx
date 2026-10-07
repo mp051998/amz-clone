@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   store: null as unknown,
   user: { id: 'u1', name: 'Asha', email: 'asha@example.com' } as unknown,
   list: [] as unknown[],
+  seenAt: null as string | null,
+  marked: [] as string[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -23,6 +25,10 @@ vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/inbox', async (actual) => ({
   ...(await actual<typeof import('@/lib/data/inbox')>()),
   listInbox: async () => state.list,
+  inboxSeenAt: async () => state.seenAt,
+  markInboxSeen: async (_db: unknown, market: string) => {
+    state.marked.push(market);
+  },
 }));
 
 import MessagesPage from './page';
@@ -42,6 +48,8 @@ beforeEach(() => {
   state.store = amazon;
   state.user = { id: 'u1', name: 'Asha', email: 'asha@example.com' };
   state.list = [];
+  state.seenAt = '2026-10-07T00:00:00Z';
+  state.marked = [];
 });
 
 it('sends the signed-out to sign in (India store paths too)', async () => {
@@ -78,4 +86,28 @@ it('groups messages by day, each saying what happened and linking to it', async 
   expect(before[0]).toHaveTextContent('We couldn’t accept it: Item was used');
   expect(within(before[1]).getByRole('link', { name: 'Does it whistle?' })).toHaveAttribute('href', '/in/product/k#questions');
   expect(before[1]).toHaveTextContent('Ravi answered: “No, it clicks off.”');
+});
+
+it('marks what came in since the shopper last looked, then counts it as seen', async () => {
+  state.store = amazonIn;
+  state.seenAt = '2026-10-05T10:00:00Z';
+  state.list = [
+    msg({ key: 'delivered:A-1', kind: 'delivered', at: '2026-10-06T06:00:00Z' }),
+    msg({ key: 'shipped:A-1', kind: 'shipped', at: '2026-10-05T08:00:00Z' }),
+  ];
+  render(await MessagesPage());
+  expect(screen.getByText(/1 new since you last looked\./)).toBeInTheDocument();
+  const [fresh, old] = screen.getAllByRole('listitem');
+  expect(within(fresh).getByText('New')).toBeInTheDocument();
+  expect(fresh).toHaveTextContent('(new)');
+  expect(within(old).queryByText('New')).not.toBeInTheDocument();
+  expect(state.marked).toEqual(['IN']);
+});
+
+it('treats everything as new the first time', async () => {
+  state.seenAt = null;
+  state.list = [msg({})];
+  render(await MessagesPage());
+  expect(screen.getByText(/1 new since you last looked\./)).toBeInTheDocument();
+  expect(state.marked).toEqual(['US']);
 });

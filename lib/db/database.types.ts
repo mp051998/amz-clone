@@ -233,6 +233,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"inbox_reads": {
+                  Row: {
+                    "market_id": string,"seen_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "market_id": string,"seen_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "market_id"?: string,"seen_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"gift_card_purchases": {
                   Row: {
                     "amount_minor": number,"created_at": string,"currency": string,"gift_card_code": string | null,"id": string,"market_id": string,"message": string | null,"paid_at": string | null,"payment_intent_id": string | null,"recipient_name": string | null,"status": string,"stripe_session_id": string | null,"user_id": string | null
@@ -907,6 +920,9 @@ isOneToOne: false
                            },
 "mark_support_case_seen":
 { Args: { "p_case": string }; Returns: undefined
+                           },
+"mark_inbox_seen":
+{ Args: { "p_market": string }; Returns: string
                            },
 "open_support_case":
 { Args: { "p_body": string,"p_market": string,"p_order"?: string,"p_subject": string,"p_topic": string }; Returns: Json

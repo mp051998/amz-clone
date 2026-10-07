@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
   collections: [] as unknown[],
   toReview: [] as unknown[],
   unread: [] as string[],
+  inbox: [] as { at: string }[],
+  seenAt: null as string | null,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -35,6 +37,11 @@ vi.mock('@/lib/data/plus', () => ({ plusMembership: async () => state.plus }));
 vi.mock('@/lib/data/reviews', () => ({ awaitingReview: async () => state.toReview }));
 vi.mock('@/lib/data/balance', () => ({ storeBalance: async () => state.balance }));
 vi.mock('@/lib/data/support', () => ({ unreadCaseIds: async () => new Set(state.unread) }));
+vi.mock('@/lib/data/inbox', async (actual) => ({
+  ...(await actual<typeof import('@/lib/data/inbox')>()),
+  listInbox: async () => state.inbox,
+  inboxSeenAt: async () => state.seenAt,
+}));
 vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
 vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, historyPaused: async () => state.paused }));
 vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
@@ -55,6 +62,8 @@ beforeEach(() => {
   state.collections = [];
   state.toReview = [];
   state.unread = [];
+  state.inbox = [];
+  state.seenAt = null;
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -148,4 +157,18 @@ it('says when the store has replied on support cases since the shopper looked', 
   state.unread = ['c1', 'c2'];
   render(await AccountPage());
   expect(within(tile('Your support cases')).getByText('New replies on 2 cases')).toBeInTheDocument();
+});
+
+it('counts messages that came in since the shopper last opened them', async () => {
+  render(await AccountPage());
+  expect(within(tile('Your messages')).getByText('Order and return updates')).toBeInTheDocument();
+  cleanup();
+  state.inbox = [{ at: '2026-10-06T09:00:00Z' }, { at: '2026-10-05T09:00:00Z' }, { at: '2026-10-01T09:00:00Z' }];
+  state.seenAt = '2026-10-04T00:00:00Z';
+  render(await AccountPage());
+  expect(within(tile('Your messages')).getByText('2 new')).toBeInTheDocument();
+  cleanup();
+  state.seenAt = '2026-10-07T00:00:00Z';
+  render(await AccountPage());
+  expect(within(tile('Your messages')).getByText('Order and return updates')).toBeInTheDocument();
 });
