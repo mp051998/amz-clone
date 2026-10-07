@@ -35,13 +35,14 @@ describe('reviewer profiles', () => {
   });
 
   it('leaves out hidden reviews, and is empty once none are visible', async () => {
-    const { error } = await admin().from('reviews').update({ hidden_at: new Date().toISOString() }).eq('user_id', writer.id).eq('product_id', usB);
+    const { error } = await admin().from('reviews').update({ hidden_at: new Date().toISOString(), hidden_reason: 'admin' }).eq('user_id', writer.id).eq('product_id', usB);
     if (error) throw error;
     const us = await reviewerProfile(anon(), 'US', writer.id);
     expect(us!.reviews.map((r) => r.product.id)).toEqual([usA]);
     expect(us!.total).toBe(1);
 
-    await admin().from('reviews').update({ hidden_at: new Date().toISOString() }).eq('user_id', writer.id).eq('product_id', usA);
+    const again = await admin().from('reviews').update({ hidden_at: new Date().toISOString(), hidden_reason: 'admin' }).eq('user_id', writer.id).eq('product_id', usA);
+    if (again.error) throw again.error;
     expect(await reviewerProfile(anon(), 'US', writer.id)).toBeNull();
   });
 
