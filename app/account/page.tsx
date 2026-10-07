@@ -11,6 +11,7 @@ import { listCollections, priceDrops } from '@/lib/data/collections';
 import { plusMembership } from '@/lib/data/plus';
 import { awaitingReview } from '@/lib/data/reviews';
 import { storeBalance } from '@/lib/data/balance';
+import { unreadCaseIds } from '@/lib/data/support';
 import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
@@ -28,7 +29,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -38,6 +39,7 @@ export default async function AccountPage() {
     plusMembership(client),
     storeBalance(client, store.id),
     awaitingReview(client, store.id, user.id).catch(() => []),
+    unreadCaseIds(client, store.id),
   ]);
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
   const drops = priceDrops(collections.flatMap((c) => c.items)).length;
@@ -68,7 +70,7 @@ export default async function AccountPage() {
     // the device's history spans both stores, so no count here: the page shows this store's share
     { title: 'Browsing history', meta: paused ? 'Paused' : recent.length ? 'On this device' : 'Nothing viewed yet', desc: 'Products you looked at recently. Pause or clear it any time.', href: '/history' },
     { title: 'Customer service', meta: 'Help', desc: 'Returns, refunds, delivery problems and order changes.', href: '/customer-service' },
-    { title: 'Your support cases', meta: 'Messages with us', desc: 'What you’ve asked us and our replies. Reply on a case or close it.', href: '/customer-service/cases' },
+    { title: 'Your support cases', meta: unread.size ? (unread.size === 1 ? 'New reply on 1 case' : `New replies on ${unread.size} cases`) : 'Messages with us', desc: 'What you’ve asked us and our replies. Reply on a case or close it.', href: '/customer-service/cases' },
   ];
 
   return (

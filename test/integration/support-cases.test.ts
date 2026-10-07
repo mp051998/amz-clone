@@ -1,7 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DataError } from '@/lib/data/errors';
 import { placeOrder } from '@/lib/data/orders';
-import { assertStoreCase, closeCase, getCase, listCaseOrders, listCaseQueue, listMyCases, openCase, replyToCase } from '@/lib/data/support';
+import {
+  assertStoreCase,
+  closeCase,
+  getCase,
+  listCaseOrders,
+  listCaseQueue,
+  listMyCases,
+  markCaseSeen,
+  openCase,
+  replyToCase,
+  unreadCaseIds,
+} from '@/lib/data/support';
 import { admin, anon, deleteUser, IN_SHIPPING, newUser, pickProduct, type TestUser } from './helpers';
 
 const failure = async (p: Promise<unknown>) => {
@@ -126,5 +137,62 @@ describe('support cases', () => {
     // closing one makes room
     await closeCase(shopper.db, five[1].id);
     await expect(open(8)).resolves.toMatchObject({ status: 'open' });
+  });
+});
+
+describe('new replies on support cases', () => {
+  let shopper: TestUser;
+  let other: TestUser;
+  let agent: TestUser;
+  beforeAll(async () => {
+    [shopper, other, agent] = await Promise.all([newUser('Reply Reader'), newUser('Reply Bystander'), newUser('Reply Agent')]);
+    const { error } = await admin().from('admins').insert({ user_id: agent.id });
+    if (error) throw error;
+  });
+  afterAll(async () => {
+    await admin().from('support_cases').delete().in('user_id', [shopper.id, other.id]);
+    await admin().from('admins').delete().eq('user_id', agent.id);
+    await Promise.all([shopper, other, agent].map(deleteUser));
+  });
+
+  const ids = async (u: TestUser, market: 'US' | 'IN' = 'IN') => [...(await unreadCaseIds(u.db, market))].sort();
+
+  it('are new until the shopper opens the case, or writes on it', async () => {
+    const a = await openCase(shopper.db, 'IN', { topic: 'delivery', subject: 'Late parcel', body: 'It was due yesterday and has not come.' });
+    const b = await openCase(shopper.db, 'IN', { topic: 'payment', subject: 'Charged twice', body: 'I see two charges for one order.' });
+    // what the shopper wrote is never new to them
+    expect(await ids(shopper)).toEqual([]);
+
+    await replyToCase(agent.db, a.id, 'Sorry, it is on its way now.');
+    expect(await ids(shopper)).toEqual([a.id]);
+    expect(await ids(shopper, 'US')).toEqual([]);
+    expect(await ids(other)).toEqual([]);
+
+    // only the shopper can mark it seen, and it changes nothing else about the case
+    const before = (await getCase(shopper.db, 'IN', a.id, shopper.id))!;
+    await markCaseSeen(other.db, a.id);
+    expect(await ids(shopper)).toEqual([a.id]);
+    await markCaseSeen(shopper.db, a.id);
+    expect(await ids(shopper)).toEqual([]);
+    const after = (await getCase(shopper.db, 'IN', a.id, shopper.id))!;
+    expect([after.status, after.updatedAt]).toEqual([before.status, before.updatedAt]);
+
+    // another reply is new again; replying counts as having read it
+    await replyToCase(agent.db, a.id, 'It should arrive today.');
+    expect(await ids(shopper)).toEqual([a.id]);
+    await replyToCase(shopper.db, a.id, 'Thanks, it came.');
+    expect(await ids(shopper)).toEqual([]);
+
+    // a reply the store closes the case with is still new
+    await replyToCase(agent.db, b.id, 'We have refunded the second charge.');
+    await closeCase(agent.db, b.id);
+    expect(await ids(shopper)).toEqual([b.id]);
+  });
+
+  it('signed-out callers get nothing', async () => {
+    const list = await anon().rpc('my_unread_support_cases', { p_market: 'IN' });
+    expect(list.error).not.toBeNull();
+    const mark = await anon().rpc('mark_support_case_seen', { p_case: crypto.randomUUID() });
+    expect(mark.error).not.toBeNull();
   });
 });

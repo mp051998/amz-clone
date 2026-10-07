@@ -259,9 +259,9 @@ the store), `answered` (the store replied last) or `closed` (read only).
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| GET | `/me/support` | | `{cases: Case[]}`: yours in this store, waiting or answered first, then closed; latest activity first (up to 100). The web app lists them at `/customer-service/cases` |
+| GET | `/me/support` | | `{cases: (Case & {newReply})[]}`: yours in this store, waiting or answered first, then closed; latest activity first (up to 100). `newReply` is `true` while the store has written since you last opened the case (or wrote on it). The web app lists them at `/customer-service/cases` |
 | POST | `/me/support` | `{topic, subject, body, orderId?}` | `201 {case}`. `topic`: `order`, `delivery`, `return`, `payment`, `account` or `other`. `subject` 3–120 characters on one line, `body` 10–2000 (`422 invalid_input`, `detail` = field). `orderId` must be one of your orders in this store (`404 order_not_found`). Up to 5 cases open or answered per store (`409 too_many_cases`). The web app's form is `/customer-service/contact` (`?order=` picks the order) |
-| GET | `/me/support/:id` | | `{case: Case & {messages: Message[]}}`, messages oldest first. Someone else's case is `404 case_not_found` |
+| GET | `/me/support/:id` | | `{case: Case & {messages: Message[]}}`, messages oldest first, and marks the store's replies seen. Someone else's case is `404 case_not_found` |
 | POST | `/me/support/:id/messages` | `{body}` | `201 {message}`. 2–2000 characters. The case goes back to `open`. A closed case is `409 case_closed` |
 | POST | `/me/support/:id/close` | | `{case}`. Closing it twice is fine |
 
@@ -542,6 +542,7 @@ Thirty-one migrations live in `supabase/migrations/`:
 | search price | `search_catalog()` takes `p_min_price` and `p_max_price` (minor units) and keeps products priced within them; brand facets still cover the whole query+department scope |
 | support cases | `support_cases` and `support_messages`; shoppers read their own (admins all) and write only through `open_support_case()`, `reply_support_case()` and `close_support_case()`, which set the status (`open` / `answered` / `closed`) and cap open cases at 5 per shopper per store |
 | order address | `set_my_order_address()` (owner) copies one of their saved addresses in the order's store onto the order (with its instructions) while it's being prepared |
+| support seen | `support_cases.customer_seen_at`: when the shopper last opened the case or wrote on it (a trigger on their messages). `my_unread_support_cases()` lists their cases with a store reply since, and `mark_support_case_seen()` (owner) records a visit |
 
 About the tables and functions:
 - **Browser-facing roles cannot write any table directly.** The anon and authenticated roles either go through RLS-scoped policies or call functions with explicit grants. Order and total columns are never client-writable, and price and stock only by admins (`public.admins`), through the `products` policies.

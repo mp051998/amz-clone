@@ -4,6 +4,9 @@ import { Page, PageHead, Section, DemoNote } from '@/components/brand/Page';
 import { buttonClasses } from '@/components/primitives/Button';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { readUser } from '@/lib/auth';
+import { unreadCaseIds } from '@/lib/data/support';
+import { db } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Help · Store' };
 
@@ -66,6 +69,8 @@ export default async function CustomerServicePage() {
   const sp = (p: string) => storePath(store, p);
   const tiles = quickActions(isIN);
   const questions = commonQuestions(isIN);
+  // signed in: say when the store has replied on a case since the shopper last looked
+  const unread = (await readUser()) ? (await unreadCaseIds(await db(), store.id)).size : 0;
 
   return (
     <AppShell>
@@ -140,7 +145,9 @@ export default async function CustomerServicePage() {
           </div>
           <div className="flex flex-wrap gap-2.5">
             <a href={sp('/customer-service/contact')} className={buttonClasses({ variant: 'dark' })}>Contact us</a>
-            <a href={sp('/customer-service/cases')} className={buttonClasses({ variant: 'secondary' })}>Your support cases</a>
+            <a href={sp('/customer-service/cases')} className={buttonClasses({ variant: 'secondary' })}>
+              Your support cases{unread ? ` · ${unread === 1 ? '1 new reply' : `${unread} with new replies`}` : ''}
+            </a>
           </div>
         </section>
 

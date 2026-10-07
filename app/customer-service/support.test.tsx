@@ -11,6 +11,8 @@ const state = vi.hoisted(() => ({
   cases: [] as unknown[],
   thread: null as unknown,
   getCase: [] as unknown[][],
+  unread: [] as string[],
+  seen: [] as string[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -34,6 +36,10 @@ vi.mock('@/lib/data/support', async (importActual) => ({
   getCase: async (...args: unknown[]) => {
     state.getCase.push(args.slice(1));
     return state.thread;
+  },
+  unreadCaseIds: async () => new Set(state.unread),
+  markCaseSeen: async (_db: unknown, id: string) => {
+    state.seen.push(id);
   },
 }));
 vi.mock('./actions', () => ({ openCaseAction: async () => {}, replyCaseAction: async () => {}, closeCaseAction: async () => {} }));
@@ -80,6 +86,8 @@ beforeEach(() => {
   state.cases = [];
   state.thread = thread();
   state.getCase = [];
+  state.unread = [];
+  state.seen = [];
 });
 
 it('sends the signed-out to sign in, keeping the order they asked about', async () => {
@@ -175,4 +183,27 @@ it('lets a closed case be read but not replied to', async () => {
 it('is not found for someone else’s case', async () => {
   state.thread = null;
   await expect(SupportCasePage({ params: Promise.resolve({ id: ID }), searchParams: Promise.resolve({}) })).rejects.toThrow('NOT_FOUND');
+  expect(state.seen).toEqual([]);
+});
+
+it('marks cases the store has replied on since the shopper looked', async () => {
+  state.cases = [supportCase({ status: 'answered' }), supportCase({ id: 'c2', subject: 'Change my email', topic: 'account', status: 'open' })];
+  state.unread = [ID];
+  render(await SupportCasesPage());
+  expect(screen.getByRole('link', { name: /Parcel never came\s*\(new reply\)/ })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Change my email/ }).textContent).not.toContain('New reply');
+  expect(screen.getAllByText('New reply')).toHaveLength(1);
+  expect(screen.getByText('We’ve replied on 1 case since you last looked.')).toBeInTheDocument();
+  cleanup();
+
+  state.unread = [];
+  render(await SupportCasesPage());
+  expect(screen.queryByText('New reply')).not.toBeInTheDocument();
+  expect(screen.queryByText(/since you last looked/)).not.toBeInTheDocument();
+});
+
+it('opening a case marks its replies seen', async () => {
+  state.thread = thread({ status: 'answered' });
+  await caseView();
+  expect(state.seen).toEqual([ID]);
 });
