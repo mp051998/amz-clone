@@ -9,6 +9,7 @@ import { listOrders } from './orders';
  * questions in a store, newest first, as on Amazon's Message Center. It's built from what the store
  * already keeps:
  * - order milestones: shipped, out for delivery, delivered, cancelled, refunded
+ * - items cancelled from an order before it shipped, and their refund
  * - returns: received, refunded, or not accepted
  * - the store's replies on support cases
  * - other shoppers' answers to the shopper's questions
@@ -26,6 +27,8 @@ export type InboxKind =
   | 'delivered'
   | 'cancelled'
   | 'refunded'
+  | 'items_cancelled'
+  | 'items_refunded'
   | 'return_received'
   | 'return_refunded'
   | 'return_rejected'
@@ -37,7 +40,7 @@ export interface InboxMessage {
   key: string;
   kind: InboxKind;
   at: string;
-  /** what it's about: the order's first item ("Kettle and 2 more"), the case subject, or the question */
+  /** what it's about: the order's first item ("Kettle and 2 more"), the items cancelled, the case subject, or the question */
   subject: string;
   /** store-relative link to where it's dealt with */
   href: string;
@@ -110,6 +113,13 @@ function orderMessages(o: Order, now: Date, timeZone: string): InboxMessage[] {
   }
   if (o.refund?.status === 'succeeded' && o.refund.amountMinor > 0 && o.refund.refundedAt) {
     out.push({ ...base, key: `refunded:${o.id}`, kind: 'refunded', at: o.refund.refundedAt, amountMinor: o.refund.amountMinor });
+  }
+  for (const c of o.cancellations ?? []) {
+    const items = { ...base, subject: orderSubject(c) };
+    out.push({ ...items, key: `items_cancelled:${c.id}`, kind: 'items_cancelled', at: c.createdAt });
+    if (c.refund.status === 'succeeded' && c.refund.amountMinor > 0 && c.refund.refundedAt) {
+      out.push({ ...items, key: `items_refunded:${c.id}`, kind: 'items_refunded', at: c.refund.refundedAt, amountMinor: c.refund.amountMinor });
+    }
   }
   return out;
 }
