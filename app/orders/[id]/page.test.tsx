@@ -852,3 +852,25 @@ describe('A-to-z Guarantee', () => {
     expect(within(card).queryByRole('button', { name: 'Withdraw claim' })).toBeNull();
   });
 });
+
+it('a high-value order shows its delivery OTP on the delivery day, and says it will before then', async () => {
+  state.order = order({ ...FUTURE, deliveryOtp: '048213' });
+  await show();
+  const otp = screen.getByRole('region', { name: 'Delivery OTP' });
+  expect(otp).toHaveTextContent('It shows here on the delivery day');
+  expect(otp).not.toHaveTextContent('048213');
+  cleanup();
+
+  state.order = order({ deliveryOtp: '048213', shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2026-09-02T09:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
+  await show();
+  expect(screen.getByLabelText('Delivery OTP 0 4 8 2 1 3')).toHaveTextContent('048213');
+  expect(screen.getByRole('region', { name: 'Delivery OTP' })).toHaveTextContent('Share this one-time password with the delivery associate');
+  cleanup();
+
+  for (const o of [order({ deliveryOtp: '048213', deliveredAt: '2026-09-04T10:00:00Z' }), order({ deliveryOtp: '048213', status: 'cancelled' }), order(FUTURE)]) {
+    state.order = o;
+    await show();
+    expect(screen.queryByRole('region', { name: 'Delivery OTP' })).toBeNull();
+    cleanup();
+  }
+});

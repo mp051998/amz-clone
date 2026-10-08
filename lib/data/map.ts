@@ -319,6 +319,8 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.delivery_day ? { deliveryDay: row.delivery_day } : {}),
     // absent on rows read before the pickup migration lands
     ...(row.pickup_point_id && row.pickup_code ? { pickup: { pointId: row.pickup_point_id, code: row.pickup_code } } : {}),
+    // absent on rows read before the delivery OTP migration lands
+    ...(row.delivery_otp ? { deliveryOtp: row.delivery_otp } : {}),
     // absent on rows read before the pre-orders migration lands
     ...(row.release_at ? { releaseAt: row.release_at } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),

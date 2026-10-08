@@ -196,3 +196,17 @@ it('a search from a tab covers every order, under the Orders tab', async () => {
   expect(within(screen.getByRole('navigation', { name: 'Orders' })).getByRole('link', { name: 'Orders' })).toHaveAttribute('aria-current', 'page');
   expect(screen.getByRole('link', { name: 'Clear search' })).toHaveAttribute('href', '/orders');
 });
+
+it('shows a high-value order’s delivery OTP while it is out for delivery, and not before or after', async () => {
+  const hour = 3_600_000;
+  const at = (ms: number) => new Date(Date.now() + ms).toISOString();
+  const out = { ...order('ORD-OUT', 1), deliveryOtp: '048213', shippedAt: at(-10 * hour), outForDeliveryAt: at(-hour), deliveredAt: at(5 * hour) };
+  const shipped = { ...order('ORD-SHIP', 1), deliveryOtp: '771204', shippedAt: at(-hour), outForDeliveryAt: at(20 * hour), deliveredAt: at(26 * hour) };
+  const done = { ...order('ORD-DONE', 2), deliveryOtp: '550912' };
+  state.orders = [out, shipped, done];
+  await show();
+  expect(screen.getByText('048213')).toBeInTheDocument();
+  expect(screen.getByText('048213').parentElement).toHaveTextContent('Delivery OTP 048213 · share it with the delivery associate');
+  expect(screen.queryByText('771204')).toBeNull();
+  expect(screen.queryByText('550912')).toBeNull();
+});
