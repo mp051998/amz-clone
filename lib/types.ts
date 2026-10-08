@@ -239,6 +239,11 @@ export interface OrderItem {
   unitSnsMinor?: number;
   /** the Bank Offer's part of unitDiscountMinor (absent without one) */
   unitBankMinor?: number;
+  /**
+   * days after delivery it can be returned, when its category had its own window in the store
+   * when it was ordered (0: not returnable); absent for the store's own window
+   */
+  returnDays?: number;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */

@@ -21,6 +21,8 @@ export interface CategoryInStore {
   /** products in this store, archived included. */
   products: number;
   archived: number;
+  /** its own return window here, in days (0: not returnable); null for the store's */
+  returnDays: number | null;
 }
 
 export interface AdminCategory {
@@ -35,17 +37,17 @@ export interface AdminCategory {
 export async function listAdminCategories(db: Db): Promise<AdminCategory[]> {
   const [cats, listed, counts] = await Promise.all([
     db.from('categories').select('slug, name').order('name'),
-    db.from('market_categories').select('market_id, category_slug, position'),
+    db.from('market_categories').select('market_id, category_slug, position, return_days'),
     db.rpc('category_counts'),
   ]);
   const byKey = new Map<string, CategoryInStore>();
   const entry = (market: string, slug: string) => {
     const key = `${market}|${slug}`;
     let e = byKey.get(key);
-    if (!e) byKey.set(key, (e = { position: null, products: 0, archived: 0 }));
+    if (!e) byKey.set(key, (e = { position: null, products: 0, archived: 0, returnDays: null }));
     return e;
   };
-  for (const r of unwrap(listed)) entry(r.market_id, r.category_slug).position = r.position;
+  for (const r of unwrap(listed)) Object.assign(entry(r.market_id, r.category_slug), { position: r.position, returnDays: r.return_days });
   for (const r of unwrap(counts)) Object.assign(entry(r.market_id, r.category_slug), { products: r.products, archived: r.archived });
   return unwrap(cats).map((c) => ({
     slug: c.slug,

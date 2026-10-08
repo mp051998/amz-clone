@@ -10,12 +10,13 @@ import { fieldClass } from '@/components/lib/controls';
 import { cn } from '@/components/lib/cn';
 import { listAdminCategories, storeNav, totalProducts, type AdminCategory } from '@/lib/data/admin-categories';
 import { messageFor } from '@/lib/data/errors';
+import { RETURN_DAYS_MAX } from '@/lib/data/return-policy';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
 import type { Market } from '@/lib/types';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly } from '../ui';
-import { addCategory, deleteCategoryAction, moveCategoryAction, renameCategoryAction, setListed } from './actions';
+import { addCategory, deleteCategoryAction, moveCategoryAction, renameCategoryAction, setListed, setReturnDaysAction } from './actions';
 
 export const metadata: Metadata = { title: 'Categories · Admin · Store' };
 
@@ -34,6 +35,7 @@ const DONE: Record<string, (name: string) => string> = {
   unlisted: (n) => `“${n}” is no longer in this store’s nav.`,
   moved: (n) => `Moved “${n}”.`,
   deleted: () => 'Category deleted.',
+  returns: (n) => `Updated the return window for “${n}”.`,
 };
 
 const small = 'cursor-pointer border-0 bg-transparent p-0 text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink disabled:cursor-default disabled:text-ink-4 disabled:no-underline';
@@ -86,6 +88,31 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
       </span>
     );
 
+  // its own return window in this store, or the store's
+  const returnsCell = (c: AdminCategory) => {
+    const days = c.stores[store.id].returnDays;
+    return (
+      <form action={setReturnDaysAction.bind(null, c.slug)} className="flex flex-col gap-1">
+        <span className="flex items-center gap-1.5">
+          <input
+            name="return_days"
+            type="number"
+            min={0}
+            max={RETURN_DAYS_MAX}
+            step={1}
+            inputMode="numeric"
+            defaultValue={days ?? ''}
+            placeholder={String(store.returns.days)}
+            aria-label={`Return window for ${c.name}, in days`}
+            className={cn(fieldClass, 'h-9 w-[76px]')}
+          />
+          <button type="submit" className={small}>Save</button>
+        </span>
+        <span className="text-[12px] text-ink-3">{days == null ? `Store’s ${store.returns.days} days` : days === 0 ? 'Not returnable' : `${days} days`}</span>
+      </form>
+    );
+  };
+
   const tools = (c: AdminCategory) =>
     c.tailored ? (
       <span className="text-ink-2">Tailored</span>
@@ -126,16 +153,16 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
       store={store}
       path="/admin/categories"
       title="Categories"
-      lede={<>Categories are shared by both stores; each store picks which ones its nav shows and in what order. A slug can’t change once it’s created.</>}
+      lede={<>Categories are shared by both stores; each store picks which ones its nav shows and in what order, and can give one its own return window (0 days: not returnable; blank: the store’s {store.returns.days}). A new window applies to orders placed after it. A slug can’t change once it’s created.</>}
     >
       {problem ? <Alert tone="error">{problem}</Alert> : notice ? <Alert tone="success">{notice}</Alert> : null}
 
       <Section title={`In the ${STORE_NAME[store.id]} nav`} note={`${nav.length} categories, in nav order`}>
         {nav.length ? (
           <div className="relative overflow-x-auto rounded-panel border border-line bg-surface">
-            <table className="w-full min-w-[760px] border-collapse text-left text-[14px]">
+            <table className="w-full min-w-[880px] border-collapse text-left text-[14px]">
               <caption className="sr-only">Categories in this store’s nav, in order</caption>
-              {head(['#', 'Category', 'Products', 'Decision tools', `${STORE_NAME[other]} nav`, ''])}
+              {head(['#', 'Category', 'Products', 'Returns', 'Decision tools', `${STORE_NAME[other]} nav`, ''])}
               <tbody>
                 {nav.map((c, i) => {
                   const s = c.stores[store.id];
@@ -144,6 +171,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
                       <td className="px-4 py-3 tabular-nums text-ink-3">{i + 1}</td>
                       <td className="px-4 py-3">{nameCell(c)}</td>
                       <td className="whitespace-nowrap px-4 py-3">{count(c)}</td>
+                      <td className="px-4 py-3">{returnsCell(c)}</td>
                       <td className="px-4 py-3">{tools(c)}</td>
                       <td className="px-4 py-3 text-ink-2">{c.stores[other].position != null ? 'Listed' : <span className="text-ink-3">Not listed</span>}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">

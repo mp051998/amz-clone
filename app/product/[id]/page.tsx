@@ -25,6 +25,7 @@ import { ReportIssue } from '@/components/product/ReportIssue';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { FrequentlyReturned, UsuallyKept } from '@/components/product/FrequentlyReturned';
+import { categoryReturnDays, returnPolicyText } from '@/lib/data/return-policy';
 import { returnSignal as readReturnSignal, type ReturnSignal } from '@/lib/data/return-signal';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { readUser } from '@/lib/auth';
@@ -182,7 +183,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnDays] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p), features: featuresFor(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -212,6 +213,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     user && p.subscribeSave && !p.archived ? subscriptionFor(client, p.id) : Promise.resolve(null),
     p.archived ? Promise.resolve(new Map<string, LightningDeal>()) : lightningDealsFor(client, [p.id]),
     p.archived ? Promise.resolve([]) : listBankOffers(client, store.id),
+    categoryReturnDays(client, store.id, p.category, store.returns.days),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -238,7 +240,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const confidence: ConfidenceRow[] = [
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
-    { k: 'Returns', v: `${store.returns.days}-day refund` },
+    { k: 'Returns', v: returnPolicyText(returnDays) },
     { k: 'Sold by', v: sellerRating ? `${p.seller} · ${sellerRating.positivePct}% positive` : p.seller },
   ];
 

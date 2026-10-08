@@ -13,6 +13,7 @@ import {
 } from '@/lib/data/admin-categories';
 import type { Db } from '@/lib/db/client';
 import { DataError } from '@/lib/data/errors';
+import { parseReturnDays, setCategoryReturnDays } from '@/lib/data/return-policy';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import type { Market } from '@/lib/types';
@@ -85,4 +86,9 @@ export async function moveCategoryAction(slug: string, offset: number): Promise<
 
 export async function deleteCategoryAction(slug: string): Promise<void> {
   await change(slug, 'deleted', (client) => deleteCategory(client, slug));
+}
+
+/** Set the category's return window in this store: days, 0 for not returnable, blank for the store's. */
+export async function setReturnDaysAction(slug: string, formData: FormData): Promise<void> {
+  await change(slug, 'returns', (client, market) => setCategoryReturnDays(client, market, slug, parseReturnDays(formData.get('return_days'))));
 }

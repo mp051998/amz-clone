@@ -44,8 +44,8 @@ const cat = (slug: string, us: number | null, inPos: number | null, products = [
   name: slug,
   tailored: false,
   stores: {
-    US: { position: us, products: products[0], archived: 0 },
-    IN: { position: inPos, products: products[1], archived: 0 },
+    US: { position: us, products: products[0], archived: 0, returnDays: null },
+    IN: { position: inPos, products: products[1], archived: 0, returnDays: null },
   },
 });
 

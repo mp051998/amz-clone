@@ -14,6 +14,7 @@ import { balanceMethod, isBalanceMethod } from '@/lib/data/balance';
 import { messageFor } from '@/lib/data/errors';
 import { getOrder } from '@/lib/data/orders';
 import { listPickupPoints } from '@/lib/data/pickup';
+import { isReturnable } from '@/lib/data/return-policy';
 import { canStartReturn, getOrderReturns, RETURN_REASONS, returnPickupDays, returnWindows } from '@/lib/data/returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -57,6 +58,8 @@ export default async function ReturnPage({
   const perItem = !!windows && longDate(windows.first, store) !== longDate(windows.last, store);
   const lines = order.items.filter((it) => (returns.returnable[it.productId] ?? 0) > 0);
   const replaceable = lines.filter((it) => (returns.replaceable[it.productId] ?? 0) > 0);
+  // in a category that can't be returned in this store
+  const keep = order.items.filter((it) => !isReturnable(it));
   const original = refundTo(order.paymentMethod, order.paymentLabel);
   // an order paid from the balance is refunded to it anyway
   const balance = isBalanceMethod(order.paymentMethod) ? null : refundTo(balanceMethod(order.market), '');
@@ -81,9 +84,11 @@ export default async function ReturnPage({
             <Alert tone="info">
               {!returns.delivered
                 ? 'You can return items once they’ve been delivered.'
-                : returns.returnBy && Date.parse(returns.returnBy) < now.getTime()
-                  ? `The return window for this order closed on ${longDate(new Date(returns.returnBy), store)}.`
-                  : 'Every item in this order is already being returned.'}
+                : keep.length === order.items.length
+                  ? `${order.items.length === 1 ? 'This item' : 'The items in this order'} can’t be returned.`
+                  : returns.returnBy && Date.parse(returns.returnBy) < now.getTime()
+                    ? `The return window for this order closed on ${longDate(new Date(returns.returnBy), store)}.`
+                    : 'Every item in this order is already being returned.'}
             </Alert>
             <a href={sp(page)} className={`${buttonClasses({ variant: 'secondary' })} self-start`}>Back to the order</a>
           </>
@@ -122,6 +127,9 @@ export default async function ReturnPage({
                 );
               })}
             </fieldset>
+            {keep.length ? (
+              <p className="m-0 -mt-2 text-[13px] text-ink-3">Can’t be returned: {keep.map((it) => it.title).join(', ')}.</p>
+            ) : null}
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="return-reason" className="text-[14px] font-semibold">Why are you returning it?</label>
