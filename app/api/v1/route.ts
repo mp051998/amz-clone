@@ -61,6 +61,7 @@ export function GET(): Response {
       'GET    /products/:id',
       'GET    /products/:id/bought-together',
       'GET    /products/:id/also-viewed',
+      'GET    /products/:id/offers',
       'GET    /products/:id/also-bought',
       'POST   /products/:id/views',
       'GET    /products/:id/insights?summarize=',

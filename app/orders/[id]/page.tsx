@@ -35,8 +35,9 @@ import { accessoriesFor, type Accessory } from '@/lib/decision/server';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { conditionLabel } from '@/lib/offers';
 import type { Db } from '@/lib/db/client';
-import type { Address, Order } from '@/lib/types';
+import type { Address, Order, OrderItem } from '@/lib/types';
 import { protectionPlanName } from '@/lib/protection';
 import { emiText } from '@/lib/emi';
 import { weekdayName } from '@/lib/delivery-day';
@@ -119,6 +120,9 @@ export default async function OrderPage({
   const placedAt = Date.parse(order.placedAt ?? order.createdAt);
   const confirming = order.status === 'placed' && (placed === '1' || now.getTime() - placedAt < JUST_PLACED_MS) && placed !== '0';
   const productIds = order.items.map((i) => i.productId);
+  // reviews and recalls go by the product, also for an item bought from another seller
+  const productOf = (i: OrderItem) => i.offerOf ?? i.productId;
+  const reviewIds = [...new Set(order.items.map(productOf))];
   // the sellers can be rated once it arrives, for 90 days
   const feedbackUntil = feedbackOpenUntil(order, now);
   const noFeedback = new Map<string, SellerFeedback>();
@@ -136,14 +140,18 @@ export default async function OrderPage({
     ? [null, [], new Set<string>(), noFeedback, [], null, new Map<string, Recall>()]
     : await Promise.all([
         getOrderReturns(client, order.id),
-        getProducts(client, productIds, { includeArchived: true }).catch(() => []),
-        view.delivered ? reviewedProductIds(client, user.id, productIds).catch(() => new Set<string>()) : new Set<string>(),
+        getProducts(client, [...new Set([...productIds, ...reviewIds])], { includeArchived: true }).catch(() => []),
+        view.delivered ? reviewedProductIds(client, user.id, reviewIds).catch(() => new Set<string>()) : new Set<string>(),
         feedbackUntil ? orderFeedback(client, order.id).catch(() => noFeedback) : noFeedback,
         addressOpen ? listAddresses(client, store.id).catch((): Address[] => []) : [],
         deliveryUntil ? deliveryFeedbackFor(client, order.id).catch((): DeliveryFeedback | null => null) : null,
-        order.status === 'placed' ? recallsFor(client, productIds).catch(() => new Map<string, Recall>()) : new Map<string, Recall>(),
+        order.status === 'placed' ? recallsFor(client, reviewIds).catch(() => new Map<string, Recall>()) : new Map<string, Recall>(),
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
+  // buy it again from the same seller, or the product itself once that seller has none left
+  const again = order.items.map(
+    (i) => [i.productId, i.offerOf].find((id): id is string => id != null && availabilityOf(nowById.get(id)) === 'available') ?? null,
+  );
   const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
   const windows = returns ? returnWindows(returns, now) : null;
@@ -513,7 +521,7 @@ export default async function OrderPage({
 
         <section className="overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="items-h">
           <h2 id="items-h" className="m-0 px-[18px] pb-1 pt-4 text-[16px] font-semibold">{countText}</h2>
-          {order.items.map((it) => (
+          {order.items.map((it, n) => (
             <div key={it.productId} className="flex flex-wrap items-center gap-3.5 border-t border-line-2 px-[18px] py-3.5 first-of-type:border-t-0">
               <a href={sp(`/product/${it.productId}`)} className="w-16 flex-none" tabIndex={-1} aria-hidden>
                 <ProductFrame src={it.image} alt="" aspect="1/1" />
@@ -521,8 +529,9 @@ export default async function OrderPage({
               <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
                 {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
-                {recalled.has(it.productId) ? (
-                  <a href={sp(`/recalls#recall-${encodeURIComponent(it.productId)}`)} className="self-start text-[13px] font-semibold text-bad underline underline-offset-2">
+                {it.condition ? <span className="text-[13px] text-ink-2">Condition: {conditionLabel(it.condition)}</span> : null}
+                {recalled.has(productOf(it)) ? (
+                  <a href={sp(`/recalls#recall-${encodeURIComponent(productOf(it))}`)} className="self-start text-[13px] font-semibold text-bad underline underline-offset-2">
                     Recalled · See what to do
                   </a>
                 ) : null}
@@ -533,12 +542,12 @@ export default async function OrderPage({
                 {it.unitDiscountMinor ? <span className="text-[13px] font-semibold text-good-strong">Coupon −{money(it.unitDiscountMinor * it.qty)}</span> : null}
                 {it.protectionMinor ? <span className="text-[13px] text-ink-2">+ {protectionPlanName(order.market)} · {money(it.protectionMinor * it.qty)}</span> : null}
                 {view.delivered ? (
-                  reviewed.has(it.productId) ? (
-                    <a href={sp(`/product/${encodeURIComponent(it.productId)}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Edit your review: ${it.title}`}>
+                  reviewed.has(productOf(it)) ? (
+                    <a href={sp(`/product/${encodeURIComponent(productOf(it))}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Edit your review: ${it.title}`}>
                       Edit your review
                     </a>
                   ) : (
-                    <a href={sp(`/product/${encodeURIComponent(it.productId)}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Write a product review: ${it.title}`}>
+                    <a href={sp(`/product/${encodeURIComponent(productOf(it))}#write-review`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Write a product review: ${it.title}`}>
                       Write a product review
                     </a>
                   )
@@ -564,8 +573,8 @@ export default async function OrderPage({
               </div>
               <div className="flex flex-none flex-col items-end gap-1.5">
                 <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
-                {order.status === 'awaiting_payment' ? null : availabilityOf(nowById.get(it.productId)) === 'available' ? (
-                  <BuyAgainButton productId={it.productId} title={it.title} size={it.size} />
+                {order.status === 'awaiting_payment' ? null : again[n] ? (
+                  <BuyAgainButton productId={again[n]} title={it.title} size={it.size} />
                 ) : (
                   <span className="text-[12px] text-ink-3">Currently unavailable</span>
                 )}

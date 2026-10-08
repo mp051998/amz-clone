@@ -14,6 +14,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
 import type { ShippingAddress } from '@/lib/types';
 import { protectionPlanName } from '@/lib/protection';
+import { conditionLabel } from '@/lib/offers';
 
 export const metadata: Metadata = { title: 'Invoice · Store' };
 
@@ -127,6 +128,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     <td className={cell}>
                       <span className="block font-medium">{l.title}</span>
                       {l.size ? <span className="block text-[13px] text-ink-2">Size: {l.size}</span> : null}
+                      {l.condition ? <span className="block text-[13px] text-ink-2">Condition: {conditionLabel(l.condition)}</span> : null}
                       <span className="block text-[13px] text-ink-3">Sold by {l.seller}</span>
                       {l.discountMinor ? <span className="block text-[13px] text-ink-2">Coupon −{money(l.discountMinor)}</span> : null}
                       {l.qtyDiscountMinor ? <span className="block text-[13px] text-ink-2">Quantity discount −{money(l.qtyDiscountMinor)}</span> : null}

@@ -23,17 +23,18 @@ export interface LastPurchase {
 }
 
 /**
- * The latest placed order of `userId`'s with `productId` still on it (a line cancelled out of an
- * order leaves it), or null. Cancelled and unpaid orders don't count.
+ * The latest placed order of `userId`'s with one of `productIds` still on it (a line cancelled out
+ * of an order leaves it), or null: the product and its other sellers' offers, bought from any of
+ * them. Cancelled and unpaid orders don't count.
  */
-export async function lastPurchase(db: Db, userId: string, productId: string): Promise<LastPurchase | null> {
+export async function lastPurchase(db: Db, userId: string, productIds: string | string[]): Promise<LastPurchase | null> {
   const rows = unwrap(
     await db
       .from('orders')
       .select('id, created_at, placed_at, order_items!inner(product_id)')
       .eq('user_id', userId)
       .eq('status', 'placed')
-      .eq('order_items.product_id', productId)
+      .in('order_items.product_id', typeof productIds === 'string' ? [productIds] : productIds)
       .order('created_at', { ascending: false })
       .limit(1),
   );

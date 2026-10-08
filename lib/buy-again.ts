@@ -28,10 +28,12 @@ export function pastPurchases(orders: readonly Order[]): PastPurchase[] {
   const out = new Map<string, PastPurchase>();
   const placed = orders.filter((o) => o.status === 'placed').sort((a, b) => Date.parse(placedAt(b)) - Date.parse(placedAt(a)));
   for (const o of placed) {
-    for (const it of o.items) {
-      const seen = out.get(it.productId);
+    // bought from another seller: buy the product again (from whoever sells it on its page)
+    for (const productId of new Set(o.items.map((it) => it.offerOf ?? it.productId))) {
+      const seen = out.get(productId);
+      const it = o.items.find((x) => (x.offerOf ?? x.productId) === productId);
       if (seen) seen.orders++;
-      else out.set(it.productId, { productId: it.productId, title: it.title, image: it.image, lastBoughtAt: placedAt(o), lastOrderId: o.id, orders: 1 });
+      else if (it) out.set(productId, { productId, title: it.title, image: it.image, lastBoughtAt: placedAt(o), lastOrderId: o.id, orders: 1 });
     }
   }
   return [...out.values()];

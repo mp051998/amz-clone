@@ -1,5 +1,6 @@
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
+import { isUsedCondition } from '../offers';
 import { isUnitKind } from '../unit-price';
 import type { Address, CancelReason, Cart, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus } from '../types';
 
@@ -45,6 +46,10 @@ export function toProduct(row: Partial<ProductRow>): Product {
     ...(row.qty_discount_pct && row.qty_discount_min ? { qtyDiscount: { percentOff: row.qty_discount_pct, minQty: row.qty_discount_min } } : {}),
     // absent on rows read before the pre-orders migration lands
     ...(row.release_at ? { releaseAt: row.release_at } : {}),
+    // absent on rows read before the seller offers migration lands
+    ...(row.offer_of ? { offerOf: row.offer_of } : {}),
+    ...(isUsedCondition(row.condition) ? { condition: row.condition } : {}),
+    ...(row.condition_note ? { conditionNote: row.condition_note } : {}),
   };
 }
 
@@ -177,6 +182,9 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       ...(it.protection_minor ? { protectionMinor: it.protection_minor } : {}),
       // absent on rows read before the sizes migration lands
       ...(it.size ? { size: it.size } : {}),
+      // absent on rows read before the seller offers migration lands (and on cancelled items)
+      ...(it.offer_of ? { offerOf: it.offer_of } : {}),
+      ...(isUsedCondition(it.condition) ? { condition: it.condition } : {}),
     }));
 }
 
