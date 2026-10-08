@@ -11,6 +11,7 @@ import { ReturnMethodFields } from '@/components/orders/ReturnMethod';
 import { startReturn } from '@/app/actions/returns';
 import { readUser } from '@/lib/auth';
 import { balanceMethod, isBalanceMethod } from '@/lib/data/balance';
+import { getProducts } from '@/lib/data/catalog';
 import { messageFor } from '@/lib/data/errors';
 import { getOrder } from '@/lib/data/orders';
 import { listPickupPoints } from '@/lib/data/pickup';
@@ -27,7 +28,9 @@ const FIELD_ERROR: Record<string, string> = {
   items: 'Choose at least one item to return, up to the quantity that’s left.',
   reason: 'Choose why you’re returning it.',
   comment: 'Keep the comment under 1,000 characters.',
-  resolution: 'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described. Choose one of those reasons, or a refund.',
+  resolution:
+    'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described, and exchanges for a size that’s too small or too large. Choose one of those reasons, or a refund.',
+  size: 'For an exchange, pick the size you’d like instead of the one you have, for each item you’re returning.',
   refundTo: 'Choose where the refund goes: back to how you paid, or your balance.',
 };
 
@@ -60,6 +63,11 @@ export default async function ReturnPage({
   const perItem = !!windows && longDate(windows.first, store) !== longDate(windows.last, store);
   const lines = order.items.filter((it) => (returns.returnable[it.productId] ?? 0) > 0);
   const replaceable = lines.filter((it) => (returns.replaceable[it.productId] ?? 0) > 0);
+  // an item that comes in sizes can be exchanged for another of them, while it can be replaced
+  const sized = replaceable.filter((it) => it.size);
+  const sizesOf = new Map((sized.length ? await getProducts(client, sized.map((it) => it.productId), { includeArchived: true }) : []).map((p) => [p.id, p.sizes ?? []]));
+  const otherSizes = (it: (typeof lines)[number]) => (sizesOf.get(it.productId) ?? []).filter((s) => s !== it.size);
+  const exchangeable = sized.filter((it) => otherSizes(it).length > 0);
   // in a category that can't be returned in this store
   const keep = order.items.filter((it) => !isReturnable(it));
   // in a category that only goes back for a fault, as a replacement (a refund when it can't be)
@@ -137,6 +145,15 @@ export default async function ReturnPage({
                         <option key={n} value={n}>{n === 0 ? 'Not returning' : `Return ${n}`}</option>
                       ))}
                     </select>
+                    {exchangeable.includes(it) ? (
+                      <div className="flex basis-full items-center gap-2.5 pl-[70px] text-[13px] max-sm:pl-0">
+                        <label htmlFor={`size-${it.productId}`} className="text-ink-2">For an exchange, send size</label>
+                        <select id={`size-${it.productId}`} name={`size:${it.productId}`} defaultValue="" className={selectClass}>
+                          <option value="">Choose a size</option>
+                          {otherSizes(it).map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -182,6 +199,18 @@ export default async function ReturnPage({
                     </span>
                   </span>
                 </label>
+                {exchangeable.length ? (
+                  <label className="flex items-start gap-2.5 text-[14px]">
+                    <input type="radio" name="resolution" value="exchange" className="mt-0.5 size-4 flex-none accent-ink" />
+                    <span>
+                      <span className="font-semibold">An exchange for a different size</span>
+                      <span className="block text-[13px] text-ink-3">
+                        The same item in the size you pick above, sent right away at no charge, if it’s too small or too large
+                        {exchangeable.length < lines.length ? `; available for ${exchangeable.map((it) => it.title).join(', ')}` : ''}.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
               </fieldset>
             ) : null}
 

@@ -3,7 +3,7 @@ import { ConfirmAction } from '../admin/ConfirmAction';
 import { formatMoney } from '@/lib/marketplaces';
 import type { CurrencyCode } from '@/lib/contracts';
 import { balanceMethod } from '@/lib/data/balance';
-import { nothingSentBack, type ReturnSummary } from '@/lib/data/returns';
+import { isExchange, nothingSentBack, type ReturnSummary } from '@/lib/data/returns';
 import type { Market, OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
 import { pickupDayText } from './ReturnMethod';
 import { StatusChip } from './Tracking';
@@ -15,6 +15,8 @@ export const REASON_LABEL: Record<ReturnReason, string> = {
   no_longer_needed: 'No longer needed',
   bought_by_mistake: 'Bought by mistake',
   better_price: 'Found a better price',
+  too_small: 'Too small',
+  too_large: 'Too large',
   damaged: 'Arrived damaged',
   defective: 'Defective or doesn’t work',
   wrong_item: 'Wrong item was sent',
@@ -49,9 +51,10 @@ export const RETURN_SUMMARY_CHIP: Record<ReturnSummary, { label: string; tone: C
 /** One chip for where a return stands. */
 export function returnChip(r: OrderReturn, now: Date = new Date()): { label: string; tone: ChipTone } {
   if (r.replacement && (r.status === 'requested' || r.status === 'received')) {
+    const kind = isExchange(r) ? 'Exchange' : 'Replacement';
     return Date.parse(r.replacement.deliveredAt) <= now.getTime()
-      ? { label: 'Replacement delivered', tone: 'good' }
-      : { label: 'Replacement on its way', tone: 'warn' };
+      ? { label: `${kind} delivered`, tone: 'good' }
+      : { label: `${kind} on its way`, tone: 'warn' };
   }
   switch (r.status) {
     case 'requested':
@@ -68,7 +71,9 @@ export function returnChip(r: OrderReturn, now: Date = new Date()): { label: str
 }
 
 export function itemsText(r: OrderReturn): string {
-  return r.items.map((i) => `${i.title}${i.size ? ` (size ${i.size})` : ''}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ');
+  return r.items
+    .map((i) => `${i.title}${i.exchangeSize ? ` (size ${i.size ?? '—'} → ${i.exchangeSize})` : i.size ? ` (size ${i.size})` : ''}${i.qty > 1 ? ` × ${i.qty}` : ''}`)
+    .join(', ');
 }
 
 /** "Items $20.00 · tax $1.60 · delivery $5.99 · protection plan $7.99" (parts that are zero are left out). */
@@ -150,13 +155,15 @@ export function ReturnCard({
   const balMoney = formatMoney(bal, currency);
   // a missing package or a granted claim has nothing to send back, so nothing to receive
   const got = nothingSentBack(r.reason) ? '' : 'We received your return. ';
+  // a replacement in another size is an exchange
+  const kind = isExchange(r) ? 'exchange' : 'replacement';
   let lead: ReactNode;
   if (r.replacement && (r.status === 'requested' || r.status === 'received')) {
     const arrives = new Date(r.replacement.deliveredAt);
     const swap =
       arrives.getTime() <= now.getTime()
-        ? <>Your replacement was delivered on {shortDate(arrives, store)}.</>
-        : <>Your replacement {Date.parse(r.replacement.shippedAt) <= now.getTime() ? 'has shipped and ' : ''}arrives by <strong>{longDate(arrives, store)}</strong>, at no charge.</>;
+        ? <>Your {kind} was delivered on {shortDate(arrives, store)}.</>
+        : <>Your {kind} {Date.parse(r.replacement.shippedAt) <= now.getTime() ? 'has shipped and ' : ''}arrives by <strong>{longDate(arrives, store)}</strong>, at no charge.</>;
     lead =
       r.reason === 'not_received' ? (
         <>{swap} There’s nothing to send back.</>
@@ -179,7 +186,7 @@ export function ReturnCard({
   } else if (r.status === 'cancelled') {
     lead = (
       <>
-        You cancelled this {r.resolution === 'replacement' ? 'replacement' : 'return'}
+        You cancelled this {r.resolution === 'replacement' ? kind : 'return'}
         {r.cancelledAt ? ` on ${shortDate(new Date(r.cancelledAt), store)}` : ''}. {r.resolution === 'replacement' ? 'Nothing was sent.' : 'Nothing was refunded.'}
       </>
     );
@@ -226,21 +233,21 @@ export function ReturnCard({
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-2 pt-2.5 text-[13px] text-ink-3">
         <span className="tabular-nums">
           {r.resolution === 'replacement'
-            ? 'Replacement · no charge'
+            ? `${kind === 'exchange' ? 'Exchange' : 'Replacement'} · no charge`
             : `${r.status === 'rejected' || r.status === 'cancelled' ? `Not refunded (${money})` : `Refund ${money}`} · ${refundBreakdown(r, currency)}`}
         </span>
         {cancel ? (
           <ConfirmAction
             action={cancel}
-            label={r.resolution === 'replacement' ? 'Cancel replacement' : 'Cancel return'}
+            label={r.resolution === 'replacement' ? `Cancel ${kind}` : 'Cancel return'}
             prompt={
               r.resolution === 'replacement'
-                ? 'Cancel this replacement? We won’t send it, and you can start a new return while the return window is open.'
+                ? `Cancel this ${kind}? We won’t send it, and you can start a new return while the return window is open.`
                 : 'Cancel this return? You can start a new one while the return window is open.'
             }
             confirmLabel="Yes, cancel it"
             pendingLabel="Cancelling…"
-            cancelLabel={r.resolution === 'replacement' ? 'Keep replacement' : 'Keep return'}
+            cancelLabel={r.resolution === 'replacement' ? `Keep ${kind}` : 'Keep return'}
           />
         ) : null}
       </div>

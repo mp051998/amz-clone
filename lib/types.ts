@@ -156,6 +156,9 @@ export type ReturnReason =
   | 'no_longer_needed'
   | 'bought_by_mistake'
   | 'better_price'
+  /** a size that didn't fit: can be exchanged for another size */
+  | 'too_small'
+  | 'too_large'
   | 'damaged'
   | 'defective'
   | 'wrong_item'
@@ -166,7 +169,7 @@ export type ReturnReason =
   /** a granted A-to-z Guarantee claim: one seller's items, refunded at once with nothing sent back */
   | 'atoz_claim';
 
-/** refund: money back once the items arrive; replacement: the same items again, sent now at no charge. */
+/** refund: money back once the items arrive; replacement: the same items again (or in another size, an exchange), sent now at no charge. */
 export type ReturnResolution = 'refund' | 'replacement';
 
 export interface ReturnItem {
@@ -177,6 +180,8 @@ export interface ReturnItem {
   qty: number;
   /** the size ordered, for a product that comes in sizes */
   size?: string;
+  /** the size an exchange sends instead (absent: a refund, or the same item again) */
+  exchangeSize?: string;
   /** bought as another seller's offer: the product it's an offer of (reviews, buy again and recalls go by it) */
   offerOf?: string;
   /** the condition it was bought in, when it wasn't new (another seller's renewed or used offer) */

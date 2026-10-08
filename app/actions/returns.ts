@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { DataError } from '@/lib/data/errors';
-import { cancelReturn, chooseReturnMethod, requestReturn } from '@/lib/data/returns';
+import { cancelReturn, chooseReturnMethod, isExchange, requestReturn } from '@/lib/data/returns';
 import { reportNotReceived } from '@/lib/data/not-received';
 import type { OrderReturn } from '@/lib/types';
 
@@ -21,7 +21,8 @@ const methodInput = (formData: FormData) => ({
 
 /**
  * The return form (bound to the order id): one `qty:<productId>` field per item, a reason, an
- * optional comment, the resolution (refund, or a replacement for a store-fault reason), where a
+ * optional comment, the resolution (refund, a replacement for a store-fault reason, or `exchange`:
+ * a replacement in the `size:<productId>` picked for each item, for one too small or large), where a
  * refund goes (`refundTo`: back to how they paid, or the store balance) and how it goes back
  * (`method`: dropped off, at `point` or anywhere, or picked up on `pickupOn`). The database checks
  * the window and what's left to return, and prices the refund; back to the order on success, or to
@@ -35,9 +36,15 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
   const page = `/orders/${encodeURIComponent(orderId)}`;
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(`${page}/return`)}`));
 
+  // an exchange is a replacement in the sizes picked
+  const exchange = formData.get('resolution') === 'exchange';
   const items = [...formData.entries()]
     .filter(([k]) => k.startsWith('qty:'))
-    .map(([k, v]) => ({ productId: k.slice(4), qty: Number(v) }))
+    .map(([k, v]) => {
+      const productId = k.slice(4);
+      const size = exchange ? formData.get(`size:${productId}`) : null;
+      return { productId, qty: Number(v), ...(typeof size === 'string' && size ? { size } : {}) };
+    })
     .filter((it) => it.qty > 0);
   let failure: DataError | null = null;
   let returned: OrderReturn | null = null;
@@ -46,7 +53,7 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
       items,
       reason: formData.get('reason'),
       comment: formData.get('comment'),
-      resolution: formData.get('resolution'),
+      resolution: exchange ? 'replacement' : formData.get('resolution'),
       refundTo: formData.get('refundTo'),
     });
   } catch (err) {
@@ -70,7 +77,7 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
     }
   }
   revalidatePath('/', 'layout');
-  const done = returned?.resolution === 'replacement' ? 'replacement' : 'started';
+  const done = returned && isExchange(returned) ? 'exchange' : returned?.resolution === 'replacement' ? 'replacement' : 'started';
   redirect(sp(`${page}?placed=0&return=${done}${methodError ? `&method_error=${encodeURIComponent(methodError)}` : ''}`));
 }
 

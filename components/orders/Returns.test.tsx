@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import type { OrderReturn } from '@/lib/types';
-import { ReturnCard } from './Returns';
+import { itemsText, returnChip, ReturnCard } from './Returns';
 
 afterEach(cleanup);
 
@@ -34,6 +34,24 @@ it('a replacement on its way says when it arrives and where to drop the original
   expect(screen.getByText('Replacement · no charge')).toBeTruthy();
   expect(screen.queryByText(/Refund/)).toBeNull();
   expect(screen.getByRole('button', { name: 'Cancel replacement' })).toBeTruthy();
+});
+
+it('an exchange names the new size and calls itself an exchange', () => {
+  const ex: OrderReturn = { ...swap, reason: 'too_small', items: [{ productId: 'p1', title: 'Tee', image: '', unitPriceMinor: 2000, qty: 2, size: 'M', exchangeSize: 'L' }] };
+  expect(itemsText(ex)).toBe('Tee (size M → L) × 2');
+  expect(returnChip(ex, new Date('2026-10-07T18:00:00Z')).label).toBe('Exchange on its way');
+  expect(returnChip(ex, new Date('2026-10-10T00:00:00Z')).label).toBe('Exchange delivered');
+  card(ex, '2026-10-07T18:00:00Z', async () => {});
+  expect(screen.getByText('Tee (size M → L) × 2')).toBeTruthy();
+  expect(screen.getByText(/Your exchange arrives by/).textContent).toMatch(/at no charge\. Drop the original off by/);
+  expect(screen.getByText('Exchange · no charge')).toBeTruthy();
+  expect(screen.getByText(/Too small/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Cancel exchange' })).toBeTruthy();
+  cleanup();
+  // the same size again is a replacement
+  card({ ...ex, items: [{ ...ex.items[0], exchangeSize: undefined }] }, '2026-10-07T18:00:00Z');
+  expect(screen.getByText('Tee (size M) × 2')).toBeTruthy();
+  expect(screen.getByText('Replacement · no charge')).toBeTruthy();
 });
 
 it('says once it has shipped, and when it was delivered', () => {
