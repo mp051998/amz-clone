@@ -346,6 +346,7 @@ describe('stock levels', () => {
     expect(o).toMatchObject({
       orders: { toShip: expect.any(Number), inTransit: expect.any(Number), refundIssues: expect.any(Number) },
       returns: { open: expect.any(Number), refundIssues: expect.any(Number) },
+      claims: expect.any(Number),
       reportedReviews: expect.any(Number),
       unansweredQuestions: expect.any(Number),
       support: { waiting: expect.any(Number) },

@@ -23,6 +23,7 @@ import AdminHome from './page';
 const quiet = (): AdminOverview => ({
   orders: { toShip: 0, inTransit: 0, refundIssues: 0 },
   returns: { open: 0, refundIssues: 0 },
+  claims: 0,
   reportedReviews: 0,
   unansweredQuestions: 0,
   productReports: 0,
@@ -45,6 +46,7 @@ it('counts each queue and links to it in this store', async () => {
   state.overview = {
     orders: { toShip: 4, inTransit: 1200, refundIssues: 1 },
     returns: { open: 2, refundIssues: 0 },
+    claims: 1,
     reportedReviews: 3,
     unansweredQuestions: 0,
     productReports: 5,
@@ -55,12 +57,13 @@ it('counts each queue and links to it in this store', async () => {
 
   expect(state.markets).toEqual(['IN']);
   expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeTruthy();
-  expect(screen.getByText('17 things need doing in this store.')).toBeTruthy();
+  expect(screen.getByText('18 things need doing in this store.')).toBeTruthy();
 
   const expected: [string, string, string][] = [
     ['Orders to ship', '4', '/in/admin/orders?filter=preparing'],
     ['Order refund problems', '1', '/in/admin/orders?filter=refund_issues'],
     ['Returns to process', '2', '/in/admin/returns'],
+    ['A-to-z claims', '1', '/in/admin/claims'],
     ['Return refund problems', '0', '/in/admin/returns?filter=refund_issues'],
     ['In transit', '1,200', '/in/admin/orders?filter=shipped'],
     ['Support cases waiting', '2', '/in/admin/support'],

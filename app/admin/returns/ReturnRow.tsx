@@ -7,7 +7,7 @@ import { paymentText } from '@/components/orders/format';
 import { pickupDayText, pointText } from '@/components/orders/ReturnMethod';
 import { canRetryReturnRefund, type AdminReturn } from '@/lib/data/admin-returns';
 import { balanceMethod } from '@/lib/data/balance';
-import { STORE_FAULT_REASONS } from '@/lib/data/returns';
+import { nothingSentBack, STORE_FAULT_REASONS } from '@/lib/data/returns';
 import { formatMoney } from '@/lib/marketplaces';
 import { adminTime } from '../orders/labels';
 
@@ -87,7 +87,7 @@ export function ReturnRow({
             <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Breakdown</dt><dd className="m-0 tabular-nums">{refundBreakdown(r, r.order.currency)}</dd></div>
           </>
         )}
-        {r.reason === 'not_received' ? null : (
+        {nothingSentBack(r.reason) ? null : (
           <div className="flex flex-col">
             <dt className="text-[13px] text-ink-3">Coming back by</dt>
             <dd className="m-0">

@@ -710,6 +710,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"atoz_claims": {
+                  Row: {
+                    "created_at": string,"decided_at": string | null,"decided_by": string | null,"decision_note": string | null,"details": string,"id": string,"market_id": string,"order_id": string,"reason": string,"return_id": string | null,"seller": string,"status": string,"user_id": string | null,"withdrawn_at": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"details": string,"id"?: string,"market_id": string,"order_id": string,"reason": string,"return_id"?: string | null,"seller": string,"status"?: string,"user_id"?: string | null,"withdrawn_at"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"details"?: string,"id"?: string,"market_id"?: string,"order_id"?: string,"reason"?: string,"return_id"?: string | null,"seller"?: string,"status"?: string,"user_id"?: string | null,"withdrawn_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "atoz_claims_order_id_fkey"
+      columns: ["order_id"]
+      isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },
+                    {
+      foreignKeyName: "atoz_claims_return_id_fkey"
+      columns: ["return_id"]
+      isOneToOne: false
+      referencedRelation: "returns"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"support_cases": {
                   Row: {
                     "closed_at": string | null,"created_at": string,"customer_name": string,"customer_seen_at": string | null,"id": string,"market_id": string,"order_id": string | null,"seller": string | null,"status": string,"subject": string,"topic": string,"updated_at": string,"user_id": string | null
@@ -1247,6 +1273,15 @@ isOneToOne: false
                            },
 "contact_seller":
 { Args: { "p_body": string,"p_market": string,"p_order"?: string,"p_seller": string,"p_subject": string,"p_topic": string }; Returns: Json
+                           },
+"file_atoz_claim":
+{ Args: { "p_details": string,"p_order_id": string,"p_reason": string,"p_seller": string }; Returns: Json
+                           },
+"withdraw_atoz_claim":
+{ Args: { "p_claim_id": string }; Returns: Json
+                           },
+"decide_atoz_claim":
+{ Args: { "p_claim_id": string,"p_grant": boolean,"p_note"?: string }; Returns: Json
                            },
 "close_support_case":
 { Args: { "p_case": string }; Returns: Json

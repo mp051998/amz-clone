@@ -19,6 +19,7 @@ import { awaitingReview, type ToReview } from './reviews';
  * - asking for a review of what arrived and hasn't been reviewed, a couple of days after delivery
  * - safety recalls of products the shopper bought
  * - Lightning Deals they watched going live
+ * - the store's decisions on their A-to-z Guarantee claims
  *
  * Only things that have happened, from the last 90 days. What came in since the shopper last opened
  * the page in that store is new (`inbox_reads`).
@@ -44,7 +45,9 @@ export type InboxKind =
   | 'answer'
   | 'review_request'
   | 'recall'
-  | 'deal_live';
+  | 'deal_live'
+  | 'claim_granted'
+  | 'claim_denied';
 
 export interface InboxMessage {
   /** stable and unique: `<kind>:<id>` */
@@ -60,9 +63,9 @@ export interface InboxMessage {
   amountMinor?: number;
   /** a return's refund paid onto the store balance, as the shopper asked, not back to how they paid */
   toBalance?: true;
-  /** why a return wasn't accepted, the answer's text, or a recall's hazard */
+  /** why a return wasn't accepted, the answer's text, a recall's hazard, or the store's note on a claim */
   detail?: string;
-  /** answers: who wrote it; support replies: the seller, on a case with one */
+  /** answers: who wrote it; support replies: the seller, on a case with one; claims: the seller it's about */
   from?: string;
   /** a watched deal that has ended since it went live */
   over?: true;
@@ -96,6 +99,18 @@ export interface InboxReply {
   seller?: string;
 }
 
+/** The store's decision on one of the shopper's A-to-z Guarantee claims. */
+export interface InboxClaim {
+  id: string;
+  orderId: string;
+  seller: string;
+  status: 'granted' | 'denied';
+  decidedAt: string;
+  /** granted: what's refunded */
+  refundMinor: number;
+  note: string | null;
+}
+
 /** Someone else's answer to the shopper's question. */
 export interface InboxAnswer {
   id: string;
@@ -117,6 +132,8 @@ export interface InboxSources {
   recalls?: Pick<MyRecall, 'productId' | 'title' | 'hazard' | 'issuedAt' | 'orderId'>[];
   /** Lightning Deals they watched that have gone live */
   dealsLive?: InboxDealLive[];
+  /** their A-to-z Guarantee claims that have been decided */
+  claims?: InboxClaim[];
 }
 
 /** A Lightning Deal the shopper watched, since it went live. */
@@ -236,6 +253,22 @@ export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone =
       amountMinor: d.dealPriceMinor,
       ...(d.endedAt ? { over: true as const } : {}),
     })),
+    ...(src.claims ?? []).map((c): InboxMessage => {
+      // what it's about: the seller's items in the order
+      const order = byId.get(c.orderId);
+      const items = order?.items.filter((i) => i.seller === c.seller) ?? [];
+      return {
+        key: `claim_${c.status}:${c.id}`,
+        kind: c.status === 'granted' ? 'claim_granted' : 'claim_denied',
+        at: c.decidedAt,
+        subject: items.length ? orderSubject({ items }) : `Items sold by ${c.seller}`,
+        href: `/orders/${encodeURIComponent(c.orderId)}?placed=0#claims`,
+        orderId: c.orderId,
+        from: c.seller,
+        ...(c.status === 'granted' ? { amountMinor: c.refundMinor } : {}),
+        ...(c.note ? { detail: c.note } : {}),
+      };
+    }),
     ...src.answers.map((a): InboxMessage => ({
       key: `answer:${a.id}`,
       kind: 'answer',
@@ -284,6 +317,8 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
       )
       .eq('user_id', userId)
       .eq('orders.market_id', market)
+      // a granted claim's refund is told with the claim
+      .neq('reason', 'atoz_claim')
       // replacements ship as soon as they're asked for; other returns have nothing to say until they arrive
       .or('status.in.(received,rejected),and(status.eq.requested,resolution.eq.replacement)')
       .order('created_at', { ascending: false })
@@ -304,6 +339,31 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
     ...(r.resolution === 'replacement' && r.replacement_shipped_at && r.replacement_delivered_at
       ? { replacement: { productIds: r.return_items.map((i) => i.product_id), shippedAt: r.replacement_shipped_at, deliveredAt: r.replacement_delivered_at } }
       : {}),
+  }));
+}
+
+type ClaimRow = { id: string; order_id: string; seller: string; status: string; decided_at: string; decision_note: string | null; refund: { refund_minor: number } | null };
+
+async function inboxClaims(db: Db, market: Market, userId: string, since: string): Promise<InboxClaim[]> {
+  const rows = unwrap(
+    await db
+      .from('atoz_claims')
+      .select('id, order_id, seller, status, decided_at, decision_note, refund:returns(refund_minor)')
+      .eq('user_id', userId)
+      .eq('market_id', market)
+      .in('status', ['granted', 'denied'])
+      .gt('decided_at', since)
+      .order('decided_at', { ascending: false })
+      .limit(INBOX_LIMIT),
+  ) as unknown as ClaimRow[];
+  return rows.map((c) => ({
+    id: c.id,
+    orderId: c.order_id,
+    seller: c.seller,
+    status: c.status === 'granted' ? 'granted' : 'denied',
+    decidedAt: c.decided_at,
+    refundMinor: c.refund?.refund_minor ?? 0,
+    note: c.decision_note,
   }));
 }
 
@@ -404,7 +464,7 @@ export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null)
 /** The caller's messages in a store, newest first. */
 export async function listInbox(db: Db, market: Market, userId: string, now: Date = new Date(), timeZone = 'UTC'): Promise<InboxMessage[]> {
   const since = new Date(now.getTime() - INBOX_DAYS * 86_400_000).toISOString();
-  const [orders, returns, replies, answers, toReview, recalls, dealsLive] = await Promise.all([
+  const [orders, returns, replies, answers, toReview, recalls, dealsLive, claims] = await Promise.all([
     listOrders(db, market, { limit: INBOX_LIMIT }),
     inboxReturns(db, market, userId),
     inboxReplies(db, market, userId, since),
@@ -412,6 +472,7 @@ export async function listInbox(db: Db, market: Market, userId: string, now: Dat
     awaitingReview(db, market, userId, now),
     myRecalls(db, market, userId).catch((): MyRecall[] => []),
     inboxDealsLive(db, market, userId, since).catch((): InboxDealLive[] => []),
+    inboxClaims(db, market, userId, since).catch((): InboxClaim[] => []),
   ]);
-  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive }, now, timeZone);
+  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive, claims }, now, timeZone);
 }

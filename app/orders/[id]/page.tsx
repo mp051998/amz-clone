@@ -9,15 +9,19 @@ import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions/returns';
+import { withdrawMyClaim } from '@/app/actions/claims';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { ReturnMethodFields } from '@/components/orders/ReturnMethod';
 import { CancelledItems } from '@/components/orders/CancelledItems';
+import { ClaimsSection } from '@/components/orders/Claims';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
 import { deliveryFeedbackFor, deliveryFeedbackOpen, deliveryFeedbackOpenUntil, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { canStartReturn, getOrderReturns, reportMissingUntil, returnPickupDays, returnWindows } from '@/lib/data/returns';
+import { orderClaims } from '@/lib/data/atoz-claims';
+import { claimableSellers, claimOpenUntil, type AtozClaim } from '@/lib/atoz';
 import { InstructionsField } from '@/components/checkout/AddressFields';
 import { deliveryOptions, orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
@@ -100,10 +104,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string; claim?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery } = await searchParams;
+  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery, claim } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -136,8 +140,8 @@ export default async function OrderPage({
   const point = order.pickup ? await getPickupPoint(client, store.id, order.pickup.pointId).catch(() => null) : null;
   const readyAt = order.deliveredAt ?? (view.delivered ? view.eta?.toISOString() : undefined);
   const collectBy = point && readyAt ? pickupBy(readyAt, point.holdDays) : null;
-  const [returns, current, reviewed, sellerFeedback, saved, deliveryFeedback, recalled] = confirming
-    ? [null, [], new Set<string>(), noFeedback, [], null, new Map<string, Recall>()]
+  const [returns, current, reviewed, sellerFeedback, saved, deliveryFeedback, recalled, claims] = confirming
+    ? [null, [], new Set<string>(), noFeedback, [], null, new Map<string, Recall>(), []]
     : await Promise.all([
         getOrderReturns(client, order.id),
         getProducts(client, [...new Set([...productIds, ...reviewIds])], { includeArchived: true }).catch(() => []),
@@ -146,6 +150,7 @@ export default async function OrderPage({
         addressOpen ? listAddresses(client, store.id).catch((): Address[] => []) : [],
         deliveryUntil ? deliveryFeedbackFor(client, order.id).catch((): DeliveryFeedback | null => null) : null,
         order.status === 'placed' ? recallsFor(client, reviewIds).catch(() => new Map<string, Recall>()) : new Map<string, Recall>(),
+        order.status === 'placed' ? orderClaims(client, order.id).catch((): AtozClaim[] => []) : ([] as AtozClaim[]),
       ]);
   const nowById = new Map(current.map((p) => [p.id, p]));
   // buy it again from the same seller, or the product itself once that seller has none left
@@ -253,6 +258,10 @@ export default async function OrderPage({
           <Alert tone="success">Your return is cancelled.</Alert>
         ) : returned === 'missing' && reportedMissing ? (
           <Alert tone="success">Sorry your order didn’t arrive. We’ve refunded it, as shown below.</Alert>
+        ) : claim === 'filed' && claims.some((c) => c.status === 'under_review') ? (
+          <Alert tone="success">Claim filed. We’ll look into it and let you know within a few days.</Alert>
+        ) : claim === 'withdrawn' ? (
+          <Alert tone="success">Your claim is withdrawn.</Alert>
         ) : returned === 'missing-replacement' && reportedMissing ? (
           <Alert tone="success">Sorry your order didn’t arrive. We’re sending it again at no charge, as shown below.</Alert>
         ) : archived === '1' && order.archivedAt ? (
@@ -518,6 +527,17 @@ export default async function OrderPage({
             ))}
           </section>
         ) : null}
+
+        <ClaimsSection
+          claims={claims}
+          sellers={claimableSellers(order, claims, now)}
+          openUntil={claimOpenUntil(order, now)}
+          fileHref={sp(`/orders/${encodeURIComponent(order.id)}/claim`)}
+          withdraw={(claimId) => withdrawMyClaim.bind(null, order.id, claimId)}
+          currency={order.currency}
+          refundTo={refundTo(order.paymentMethod, order.paymentLabel)}
+          store={store}
+        />
 
         <section className="overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="items-h">
           <h2 id="items-h" className="m-0 px-[18px] pb-1 pt-4 text-[16px] font-semibold">{countText}</h2>

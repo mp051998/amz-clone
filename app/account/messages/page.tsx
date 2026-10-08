@@ -33,6 +33,8 @@ const HEAD: Record<InboxKind, string> = {
   review_request: 'How was it?',
   recall: 'Product recall',
   deal_live: 'A deal you’re watching is live',
+  claim_granted: 'A-to-z Guarantee claim granted',
+  claim_denied: 'A-to-z Guarantee claim denied',
 };
 
 /** "It overheats" → "It overheats."; a sentence that already ends stays as it is. */
@@ -79,6 +81,10 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
       return m.over
         ? `It went live at ${money(m.amountMinor ?? 0)} and has ended since.`
         : `It’s on at ${money(m.amountMinor ?? 0)}, for a few hours or until it’s all claimed.`;
+    case 'claim_granted':
+      return `We’ve stepped in for ${m.from ?? 'the seller'}: ${money(m.amountMinor ?? 0)} back to how you paid.${m.detail ? ` ${sentence(m.detail)}` : ''}`;
+    case 'claim_denied':
+      return `Your claim about ${m.from ?? 'the seller'}’s items wasn’t granted${m.detail ? `: ${sentence(m.detail)}` : '.'}`;
   }
 }
 
@@ -135,7 +141,7 @@ export default async function MessagesPage() {
                 <li key={m.key} className="flex flex-col gap-0.5 border-t border-line-2 px-4 py-3.5 first:border-t-0">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' || m.kind === 'recall' ? 'text-bad' : ''}`}>
+                      <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' || m.kind === 'recall' || m.kind === 'claim_denied' ? 'text-bad' : ''}`}>
                         {m.kind === 'support_reply' && m.from ? 'Seller replied' : HEAD[m.kind]}
                         {isNewMessage(m, seenAt) ? <span className="sr-only"> (new)</span> : null}
                       </span>

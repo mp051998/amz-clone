@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[], returnBy: undefined as string | undefined }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[], returnBy: undefined as string | undefined, claims: [] as unknown[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -64,6 +64,8 @@ vi.mock('@/lib/data/pickup', async (original) => ({
   listPickupPoints: async () => [{ id: 'US-AUS-BLUEBONNET', kind: 'locker', name: 'Hub Locker – Bluebonnet', line1: '1000 E 41st St', city: 'Austin', state: 'TX', postcode: '78751', hours: 'Open 24 hours', holdDays: 3 }],
 }));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
+vi.mock('@/lib/data/atoz-claims', () => ({ orderClaims: async () => state.claims }));
+vi.mock('@/app/actions/claims', () => ({ withdrawMyClaim: async () => {} }));
 
 import OrderPage from './page';
 
@@ -105,6 +107,7 @@ beforeEach(() => {
   state.returns = [];
   state.recalled = [];
   state.returnBy = undefined;
+  state.claims = [];
 });
 
 it('warns about a recalled item and marks it, linking to what to do', async () => {
@@ -688,5 +691,61 @@ describe('return method', () => {
     state.returns = [{ ...started(), status: 'received', receivedAt: new Date().toISOString(), refund: { status: 'pending' } }];
     await show();
     expect(screen.queryByText('Change return method')).toBeNull();
+  });
+});
+
+describe('A-to-z Guarantee', () => {
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+  const fromAcme = (over: Partial<Order> = {}) =>
+    order({
+      deliveredAt: daysAgo(5),
+      items: [
+        { productId: 'k 1', title: 'Kettle', image: '', seller: 'Amazon.com', unitPriceMinor: 1000, qty: 1 },
+        { productId: 'm', title: 'Mug', image: '', seller: 'Acme', unitPriceMinor: 2000, qty: 1 },
+      ],
+      ...over,
+    });
+  const claim = (over: object = {}) => ({
+    id: 'c1', orderId: 'ORD-9', market: 'US', seller: 'Acme', reason: 'not_as_described', details: 'The mug arrived cracked.',
+    status: 'under_review', decisionNote: null, returnId: null, refund: null, createdAt: daysAgo(1), decidedAt: null, withdrawnAt: null, ...over,
+  });
+  const section = () => screen.getByRole('region', { name: 'A-to-z Guarantee' });
+
+  it('offers a claim about another seller once delivered', async () => {
+    state.order = fromAcme();
+    await show();
+    expect(section()).toHaveTextContent('Something from Acme didn’t arrive or isn’t as described?');
+    expect(within(section()).getByRole('link', { name: 'File a claim' })).toHaveAttribute('href', '/orders/ORD-9/claim');
+  });
+
+  it('has nothing to offer before delivery, or when the store sold everything', async () => {
+    state.order = fromAcme({ deliveredAt: undefined });
+    await show();
+    expect(screen.queryByRole('region', { name: 'A-to-z Guarantee' })).toBeNull();
+    cleanup();
+    state.order = fromAcme({ items: [{ productId: 'k 1', title: 'Kettle', image: '', seller: 'Amazon.com', unitPriceMinor: 1000, qty: 1 }] });
+    await show();
+    expect(screen.queryByRole('region', { name: 'A-to-z Guarantee' })).toBeNull();
+  });
+
+  it('shows a claim under review, which can be withdrawn, and says when it was filed', async () => {
+    state.order = fromAcme();
+    state.claims = [claim()];
+    await show({ claim: 'filed' });
+    expect(screen.getByRole('status')).toHaveTextContent(/claim/i);
+    const card = within(section()).getByRole('article', { name: 'Claim about Acme' });
+    expect(card).toHaveTextContent('Under review');
+    expect(card).toHaveTextContent('We’re reviewing it');
+    expect(within(card).getByRole('button', { name: 'Withdraw claim' })).toBeTruthy();
+    expect(within(section()).queryByRole('link', { name: 'File a claim' })).toBeNull();
+  });
+
+  it('says what was refunded once granted', async () => {
+    state.order = fromAcme();
+    state.claims = [claim({ status: 'granted', returnId: 'r1', decidedAt: daysAgo(0), refund: { amountMinor: 2160, status: 'succeeded', refundedAt: daysAgo(0) } })];
+    await show();
+    const card = within(section()).getByRole('article', { name: 'Claim about Acme' });
+    expect(card).toHaveTextContent('We stepped in: $21.60 refunded to');
+    expect(within(card).queryByRole('button', { name: 'Withdraw claim' })).toBeNull();
   });
 });
