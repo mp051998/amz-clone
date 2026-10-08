@@ -111,6 +111,17 @@ it('has a size chart for sizes it knows, the size picked highlighted', () => {
   expect(screen.getByRole('row', { current: true })).toHaveTextContent(/^L/);
 });
 
+it('says when it runs small or large, by its size returns', () => {
+  show({}, { sizes: ['S', 'M', 'L'], fit: 'small' });
+  expect(screen.getByText(/^Fit: Runs small\./).parentElement).toHaveTextContent('Fit: Runs small. Customers who sent it back for the size mostly found it too small, so consider a size up.');
+  cleanup();
+  show({}, { sizes: ['S', 'M', 'L'], fit: 'large' });
+  expect(screen.getByText(/^Fit: Runs large\./).parentElement).toHaveTextContent(/too large, so consider a size down\.$/);
+  cleanup();
+  show({}, { sizes: ['S', 'M', 'L'] });
+  expect(screen.queryByText(/^Fit:/)).toBeNull();
+});
+
 it('has no size to pick for a product without sizes', () => {
   show();
   expect(screen.queryByText(/^Size:/)).toBeNull();

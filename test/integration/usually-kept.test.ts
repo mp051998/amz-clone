@@ -33,19 +33,19 @@ describe('customers usually keep this item', () => {
 
   it('says so once 20 units were delivered and at most 1 in 50 came back', async () => {
     for (let i = 0; i < 3; i++) await buyFive();
-    expect(await signal()).toEqual({ frequent: null, usuallyKept: false }); // 15 units: too few to tell
+    expect(await signal()).toEqual({ frequent: null, usuallyKept: false, fit: null }); // 15 units: too few to tell
 
     const fourth = await buyFive();
-    expect(await signal()).toEqual({ frequent: null, usuallyKept: true });
+    expect(await signal()).toEqual({ frequent: null, usuallyKept: true, fit: null });
 
     const back = await requestReturn(buyer.db, fourth.id, { items: [{ productId: product, qty: 1 }], reason: 'no_longer_needed' });
-    expect(await signal()).toEqual({ frequent: null, usuallyKept: false }); // 1 of 20 back
+    expect(await signal()).toEqual({ frequent: null, usuallyKept: false, fit: null }); // 1 of 20 back
 
     await cancelReturn(buyer.db, back.id);
-    expect(await signal()).toEqual({ frequent: null, usuallyKept: true });
+    expect(await signal()).toEqual({ frequent: null, usuallyKept: true, fit: null });
 
     // only the last 90 days of deliveries count
     await deliveredDaysAgo(orders[0].id, 100);
-    expect(await signal()).toEqual({ frequent: null, usuallyKept: false });
+    expect(await signal()).toEqual({ frequent: null, usuallyKept: false, fit: null });
   });
 });

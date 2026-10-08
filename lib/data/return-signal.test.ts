@@ -25,9 +25,16 @@ it('null before the migration, other errors throw', async () => {
 });
 
 it('says when customers usually keep it, never alongside frequently returned', async () => {
-  expect(await returnSignal(fake({ data: { frequent: false, kept: true, reason: null } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: true });
-  expect(await returnSignal(fake({ data: { frequent: true, kept: true, reason: 'damaged' } }).db, 'p1')).toEqual({ frequent: { reason: 'damaged' }, usuallyKept: false });
+  expect(await returnSignal(fake({ data: { frequent: false, kept: true, reason: null } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: true, fit: null });
+  expect(await returnSignal(fake({ data: { frequent: true, kept: true, reason: 'damaged' } }).db, 'p1')).toEqual({ frequent: { reason: 'damaged' }, usuallyKept: false, fit: null });
   // before this migration the flag isn't there
-  expect(await returnSignal(fake({ data: { frequent: false, reason: null } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: false });
-  expect(await returnSignal(fake({ error: { code: 'PGRST202', message: 'not found' } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: false });
+  expect(await returnSignal(fake({ data: { frequent: false, reason: null } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: false, fit: null });
+  expect(await returnSignal(fake({ error: { code: 'PGRST202', message: 'not found' } }).db, 'p1')).toEqual({ frequent: null, usuallyKept: false, fit: null });
+});
+
+it('says which way a product’s size returns lean, beside either flag', async () => {
+  expect((await returnSignal(fake({ data: { frequent: false, kept: false, reason: null, fit: 'small' } }).db, 'p1')).fit).toBe('small');
+  expect(await returnSignal(fake({ data: { frequent: true, kept: false, reason: null, fit: 'large' } }).db, 'p1')).toEqual({ frequent: { reason: null }, usuallyKept: false, fit: 'large' });
+  expect((await returnSignal(fake({ data: { frequent: false, kept: false, reason: null, fit: 'tight' } }).db, 'p1')).fit).toBeNull();
+  expect((await returnSignal(fake({ data: { frequent: false, kept: false, reason: null, fit: null } }).db, 'p1')).fit).toBeNull();
 });

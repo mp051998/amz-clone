@@ -15,6 +15,7 @@ import { SizeChart } from './SizeChart';
 import { useToast } from '../decision/Toast';
 import { limitNote } from '@/lib/purchase-limits';
 import { CONDITION_LABEL, EXCHANGE_CONDITIONS, type ExchangeCondition } from '@/lib/exchange';
+import type { Fit } from '@/lib/data/return-signal';
 
 export interface ConfidenceRow { k: string; v: string }
 
@@ -65,6 +66,8 @@ export interface BuyPanelProps {
   limit?: { max: number; left: number | null };
   /** the sizes it comes in: one must be picked before Add to Cart or Buy Now */
   sizes?: string[];
+  /** "Fit: Runs small" / "Runs large", when its size returns lean one way */
+  fit?: Fit | null;
   /** a pre-order: when it comes out ("November 20, 2026"); Buy Now reads "Pre-order now" */
   preOrder?: { release: string };
   /** amazon.in's exchange offer: trade an old `kind` ("phone") in with Buy Now, up to `upTo` off */
@@ -90,12 +93,13 @@ const LEVEL_TONE = {
  * PDP aside (prototype Product detail): delivery card, Purchase confidence, qty, Add to Cart (accent,
  * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare, and Add to List.
  * An eligible product offers the store's protection plan as a box above the buttons; both take it.
- * A product that comes in sizes (clothes, shoes) asks for one first, and both buttons take it.
+ * A product that comes in sizes (clothes, shoes) asks for one first, and both buttons take it; when
+ * its size returns lean one way it says it runs small or large.
  * A pre-order says when it's released in place of the stock line, and Buy Now reads "Pre-order now".
  * With an exchange offer the shopper can pick their old phone or laptop (brand, model, screen) and see
  * what it takes off; that's a Buy Now of one, so the quantity and Add to Cart step aside meanwhile.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, preOrder, exchange }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, fit, preOrder, exchange }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
@@ -223,6 +227,12 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
                   </label>
                 ))}
               </div>
+              {fit ? (
+                <p className="m-0 text-[13px] leading-[1.45] text-ink-2">
+                  <strong className="font-semibold text-ink">Fit: Runs {fit}.</strong> Customers who sent it back for the size mostly found it too {fit}, so
+                  consider a size {fit === 'small' ? 'up' : 'down'}.
+                </p>
+              ) : null}
               <SizeChart sizes={sizes} title={name} selected={size} />
             </fieldset>
           ) : null}

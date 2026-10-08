@@ -17,7 +17,8 @@ import { exchangeUpTo } from '@/lib/exchange';
  * GET /api/v1/products/:id — product detail (with live stock, description and spec rows), its rating
  * histogram, its coupon (`{percentOff, clipped}` or null; `clipped` is false signed out), and
  * `frequentlyReturned` (`{reason}` when it often comes back, else null), `usuallyKept` (true when
- * customers rarely send it back), and the store's
+ * customers rarely send it back), `fit` (`small` or `large` when a product in sizes runs that way,
+ * by its size returns, else null), and the store's
  * `protection` plan for it (`{name, unitMinor}` or null), and its card EMI plans (`emi`, India from
  * ₹3,000, else empty), and its Lightning Deal (`lightningDeal`: live, upcoming or sold out, else null)
  * with whether the caller watches it (`watchingDeal`; an upcoming one, signed in), and `returnDays`,
@@ -44,7 +45,7 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const emi = product.archived ? [] : emiPlans(product.market, product.priceMinor);
   const lightningDeal = lightning?.get(id) ?? null;
   const watchingDeal = ctx.user && lightningDeal?.state === 'upcoming' ? (await watchedDeals(ctx.db, [lightningDeal.id])).has(lightningDeal.id) : false;
-  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, protection, emi, lightningDeal, watchingDeal, returnDays: policy.days, replacementOnly: policy.replacementOnly, exchange });
+  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, fit: product.sizes?.length ? (returns?.fit ?? null) : null, protection, emi, lightningDeal, watchingDeal, returnDays: policy.days, replacementOnly: policy.replacementOnly, exchange });
 });
 
 export const OPTIONS = preflight;
