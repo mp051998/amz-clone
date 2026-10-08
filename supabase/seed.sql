@@ -2678,3 +2678,5 @@ insert into public.coupons (product_id, percent_off) values
 
 -- Subscribe & Save: skin care can be subscribed to
 update public.products set subscribe_save = true where category_slug = 'beauty' and offer_of is null and max_per_customer is null;
+-- Climate Pledge Friendly: the seeded catalog's certifications
+update public.products set climate = private.default_climate(id, category_slug) where offer_of is null;

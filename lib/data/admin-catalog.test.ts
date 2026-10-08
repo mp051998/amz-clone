@@ -91,6 +91,15 @@ describe('validateProduct', () => {
     expect(validateProduct(noSizes)).toMatchObject({ ok: true, data: { sizes: null } });
   });
 
+  it('takes known Climate Pledge Friendly certifications, each once in a fixed order, and leaves them be when left out', () => {
+    expect(validateProduct({ ...good, climate: ['recycled', 'carbon', 'recycled'] })).toMatchObject({ ok: true, data: { climate: ['carbon', 'recycled'] } });
+    expect(validateProduct({ ...good, climate: [] })).toMatchObject({ ok: true, data: { climate: [] } });
+    const res = validateProduct({ ...good, climate: ['bogus'] });
+    expect(!res.ok && res.errors.climate).toBe('Pick from the listed certifications');
+    const ok = validateProduct(good);
+    expect(ok.ok && ok.data.climate).toBeUndefined();
+  });
+
   it('takes how much it holds in a known unit, rounded to 2 decimals, and none by default', () => {
     expect(validateProduct({ ...good, unit: { qty: 1.856, kind: 'oz' } })).toMatchObject({ ok: true, data: { unit: { qty: 1.86, kind: 'oz' } } });
     expect(validateProduct({ ...good, unit: { qty: 150, kind: 'ml' } })).toMatchObject({ ok: true, data: { unit: { qty: 150, kind: 'ml' } } });

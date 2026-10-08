@@ -285,6 +285,9 @@ async function main() {
     // as 20261222090000_subscribe_save does for databases seeded before it
     '-- Subscribe & Save: skin care can be subscribed to',
     "update public.products set subscribe_save = true where category_slug = 'beauty' and offer_of is null and max_per_customer is null;",
+    // as 20270115090000_climate_pledge does for databases seeded before it
+    '-- Climate Pledge Friendly: the seeded catalog\'s certifications',
+    'update public.products set climate = private.default_climate(id, category_slug) where offer_of is null;',
     '',
   ].join('\n');
 

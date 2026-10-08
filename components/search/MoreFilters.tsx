@@ -17,6 +17,10 @@ export interface MoreFiltersProps {
   sizes?: string[];
   rating?: number;
   deal: boolean;
+  /** "Climate Pledge Friendly" is ticked */
+  climate?: boolean;
+  /** how many in the search's scope are Climate Pledge Friendly (0 = no section, unless ticked) */
+  climateCount?: number;
   /** "Discount": the percentage off picked (undefined = any) */
   minDiscount?: number;
   /** price buckets for the department (empty = no Price section) */
@@ -40,8 +44,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, size, seller, price, rating, deals, discount, availability) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], rating, deal, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, size, seller, price, rating, deals, Climate Pledge Friendly, discount, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], rating, deal, climate = false, climateCount = 0, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -192,6 +196,17 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
           <span>On sale now</span>
         </a>
       </div>
+
+      {climateCount > 0 || climate ? (
+        <div>
+          <h3 className="m-0 mb-1 text-[14px] font-semibold">Climate Pledge Friendly</h3>
+          <a href={hrefWith({ climate: climate ? null : '1' })} role="checkbox" aria-checked={climate} aria-label={climateCount > 0 ? `Climate Pledge Friendly (${climateCount})` : undefined} className={row}>
+            <Box on={climate} />
+            <span>Climate Pledge Friendly</span>
+            {climateCount > 0 ? <span className="ml-auto text-[12px] text-ink-3 tabular-nums">{climateCount}</span> : null}
+          </a>
+        </div>
+      ) : null}
 
       <div>
         <h3 className="m-0 mb-1 text-[14px] font-semibold">Discount</h3>

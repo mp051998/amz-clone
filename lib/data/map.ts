@@ -1,3 +1,4 @@
+import { climateCerts } from '../climate';
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
 import { isExchangeCondition } from '../exchange';
@@ -55,6 +56,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     ...(row.condition_note ? { conditionNote: row.condition_note } : {}),
     // absent on rows read before the Subscribe & Save migration lands
     ...(row.subscribe_save ? { subscribeSave: true } : {}),
+    // absent on rows read before the Climate Pledge Friendly migration lands
+    ...(climateCerts(row.climate).length ? { climate: climateCerts(row.climate) } : {}),
   };
 }
 

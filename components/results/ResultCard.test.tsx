@@ -87,3 +87,9 @@ it('says when a pre-order comes out in place of the delivery day', () => {
   cleanup();
   expect(show({ releaseAt: '2020-11-20T08:00:00.000Z' })).not.toHaveTextContent('Pre-order');
 });
+
+it('marks a Climate Pledge Friendly product', () => {
+  expect(show({ climate: ['recycled'] })).toHaveTextContent('Climate Pledge Friendly');
+  cleanup();
+  expect(show()).not.toHaveTextContent('Climate Pledge Friendly');
+});

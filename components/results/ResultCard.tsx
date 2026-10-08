@@ -20,6 +20,7 @@ import { VariantSwatches } from '../product/VariantSwatches';
 import { Badge } from '../primitives/Badge';
 import { Price } from '../primitives/Price';
 import { Stars } from '../primitives/Stars';
+import { ClimateBadge } from '../product/ClimatePledge';
 
 export interface ResultCardProps {
   ranked: RankedProduct;
@@ -101,6 +102,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
         {deliveryLine(store, price, p.stock, delivery, releaseOf(p))}
       </span>
+      {p.climate?.length ? <ClimateBadge /> : null}
       {r.why.length || r.warn ? (
         <div className="flex flex-col gap-1.5 border-t border-line-2 pt-3">
           <Kicker className="font-semibold">Why it&apos;s here</Kicker>

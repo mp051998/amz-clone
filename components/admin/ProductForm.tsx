@@ -9,6 +9,7 @@ import { Input } from '../primitives/Input';
 import { Select } from '../primitives/Select';
 import { fieldClass } from '../lib/controls';
 import { cn } from '../lib/cn';
+import { CLIMATE_CERT, CLIMATE_CERTS } from '@/lib/climate';
 import { GalleryField } from './GalleryField';
 
 /** Form values as strings (prices in major units, bullets one per line). */
@@ -26,6 +27,8 @@ export interface ProductFormValues {
   limit: string;
   /** the sizes it comes in, comma-separated ("S, M, L"), blank for none. */
   sizes: string;
+  /** its Climate Pledge Friendly certifications, comma-separated ("carbon,recycled"), blank for none. */
+  climate: string;
   /** how much it holds ("3 fl oz"), blank for none. */
   unit: string;
   /** quantity discount percent and the units it starts at, both blank for none. */
@@ -123,6 +126,7 @@ export function ProductForm({
   const axisList = useId();
   const axisRef = useRef<HTMLInputElement>(null);
   const gallery = val('gallery').split('\n').filter(Boolean);
+  const climate = val('climate').split(',');
 
   const [preview, setPreview] = useState<string | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -280,6 +284,18 @@ export function ProductForm({
               />
               {e.details ? <span className="text-[13px] text-bad">⚠ {e.details}</span> : <span className="text-[13px] text-ink-3">One “Label: value” per line, up to 20. Shown as a table on the product page.</span>}
             </div>
+          </Group>
+
+          <Group title="Climate Pledge Friendly">
+            <p className="m-0 text-[14px] text-ink-2">
+              A product with at least one certification shows the Climate Pledge Friendly badge, can be filtered for in search and lists its certifications on its page.
+            </p>
+            <div className="grid gap-x-4 sm:grid-cols-2">
+              {CLIMATE_CERTS.map((c) => (
+                <Checkbox key={c} label={CLIMATE_CERT[c].name} name="climate" value={c} defaultChecked={climate.includes(c)} />
+              ))}
+            </div>
+            {e.climate ? <span className="text-[13px] text-bad">⚠ {e.climate}</span> : null}
           </Group>
 
           <Group title="Variants">

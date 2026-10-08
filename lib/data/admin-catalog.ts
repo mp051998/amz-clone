@@ -4,6 +4,7 @@ import type { Db } from '../db/client';
 import { decisionConfig } from '../decision/attributes';
 import { deriveInsight, pricePercentiles } from '../decision/derive';
 import { DETAIL_LIMITS, toDetailRows, type DetailRow } from '../product-details';
+import { CLIMATE_CERTS, climateCerts, type ClimateCert } from '../climate';
 import type { Market } from '../types';
 import { QTY_DISCOUNT_MAX_QTY, QTY_DISCOUNT_MIN_QTY, QTY_DISCOUNT_PCT_MAX, type QtyDiscount } from '../qty-discount';
 import { isUnitKind, UNIT_KINDS, UNIT_QTY_MAX, type ProductUnit } from '../unit-price';
@@ -56,6 +57,8 @@ export interface ProductInput {
   maxPerCustomer: number | null;
   /** the sizes it comes in, in size-chart order (clothes, shoes), or null when it doesn't. */
   sizes: string[] | null;
+  /** its Climate Pledge Friendly certifications (none: it isn't); left as they are when not given. */
+  climate?: ClimateCert[];
   /** how much it holds (3 fl oz, 150 ml, 30 count), for its unit price; null when it isn't sold by measure. */
   unit: ProductUnit | null;
   /** "Save 5% when you buy 2 or more": percent off (1–50) each unit of a line of at least minQty (2–99), or null for none. */
@@ -135,6 +138,8 @@ const ProductInputSchema = z
       .refine((v) => new Set(v).size === v.length, 'List each size once')
       .nullable()
       .default(null),
+    // each once, in the order the storefront lists them
+    climate: z.array(z.enum(CLIMATE_CERTS, 'Pick from the listed certifications')).optional().transform((v) => (v ? climateCerts(v) : undefined)),
     unit: z
       .object({
         qty: z
@@ -261,6 +266,7 @@ function toRow(p: ProductInput) {
     deal: p.deal,
     max_per_customer: p.maxPerCustomer,
     sizes: p.sizes,
+    ...(p.climate ? { climate: p.climate } : {}),
     unit_qty: p.unit?.qty ?? null,
     unit_kind: p.unit?.kind ?? null,
     qty_discount_pct: p.qtyDiscount?.percentOff ?? null,
@@ -432,6 +438,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     maxPerCustomer: r.max_per_customer ?? null,
     // absent before the sizes migration
     sizes: r.sizes ?? null,
+    // absent before the Climate Pledge Friendly migration
+    climate: climateCerts(r.climate),
     // absent before the unit price migration
     unit: r.unit_qty != null && isUnitKind(r.unit_kind) ? { qty: Number(r.unit_qty), kind: r.unit_kind } : null,
     // absent before the quantity discounts migration

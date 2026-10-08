@@ -137,3 +137,27 @@ describe('MoreFilters size', () => {
     expect(screen.getByRole('link', { name: 'Shoes' }).getAttribute('href')).toContain('"size":null');
   });
 });
+
+describe('MoreFilters Climate Pledge Friendly', () => {
+  const climateBox = () => within(screen.getByRole('heading', { name: 'Climate Pledge Friendly' }).parentElement!).getByRole('checkbox');
+
+  it('offers the filter with how many in scope are certified', () => {
+    renderFilters({ climateCount: 12 });
+    const box = climateBox();
+    expect(box).toHaveAccessibleName('Climate Pledge Friendly (12)');
+    expect(box).toHaveAttribute('aria-checked', 'false');
+    expect(box.getAttribute('href')).toBe(hrefWith({ climate: '1' }));
+  });
+
+  it('unticks when on, even with none left in scope', () => {
+    renderFilters({ climate: true });
+    const box = climateBox();
+    expect(box).toHaveAttribute('aria-checked', 'true');
+    expect(box.getAttribute('href')).toBe(hrefWith({ climate: null }));
+  });
+
+  it('has no section when nothing in scope is certified', () => {
+    renderFilters();
+    expect(screen.queryByRole('heading', { name: 'Climate Pledge Friendly' })).toBeNull();
+  });
+});
