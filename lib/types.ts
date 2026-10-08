@@ -415,6 +415,8 @@ export interface Review {
   /** ISO timestamp */
   createdAt: string;
   verified: boolean;
+  /** a Vine Customer Review of Free Product (never a verified purchase); absent otherwise */
+  vine?: boolean;
   helpful: number;
   /** true when the signed-in viewer wrote it. */
   mine: boolean;

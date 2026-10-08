@@ -13,6 +13,7 @@ import { awaitingReview, listMyReviews } from '@/lib/data/reviews';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
+import { VINE_LABEL } from '@/lib/vine';
 import { deleteMyReview } from './actions';
 
 export const metadata: Metadata = { title: 'Your reviews · Store' };
@@ -103,7 +104,7 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
                     <ReviewPhotoThumbs photos={r.photos} author={`your review of ${p.title}`} />
                     <span className="text-[13px] text-ink-3">
                       Reviewed {day.format(new Date(r.createdAt))}
-                      {r.verified ? ' · Verified purchase' : ''}
+                      {r.vine ? ` · ${VINE_LABEL}` : r.verified ? ' · Verified purchase' : ''}
                       {r.helpful ? ` · ${r.helpful === 1 ? '1 person' : `${r.helpful.toLocaleString('en-US')} people`} found this helpful` : ''}
                     </span>
                     {r.hidden ? (

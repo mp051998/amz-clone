@@ -20,6 +20,7 @@ interface ReviewRow {
   title: string;
   body: string;
   verified: boolean;
+  vine?: boolean;
   helpful_count: number;
   created_at: string;
   hidden_at?: string | null;
@@ -39,6 +40,7 @@ function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, r
     body: row.body,
     createdAt: row.created_at,
     verified: row.verified,
+    ...(row.vine ? { vine: true } : {}),
     helpful: row.helpful_count,
     mine: viewerId != null && row.user_id === viewerId,
     votedHelpful: voted.has(row.id),
@@ -54,7 +56,7 @@ function withFeatures(features: FeatureStars): { features?: FeatureStars } {
   return Object.keys(features).length ? { features } : {};
 }
 
-const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at, hidden_at, photos, fit, features';
+const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, vine, helpful_count, created_at, hidden_at, photos, fit, features';
 // until the moderation migration lands (a deploy can go out first): no hidden_at yet
 const LEGACY_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
 const MISSING_COLUMN = '42703';
@@ -465,6 +467,8 @@ export interface ReviewerProfile {
   total: number;
   /** "helpful" votes over those reviews */
   helpful: number;
+  /** a Vine Voice: one of those reviews is a Vine review */
+  vine: boolean;
   page: number;
   pageCount: number;
   reviews: MyReview[];
@@ -501,6 +505,7 @@ export async function reviewerProfile(db: Db, market: Market, userId: string, pa
     initial: name.trim().charAt(0).toUpperCase() || '?',
     total: rows.length,
     helpful: rows.reduce((n, r) => n + r.helpful_count, 0),
+    vine: rows.some((r) => r.vine === true),
     page: at,
     pageCount,
     reviews: shown.flatMap((r) => {

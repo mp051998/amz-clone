@@ -288,6 +288,9 @@ async function main() {
     // as 20270115090000_climate_pledge does for databases seeded before it
     '-- Climate Pledge Friendly: the seeded catalog\'s certifications',
     'update public.products set climate = private.default_climate(id, category_slug) where offer_of is null;',
+    // as 20270118090000_vine_reviews does for databases seeded before it
+    '-- Vine: a few sample reviews are Vine Customer Reviews of Free Product',
+    'update public.reviews set vine = true where seeded and private.is_vine_sample(product_id, author_name);',
     '',
   ].join('\n');
 

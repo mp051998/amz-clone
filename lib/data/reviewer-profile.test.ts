@@ -48,3 +48,10 @@ it('nothing for an unknown id or someone with no visible reviews; a product gone
   expect(p.total).toBe(2);
   expect(p.reviews.map((r) => r.review.id)).toEqual(['r2']);
 });
+
+it('is a Vine Voice when one of their visible reviews is a Vine review', async () => {
+  expect((await reviewerProfile(fakeDb([row(1), row(2)]).db, 'US', USER))!.vine).toBe(false);
+  const p = (await reviewerProfile(fakeDb([row(1), row(2, { vine: true, verified: false })]).db, 'US', USER))!;
+  expect(p.vine).toBe(true);
+  expect(p.reviews.map((r) => r.review.vine)).toEqual([undefined, true]);
+});

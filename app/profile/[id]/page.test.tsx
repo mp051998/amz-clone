@@ -28,7 +28,7 @@ const review = (id: string, over: Record<string, unknown> = {}) => ({
   verified: true, helpful: 3, mine: false, votedHelpful: false, reported: false, photos: [], ...over,
 });
 const profile = (over: Partial<ReviewerProfile> = {}): ReviewerProfile => ({
-  name: 'Priya S', initial: 'P', total: 2, helpful: 4, page: 1, pageCount: 1,
+  name: 'Priya S', initial: 'P', total: 2, helpful: 4, vine: false, page: 1, pageCount: 1,
   reviews: [
     { review: review('r1'), product: product({ id: 'k 1', title: 'Kettle' }) },
     { review: review('r2', { verified: false, helpful: 1, rating: 2 }), product: product({ id: 'm', title: 'Mug' }) },
@@ -55,6 +55,19 @@ it('shows the reviewer, their counts and their reviews with the products', async
   expect(first).toHaveTextContent('Reviewed October 2, 2026 · Verified purchase · 3 people found this helpful');
   expect(screen.getByRole('article', { name: 'Title r2' })).toHaveTextContent('Reviewed October 2, 2026 · 1 person found this helpful');
   expect(screen.queryByRole('navigation', { name: 'Pagination' })).toBeNull();
+  expect(screen.queryByText('Vine Voice')).toBeNull();
+});
+
+it('marks a Vine Voice, and their Vine reviews in place of a verified purchase', async () => {
+  state.profile = profile({
+    vine: true,
+    reviews: [{ review: review('r1', { vine: true, verified: false }), product: product({ id: 'k', title: 'Kettle' }) }],
+  });
+  await show();
+  expect(screen.getByText('Vine Voice')).toBeInTheDocument();
+  expect(screen.getByRole('article', { name: 'Title r1' })).toHaveTextContent(
+    'Reviewed October 2, 2026 · Vine Customer Review of Free Product · 3 people found this helpful',
+  );
 });
 
 it('pages through many reviews, in the India store', async () => {

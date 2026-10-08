@@ -139,3 +139,11 @@ it('saves how it fits with a review, and refuses any other answer', async () => 
   expect((await upsertReview(cleared.db, 'p1', 'u1', { ...input, fit: null })).fit).toBeUndefined();
   expect(cleared.calls[1].ops.find(([m]) => m === 'update')![1][0]).toMatchObject({ fit: null });
 });
+
+it('reads the Vine mark with each review, and leaves it off the rest', async () => {
+  const { db, calls } = fakeDb({ reviews: [{ data: [row('r1', 5, { vine: true, verified: false }), row('r2', 4, { vine: false })], error: null, count: 2 }] });
+  const page = await listReviews(db, 'p1', null);
+  expect(String(calls[0].ops.find(([m]) => m === 'select')![1][0]).split(', ')).toContain('vine');
+  expect(page.items[0]).toMatchObject({ id: 'r1', vine: true, verified: false });
+  expect(page.items[1]).not.toHaveProperty('vine');
+});
