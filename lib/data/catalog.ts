@@ -1,4 +1,5 @@
 import type { Db } from '../db/client';
+import type { OfferKind } from '../offers';
 import { toDetailRows, type DetailRow } from '../product-details';
 import type { Category, Market, Product, RatingSummary } from '../types';
 import { compareSizes, NO_SUGGESTIONS, PAGE_SIZE, SUGGEST_MIN, type SearchQuery, type SearchResult, type Suggestions } from '../search';
@@ -286,6 +287,8 @@ interface SearchJson {
   climate?: number;
   /** how many are from small businesses (absent before the small-business migration) */
   small_business?: number;
+  /** how many can be bought new, renewed or used (absent before the search-condition migration) */
+  conditions?: Record<OfferKind, number>;
   items: Parameters<typeof toProduct>[0][];
 }
 
@@ -302,6 +305,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       // left out unless asked for, so a search works before the climate-pledge migration
       p_climate: query.climate || undefined,
       p_small_business: query.smallBusiness || undefined,
+      p_condition: query.condition,
       p_min_rating: query.rating ?? undefined,
       p_deal: query.deal ?? false,
       p_sort: query.sort,
@@ -332,6 +336,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     sizeFacets: (json.sizes ?? []).sort((a, b) => compareSizes(a.name, b.name)),
     climateCount: json.climate ?? 0,
     smallBusinessCount: json.small_business ?? 0,
+    conditionCounts: json.conditions ?? { new: json.groups ?? json.total, renewed: 0, used: 0 },
     unavailable: json.unavailable ?? 0,
     headingLabel,
   };
