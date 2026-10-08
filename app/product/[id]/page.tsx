@@ -11,6 +11,7 @@ import { Stars } from '@/components/primitives/Stars';
 import { Alternatives, type AlternativeCard } from '@/components/product/Alternatives';
 import { BackLink } from '@/components/product/BackLink';
 import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
+import { LastPurchased } from '@/components/product/LastPurchased';
 import { ratingText, sellerRatings, type SellerRating } from '@/lib/data/seller-feedback';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
 import { byTimeText, dayLabel, orderWithinText, releaseDate } from '@/components/orders/format';
@@ -60,6 +61,7 @@ import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/data/questions';
 import { myOpenReport } from '@/lib/data/product-reports';
 import { getRecall, type Recall } from '@/lib/data/recalls';
+import { lastPurchase, type LastPurchase } from '@/lib/data/buy-again';
 import type { Product } from '@/lib/types';
 import { protectionOffer } from '@/lib/data/cart';
 import { alsoViewed } from '@/lib/data/also-viewed';
@@ -156,7 +158,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -179,6 +181,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve([]) : alsoViewed(client, p).catch(() => []),
     // a recall takes a product off sale, so only an archived one can have one
     p.archived ? getRecall(client, p.id).catch((): Recall | null => null) : Promise.resolve(null),
+    user ? lastPurchase(client, user.id, p.id).catch((): LastPurchase | null => null) : Promise.resolve(null),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -311,6 +314,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               <p className="m-0"><span className="font-semibold">What to do:</span> {recall.remedy}</p>
               <a href={storePath(store, `/recalls#recall-${encodeURIComponent(p.id)}`)} className="text-ink underline underline-offset-2">Recalls and Product Safety Alerts</a>
             </Alert>
+          ) : null}
+
+          {lastBought ? (
+            <LastPurchased last={lastBought} orderHref={storePath(store, `/orders/${encodeURIComponent(lastBought.orderId)}?placed=0`)} store={store} />
           ) : null}
 
           <div className="flex flex-wrap items-start gap-7">

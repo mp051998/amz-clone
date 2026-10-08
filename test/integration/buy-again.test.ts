@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setCartQty } from '@/lib/data/cart';
-import { buyAgain } from '@/lib/data/buy-again';
+import { buyAgain, lastPurchase } from '@/lib/data/buy-again';
 import { cancelOrder, placeOrder } from '@/lib/data/orders';
 import type { Market } from '@/lib/types';
 import { admin, deleteUser, IN_SHIPPING, newUser, setStock, stockOf, US_SHIPPING, type TestUser } from './helpers';
 
 let me: TestUser, other: TestUser;
 let a: string, b: string, c: string, d: string, inProduct: string;
+let first: string, second: string;
 
 /** In-stock products outside any variant group, clear of the other tests' picks. */
 async function pick(market: Market, from: number, n: number): Promise<string[]> {
@@ -38,8 +39,8 @@ beforeAll(async () => {
   [me, other] = await Promise.all([newUser('Again One'), newUser('Again Two')]);
   [a, b, c, d] = await pick('US', 50, 4);
   [inProduct] = await pick('IN', 30, 1);
-  await buy(me, 'US', [a, b]);
-  await buy(me, 'US', [c, a]); // the newest order: c and a
+  first = (await buy(me, 'US', [a, b])).id;
+  second = (await buy(me, 'US', [c, a])).id; // the newest order: c and a
   const gone = await buy(me, 'US', [d]);
   await cancelOrder(me.db, gone.id); // a cancelled order isn't something you bought
   await buy(me, 'IN', [inProduct]);
@@ -78,6 +79,15 @@ describe('buy again', () => {
       await setStock(c, stock);
       await archive(a, null);
     }
+  });
+
+  it('gives the product page the latest order a product is on, of your own', async () => {
+    const last = await lastPurchase(me.db, me.id, a);
+    expect(last).toEqual({ orderId: second, at: expect.any(String) });
+    expect((await lastPurchase(me.db, me.id, b))?.orderId).toBe(first);
+    expect(await lastPurchase(me.db, me.id, d)).toBeNull(); // only on a cancelled order
+    expect(await lastPurchase(other.db, other.id, a)).toBeNull();
+    expect(await lastPurchase(other.db, me.id, a)).toBeNull(); // someone else's orders aren't readable
   });
 
   it('serves the list at /orders/buy-again', async () => {
