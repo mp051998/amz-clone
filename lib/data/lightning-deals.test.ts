@@ -58,6 +58,7 @@ describe('lightning deals', () => {
       claimed: 4,
       startsAt: '2026-10-08T10:00:00Z',
       endsAt: '2026-10-08T16:00:00Z',
+      earlyAccessAt: '2026-10-08T09:30:00.000Z',
       state: 'live',
     });
     expect(deals.get('p2')?.state).toBe('sold_out');

@@ -76,7 +76,7 @@ export interface OrderTotals {
   subtotalMinor: number;
   /** what a member's price, applied coupons, quantity discounts and a promotion code take off the items (0 or absent without any) */
   discountMinor?: number;
-  /** Plus exclusive deals: the member's price's part of discountMinor (absent without one) */
+  /** Plus exclusive deals and early access to Lightning Deals: the member's price's part of discountMinor (absent without one) */
   memberMinor?: number;
   /** the quantity discounts' part of discountMinor (absent without one) */
   qtyDiscountMinor?: number;
@@ -105,8 +105,10 @@ export interface CartLine {
   coupon?: { percentOff: number; clipped: boolean };
   /** what a member's price, the applied coupon, the quantity discount and a promotion code take off this line (0 without any) */
   discountMinor?: number;
-  /** a Plus exclusive deal's part of discountMinor, for a member (absent otherwise) */
+  /** a Plus exclusive deal's and early access's part of discountMinor, for a member (absent otherwise) */
   memberMinor?: number;
+  /** early access to an upcoming Lightning Deal: the deal price's part of memberMinor, for a member (absent otherwise) */
+  earlyAccessMinor?: number;
   /** the quantity discount's part of discountMinor, when the line holds enough (absent otherwise) */
   qtyDiscountMinor?: number;
   /** false when stock dropped below the quantity in the cart, or the product was archived. */
@@ -513,6 +515,8 @@ export interface LightningDeal {
   claimed: number;
   startsAt: string;
   endsAt: string;
+  /** from when Plus members can buy at the deal price, before it starts (half an hour before startsAt) */
+  earlyAccessAt: string;
   /** live now; upcoming; or sold out before its end */
   state: 'live' | 'upcoming' | 'sold_out';
 }

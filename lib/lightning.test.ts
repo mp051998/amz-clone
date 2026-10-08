@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { claimedPct, clock, dealOffPct, pickDeal } from './lightning';
+import { claimedPct, clock, dealOffPct, earlyAccessAt, inEarlyAccess, pickDeal } from './lightning';
 import type { LightningDeal } from './types';
 
 const deal = (over: Partial<LightningDeal>): LightningDeal => ({
@@ -11,6 +11,7 @@ const deal = (over: Partial<LightningDeal>): LightningDeal => ({
   claimed: 0,
   startsAt: '2026-10-08T10:00:00Z',
   endsAt: '2026-10-08T16:00:00Z',
+  earlyAccessAt: '2026-10-08T09:30:00Z',
   state: 'live',
   ...over,
 });
@@ -41,5 +42,18 @@ describe('lightning deals', () => {
     expect(pickDeal([later, deal({ id: 'gone', state: 'sold_out' })])?.id).toBe('gone');
     expect(pickDeal([next, deal({ id: 'now' })])?.id).toBe('now');
     expect(pickDeal([])).toBeUndefined();
+  });
+
+  it('opens an upcoming deal to members half an hour before its start, while units are left', () => {
+    expect(earlyAccessAt('2026-10-08T10:00:00Z')).toBe('2026-10-08T09:30:00.000Z');
+    const soon = deal({ state: 'upcoming' });
+    const at = (iso: string) => Date.parse(iso);
+    expect(inEarlyAccess(soon, at('2026-10-08T09:29:59Z'))).toBe(false);
+    expect(inEarlyAccess(soon, at('2026-10-08T09:30:00Z'))).toBe(true);
+    // still until the store's run puts it live
+    expect(inEarlyAccess(soon, at('2026-10-08T10:00:30Z'))).toBe(true);
+    expect(inEarlyAccess(deal({ state: 'upcoming', claimed: 30 }), at('2026-10-08T09:45:00Z'))).toBe(false);
+    expect(inEarlyAccess(deal({}), at('2026-10-08T09:45:00Z'))).toBe(false);
+    expect(inEarlyAccess(deal({ state: 'sold_out' }), at('2026-10-08T09:45:00Z'))).toBe(false);
   });
 });

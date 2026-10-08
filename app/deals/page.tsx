@@ -11,6 +11,7 @@ import { db } from '@/lib/supabase/server';
 import { getProducts, listProducts } from '@/lib/data/catalog';
 import { myWatchedDeals, watchedDeals } from '@/lib/data/deal-watches';
 import { lightningDeals } from '@/lib/data/lightning-deals';
+import { plusMembership } from '@/lib/data/plus';
 import { storeCategories } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -30,14 +31,15 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const off = watchedOnly || memberOnly ? null : readDiscount(sp.off);
   const store = await getMarketplace();
   const client = await db();
-  const [deals, memberDeals, categories, saved, lightning, watchedList, user] = await Promise.all([
+  const [deals, memberDeals, categories, saved, lightning, watchedList, [user, plus]] = await Promise.all([
     listProducts(client, store.id, { dealsOnly: true }),
     listProducts(client, store.id, { memberDeals: true }),
     storeCategories(),
     viewerSavedIds(store.id),
     lightningDeals(client, store.id),
     myWatchedDeals(client, store.id),
-    readUser(),
+    // a member can buy an upcoming deal in its early access
+    readUser().then(async (u) => [u, u ? await plusMembership(client) : null] as const),
   ]);
   const watchedProducts = watchedOnly ? await getProducts(client, watchedList.map((d) => d.productId)) : [];
   const watched = watchedList.flatMap((deal) => {
@@ -131,7 +133,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           {watchedOnly ? (
             watchedHere.length ? (
               <div className={cardGrid}>
-                {watchedHere.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching />))}
+                {watchedHere.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching member={plus != null} />))}
               </div>
             ) : !user ? (
               <EmptyState
@@ -186,9 +188,9 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         </Section>
 
         {upcoming.length && !off && !watchedOnly ? (
-          <Section id="upcoming" title="Upcoming Lightning Deals" note="At these prices from when each starts, for a few hours or until they're claimed">
+          <Section id="upcoming" title="Upcoming Lightning Deals" note={`At these prices from when each starts, for a few hours or until they're claimed. ${store.membership.name} members get each half an hour early.`}>
             <div className={cardGrid}>
-              {upcoming.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching={watching.has(deal.id)} />))}
+              {upcoming.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching={watching.has(deal.id)} member={plus != null} />))}
             </div>
           </Section>
         ) : null}
