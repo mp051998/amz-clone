@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { refreshSession } from './lib/supabase/proxy-session';
+import { allowedBeforeSecondStep, VERIFY_PATH } from './lib/two-step';
 
 /**
  * India store lives under the /in path prefix (stands in for a separate regional
@@ -7,18 +8,25 @@ import { refreshSession } from './lib/supabase/proxy-session';
  * so one set of pages serves both stores. `x-amz-path` carries the in-store path being viewed
  * (query included) so sign-in links can bring the shopper back to it.
  *
- * Also refreshes the Supabase auth session so logins persist across navigation.
+ * Also refreshes the Supabase auth session so logins persist across navigation, and keeps a
+ * session that still owes its second step (two-step verification) on the code page.
  *
  * Next 16 renamed the `middleware` file convention to `proxy` (same NextRequest/NextResponse API).
  */
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // refresh first so the rotated cookies ride along on the forwarded request
-  const rotated = await refreshSession(req);
+  const { rotated, owesSecondStep } = await refreshSession(req);
   const requestHeaders = new Headers(req.headers);
 
   let res: NextResponse;
-  if (pathname === '/in' || pathname.startsWith('/in/')) {
+  if (owesSecondStep && !allowedBeforeSecondStep(pathname)) {
+    const india = pathname === '/in' || pathname.startsWith('/in/');
+    const url = req.nextUrl.clone();
+    url.pathname = india ? `/in${VERIFY_PATH}` : VERIFY_PATH;
+    url.search = `?${new URLSearchParams({ next: pathname + req.nextUrl.search })}`;
+    res = NextResponse.redirect(url);
+  } else if (pathname === '/in' || pathname.startsWith('/in/')) {
     const url = req.nextUrl.clone();
     url.pathname = pathname.slice(3) || '/'; // /in/product/x → /product/x, /in → /
     requestHeaders.set('x-amz-country', 'IN');

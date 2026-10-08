@@ -3,6 +3,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 /** HTTP status for each domain error code the database (or service layer) raises. */
 const STATUS: Record<string, number> = {
   not_authenticated: 401,
+  two_step_required: 401,
   forbidden: 403,
   product_not_found: 404,
   order_not_found: 404,
@@ -99,14 +100,21 @@ const STATUS: Record<string, number> = {
   subscribe_unavailable: 409,
   already_subscribed: 409,
   deal_not_upcoming: 409,
+  two_step_on: 409,
+  two_step_off: 409,
   refund_failed: 502,
   payment_incomplete: 402,
   payments_unavailable: 503,
+  two_step_unavailable: 503,
 };
 
 /** Customer-facing copy for each code (API clients get `code`; pages show `message`). */
 const MESSAGES: Record<string, string> = {
   not_authenticated: 'Sign in to continue.',
+  two_step_required: 'Enter the code from your authenticator app to finish signing in.',
+  two_step_on: 'Two-step verification is already on.',
+  two_step_off: 'Two-step verification isn’t on for this account.',
+  two_step_unavailable: 'Two-step verification isn’t available right now. Try again later.',
   forbidden: 'You do not have access to that.',
   product_not_found: 'That product is not available in this store.',
   product_recalled: 'This product has been recalled, so it can’t go back on sale.',
