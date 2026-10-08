@@ -49,6 +49,8 @@ export interface Product {
   condition?: UsedCondition;
   /** what the seller says about the item's condition (absent: nothing). */
   conditionNote?: string;
+  /** can be bought with Subscribe & Save, delivered every few months (absent: it can't). */
+  subscribeSave?: boolean;
 }
 
 /** The conditions an offer can be in other than new: Amazon's renewed and used grades. */
@@ -68,6 +70,8 @@ export interface OrderTotals {
   qtyDiscountMinor?: number;
   /** the promotion code's part of discountMinor (absent without one) */
   promoMinor?: number;
+  /** the Subscribe & Save part of discountMinor (absent without one) */
+  snsMinor?: number;
   shipMinor: number;
   taxMinor: number;
   /** gift wrap, per unit wrapped (absent or 0 without it) */
@@ -224,6 +228,10 @@ export interface OrderItem {
   offerOf?: string;
   /** a renewed or used offer's condition (absent when new) */
   condition?: UsedCondition;
+  /** the Subscribe & Save subscription that delivered it (absent when bought otherwise) */
+  subscriptionId?: string;
+  /** the Subscribe & Save part of unitDiscountMinor (absent without one) */
+  unitSnsMinor?: number;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */
@@ -384,4 +392,30 @@ export interface RatingSummary {
   rating: number;
   count: number;
   bars: RatingBar[];
+}
+
+/** Why a subscription's last delivery wasn't sent. */
+export type SubscriptionIssue = 'out_of_stock' | 'unavailable' | 'address' | 'payment';
+
+/** A Subscribe & Save subscription: a product delivered every few months, each delivery its own order. */
+export interface Subscription {
+  id: string;
+  market: Market;
+  productId: string;
+  /** how many each delivery (1–10) */
+  qty: number;
+  /** how often, in months (1–6) */
+  everyMonths: number;
+  /** the store's date the next delivery is placed on (YYYY-MM-DD) */
+  nextOn: string;
+  /** where it goes (absent: that address was deleted, so nothing goes until another is chosen) */
+  addressId?: string;
+  paymentMethod: PaymentMethod;
+  status: 'active' | 'cancelled';
+  /** why the last delivery wasn't sent, and the store's date it should have gone (absent: it went) */
+  issue?: { kind: SubscriptionIssue; on: string };
+  /** the last delivery's order (absent: none yet, or deleted) */
+  lastOrderId?: string;
+  createdAt: string;
+  cancelledAt?: string;
 }

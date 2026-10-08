@@ -2675,3 +2675,6 @@ insert into public.coupons (product_id, percent_off) values
   ('in-61ddBs1gCaL', 15),
   ('in-71ZrMvjZXZL', 15),
   ('in-71WasaFL9UL', 10);
+
+-- Subscribe & Save: skin care can be subscribed to
+update public.products set subscribe_save = true where category_slug = 'beauty' and offer_of is null and max_per_customer is null;

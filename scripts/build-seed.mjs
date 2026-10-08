@@ -282,6 +282,10 @@ async function main() {
     insert('public.product_ratings', ['product_id', 'rating_count', 'rating_sum', 'star_1', 'star_2', 'star_3', 'star_4', 'star_5'], ratingRows),
     insert('public.reviews', ['product_id', 'author_name', 'rating', 'title', 'body', 'verified', 'seeded', 'helpful_count', 'created_at'], reviewRows),
     insert('public.coupons', ['product_id', 'percent_off'], couponRows),
+    // as 20261222090000_subscribe_save does for databases seeded before it
+    '-- Subscribe & Save: skin care can be subscribed to',
+    "update public.products set subscribe_save = true where category_slug = 'beauty' and offer_of is null and max_per_customer is null;",
+    '',
   ].join('\n');
 
   await writeFile(join(ROOT, 'supabase', 'seed.sql'), sql);

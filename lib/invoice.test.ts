@@ -47,8 +47,8 @@ describe('buildInvoice', () => {
     const inv = buildInvoice(order())!;
     expect(inv.kind).toBe('invoice');
     expect(inv.lines).toEqual([
-      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, protectionMinor: 0 },
-      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, protectionMinor: 0 },
+      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, protectionMinor: 0 },
+      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, protectionMinor: 0 },
     ]);
     expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
   });
@@ -106,6 +106,18 @@ describe('buildInvoice', () => {
     }))!;
     expect(inv.lines.map((l) => [l.discountMinor, l.promoMinor])).toEqual([[300, 270], [0, 200]]);
     expect(inv).toMatchObject({ discountMinor: 300, promoMinor: 470, promoCode: 'SAVE10', totalMinor: 4568 });
+  });
+
+  it('shows a Subscribe & Save delivery’s savings as their own, not as a coupon', () => {
+    const inv = buildInvoice(order({
+      totals: { subtotalMinor: 5000, discountMinor: 250, snsMinor: 250, shipMinor: 0, taxMinor: 380, totalMinor: 5130 },
+      items: [
+        { productId: 'a', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1500, qty: 2, unitDiscountMinor: 75, unitSnsMinor: 75, subscriptionId: 's1' },
+        { productId: 'b', title: 'Mug', image: '', seller: 'Mugs Inc', unitPriceMinor: 2000, qty: 1, unitDiscountMinor: 100, unitSnsMinor: 100, subscriptionId: 's2' },
+      ],
+    }))!;
+    expect(inv.lines.map((l) => [l.discountMinor, l.snsMinor])).toEqual([[0, 150], [0, 100]]);
+    expect(inv).toMatchObject({ discountMinor: 0, snsMinor: 250, totalMinor: 5130 });
   });
 
   it('has nothing for an order still waiting for payment', () => {
