@@ -16,6 +16,7 @@ import { Stars } from '../primitives/Stars';
 import { fieldClass, selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
 import { CustomerImages, PhotoPicker, ReviewPhotoThumbs } from './ReviewPhotos';
+import { VINE_ABOUT, VINE_LABEL } from '@/lib/vine';
 import { applyFilters, buildFilters, chipCount, facetCount, highlightParts, REVIEW_PAGE, reviewThemes, serverLabels, starsLabel, toggleStars } from './reviewFilters';
 
 export interface ThemeCount { theme: string; count: number }
@@ -558,11 +559,12 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                     <span className="text-[12px] text-ink-3">{r.author}</span>
                   )}
                 </div>
-                {(r.verified || r.mine || r.fit || themes.length) ? (
+                {(r.verified || r.vine || r.mine || r.fit || themes.length) ? (
                   <div className="flex flex-wrap gap-1.5">
                     {r.mine ? <span className="rounded-[5px] bg-ink px-[7px] py-[3px] text-[12px] font-semibold text-on-ink">Your review</span> : null}
                     {r.hidden ? <span className="rounded-[5px] border border-line px-[7px] py-[3px] text-[12px] font-semibold text-bad">Hidden from shoppers</span> : null}
                     {r.verified ? <span className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">Verified purchase</span> : null}
+                    {r.vine ? <span className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">{VINE_LABEL}</span> : null}
                     {r.fit ? <span className="rounded-[5px] border border-line px-[7px] py-[3px] text-[12px] font-semibold">Fit: {FIT_LABELS[r.fit]}</span> : null}
                     {reviewThemes(r, themes).map((t) => (
                       <span key={t} className="rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold">{t}</span>
@@ -616,6 +618,10 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
             No written reviews yet{summary.count ? ` — the ${num(summary.count)} ratings above are star-only` : ''}. Be the first to share how it holds up.
           </div>
         )}
+
+        {shown.some((r) => r.vine) ? (
+          <p className="m-0 text-[12px] text-ink-3">&ldquo;{VINE_LABEL}&rdquo;: {VINE_ABOUT}</p>
+        ) : null}
 
         {loaded < count ? (
           <Button variant="secondary" className="self-start" loading={pending} onClick={onMore}>

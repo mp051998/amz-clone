@@ -363,6 +363,21 @@ it('leaves names as plain text without a profile path', () => {
   expect(screen.getByText('Priya S')).toBeInTheDocument();
 });
 
+it('labels a Vine review in place of a verified purchase, and says what Vine is', () => {
+  const initial = [review('a', 5, 'Free and fab', { vine: true, verified: false }), review('b', 4, 'Bought it')];
+  render(<ReviewsPanel {...props({ initial, total: 2 })} />);
+  const [vine, bought] = screen.getAllByRole('article');
+  expect(within(vine).getByText('Vine Customer Review of Free Product')).toBeInTheDocument();
+  expect(within(vine).queryByText('Verified purchase')).toBeNull();
+  expect(within(bought).queryByText('Vine Customer Review of Free Product')).toBeNull();
+  expect(screen.getByText(/Vine reviewers get an item free to give their honest opinion/)).toBeInTheDocument();
+});
+
+it('says nothing about Vine when no review shown is one', () => {
+  render(<ReviewsPanel {...props({ initial: [review('b', 4, 'Bought it')], total: 1 })} />);
+  expect(screen.queryByText(/Vine/)).toBeNull();
+});
+
 it('asks how clothing fits, sending the answer (or null once cleared) with the review', async () => {
   render(<ReviewsPanel {...props({ askFit: true })} />);
   fireEvent.click(screen.getByRole('button', { name: 'Write a review' }));

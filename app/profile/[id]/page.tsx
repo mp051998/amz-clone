@@ -6,6 +6,7 @@ import { ProductFrame } from '@/components/decision';
 import { ReviewPhotoThumbs } from '@/components/product/ReviewPhotos';
 import { Stars } from '@/components/primitives/Stars';
 import { reviewerProfile } from '@/lib/data/reviews';
+import { VINE_LABEL } from '@/lib/vine';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
@@ -42,6 +43,7 @@ export default async function ProfilePage({ params, searchParams }: { params: Pa
           <span aria-hidden className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-ink text-[28px] font-semibold text-on-ink">{profile.initial}</span>
           <div className="flex min-w-0 flex-col gap-1">
             <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">{profile.name}</h1>
+            {profile.vine ? <span className="self-start rounded-[5px] bg-surface-2 px-[7px] py-[3px] text-[12px] font-semibold uppercase tracking-[0.04em]">Vine Voice</span> : null}
             <dl className="m-0 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
               <div className="flex gap-1.5">
                 <dt>Reviews</dt>
@@ -73,7 +75,7 @@ export default async function ProfilePage({ params, searchParams }: { params: Pa
                   <ReviewPhotoThumbs photos={r.photos} author={profile.name} />
                   <span className="text-[13px] text-ink-3">
                     Reviewed {day.format(new Date(r.createdAt))}
-                    {r.verified ? ' · Verified purchase' : ''}
+                    {r.vine ? ` · ${VINE_LABEL}` : r.verified ? ' · Verified purchase' : ''}
                     {r.helpful ? ` · ${r.helpful === 1 ? '1 person' : `${num(r.helpful)} people`} found this helpful` : ''}
                   </span>
                 </article>
