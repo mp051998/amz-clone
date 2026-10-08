@@ -12,6 +12,7 @@ import { readPromoCode } from '../promo';
 import { readGst } from '../gst';
 import { getPickupPoint } from './pickup';
 import { isBankOfferMethod } from '../bank-offers';
+import { isBalanceMethod, isSplitMethod } from './balance';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -44,6 +45,11 @@ export interface PlaceOrderInput {
   promoCode?: string | null;
   /** net banking and EMI: the shopper's bank, whose best Bank Offer comes off the items (ignored for other methods) */
   bank?: unknown;
+  /**
+   * card, UPI and net banking: pay what the shopper's balance covers from it and the rest by the
+   * method (`balance_covers_order` when it covers it all: pay with the balance method then)
+   */
+  useBalance?: boolean;
   /** India: a GST invoice made out to this GSTIN and business name (a blank GSTIN is none) */
   gst?: { gstin: unknown; name: unknown };
 }
@@ -88,6 +94,11 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
   if (emi !== undefined && !isEmiMonths(emi)) throw new DataError('invalid_input', 'emiMonths', 'Choose 3, 6, 9 or 12 monthly payments.');
   const promo = readPromoCode(input.promoCode);
   const bank = isBankOfferMethod(input.paymentMethod) ? readBank(input.bank) : undefined;
+  // paying with the balance method already uses the balance
+  const useBalance = input.useBalance === true && !isBalanceMethod(input.paymentMethod);
+  if (useBalance && !isSplitMethod(input.paymentMethod)) {
+    throw new DataError('invalid_input', 'useBalance', 'Your balance can pay part of an order alongside card, UPI or net banking only.');
+  }
   // GST details are checked before anything is reserved, and added once the order exists
   const gst = input.gst ? readGst(input.gst.gstin, input.gst.name) : null;
   if (gst && market !== 'IN') throw new DataError('gst_unavailable');
@@ -117,6 +128,8 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(emi !== undefined ? { p_emi_months: emi } : {}),
       ...(promo ? { p_promo_code: promo } : {}),
       ...(bank ? { p_bank: bank } : {}),
+      // likewise only when it's asked for
+      ...(useBalance ? { p_use_balance: true } : {}),
     }),
   );
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);

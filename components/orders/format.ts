@@ -3,6 +3,7 @@ import type { Order, OrderCancellation } from '@/lib/types';
 import type { TrackingStep } from '@/lib/decision/types';
 import { cancellableUntil, deliveryEta, isDelivered, trackingSteps } from '@/lib/decision/tracking';
 import { formatMoney } from '@/lib/marketplaces';
+import { balanceMethod } from '@/lib/data/balance';
 
 /**
  * Store-aware date wording for carts, orders and tracking (design.md §13): relative day names
@@ -28,6 +29,12 @@ export function paymentText(method: string, label: string): string {
   if (method === 'amazonpay') return 'Wallet balance';
   if (method === 'cod') return 'Pay on delivery';
   return label;
+}
+
+/** How an order was paid: `paymentText`, with "+ Gift card balance" when the balance paid part of it. */
+export function orderPaymentText(order: Pick<Order, 'market' | 'paymentMethod' | 'paymentLabel' | 'split'>): string {
+  const label = paymentText(order.paymentMethod, order.paymentLabel);
+  return order.split ? `${label} + ${paymentText(balanceMethod(order.market), '')}` : label;
 }
 
 /** "Today" / "Tomorrow" / "Yesterday", else null. */
@@ -138,13 +145,20 @@ export function cancellationRefundText(order: Order, c: OrderCancellation, store
 
 function refundLine(order: Order, r: NonNullable<Order['refund']>, store: StoreDates): string {
   if (r.status === 'not_charged') return 'Nothing was charged (pay on delivery).';
-  const to = `${formatMoney(r.amountMinor, order.currency)} to ${paymentText(order.paymentMethod, order.paymentLabel)}`;
+  // paid partly from the balance: the payment method gets back what it paid first, the balance the rest
+  const bal = r.balanceMinor ?? 0;
+  const paid = r.amountMinor - bal;
+  const toMethod = `${formatMoney(paid, order.currency)} to ${paymentText(order.paymentMethod, order.paymentLabel)}`;
+  const toBalance = `${formatMoney(bal, order.currency)} to ${paymentText(balanceMethod(order.market), '')}`;
   if (r.status === 'succeeded') {
     const when = r.refundedAt ? ` · issued ${shortDate(new Date(r.refundedAt), store)}` : ' · issued';
-    return `Refund of ${to}${when}.${order.paymentMethod === 'card' ? ' Card refunds take 5–10 business days to show up.' : ''}`;
+    const to = !bal ? toMethod : paid > 0 ? `${toMethod} and ${toBalance}` : toBalance;
+    return `Refund of ${to}${when}.${order.paymentMethod === 'card' && paid > 0 ? ' Card refunds take 5–10 business days to show up.' : ''}`;
   }
-  if (r.status === 'pending') return `Refund of ${to} is processing.`;
-  return `Your refund of ${to} is delayed. We’re retrying it — no need to do anything.`;
+  // the balance's part is back at once; the rest waits on the payment method
+  const back = bal ? `Refund of ${toBalance} · issued. ` : '';
+  if (r.status === 'pending') return `${back}Refund of ${toMethod} is processing.`;
+  return `${back}Your refund of ${toMethod} is delayed. We’re retrying it — no need to do anything.`;
 }
 
 /**
@@ -166,7 +180,7 @@ export function noRushText(order: Order, now: Date, money: (minor: number) => st
 
 /** Short payment state for the facts card: "Visa ending 4242 · refunded". */
 export function paidWithText(order: Order): string {
-  const label = paymentText(order.paymentMethod, order.paymentLabel);
+  const label = orderPaymentText(order);
   if (order.status === 'awaiting_payment') return `${label} · not paid yet`;
   if (order.status !== 'cancelled') return label;
   switch (order.refund?.status) {

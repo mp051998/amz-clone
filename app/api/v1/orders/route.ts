@@ -14,7 +14,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day' | 'no_rush', buyNow?: { productId, qty? }, promoCode?, bank?, gst?: { gstin, name } }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day' | 'no_rush', buyNow?: { productId, qty? }, promoCode?, bank?, gst?: { gstin, name }, useBalance? }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to. India only: `gst`
@@ -22,6 +22,9 @@ export const GET = route(async (ctx) => {
  * anything is reserved; `gst_unavailable` in other stores). `shipping.pickupPoint` (an id from
  * `GET /pickup-points`) collects the order there with a pickup code instead. Net banking and EMI:
  * `bank` names the shopper's bank, and its best Bank Offer (`GET /bank-offers`) comes off the items.
+ * Card, UPI and net banking: `useBalance: true` pays what the gift card / wallet balance covers from
+ * it and the rest by the method (`order.split`; a card order's checkoutUrl asks for the rest only);
+ * `balance_covers_order` when the balance covers it all.
  */
 export const POST = route(async (ctx) => {
   requireUser(ctx);
@@ -49,6 +52,10 @@ export const POST = route(async (ctx) => {
     throw new DataError('invalid_input', 'bank', 'Choose your bank from the list.');
   }
 
+  if (b.useBalance !== undefined && typeof b.useBalance !== 'boolean') {
+    throw new DataError('invalid_input', 'useBalance', 'Send useBalance as true or false.');
+  }
+
   const gr = b.gst && typeof b.gst === 'object' ? (b.gst as { gstin?: unknown; name?: unknown }) : null;
   if (b.gst !== undefined && b.gst !== null && !gr) throw new DataError('invalid_input', 'gstin', 'Send gst as { gstin, name }.');
 
@@ -64,6 +71,7 @@ export const POST = route(async (ctx) => {
     promoCode: typeof b.promoCode === 'string' ? b.promoCode : null,
     bank: b.bank,
     gst: gr ? { gstin: gr.gstin, name: gr.name } : undefined,
+    useBalance: b.useBalance === true,
   });
   if (order.status === 'placed') return json({ order }, { status: 201 });
 

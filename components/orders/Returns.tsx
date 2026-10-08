@@ -142,6 +142,11 @@ export function ReturnCard({
 }) {
   const money = formatMoney(r.refundMinor, currency);
   const to = returnRefundTo(r, market, method, label);
+  // an order paid partly from the balance: the part of the refund the payment method didn't pay is back on the balance
+  const bal = r.balanceRefundMinor ?? 0;
+  const toBalance = refundTo(balanceMethod(market), '');
+  const cardMoney = formatMoney(r.refundMinor - bal, currency);
+  const balMoney = formatMoney(bal, currency);
   // a missing package or a granted claim has nothing to send back, so nothing to receive
   const got = nothingSentBack(r.reason) ? '' : 'We received your return. ';
   let lead: ReactNode;
@@ -175,6 +180,23 @@ export function ReturnCard({
       <>
         You cancelled this {r.resolution === 'replacement' ? 'replacement' : 'return'}
         {r.cancelledAt ? ` on ${shortDate(new Date(r.cancelledAt), store)}` : ''}. {r.resolution === 'replacement' ? 'Nothing was sent.' : 'Nothing was refunded.'}
+      </>
+    );
+  } else if (r.refund?.status === 'succeeded' && bal) {
+    const on = r.refund.refundedAt ? ` on ${shortDate(new Date(r.refund.refundedAt), store)}` : '';
+    lead =
+      bal >= r.refundMinor ? (
+        <>{money} refunded to {toBalance}{on}.</>
+      ) : (
+        <>
+          {cardMoney} refunded to {to} and {balMoney} to {toBalance}{on}.{method === 'card' ? ' Card refunds take 5–10 business days to show up.' : ''}
+        </>
+      );
+  } else if (r.refund && bal) {
+    lead = (
+      <>
+        {got}{balMoney} is back on {toBalance}; the refund of {cardMoney} to {to}{' '}
+        {r.refund.status === 'failed' ? 'is delayed. We’re retrying it, so there’s nothing you need to do.' : 'is on its way.'}
       </>
     );
   } else if (r.refund?.status === 'succeeded') {

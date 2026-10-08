@@ -9,6 +9,7 @@ import { siteOrigin } from '@/lib/origin';
 import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
+import { isSplitMethod } from '@/lib/data/balance';
 import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
 import { deliveryReasons, leaveDeliveryFeedback, removeDeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
@@ -64,6 +65,8 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       promoCode: promo,
       // net banking and EMI name the bank, for its Bank Offer
       bank: method === 'netbanking' ? formData.get('bank') : method === 'emi' ? formData.get('emiBank') : undefined,
+      // "Use your balance" alongside card, UPI or net banking
+      useBalance: formData.get('useBalance') === 'on' && isSplitMethod(method),
       // India: "Use GST invoice", sent only when ticked
       gst: formData.get('gst') === 'on' ? { gstin: formData.get('gstin'), name: formData.get('gstName') } : undefined,
     });

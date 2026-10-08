@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   sessionId: 'cs_old' as string | null,
   session: null as Record<string, unknown> | null,
   calls: [] as unknown[][],
+  created: null as unknown,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -16,8 +17,9 @@ vi.mock('../stripe', () => ({
           h.calls.push(['retrieve', id]);
           return h.session;
         },
-        create: async () => {
+        create: async (params: unknown) => {
           h.calls.push(['create']);
+          h.created = params;
           return { id: 'cs_new', url: 'https://checkout.stripe.com/c/new' };
         },
         expire: async (id: string) => {
@@ -39,7 +41,7 @@ vi.mock('../supabase/admin', () => ({
 }));
 vi.mock('./refunds', () => ({ refundOrder: async () => {} }));
 
-import { expireCardCheckout, resumeCardCheckout } from './payments';
+import { expireCardCheckout, resumeCardCheckout, startCardCheckout } from './payments';
 
 const unpaid = {
   id: 'ORD-1',
@@ -98,4 +100,15 @@ it('closes the Stripe page on cancel, and shrugs when it isn’t open any more',
   h.sessionId = null;
   await expireCardCheckout('ORD-1');
   expect(h.calls).toEqual([]);
+});
+
+it('asks Stripe for what the balance didn’t pay, as one line', async () => {
+  const split = { ...unpaid, id: 'ORD-2', split: { balanceMinor: 300, chargedMinor: 700 } } as Order;
+  await startCardCheckout(split, urls);
+  const params = h.created as { line_items: { quantity: number; price_data: { unit_amount: number; product_data: { name: string } } }[] };
+  expect(params.line_items).toHaveLength(1);
+  expect(params.line_items[0]).toMatchObject({ quantity: 1, price_data: { unit_amount: 700, product_data: { name: 'Order ORD-2, less $3.00 from your balance' } } });
+
+  await startCardCheckout(unpaid, urls);
+  expect((h.created as typeof params).line_items[0].price_data.unit_amount).toBe(1000);
 });

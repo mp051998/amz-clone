@@ -45,6 +45,8 @@ export interface BalanceInfo {
   redeemHref: string;
   /** where to reload the balance by card (absent: card payments aren't set up) */
   reloadHref?: string;
+  /** there's some balance but not enough for the order: offer it alongside card, UPI or net banking */
+  partial?: boolean;
 }
 
 const LABEL: Record<string, string> = {
@@ -71,6 +73,25 @@ function subFor(m: string, stripeCard: boolean): string {
 }
 
 const BANKS: readonly string[] = CHECKOUT_BANKS;
+
+/** the methods the balance can pay part of an order alongside (lib/data/balance SPLIT_METHODS) */
+const SPLIT: readonly string[] = ['card', 'upi', 'netbanking'];
+
+/**
+ * "Use your balance": ticked, the balance pays what it covers and the chosen method the rest
+ * (posted as `useBalance`). Ticked to start with, as on Amazon.
+ */
+function UseBalance({ balance, method }: { balance: BalanceInfo; method: string }) {
+  return (
+    <label className="mt-3 flex max-w-[480px] cursor-pointer items-start gap-2.5 rounded-input border border-line bg-surface p-3 text-[14px]">
+      <input type="checkbox" name="useBalance" defaultChecked className="mt-[3px] h-4 w-4 shrink-0 accent-ink" />
+      <span>
+        Use your <b className="tabular-nums">{balance.text}</b> balance
+        <span className="block text-[13px] text-ink-3">{LABEL[method] ?? method} pays the rest of the order total.</span>
+      </span>
+    </label>
+  );
+}
 
 /**
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
@@ -113,6 +134,7 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
           : selected === 'netbanking' ? <NetBankingFields offers={bankOffers?.netbanking} />
           : selected === 'emi' ? <EmiFields emi={emi} offers={bankOffers?.emi} />
           : fields(selected, curSymbol, defaultName, balance)}
+        {balance?.partial && SPLIT.includes(selected) ? <UseBalance balance={balance} method={selected} /> : null}
       </div>
     </StepCard>
   );

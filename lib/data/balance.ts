@@ -17,6 +17,13 @@ export function isBalanceMethod(method: string): boolean {
   return (BALANCE_METHODS as readonly string[]).includes(method);
 }
 
+/** The methods the balance can pay part of an order alongside (split payment): not cash on delivery or EMI. */
+export const SPLIT_METHODS: readonly PaymentMethod[] = ['card', 'upi', 'netbanking'];
+
+export function isSplitMethod(method: string): boolean {
+  return (SPLIT_METHODS as readonly string[]).includes(method);
+}
+
 /** The store's balance method: `amazonpay` (the wallet) in India, `giftcard` in the US. */
 export function balanceMethod(market: Market): PaymentMethod {
   return market === 'IN' ? 'amazonpay' : 'giftcard';

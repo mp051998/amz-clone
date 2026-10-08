@@ -5,7 +5,7 @@ import { ProductFrame } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { FactsCard, StatusChip, Timeline } from '@/components/orders/Tracking';
-import { paymentText } from '@/components/orders/format';
+import { orderPaymentText, paymentText } from '@/components/orders/format';
 import { trackingSteps } from '@/lib/decision/tracking';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { canRetryRefund, getAdminOrder, type AdminOrder } from '@/lib/data/admin-orders';
@@ -40,6 +40,7 @@ const DONE: Record<string, string> = {
 function cancelPrompt(o: AdminOrder, total: string) {
   if (o.status === 'awaiting_payment') return 'Cancel this unpaid order? Its reserved stock is released.';
   if (o.paymentMethod === 'cod') return 'Cancel this order? Nothing was charged (pay on delivery).';
+  if (o.split) return `Cancel this order and refund ${total}? ${paymentText(o.paymentMethod, o.paymentLabel)} gets back what it paid first, the customer’s balance the rest.`;
   if (o.paymentMethod === 'card') return `Cancel this order and refund ${total} to the customer’s card?`;
   return `Cancel this order and refund ${total} to ${paymentText(o.paymentMethod, o.paymentLabel)}?`;
 }
@@ -216,7 +217,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
           />
           <FactsCard
             rows={[
-              { label: 'Payment', value: paymentText(order.paymentMethod, order.paymentLabel) },
+              { label: 'Payment', value: orderPaymentText(order) },
               ...(order.stripePaymentIntent ? [{ label: 'Stripe payment', value: <span className="break-all font-mono text-[13px]">{order.stripePaymentIntent}</span> }] : []),
               ...(order.cancelledAt ? [{ label: 'Cancelled', value: `${adminTime(order.cancelledAt, store)}${order.cancelReason ? ` · ${CANCEL_REASON[order.cancelReason].toLowerCase()}` : ''}` }] : []),
               ...(refund

@@ -210,7 +210,13 @@ function toCancellation(row: CancellationWithItems): OrderCancellation {
     // absent on rows read before the gift wrap migration lands
     ...(row.wrap_minor ? { wrapMinor: row.wrap_minor } : {}),
     ...(row.protection_minor ? { protectionMinor: row.protection_minor } : {}),
-    refund: { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor, refundedAt: opt(row.refunded_at) },
+    refund: {
+      status: row.refund_status as RefundStatus,
+      amountMinor: row.refund_minor,
+      refundedAt: opt(row.refunded_at),
+      // absent on rows read before the split payment migration lands
+      ...(row.balance_refund_minor ? { balanceMinor: row.balance_refund_minor } : {}),
+    },
     createdAt: row.created_at,
   };
 }
@@ -238,6 +244,8 @@ export function toOrder(row: OrderWithItems): Order {
     status: row.status as OrderStatus,
     paymentMethod: row.payment_method as PaymentMethod,
     paymentLabel: row.payment_label,
+    // absent on rows read before the split payment migration lands
+    ...(row.balance_minor && row.charged_minor ? { split: { balanceMinor: row.balance_minor, chargedMinor: row.charged_minor } } : {}),
     totals: {
       subtotalMinor: row.subtotal_minor,
       // absent on rows read before the coupons migration lands
@@ -274,7 +282,12 @@ export function toOrder(row: OrderWithItems): Order {
     cancelledAt: opt(row.cancelled_at),
     cancelReason: opt(row.cancel_reason) as CancelReason | undefined,
     refund: row.refund_status
-      ? { status: row.refund_status as RefundStatus, amountMinor: row.refund_minor ?? row.total_minor, refundedAt: opt(row.refunded_at) }
+      ? {
+          status: row.refund_status as RefundStatus,
+          amountMinor: row.refund_minor ?? row.total_minor,
+          refundedAt: opt(row.refunded_at),
+          ...(row.balance_refund_minor ? { balanceMinor: row.balance_refund_minor } : {}),
+        }
       : undefined,
     // absent on rows read before the gift migration lands
     ...(row.gift ? { gift: { ...(row.gift_message ? { message: row.gift_message } : {}), ...(row.gift_wrap ? { wrapped: true } : {}) } } : {}),

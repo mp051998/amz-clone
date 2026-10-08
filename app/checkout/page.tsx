@@ -25,7 +25,7 @@ import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX, lastPaymentMethod, noRushRewar
 import { plusMembership } from '@/lib/data/plus';
 import { listPickupPoints } from '@/lib/data/pickup';
 import { weekdayName } from '@/lib/delivery-day';
-import { isBalanceMethod, storeBalance } from '@/lib/data/balance';
+import { isBalanceMethod, isSplitMethod, storeBalance } from '@/lib/data/balance';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { DataError, messageFor } from '@/lib/data/errors';
 import { buyNowQuote } from '@/lib/data/cart';
@@ -231,9 +231,16 @@ export default async function CheckoutPage({
   const methods = store.payments
     .map((pm) => pm.method)
     .filter((m) => (m !== 'card' || stripeConfigured) && (m !== 'emi' || totals.totalMinor >= EMI_MIN_MINOR));
-  // balance methods pay the whole order from the gift card balance (null before balances exist)
+  // balance methods pay the whole order from the gift card balance (null before balances exist); one
+  // that falls short can pay part of it alongside card, UPI or net banking
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
-    ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance'), reloadHref: stripeConfigured ? sp('/gift-cards#reload') : undefined }
+    ? {
+        text: money(balanceMinor),
+        short: balanceMinor < totals.totalMinor,
+        redeemHref: sp('/gift-cards#balance'),
+        reloadHref: stripeConfigured ? sp('/gift-cards#reload') : undefined,
+        ...(balanceMinor > 0 && balanceMinor < totals.totalMinor && methods.some(isSplitMethod) ? { partial: true } : {}),
+      }
     : undefined;
   // each bank's Bank Offer for these items, under net banking and EMI
   const bankOfferNotes = Object.fromEntries(
