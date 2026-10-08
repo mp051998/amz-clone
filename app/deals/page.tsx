@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/decision/Badges';
 import { buttonClasses } from '@/components/primitives/Button';
 import { db } from '@/lib/supabase/server';
 import { getProducts, listProducts } from '@/lib/data/catalog';
+import { watchedDeals } from '@/lib/data/deal-watches';
 import { lightningDeals } from '@/lib/data/lightning-deals';
 import { storeCategories } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -44,6 +45,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const upcoming = (await getProducts(client, lightning.upcoming.map((d) => d.productId)))
     .filter((p) => !c || p.category === c)
     .map((p) => ({ product: p, deal: lightning.upcoming.find((d) => d.productId === p.id)! }));
+  const watching = await watchedDeals(client, upcoming.map((u) => u.deal.id));
   /** this view with the category, discount and/or deal type changed */
   const dealsHref = (next: { c?: string | null; off?: number | null; type?: 'lightning' | null }) => {
     const qs = new URLSearchParams();
@@ -126,7 +128,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         {upcoming.length && !off ? (
           <Section id="upcoming" title="Upcoming Lightning Deals" note="At these prices from when each starts, for a few hours or until they're claimed">
             <div className={cardGrid}>
-              {upcoming.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} />))}
+              {upcoming.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching={watching.has(deal.id)} />))}
             </div>
           </Section>
         ) : null}

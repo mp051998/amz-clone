@@ -84,6 +84,8 @@ export function GET(): Response {
       'POST   /answers/:id/helpful',
       'GET    /coupons',
       'GET    /deals/lightning',
+      'POST   /deals/lightning/:id/watch',
+      'DELETE /deals/lightning/:id/watch',
       'GET    /recalls',
       'POST   /products/:id/coupon',
       'DELETE /products/:id/coupon',

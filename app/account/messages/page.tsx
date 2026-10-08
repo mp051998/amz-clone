@@ -32,6 +32,7 @@ const HEAD: Record<InboxKind, string> = {
   answer: 'New answer to your question',
   review_request: 'How was it?',
   recall: 'Product recall',
+  deal_live: 'A deal you’re watching is live',
 };
 
 /** "It overheats" → "It overheats."; a sentence that already ends stays as it is. */
@@ -74,6 +75,10 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
       return 'It arrived a couple of days ago. Rate it and tell other shoppers what you think.';
     case 'recall':
       return `Something you bought has been recalled. ${m.detail ? `${sentence(m.detail)} ` : ''}See what to do.`;
+    case 'deal_live':
+      return m.over
+        ? `It went live at ${money(m.amountMinor ?? 0)} and has ended since.`
+        : `It’s on at ${money(m.amountMinor ?? 0)}, for a few hours or until it’s all claimed.`;
   }
 }
 
@@ -111,7 +116,7 @@ export default async function MessagesPage() {
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your messages</h1>
           <span className="text-[15px] text-ink-2">
-            Updates on your orders, returns, reviews, recalls, support cases and questions in this store from the last {INBOX_DAYS} days.
+            Updates on your orders, returns, reviews, recalls, support cases, questions and the deals you’re watching in this store from the last {INBOX_DAYS} days.
             {fresh ? ` ${fresh} new since you last looked.` : ''}
           </span>
         </div>

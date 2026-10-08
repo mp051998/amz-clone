@@ -180,6 +180,18 @@ it('tells the shopper when something they bought is recalled', () => {
   ]);
 });
 
+it('tells the shopper when a deal they watch goes live', () => {
+  const dealsLive = [
+    { dealId: 'd1', productId: 'k', title: 'Electric Kettle 1.7L', dealPriceMinor: 2999, startedAt: '2026-10-06T09:00:00Z', endedAt: null },
+    { dealId: 'd2', productId: 'm', title: 'Mug', dealPriceMinor: 500, startedAt: '2026-10-05T09:00:00Z', endedAt: '2026-10-05T15:00:00Z' },
+  ];
+  const inbox = buildInbox({ orders: [], returns: [], replies: [], answers: [], dealsLive }, NOW);
+  expect(inbox).toEqual([
+    { key: 'deal_live:d1', kind: 'deal_live', at: '2026-10-06T09:00:00Z', subject: 'Electric Kettle 1.7L', href: '/product/k', amountMinor: 2999 },
+    { key: 'deal_live:d2', kind: 'deal_live', at: '2026-10-05T09:00:00Z', subject: 'Mug', href: '/product/m', amountMinor: 500, over: true },
+  ]);
+});
+
 it('keeps the latest ones when there are too many', () => {
   const replies: InboxReply[] = Array.from({ length: INBOX_LIMIT + 5 }, (_, i) => ({
     id: `m${i}`,

@@ -310,6 +310,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"lightning_deal_watches": {
+                  Row: {
+                    "user_id": string,"deal_id": string,"created_at": string
+                  }
+                  Insert: {
+                    "user_id": string,"deal_id": string,"created_at"?: string
+                  }
+                  Update: {
+                    "user_id"?: string,"deal_id"?: string,"created_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"lightning_deals": {
                   Row: {
                     "id": string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed": number,"starts_at": string,"ends_at": string,"started_at": string | null,"was_price_minor": number | null,"was_list_minor": number | null,"was_deal_pct": number | null,"was_deal": boolean | null,"ended_at": string | null,"end_reason": string | null,"created_at": string,"scheduled_by": string | null
@@ -1286,6 +1299,9 @@ isOneToOne: false
                            },
 "cancel_lightning_deal":
 { Args: { "p_id": string }; Returns: undefined
+                           },
+"watch_lightning_deal":
+{ Args: { "p_deal": string; "p_watch"?: boolean }; Returns: boolean
                            },
 "set_shared_gift":
 { Args: { "p_token": string; "p_product": string; "p_quantity"?: number }; Returns: undefined

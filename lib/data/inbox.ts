@@ -18,6 +18,7 @@ import { awaitingReview, type ToReview } from './reviews';
  * - other shoppers' answers to the shopper's questions
  * - asking for a review of what arrived and hasn't been reviewed, a couple of days after delivery
  * - safety recalls of products the shopper bought
+ * - Lightning Deals they watched going live
  *
  * Only things that have happened, from the last 90 days. What came in since the shopper last opened
  * the page in that store is new (`inbox_reads`).
@@ -42,7 +43,8 @@ export type InboxKind =
   | 'support_reply'
   | 'answer'
   | 'review_request'
-  | 'recall';
+  | 'recall'
+  | 'deal_live';
 
 export interface InboxMessage {
   /** stable and unique: `<kind>:<id>` */
@@ -62,6 +64,8 @@ export interface InboxMessage {
   detail?: string;
   /** answers: who wrote it; support replies: the seller, on a case with one */
   from?: string;
+  /** a watched deal that has ended since it went live */
+  over?: true;
 }
 
 /** A return that has got somewhere (received or not accepted), or a replacement's (sent on request). */
@@ -111,6 +115,19 @@ export interface InboxSources {
   toReview?: (Pick<ToReview, 'orderId' | 'deliveredAt'> & { product: Pick<ToReview['product'], 'id' | 'title'> })[];
   /** recalls of products they bought */
   recalls?: Pick<MyRecall, 'productId' | 'title' | 'hazard' | 'issuedAt' | 'orderId'>[];
+  /** Lightning Deals they watched that have gone live */
+  dealsLive?: InboxDealLive[];
+}
+
+/** A Lightning Deal the shopper watched, since it went live. */
+export interface InboxDealLive {
+  dealId: string;
+  productId: string;
+  title: string;
+  dealPriceMinor: number;
+  startedAt: string;
+  /** when it ended, if it has */
+  endedAt: string | null;
 }
 
 /** How long after delivery the store asks for a review, as Amazon's "How was it?" does. */
@@ -209,6 +226,15 @@ export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone =
       href: `/recalls#recall-${encodeURIComponent(r.productId)}`,
       orderId: r.orderId,
       detail: r.hazard,
+    })),
+    ...(src.dealsLive ?? []).map((d): InboxMessage => ({
+      key: `deal_live:${d.dealId}`,
+      kind: 'deal_live',
+      at: d.startedAt,
+      subject: d.title,
+      href: `/product/${encodeURIComponent(d.productId)}`,
+      amountMinor: d.dealPriceMinor,
+      ...(d.endedAt ? { over: true as const } : {}),
     })),
     ...src.answers.map((a): InboxMessage => ({
       key: `answer:${a.id}`,
@@ -333,6 +359,31 @@ async function inboxAnswers(db: Db, market: Market, userId: string, since: strin
   });
 }
 
+/** Deals the shopper watches in this store that went live since `since`. */
+async function inboxDealsLive(db: Db, market: Market, userId: string, since: string): Promise<InboxDealLive[]> {
+  const watches = unwrap(await db.from('lightning_deal_watches').select('deal_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(200));
+  if (!watches.length) return [];
+  const deals = unwrap(
+    await db
+      .from('lightning_deals')
+      .select('id, product_id, deal_price_minor, started_at, ended_at')
+      .in('id', watches.map((w) => w.deal_id))
+      .eq('market_id', market)
+      .gt('started_at', since),
+  );
+  if (!deals.length) return [];
+  const products = unwrap(await db.from('products').select('id, title').in('id', [...new Set(deals.map((d) => d.product_id))]));
+  const titles = new Map(products.map((p) => [p.id, p.title]));
+  return deals.map((d) => ({
+    dealId: d.id,
+    productId: d.product_id,
+    title: titles.get(d.product_id) ?? '',
+    dealPriceMinor: d.deal_price_minor,
+    startedAt: d.started_at!,
+    endedAt: d.ended_at,
+  }));
+}
+
 /** When the caller last opened their messages in this store; null if never (everything is new). */
 export async function inboxSeenAt(db: Db, market: Market): Promise<string | null> {
   const { data, error } = await db.from('inbox_reads').select('seen_at').eq('market_id', market).maybeSingle();
@@ -353,13 +404,14 @@ export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null)
 /** The caller's messages in a store, newest first. */
 export async function listInbox(db: Db, market: Market, userId: string, now: Date = new Date(), timeZone = 'UTC'): Promise<InboxMessage[]> {
   const since = new Date(now.getTime() - INBOX_DAYS * 86_400_000).toISOString();
-  const [orders, returns, replies, answers, toReview, recalls] = await Promise.all([
+  const [orders, returns, replies, answers, toReview, recalls, dealsLive] = await Promise.all([
     listOrders(db, market, { limit: INBOX_LIMIT }),
     inboxReturns(db, market, userId),
     inboxReplies(db, market, userId, since),
     inboxAnswers(db, market, userId, since),
     awaitingReview(db, market, userId, now),
     myRecalls(db, market, userId).catch((): MyRecall[] => []),
+    inboxDealsLive(db, market, userId, since).catch((): InboxDealLive[] => []),
   ]);
-  return buildInbox({ orders, returns, replies, answers, toReview, recalls }, now, timeZone);
+  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive }, now, timeZone);
 }
