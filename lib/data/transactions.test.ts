@@ -135,6 +135,50 @@ describe('buildTransactions', () => {
     expect(brief(buildTransactions([cod], [], [], NOW))).toEqual(['order:R charge 2500 due']);
   });
 
+  it('charges a split payment to the card and the balance, and splits its refunds the way the database did', () => {
+    const kettle = { productId: 'k', title: 'Electric Kettle 1.7L', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, qty: 1 };
+    // $35.80 placed: $30.00 from the balance, $5.80 by card; $10.80 of items cancelled ($5.80 card, $5.00 balance), then the rest
+    const split = order('S', '2026-10-01T09:00:00Z', {
+      status: 'cancelled',
+      cancelledAt: '2026-10-02T09:00:00Z',
+      split: { balanceMinor: 3000, chargedMinor: 580 },
+      refund: { status: 'succeeded', amountMinor: 2500, refundedAt: '2026-10-02T09:00:00Z', balanceMinor: 2500 },
+      cancellations: [
+        {
+          id: 'c1',
+          items: [kettle],
+          itemsMinor: 1000,
+          taxMinor: 80,
+          refund: { status: 'pending', amountMinor: 1080, balanceMinor: 500 },
+          createdAt: '2026-10-01T10:00:00Z',
+        },
+      ],
+    });
+    const list = buildTransactions([split], [], [], NOW);
+    expect(brief(list)).toEqual([
+      'cancel:S:balance refund 2500 completed',
+      'cancel-items:c1 refund 580 pending',
+      'cancel-items:c1:balance refund 500 completed',
+      'order:S charge 580 completed',
+      'order:S:balance charge 3000 completed',
+    ]);
+    expect(list.find((t) => t.key === 'order:S:balance')).toMatchObject({ method: 'giftcard', paymentLabel: '' });
+    expect(list.find((t) => t.key === 'order:S')).toMatchObject({ method: 'card', paymentLabel: 'Visa ending 4242' });
+
+    // a return of one: the card's part and the balance's
+    const ret: ReturnRefund = {
+      id: 'r1',
+      orderId: 'S',
+      amountMinor: 1080,
+      status: 'pending',
+      at: '2026-10-04T09:00:00Z',
+      method: 'card',
+      paymentLabel: 'Visa ending 4242',
+      balance: { amountMinor: 500, method: 'giftcard' },
+    };
+    expect(brief(buildTransactions([], [ret], [], NOW))).toEqual(['return:r1 refund 580 pending', 'return:r1:balance refund 500 completed']);
+  });
+
   it('puts a refund above the charge it gives back at the same moment', () => {
     // a card payment that arrived after the stock sold out: charged and refunded, never placed
     const late = order('L', '2026-10-01T09:00:00Z', { placedAt: undefined, status: 'cancelled', refund: { status: 'succeeded', amountMinor: 2500, refundedAt: '2026-10-01T09:00:00Z' } });

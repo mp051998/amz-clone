@@ -67,6 +67,8 @@ export function toReturn(json: unknown): OrderReturn {
     ...(Number(r.protection_minor ?? 0) ? { protectionMinor: Number(r.protection_minor) } : {}),
     ...(Number(r.wrap_minor ?? 0) ? { wrapMinor: Number(r.wrap_minor) } : {}),
     refundMinor: Number(r.refund_minor ?? 0),
+    // absent before the split payment migration lands, and on returns refunded wholly to how they paid
+    ...(Number(r.balance_refund_minor ?? 0) ? { balanceRefundMinor: Number(r.balance_refund_minor) } : {}),
     refund: refund ? { status: refund, refundedAt: str(r.refunded_at) } : undefined,
     ...(r.refund_to === 'balance' ? { refundToBalance: true } : {}),
     dropoffCode: String(r.dropoff_code ?? ''),

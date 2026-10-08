@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { stripe } from '../stripe';
 import { createAdminClient } from '../supabase/admin';
 import { protectionPlanName } from '../protection';
+import { formatMoney } from '../marketplaces';
 import type { Order } from '../types';
 import { DataError, unwrap } from './errors';
 import { toPurchase, type GiftCardPurchase, type PurchaseRow } from './gift-card-purchases';
@@ -38,15 +39,8 @@ function requireStripe(): Stripe {
   return stripe;
 }
 
-/**
- * Create the Stripe Checkout Session for an awaiting-payment card order; returns its URL. With the
- * `payer`, Stripe's page offers to save the card and shows their saved cards.
- */
-export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string, payer?: Payer | null): Promise<string> {
-  const s = requireStripe();
-  if (order.paymentMethod !== 'card' || order.status !== 'awaiting_payment') throw new DataError('order_not_pending');
-
-  const currency = order.currency.toLowerCase();
+/** An order's Stripe lines: each item at its price after any coupon, protection plans, delivery, gift wrap and tax. */
+function itemLines(order: Order, currency: string, imageOrigin?: string): Stripe.Checkout.SessionCreateParams.LineItem[] {
   // a coupon comes off each unit, so the line is charged at the unit price after it
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = order.items.map((it) => ({
     quantity: it.qty,
@@ -75,6 +69,22 @@ export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageO
   if (order.totals.taxMinor > 0) {
     lineItems.push({ quantity: 1, price_data: { currency, unit_amount: order.totals.taxMinor, product_data: { name: 'Estimated tax' } } });
   }
+  return lineItems;
+}
+
+/**
+ * Create the Stripe Checkout Session for an awaiting-payment card order; returns its URL. With the
+ * `payer`, Stripe's page offers to save the card and shows their saved cards.
+ */
+export async function startCardCheckout(order: Order, urls: CheckoutUrls, imageOrigin?: string, payer?: Payer | null): Promise<string> {
+  const s = requireStripe();
+  if (order.paymentMethod !== 'card' || order.status !== 'awaiting_payment') throw new DataError('order_not_pending');
+
+  const currency = order.currency.toLowerCase();
+  // paid partly from the balance: Stripe collects the rest as one line (it takes no negative lines)
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = order.split
+    ? [{ quantity: 1, price_data: { currency, unit_amount: order.split.chargedMinor, product_data: { name: `Order ${order.id}, less ${formatMoney(order.split.balanceMinor, order.currency)} from your balance` } } }]
+    : itemLines(order, currency, imageOrigin);
 
   const saved = await savedCardsCheckout(payer);
   let session: Stripe.Checkout.Session;
@@ -180,7 +190,8 @@ export async function confirmSession(session: Stripe.Checkout.Session): Promise<
   // Best effort: refunds can also find the PaymentIntent through the session.
   const pi = paymentIntentId(session);
   if (pi) await db.rpc('record_payment_intent', { p_order_id: orderId, p_payment_intent: pi });
-  if (res.error?.message === 'stock_released') {
+  // or after the balance it was to use was spent (balance_spent): the same
+  if (res.error?.message === 'stock_released' || res.error?.message === 'balance_spent') {
     const sold = await db.rpc('mark_sold_out', { p_order_id: orderId });
     if (sold.error) console.error('[stripe] mark_sold_out failed', orderId, sold.error.message);
     else await refundOrder(orderId, { db }).catch((err) => console.error('[stripe] sold-out refund failed', orderId, err));

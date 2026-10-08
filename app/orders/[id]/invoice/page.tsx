@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Wordmark } from '@/components/chrome/Wordmark';
 import { PrintButton } from '@/components/orders/PrintButton';
-import { longDate, paymentText, shortDate } from '@/components/orders/format';
+import { longDate, orderPaymentText, shortDate } from '@/components/orders/format';
 import { buttonClasses } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
 import { getOrder } from '@/lib/data/orders';
@@ -86,7 +86,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
           <div>
             <dt className="text-ink-3">Payment</dt>
-            <dd className="m-0">{paymentText(order.paymentMethod, order.paymentLabel)}</dd>
+            <dd className="m-0">{orderPaymentText(order)}</dd>
           </div>
         </dl>
 

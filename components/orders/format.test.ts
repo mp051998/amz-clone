@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
-import { byTimeText, cartEta, noRushText, orderView, orderWithinText, releaseDate, returnUntilText } from './format';
+import { byTimeText, cartEta, noRushText, orderPaymentText, orderView, orderWithinText, refundText, releaseDate, returnUntilText } from './format';
 import type { Order } from '@/lib/types';
 
 it('counts down to the order-by time', () => {
@@ -78,4 +78,27 @@ it('tells a No-Rush order’s reward: to come, on its way, credited, or lost to 
   );
   expect(noRushText({ ...base, status: 'cancelled' }, now, money, amazon)).toBe('No-Rush Shipping · no reward, as the order was cancelled');
   expect(noRushText({ ...base, shipSpeed: 'standard', noRushReward: undefined }, now, money, amazon)).toBeNull();
+});
+
+it('splits a refund of a split payment between how they paid and the balance', () => {
+  const o = {
+    market: 'US',
+    currency: 'USD',
+    status: 'cancelled',
+    paymentMethod: 'card',
+    paymentLabel: 'Visa ending 4242',
+    split: { balanceMinor: 3000, chargedMinor: 580 },
+  } as unknown as Order;
+  expect(orderPaymentText(o)).toBe('Visa ending 4242 + Gift card balance');
+  expect(orderPaymentText({ ...o, split: undefined })).toBe('Visa ending 4242');
+  expect(refundText({ ...o, refund: { status: 'pending', amountMinor: 1080, balanceMinor: 500 } }, amazon)).toBe(
+    'Refund of $5.00 to Gift card balance · issued. Refund of $5.80 to Visa ending 4242 is processing.',
+  );
+  expect(refundText({ ...o, refund: { status: 'succeeded', amountMinor: 1080, balanceMinor: 500, refundedAt: '2026-10-08T12:00:00.000Z' } }, amazon)).toBe(
+    'Refund of $5.80 to Visa ending 4242 and $5.00 to Gift card balance · issued October 8. Card refunds take 5–10 business days to show up.',
+  );
+  // all of it to the balance: nothing to wait for from the card
+  expect(refundText({ ...o, refund: { status: 'succeeded', amountMinor: 2500, balanceMinor: 2500 } }, amazon)).toBe('Refund of $25.00 to Gift card balance · issued.');
+  // an ordinary card refund reads as before
+  expect(refundText({ ...o, split: undefined, refund: { status: 'pending', amountMinor: 1080 } }, amazon)).toBe('Refund of $10.80 to Visa ending 4242 is processing.');
 });

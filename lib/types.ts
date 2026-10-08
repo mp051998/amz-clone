@@ -194,6 +194,8 @@ export interface OrderReturn {
   /** gift wrap, refunded only when the package didn't arrive (absent otherwise) */
   wrapMinor?: number;
   refundMinor: number;
+  /** the part of the refund back to the balance, on an order paid partly from it (absent with none) */
+  balanceRefundMinor?: number;
   /** set once the store has received the items */
   refund?: { status: 'pending' | 'succeeded' | 'failed'; refundedAt?: string };
   /** the shopper asked for the refund on their balance in the store, not back to how they paid (absent otherwise) */
@@ -260,7 +262,8 @@ export interface OrderCancellation {
   wrapMinor?: number;
   /** the cancelled lines' protection plans (absent without any) */
   protectionMinor?: number;
-  refund: { status: RefundStatus; amountMinor: number; refundedAt?: string };
+  /** `balanceMinor`: the part of it back to the balance, on an order paid partly from it (absent with none) */
+  refund: { status: RefundStatus; amountMinor: number; refundedAt?: string; balanceMinor?: number };
   createdAt: string;
 }
 
@@ -287,6 +290,11 @@ export interface Order {
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   paymentLabel: string;
+  /**
+   * paid partly from the shopper's balance (card, UPI or net banking paid the rest): the balance's
+   * part and what the payment method was charged, as placed (absent otherwise)
+   */
+  split?: { balanceMinor: number; chargedMinor: number };
   totals: OrderTotals;
   shipTo: ShippingAddress;
   /** set while the shopper keeps it out of their order list */
@@ -300,8 +308,11 @@ export interface Order {
   deliveredAt?: string;
   cancelledAt?: string;
   cancelReason?: CancelReason;
-  /** set once a paid (or cash on delivery) order is cancelled. */
-  refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string };
+  /**
+   * set once a paid (or cash on delivery) order is cancelled; `balanceMinor` is the part of it back to
+   * the balance, on an order paid partly from it (absent with none)
+   */
+  refund?: { status: RefundStatus; amountMinor: number; refundedAt?: string; balanceMinor?: number };
   /** items cancelled before it shipped while the rest kept coming, oldest first (absent with none). */
   cancellations?: OrderCancellation[];
   /** a gift order, with the note for the recipient when there is one, and whether it's gift-wrapped. */

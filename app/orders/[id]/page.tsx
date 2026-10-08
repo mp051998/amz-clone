@@ -6,7 +6,8 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
-import { dayLabel, lcFirst, longDate, noRushText, orderView, paidWithText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
+import { dayLabel, lcFirst, longDate, noRushText, orderView, paidWithText, paymentText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
+import { balanceMethod } from '@/lib/data/balance';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions/returns';
 import { withdrawMyClaim } from '@/app/actions/claims';
@@ -93,9 +94,26 @@ async function pairsFor(client: Db, o: Order): Promise<Accessory[]> {
   }
 }
 
+/**
+ * Where a refund of the order's total goes, mid-sentence: "$34.06 to Visa ending 4242". On an order
+ * paid partly from the balance the payment method gets back what it paid first (less what's gone
+ * back to it already), and the balance the rest.
+ */
+function refundToText(o: Order, money: (minor: number) => string): string {
+  const amount = o.totals.totalMinor;
+  const to = refundTo(o.paymentMethod, o.paymentLabel);
+  if (!o.split) return `${money(amount)} to ${to}`;
+  const back = (o.cancellations ?? []).reduce((s, c) => s + c.refund.amountMinor - (c.refund.balanceMinor ?? 0), 0);
+  const paid = Math.min(amount, Math.max(o.split.chargedMinor - back, 0));
+  const toBalance = `${money(amount - paid)} to ${refundTo(balanceMethod(o.market), '')}`;
+  return paid > 0 ? `${money(paid)} to ${to} and ${toBalance}` : toBalance;
+}
+
 /** What cancelling does with the money, for the confirm step. */
-function refundPromise(o: Order, total: string): string {
+function refundPromise(o: Order, money: (minor: number) => string): string {
   if (o.paymentMethod === 'cod') return 'Nothing has been charged yet.';
+  if (o.split) return `We’ll refund ${refundToText(o, money)}.`;
+  const total = money(o.totals.totalMinor);
   if (o.paymentMethod === 'card') return `We’ll refund ${total} to your card.`;
   return `${total} goes back to ${refundTo(o.paymentMethod, o.paymentLabel)}.`;
 }
@@ -319,6 +337,12 @@ export default async function OrderPage({
             { label: 'Paid with', value: paidWithText(order) },
             ...(order.emiMonths ? [{ label: 'EMI', value: emiText(order.totals.totalMinor, order.emiMonths, money) }] : []),
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
+            ...(order.split
+              ? [
+                  { label: paymentText(balanceMethod(order.market), ''), value: <span className="tabular-nums">−{money(order.split.balanceMinor)}</span> },
+                  { label: paymentText(order.paymentMethod, order.paymentLabel), value: <span className="tabular-nums">{money(order.split.chargedMinor)}</span> },
+                ]
+              : []),
           ]}
         />
 
@@ -395,7 +419,7 @@ export default async function OrderPage({
         {order.status === 'awaiting_payment' ? (
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Payment">
             <p className="m-0 max-w-[460px] text-[14px] text-ink-2">
-              This order isn’t paid yet, so it hasn’t been placed. Pay {money(order.totals.totalMinor)} by card on Stripe’s secure page, or cancel it to release the items. You haven’t been charged.
+              This order isn’t paid yet, so it hasn’t been placed. Pay {money(order.split?.chargedMinor ?? order.totals.totalMinor)} by card on Stripe’s secure page, or cancel it to release the items. You haven’t been charged.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <form action={payForOrder.bind(null, order.id)}>
@@ -427,7 +451,7 @@ export default async function OrderPage({
               <ConfirmAction
                 action={cancelMyOrder.bind(null, order.id)}
                 label="Cancel order"
-                prompt={<>Cancel this order? {refundPromise(order, money(order.totals.totalMinor))}</>}
+                prompt={<>Cancel this order? {refundPromise(order, money)}</>}
                 confirmLabel="Yes, cancel it"
                 pendingLabel="Cancelling…"
                 cancelLabel="Keep order"
@@ -443,7 +467,7 @@ export default async function OrderPage({
               <p className="m-0 text-[14px] text-ink-2">
                 If it says delivered but you can’t find it, look around your door and ask anyone nearby who might have taken it in.
                 Still missing? Report it by {longDate(missingUntil, store)} and{' '}
-                {replaceMissing ? 'we’ll send it again at no charge, or ' : ''}we’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}.
+                {replaceMissing ? 'we’ll send it again at no charge, or ' : ''}we’ll refund {refundToText(order, money)}.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
@@ -460,7 +484,7 @@ export default async function OrderPage({
               <ConfirmAction
                 action={reportMissing.bind(null, order.id, 'refund')}
                 label={replaceMissing ? 'Get a refund' : 'Report it missing'}
-                prompt={<>Report this order as not arrived? We’ll refund {money(order.totals.totalMinor)} to {refundTo(order.paymentMethod, order.paymentLabel)}, and you won’t be able to return anything from it.</>}
+                prompt={<>Report this order as not arrived? We’ll refund {refundToText(order, money)}, and you won’t be able to return anything from it.</>}
                 confirmLabel="Yes, it didn’t arrive"
                 pendingLabel="Reporting…"
                 cancelLabel="Keep looking"

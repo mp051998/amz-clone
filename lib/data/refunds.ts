@@ -16,6 +16,9 @@ import { DataError, unwrap } from './errors';
  * return's refunds carry `metadata.returnId` and cancelled items' carry
  * `metadata.cancellationId`, which keeps them apart from the order's own (a
  * PaymentIntent can have several of each).
+ *
+ * An order paid partly from the shopper's balance (split payment) has the balance's part of each
+ * refund, `balance_refund_minor`, credited by the database; Stripe refunds the rest.
  */
 
 type StripeRefund = Pick<Stripe.Refund, 'id' | 'status'> & { metadata?: Stripe.Metadata | null };
@@ -123,7 +126,7 @@ export async function refundOrder(orderId: string, deps: RefundDeps = {}): Promi
   const row = unwrap(
     await db
       .from('orders')
-      .select('id, payment_method, total_minor, refund_status, refund_minor, stripe_payment_intent, stripe_session_id')
+      .select('id, payment_method, total_minor, refund_status, refund_minor, balance_refund_minor, stripe_payment_intent, stripe_session_id')
       .eq('id', orderId)
       .maybeSingle(),
   );
@@ -134,7 +137,7 @@ export async function refundOrder(orderId: string, deps: RefundDeps = {}): Promi
   const result = await settleRefund(
     {
       orderId,
-      amountMinor: row.refund_minor ?? row.total_minor,
+      amountMinor: (row.refund_minor ?? row.total_minor) - (row.balance_refund_minor ?? 0),
       paymentIntent: row.stripe_payment_intent,
       sessionId: row.stripe_session_id,
     },
@@ -158,7 +161,7 @@ export async function refundReturn(returnId: string, deps: RefundDeps = {}): Pro
   const row = unwrap(
     await db
       .from('returns')
-      .select('id, order_id, refund_status, refund_minor, orders!inner(payment_method, stripe_payment_intent, stripe_session_id)')
+      .select('id, order_id, refund_status, refund_minor, balance_refund_minor, orders!inner(payment_method, stripe_payment_intent, stripe_session_id)')
       .eq('id', returnId)
       .maybeSingle(),
   );
@@ -171,7 +174,7 @@ export async function refundReturn(returnId: string, deps: RefundDeps = {}): Pro
     {
       orderId: row.order_id,
       returnId,
-      amountMinor: row.refund_minor,
+      amountMinor: row.refund_minor - (row.balance_refund_minor ?? 0),
       paymentIntent: order.stripe_payment_intent,
       sessionId: order.stripe_session_id,
     },
@@ -195,7 +198,7 @@ export async function refundCancellation(cancellationId: string, deps: RefundDep
   const row = unwrap(
     await db
       .from('order_cancellations')
-      .select('id, order_id, refund_status, refund_minor, orders!inner(payment_method, stripe_payment_intent, stripe_session_id)')
+      .select('id, order_id, refund_status, refund_minor, balance_refund_minor, orders!inner(payment_method, stripe_payment_intent, stripe_session_id)')
       .eq('id', cancellationId)
       .maybeSingle(),
   );
@@ -208,7 +211,7 @@ export async function refundCancellation(cancellationId: string, deps: RefundDep
     {
       orderId: row.order_id,
       cancellationId,
-      amountMinor: row.refund_minor,
+      amountMinor: row.refund_minor - (row.balance_refund_minor ?? 0),
       paymentIntent: order.stripe_payment_intent,
       sessionId: order.stripe_session_id,
     },
