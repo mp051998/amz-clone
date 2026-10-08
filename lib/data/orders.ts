@@ -31,7 +31,10 @@ export interface PlaceOrderInput {
   pickupPoint?: string;
   /** mark the order as a gift, with an optional note for the recipient */
   gift?: { message?: unknown; wrap?: boolean };
-  /** delivery speed; 'fast' only when offered right now (see deliveryOptions), 'day' only for a Plus member with a Delivery Day */
+  /**
+   * delivery speed; 'fast' only when offered right now (see deliveryOptions), 'day' only for a Plus
+   * member with a Delivery Day, 'no_rush' only where the store has a No-Rush reward (noRushReward)
+   */
   speed?: ShipSpeed;
   /** Buy Now: order just this product (the cart is left as it is) */
   buyNow?: BuyNow;
@@ -55,7 +58,7 @@ export function readBank(v: unknown): string | undefined {
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
-  return v === 'standard' || v === 'fast' || v === 'day';
+  return v === 'standard' || v === 'fast' || v === 'day' || v === 'no_rush';
 }
 
 /** A gift note as typed: trimmed, blank is none. Longer than GIFT_NOTE_MAX is refused (invalid_input). */
@@ -138,6 +141,12 @@ export async function setOrderGst(db: Db, id: string, gstin: unknown, name: unkn
 export async function giftWrapFee(db: Db, market: Market): Promise<number | null> {
   const { data, error } = await db.from('markets').select('gift_wrap_minor').eq('id', market).maybeSingle();
   return error || !data ? null : data.gift_wrap_minor;
+}
+
+/** The reward a No-Rush order earns in this store (minor units, to the gift card balance once it ships); null where it isn't offered. */
+export async function noRushReward(db: Db, market: Market): Promise<number | null> {
+  const { data, error } = await db.from('markets').select('no_rush_reward_minor').eq('id', market).maybeSingle();
+  return error || !data ? null : data.no_rush_reward_minor;
 }
 
 /** The store's fee for faster delivery (minor units); null until the delivery-speed migration lands. */

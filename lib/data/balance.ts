@@ -5,7 +5,8 @@ import { DataError, unwrap } from './errors';
 /**
  * Gift card balance, per shopper and store. Redeeming a gift card code or reloading it by card tops it up; paying
  * with the store balance (`giftcard` in the US, `amazonpay` in India) takes the order total
- * when the order is placed, and refunds of those orders go back to it. The database does
+ * when the order is placed, and refunds of those orders go back to it. No-Rush orders add their
+ * reward once they ship (credited when the balance is read, or spent). The database does
  * all the arithmetic (place_order fails with insufficient_balance); this module reads it.
  */
 
@@ -29,9 +30,9 @@ export interface GiftCard {
 
 export interface BalanceEntry {
   id: number;
-  /** positive for money in (a redeemed card, a reload, a refund), negative for an order */
+  /** positive for money in (a redeemed card, a reload, a refund, a No-Rush reward), negative for an order */
   amountMinor: number;
-  kind: 'gift_card' | 'order' | 'refund' | 'reload';
+  kind: 'gift_card' | 'order' | 'refund' | 'reload' | 'reward';
   orderId: string | null;
   giftCardCode: string | null;
   at: string;
@@ -44,8 +45,17 @@ export function formatGiftCode(raw: unknown): string {
   return alnum.length === 14 ? `${alnum.slice(0, 4)}-${alnum.slice(4, 10)}-${alnum.slice(10)}` : s.trim();
 }
 
+/**
+ * Credit the caller's No-Rush rewards in a store whose orders have shipped (each once). Best effort:
+ * a reward that can't be credited now is credited on a later read.
+ */
+async function settleRewards(db: Db, market: Market): Promise<void> {
+  await db.rpc('settle_no_rush_rewards', { p_market: market });
+}
+
 /** The caller's balance in a store (0 before their first gift card), or null when it can't be read. */
 export async function storeBalance(db: Db, market: Market): Promise<number | null> {
+  await settleRewards(db, market);
   const { data, error } = await db.from('store_balances').select('balance_minor').eq('market_id', market).maybeSingle();
   if (error) return null;
   return data?.balance_minor ?? 0;
@@ -53,6 +63,7 @@ export async function storeBalance(db: Db, market: Market): Promise<number | nul
 
 /** The caller's latest balance changes in a store, newest first. */
 export async function balanceHistory(db: Db, market: Market, limit = 10): Promise<BalanceEntry[]> {
+  await settleRewards(db, market);
   const { data, error } = await db
     .from('balance_entries')
     .select('id, amount_minor, kind, order_id, gift_card_code, created_at')
