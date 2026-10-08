@@ -178,7 +178,12 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
       {!available ? (
         <p className="m-0 rounded-input bg-surface-4 px-3 py-2.5 text-[15px] font-semibold text-ink-2">Out of stock — save it and we’ll flag it on your lists when it’s back.</p>
       ) : preOrder ? (
-        <p className="m-0 text-[14px] font-semibold text-good">This item will be released on {preOrder.release}.</p>
+        <div className="flex flex-col gap-1">
+          <p className="m-0 text-[14px] font-semibold text-good">This item will be released on {preOrder.release}.</p>
+          <p className="m-0 text-[13px] text-ink-2">
+            <span className="font-semibold">Pre-order Price Guarantee.</span> If the price drops between your order and the end of release day, you pay the lowest price and we refund the difference.
+          </p>
+        </div>
       ) : stock <= LOW_STOCK ? (
         <p className="m-0 text-[14px] font-semibold text-warn-strong">Only {stock} left in stock — order soon.</p>
       ) : (

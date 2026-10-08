@@ -137,6 +137,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                       {l.snsMinor ? <span className="block text-[13px] text-ink-2">Subscribe &amp; Save −{money(l.snsMinor)}</span> : null}
                       {l.bankOfferMinor ? <span className="block text-[13px] text-ink-2">Bank offer −{money(l.bankOfferMinor)}</span> : null}
                       {l.exchangeMinor ? <span className="block text-[13px] text-ink-2">Exchange −{money(l.exchangeMinor)}{inv.exchange ? ` (${inv.exchange})` : ''}</span> : null}
+                      {l.guaranteeMinor ? <span className="block text-[13px] text-ink-2">Pre-order Price Guarantee −{money(l.guaranteeMinor)}</span> : null}
                       {l.protectionMinor ? <span className="block text-[13px] text-ink-2">{protectionPlanName(order.market)} {money(l.protectionMinor)}</span> : null}
                     </td>
                     <td className={`${cell} text-right tabular-nums`}>{l.qty}</td>
@@ -169,6 +170,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             ) : null}
             {inv.exchangeMinor > 0 ? (
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Exchange offer</dt><dd className="m-0 tabular-nums">−{money(inv.exchangeMinor)}</dd></div>
+            ) : null}
+            {inv.guaranteeMinor > 0 ? (
+              <div className="flex justify-between gap-4"><dt className="text-ink-2">Pre-order Price Guarantee</dt><dd className="m-0 tabular-nums">−{money(inv.guaranteeMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between gap-4"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{inv.shipMinor === 0 ? 'FREE' : money(inv.shipMinor)}</dd></div>
             {inv.wrapMinor > 0 ? (

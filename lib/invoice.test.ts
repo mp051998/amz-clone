@@ -47,8 +47,8 @@ describe('buildInvoice', () => {
     const inv = buildInvoice(order())!;
     expect(inv.kind).toBe('invoice');
     expect(inv.lines).toEqual([
-      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, memberMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, bankOfferMinor: 0, exchangeMinor: 0, protectionMinor: 0 },
-      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, memberMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, bankOfferMinor: 0, exchangeMinor: 0, protectionMinor: 0 },
+      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, memberMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, bankOfferMinor: 0, exchangeMinor: 0, guaranteeMinor: 0, protectionMinor: 0 },
+      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, memberMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, bankOfferMinor: 0, exchangeMinor: 0, guaranteeMinor: 0, protectionMinor: 0 },
     ]);
     expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
   });
@@ -162,6 +162,16 @@ describe('buildInvoice', () => {
     expect(inv.lines.map((l) => [l.discountMinor, l.exchangeMinor])).toEqual([[200, 1000]]);
     expect(inv).toMatchObject({ discountMinor: 200, exchangeMinor: 1000, exchange: 'Apple iPhone 13 (switches on, screen cracked or marked)', totalMinor: 3800 });
     expect(buildInvoice(order())).not.toHaveProperty('exchange');
+  });
+
+  it('shows a pre-order price drop apart, and not as a coupon', () => {
+    // $50.00 pre-ordered with a $3.00 coupon; the price then dropped to $45.00 before release
+    const inv = buildInvoice(order({
+      totals: { subtotalMinor: 5000, discountMinor: 800, guaranteeMinor: 500, shipMinor: 0, taxMinor: 0, totalMinor: 4200 },
+      items: [{ productId: 'a', title: 'Game', image: '', seller: 'Store', unitPriceMinor: 5000, qty: 1, unitDiscountMinor: 800, unitGuaranteeMinor: 500 }],
+    }))!;
+    expect(inv.lines.map((l) => [l.discountMinor, l.guaranteeMinor])).toEqual([[300, 500]]);
+    expect(inv).toMatchObject({ discountMinor: 300, guaranteeMinor: 500, totalMinor: 4200 });
   });
 
   it('has nothing for an order still waiting for payment', () => {

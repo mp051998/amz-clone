@@ -403,13 +403,13 @@ isOneToOne: false
                   ]
                 },"order_cancellations": {
                   Row: {
-                    "created_at": string,"id": string,"items_minor": number,"order_id": string,"refund_minor": number,"refund_status": string,"refunded_at": string | null,"stripe_refund_id": string | null,"tax_minor": number,"wrap_minor": number,"protection_minor": number,"balance_refund_minor": number
+                    "created_at": string,"id": string,"items_minor": number,"order_id": string,"refund_minor": number,"refund_status": string,"refunded_at": string | null,"stripe_refund_id": string | null,"tax_minor": number,"wrap_minor": number,"protection_minor": number,"balance_refund_minor": number,"kind": string,"product_id": string | null,"title": string | null,"price_minor": number | null,"qty": number | null
                   }
                   Insert: {
-                    "created_at"?: string,"id"?: string,"items_minor": number,"order_id": string,"refund_minor"?: never,"refund_status": string,"refunded_at"?: string | null,"stripe_refund_id"?: string | null,"tax_minor"?: number,"wrap_minor"?: number,"protection_minor"?: number,"balance_refund_minor"?: number
+                    "created_at"?: string,"id"?: string,"items_minor": number,"order_id": string,"refund_minor"?: never,"refund_status": string,"refunded_at"?: string | null,"stripe_refund_id"?: string | null,"tax_minor"?: number,"wrap_minor"?: number,"protection_minor"?: number,"balance_refund_minor"?: number,"kind"?: string,"product_id"?: string | null,"title"?: string | null,"price_minor"?: number | null,"qty"?: number | null
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"refund_minor"?: never,"refund_status"?: string,"refunded_at"?: string | null,"stripe_refund_id"?: string | null,"tax_minor"?: number,"wrap_minor"?: number,"protection_minor"?: number,"balance_refund_minor"?: number
+                    "created_at"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"refund_minor"?: never,"refund_status"?: string,"refunded_at"?: string | null,"stripe_refund_id"?: string | null,"tax_minor"?: number,"wrap_minor"?: number,"protection_minor"?: number,"balance_refund_minor"?: number,"kind"?: string,"product_id"?: string | null,"title"?: string | null,"price_minor"?: number | null,"qty"?: number | null
                   }
                   Relationships: [
                     {
@@ -459,13 +459,13 @@ isOneToOne: false
                   ]
                 },"order_items": {
                   Row: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days": number | null,"replacement_only": boolean,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"unit_member_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"unit_bank_minor": number,"unit_exchange_minor": number,"lightning_deal_id": string | null
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days": number | null,"replacement_only": boolean,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"unit_member_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"unit_bank_minor": number,"unit_exchange_minor": number,"lightning_deal_id": string | null,"unit_guarantee_minor": number
                   }
                   Insert: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days"?: number | null,"replacement_only"?: boolean,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"unit_member_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"unit_exchange_minor"?: number,"lightning_deal_id"?: string | null
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days"?: number | null,"replacement_only"?: boolean,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"unit_member_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"unit_exchange_minor"?: number,"lightning_deal_id"?: string | null,"unit_guarantee_minor"?: number
                   }
                   Update: {
-                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"return_days"?: number | null,"replacement_only"?: boolean,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"unit_member_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"unit_exchange_minor"?: number,"lightning_deal_id"?: string | null
+                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"return_days"?: number | null,"replacement_only"?: boolean,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"unit_member_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"unit_exchange_minor"?: number,"lightning_deal_id"?: string | null,"unit_guarantee_minor"?: number
                   }
                   Relationships: [
                     {

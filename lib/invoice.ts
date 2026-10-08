@@ -27,6 +27,8 @@ export interface InvoiceLine {
   bankOfferMinor: number;
   /** what the device traded in took off the line (0 without one) */
   exchangeMinor: number;
+  /** what the Pre-order Price Guarantee took off the line: its price drops before release (0 without any) */
+  guaranteeMinor: number;
   /** the protection plans bought with the line (0 without one) */
   protectionMinor: number;
 }
@@ -62,6 +64,8 @@ export interface Invoice {
   /** what the device traded in took off (0 without one), and the device with its condition */
   exchangeMinor: number;
   exchange?: string;
+  /** what the Pre-order Price Guarantee took off (0 without any) */
+  guaranteeMinor: number;
   shipMinor: number;
   /** gift wrap (0 without it) */
   wrapMinor: number;
@@ -94,13 +98,14 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,
-    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitMemberMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0) - (it.unitSnsMinor ?? 0) - (it.unitBankMinor ?? 0) - (it.unitExchangeMinor ?? 0)) * it.qty,
+    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitMemberMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0) - (it.unitSnsMinor ?? 0) - (it.unitBankMinor ?? 0) - (it.unitExchangeMinor ?? 0) - (it.unitGuaranteeMinor ?? 0)) * it.qty,
     memberMinor: (it.unitMemberMinor ?? 0) * it.qty,
     qtyDiscountMinor: (it.unitQtyDiscountMinor ?? 0) * it.qty,
     promoMinor: (it.unitPromoMinor ?? 0) * it.qty,
     snsMinor: (it.unitSnsMinor ?? 0) * it.qty,
     bankOfferMinor: (it.unitBankMinor ?? 0) * it.qty,
     exchangeMinor: (it.unitExchangeMinor ?? 0) * it.qty,
+    guaranteeMinor: (it.unitGuaranteeMinor ?? 0) * it.qty,
     protectionMinor: (it.protectionMinor ?? 0) * it.qty,
   }));
 
@@ -127,7 +132,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     kind: order.status === 'cancelled' ? 'cancelled' : 'invoice',
     lines,
     subtotalMinor: order.totals.subtotalMinor,
-    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0),
+    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0) - (order.totals.guaranteeMinor ?? 0),
     memberMinor: order.totals.memberMinor ?? 0,
     qtyDiscountMinor: order.totals.qtyDiscountMinor ?? 0,
     promoMinor: order.totals.promoMinor ?? 0,
@@ -137,6 +142,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     ...(order.bank && order.totals.bankOfferMinor ? { bank: order.bank } : {}),
     exchangeMinor: order.totals.exchangeMinor ?? 0,
     ...(order.exchange && order.totals.exchangeMinor ? { exchange: exchangeText(order.exchange.device, order.exchange.condition) } : {}),
+    guaranteeMinor: order.totals.guaranteeMinor ?? 0,
     shipMinor: order.totals.shipMinor,
     wrapMinor: order.totals.wrapMinor ?? 0,
     protectionMinor: order.totals.protectionMinor ?? 0,

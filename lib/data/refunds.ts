@@ -7,7 +7,8 @@ import type { RefundStatus } from '../types';
 import { DataError, unwrap } from './errors';
 
 /**
- * Card refunds for cancelled orders, cancelled items and received returns. The
+ * Card refunds for cancelled orders, cancelled items (and pre-order price drops, kept as
+ * cancellations without items) and received returns. The
  * database decides that an order (or some cancelled items, or a return) is owed a
  * refund (`refund_status = 'pending'`, with the amount); this module asks Stripe for
  * it and records Stripe's answer with the service role. Safe to repeat: a refund
@@ -224,6 +225,30 @@ export async function refundCancellation(cancellationId: string, deps: RefundDep
     await db.rpc('record_cancellation_refund', { p_cancellation_id: cancellationId, p_refund_id: result.refundId, p_status: result.status }),
   );
   return result.status;
+}
+
+/**
+ * After an admin reprices a product: ask Stripe for the Pre-order Price Guarantee refunds the
+ * database owes card orders of it (a price drop before the end of its release day writes them as
+ * pending). Each is refunded as cancelled items are; one that fails stays owed, for the order's
+ * "Retry refund". Never throws.
+ */
+export async function refundPriceGuarantees(productId: string, deps: RefundDeps = {}): Promise<void> {
+  try {
+    const db = deps.db ?? createAdminClient();
+    const owed = unwrap(
+      await db
+        .from('order_cancellations')
+        .select('id, orders!inner(payment_method)')
+        .eq('kind', 'price_guarantee')
+        .eq('product_id', productId)
+        .eq('refund_status', 'pending')
+        .eq('orders.payment_method', 'card'),
+    );
+    for (const c of owed) await refundCancellation(c.id, { ...deps, db });
+  } catch (err) {
+    console.error('[stripe] price guarantee refunds failed', productId, err instanceof Error ? err.message : err);
+  }
 }
 
 /**

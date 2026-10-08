@@ -9,6 +9,7 @@ import { orderPaymentText, paymentText } from '@/components/orders/format';
 import { trackingSteps } from '@/lib/decision/tracking';
 import { DROPOFF } from '@/lib/dropoff';
 import { CancelledItems } from '@/components/orders/CancelledItems';
+import { PriceGuarantees } from '@/components/orders/PriceGuarantees';
 import { canRetryRefund, getAdminOrder, type AdminOrder } from '@/lib/data/admin-orders';
 import { listOrderReturns } from '@/lib/data/admin-returns';
 import { deliveryFeedbackFor, reasonLabel, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
@@ -160,8 +161,8 @@ export default async function AdminOrderPage({ params, searchParams }: {
               {order.totals.memberMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">{store.membership.name} savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.memberMinor)}</dd></div>
               ) : null}
-              {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.memberMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) ? (
-                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0))}</dd></div>
+              {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.memberMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) + (order.totals.guaranteeMinor ?? 0) ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0) - (order.totals.guaranteeMinor ?? 0))}</dd></div>
               ) : null}
               {order.totals.qtyDiscountMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(order.totals.qtyDiscountMinor)}</dd></div>
@@ -178,6 +179,9 @@ export default async function AdminOrderPage({ params, searchParams }: {
               {order.totals.exchangeMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Exchange offer</dt><dd className="m-0 tabular-nums">−{money(order.totals.exchangeMinor)}</dd></div>
               ) : null}
+              {order.totals.guaranteeMinor ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Pre-order Price Guarantee</dt><dd className="m-0 tabular-nums">−{money(order.totals.guaranteeMinor)}</dd></div>
+              ) : null}
               <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
               {order.totals.wrapMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Gift wrap</dt><dd className="m-0 tabular-nums">{money(order.totals.wrapMinor)}</dd></div>
@@ -191,6 +195,8 @@ export default async function AdminOrderPage({ params, searchParams }: {
           </section>
 
           <CancelledItems order={order} store={store} href={(productId) => to(`/admin/products/${encodeURIComponent(productId)}`)} />
+
+          <PriceGuarantees order={order} store={store} href={(productId) => to(`/admin/products/${encodeURIComponent(productId)}`)} />
 
           {returns.length ? (
             <section className="flex flex-col gap-3" aria-labelledby="returns-h">
