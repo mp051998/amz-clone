@@ -190,6 +190,16 @@ describe('gemini provider', () => {
     expect(sent.contents[0].parts[0].text).toBe('hi');
   });
 
+  it('sends pictures as inline data before the prompt', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => Response.json({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }));
+    const g = createGeminiProvider({ apiKey: 'k', fetch: fetchMock as unknown as typeof fetch });
+    await g.generate({ prompt: 'what is this?', images: [{ mimeType: 'image/jpeg', data: 'AAAA' }] });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).contents[0].parts).toEqual([
+      { inlineData: { mimeType: 'image/jpeg', data: 'AAAA' } },
+      { text: 'what is this?' },
+    ]);
+  });
+
   it('throws LlmError on HTTP errors and blocked replies', async () => {
     const http = createGeminiProvider({ apiKey: 'k', fetch: (async () => new Response('no', { status: 429 })) as unknown as typeof fetch });
     await expect(http.generate({ prompt: 'x' })).rejects.toBeInstanceOf(LlmError);

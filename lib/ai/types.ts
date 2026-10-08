@@ -12,6 +12,15 @@ export interface LlmRequest {
   temperature?: number;
   /** Abort after this many ms (default 8000). */
   timeoutMs?: number;
+  /** Pictures to look at with the prompt, base64 (Gemini: inlineData parts before the text). */
+  images?: readonly LlmImage[];
+}
+
+export interface LlmImage {
+  /** image/jpeg, image/png or image/webp */
+  mimeType: string;
+  /** the bytes, base64 */
+  data: string;
 }
 
 export interface LlmProvider {

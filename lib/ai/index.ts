@@ -9,7 +9,7 @@ import type { LlmProvider, LlmRequest } from './types';
  * every feature returns its deterministic rules result with `source: 'rules'`.
  */
 
-export type { LlmProvider, LlmRequest } from './types';
+export type { LlmImage, LlmProvider, LlmRequest } from './types';
 export type AiSource = 'rules' | 'ai';
 
 /** Options every AI feature accepts. */

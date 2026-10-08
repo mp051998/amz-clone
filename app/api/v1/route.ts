@@ -81,6 +81,7 @@ export function GET(): Response {
       'GET    /products?q=&dept=&brand=&rating=&deal=&sort=&page=',
       'GET    /suggest?q=',
       'POST   /searches',
+      'POST   /searches/image',
       'GET    /searches/related?q=',
       'GET    /sellers?name=',
       'GET    /brands?name=',
