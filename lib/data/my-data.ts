@@ -4,6 +4,7 @@ import { MARKETS } from '../marketplace';
 import type { Address, Market, Order } from '../types';
 import { listAddresses } from './addresses';
 import { balanceHistory, storeBalance, type BalanceEntry } from './balance';
+import { followedBrands, type FollowedBrand } from './brand-follows';
 import { listCollections } from './collections';
 import { unwrap } from './errors';
 import { listOrders } from './orders';
@@ -36,6 +37,7 @@ export interface StoreData {
   reviews: ReviewRecord[];
   giftCardBalanceMinor: number;
   balanceHistory: BalanceEntry[];
+  followedBrands: FollowedBrand[];
 }
 
 export interface ListRecord {
@@ -125,13 +127,14 @@ export function dataFileName(now: Date): string {
 }
 
 async function storeData(db: Db, market: Market, userId: string): Promise<StoreData> {
-  const [orders, addresses, collections, reviews, balance, history] = await Promise.all([
+  const [orders, addresses, collections, reviews, balance, history, brands] = await Promise.all([
     listOrders(db, market),
     listAddresses(db, market),
     listCollections(db, market),
     listMyReviews(db, market, userId),
     storeBalance(db, market),
     balanceHistory(db, market, BALANCE_ENTRIES),
+    followedBrands(db, market, userId),
   ]);
   return {
     currency: MARKETS[market].currency.code,
@@ -141,6 +144,7 @@ async function storeData(db: Db, market: Market, userId: string): Promise<StoreD
     reviews: reviews.map(reviewRecord),
     giftCardBalanceMinor: balance ?? 0,
     balanceHistory: history,
+    followedBrands: brands,
   };
 }
 

@@ -13,6 +13,7 @@ import { awaitingReview } from '@/lib/data/reviews';
 import { storeBalance } from '@/lib/data/balance';
 import { unreadCaseIds } from '@/lib/data/support';
 import { inboxSeenAt, isNewMessage, listInbox } from '@/lib/data/inbox';
+import { followedBrands } from '@/lib/data/brand-follows';
 import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
@@ -30,7 +31,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt, brands] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -43,6 +44,7 @@ export default async function AccountPage() {
     unreadCaseIds(client, store.id),
     listInbox(client, store.id, user.id, new Date(), store.dates.timeZone).catch(() => []),
     inboxSeenAt(client, store.id),
+    followedBrands(client, store.id, user.id).catch(() => []),
   ]);
   const newMessages = inbox.filter((m) => isNewMessage(m, seenAt)).length;
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
@@ -72,6 +74,12 @@ export default async function AccountPage() {
     { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns, gift cards and balance reloads.', href: '/account/transactions' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, download your data, or close your account.', href: '/account/security' },
     { title: 'Cart', meta: cart.count ? plural(cart.count, 'item') : 'Empty', desc: 'Pick up where you left off.', href: '/cart' },
+    {
+      title: 'Brands you follow',
+      meta: brands.length ? plural(brands.length, 'brand') : 'None yet',
+      desc: 'What’s new from the brands you follow. Follow one from its store.',
+      href: '/account/brands',
+    },
     { title: 'Buy again', meta: orderCount ? 'From your orders' : 'Nothing to reorder yet', desc: 'Things you have ordered before, ready to add to your cart.', href: '/orders/buy-again' },
     { title: 'Your reviews', meta: toReview.length ? `${plural(toReview.length, 'item')} to review` : 'All caught up', desc: 'Review what you’ve received, and edit or delete reviews you’ve written.', href: '/account/reviews' },
     { title: 'Your Q&A', meta: 'Questions and answers', desc: 'Questions you’ve asked about products, and answers you’ve given. Delete any of them.', href: '/account/questions' },
