@@ -91,3 +91,14 @@ it('shows the chosen bank’s offer under net banking and EMI, and what it takes
   fireEvent.change(screen.getByLabelText('Bank'), { target: { value: 'Yes Bank' } });
   expect(screen.queryByRole('status')).toBeNull();
 });
+
+it('greys out a method this order can’t use, says why, and doesn’t start on it', () => {
+  const unavailable = { cod: 'Not available on orders over ₹50,000' };
+  const { container } = render(<PaymentSection {...base} curSymbol="₹" methods={['cod', 'upi']} initial="cod" unavailable={unavailable} />);
+  const cod = screen.getByRole('radio', { name: /Pay on delivery/ });
+  expect(cod).toBeDisabled();
+  expect(cod).not.toBeChecked();
+  expect(screen.getByText('Not available on orders over ₹50,000')).toBeInTheDocument();
+  expect(screen.queryByText('No card needed')).toBeNull();
+  expect(container.querySelector<HTMLInputElement>('input[name="payMethod"]:checked')?.value).toBe('upi');
+});

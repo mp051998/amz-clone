@@ -23,11 +23,11 @@ describe('downloading your data', () => {
 
   it("holds the shopper's orders, returns, addresses, lists, questions and balances, and no one else's", async () => {
     const p = await pickProduct('IN', 36);
-    const theirs = await placeOrder(other.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 1 } });
+    const theirs = await placeOrder(other.db, 'IN', { paymentMethod: 'upi', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 1 } });
     await deliveredDaysAgo(theirs.id, 1);
     const theirReturn = await requestReturn(other.db, theirs.id, { items: [{ productId: p.id, qty: 1 }], reason: 'no_longer_needed' });
 
-    const mine = await placeOrder(me.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 1 } });
+    const mine = await placeOrder(me.db, 'IN', { paymentMethod: 'upi', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 1 } });
     await deliveredDaysAgo(mine.id, 1);
     const myReturn = await requestReturn(me.db, mine.id, { items: [{ productId: p.id, qty: 1 }], reason: 'damaged' });
     const address = await createAddress(me.db, 'US', { ...US_SHIPPING, instructions: 'Leave it at the back door' });

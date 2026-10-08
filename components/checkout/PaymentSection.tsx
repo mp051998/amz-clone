@@ -26,6 +26,8 @@ export interface PaymentSectionProps {
   lastUsed?: string;
   /** net banking and EMI: each bank's Bank Offer for this order, shown when that bank is chosen */
   bankOffers?: Partial<Record<'netbanking' | 'emi', Record<string, BankOfferNote>>>;
+  /** methods listed but greyed out for this order, each with why ("Not available on orders over ₹50,000") */
+  unavailable?: Partial<Record<string, string>>;
 }
 
 /** A bank's offer for this order: its terms, and what it takes off (absent when the items don't reach its minimum). */
@@ -97,8 +99,9 @@ function UseBalance({ balance, method }: { balance: BalanceInfo; method: string 
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
  * form while the list is collapsed); the selected method's demo fields show under the list.
  */
-export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed, bankOffers }: PaymentSectionProps) {
-  const [selected, setSelected] = useState(initial && methods.includes(initial) ? initial : methods[0] ?? 'card');
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed, bankOffers, unavailable = {} }: PaymentSectionProps) {
+  const open_ = methods.filter((m) => !unavailable[m]);
+  const [selected, setSelected] = useState(initial && open_.includes(initial) ? initial : open_[0] ?? 'card');
   const [open, setOpen] = useState(false);
   const listId = 'checkout-payment-options';
 
@@ -119,8 +122,9 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
             checked={selected === m}
             onChange={() => setSelected(m)}
             label={LABEL[m] ?? m}
-            sub={subFor(m, stripeCard)}
-            badge={m === lastUsed ? 'Last used' : m === 'cod' ? 'No card needed' : m === 'upi' ? 'Instant' : hasOffers(bankOffers, m) ? 'Bank offers' : undefined}
+            sub={unavailable[m] ?? subFor(m, stripeCard)}
+            badge={unavailable[m] ? undefined : m === lastUsed ? 'Last used' : m === 'cod' ? 'No card needed' : m === 'upi' ? 'Instant' : hasOffers(bankOffers, m) ? 'Bank offers' : undefined}
+            disabled={!!unavailable[m]}
           />
         ))}
         <p className="m-0 text-[13px] text-ink-3">

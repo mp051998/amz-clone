@@ -123,11 +123,11 @@ describe('protection plans', () => {
     expect(t.protectionMinor).toBe(2 * p.plan);
     expect(t.totalMinor).toBe(t.subtotalMinor - (t.discountMinor ?? 0) + t.shipMinor + t.taxMinor + 2 * p.plan);
 
-    const order = await placeOrder(buyer.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 2, protection: true } });
+    const order = await placeOrder(buyer.db, 'IN', { paymentMethod: 'upi', shipping: IN_SHIPPING, buyNow: { productId: p.id, qty: 2, protection: true } });
     expect(order.items[0].protectionMinor).toBe(p.plan);
     expect(order.totals).toMatchObject({ protectionMinor: 2 * p.plan, totalMinor: quote.totals.totalMinor });
     // no plan for a product the store doesn't cover, asked for or not
-    const other = await placeOrder(buyer.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId: india.uncovered.id, qty: 1, protection: true } });
+    const other = await placeOrder(buyer.db, 'IN', { paymentMethod: 'upi', shipping: IN_SHIPPING, buyNow: { productId: india.uncovered.id, qty: 1, protection: true } });
     expect(other.totals.protectionMinor).toBeUndefined();
   });
 

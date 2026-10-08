@@ -42,7 +42,7 @@ export function StepCard({ n, title, value, sub, toggle, children, className }: 
 }
 
 /** Radio card used in step option lists: 1.5px border (ink when chosen), round 18px radio mark. */
-export function OptionCard({ id, name, value, checked, onChange, label, sub, badge }: {
+export function OptionCard({ id, name, value, checked, onChange, label, sub, badge, disabled = false }: {
   id?: string;
   name: string;
   value: string;
@@ -51,15 +51,17 @@ export function OptionCard({ id, name, value, checked, onChange, label, sub, bad
   label: ReactNode;
   sub?: ReactNode;
   badge?: string;
+  /** shown greyed out and can't be chosen (`sub` says why) */
+  disabled?: boolean;
 }) {
   return (
     <label
       className={cn(
-        'flex min-h-[52px] cursor-pointer items-center gap-3 rounded-input border-[1.5px] bg-surface p-3 text-left transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
-        checked ? 'border-ink' : 'border-line hover:border-line-3',
+        'flex min-h-[52px] items-center gap-3 rounded-input border-[1.5px] bg-surface p-3 text-left transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
+        disabled ? 'cursor-not-allowed border-line opacity-60' : checked ? 'cursor-pointer border-ink' : 'cursor-pointer border-line hover:border-line-3',
       )}
     >
-      <input id={id} type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
+      <input id={id} type="radio" name={name} value={value} checked={checked} onChange={onChange} disabled={disabled} className="sr-only" />
       <span aria-hidden className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full border-[1.5px] border-ink">
         <span className={cn('h-2.5 w-2.5 rounded-full', checked ? 'bg-ink' : 'bg-transparent')} />
       </span>
