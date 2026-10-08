@@ -530,6 +530,11 @@ export default async function OrderPage({
                 <a href={sp(`/product/${it.productId}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline">{it.title}</a>
                 {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
                 {it.condition ? <span className="text-[13px] text-ink-2">Condition: {conditionLabel(it.condition)}</span> : null}
+                {it.subscriptionId ? (
+                  <a href={sp(`/subscribe-save#sub-${it.subscriptionId}`)} className="self-start text-[13px] font-semibold text-good-strong no-underline hover:underline">
+                    Subscribe &amp; Save{it.unitSnsMinor ? ` · you saved ${money(it.unitSnsMinor * it.qty)}` : ''}
+                  </a>
+                ) : null}
                 {recalled.has(productOf(it)) ? (
                   <a href={sp(`/recalls#recall-${encodeURIComponent(productOf(it))}`)} className="self-start text-[13px] font-semibold text-bad underline underline-offset-2">
                     Recalled · See what to do
@@ -583,11 +588,14 @@ export default async function OrderPage({
           ))}
           <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">
             <div className="flex justify-between"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(order.totals.subtotalMinor)}</dd></div>
-            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) ? (
-              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0))}</dd></div>
+            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0))}</dd></div>
             ) : null}
             {order.totals.qtyDiscountMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(order.totals.qtyDiscountMinor)}</dd></div>
+            ) : null}
+            {order.totals.snsMinor ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Subscribe &amp; Save</dt><dd className="m-0 tabular-nums">−{money(order.totals.snsMinor)}</dd></div>
             ) : null}
             {order.totals.promoMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">Promotion{order.promoCode ? ` (${order.promoCode})` : ''}</dt><dd className="m-0 tabular-nums">−{money(order.totals.promoMinor)}</dd></div>

@@ -14,6 +14,7 @@ import { storeBalance } from '@/lib/data/balance';
 import { unreadCaseIds } from '@/lib/data/support';
 import { inboxSeenAt, isNewMessage, listInbox } from '@/lib/data/inbox';
 import { followedBrands } from '@/lib/data/brand-follows';
+import { listSubscriptions } from '@/lib/data/subscriptions';
 import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
@@ -31,7 +32,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt, brands] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt, brands, subs] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -45,6 +46,7 @@ export default async function AccountPage() {
     listInbox(client, store.id, user.id, new Date(), store.dates.timeZone).catch(() => []),
     inboxSeenAt(client, store.id),
     followedBrands(client, store.id, user.id).catch(() => []),
+    listSubscriptions(client, store.id),
   ]);
   const newMessages = inbox.filter((m) => isNewMessage(m, seenAt)).length;
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
@@ -68,6 +70,12 @@ export default async function AccountPage() {
       meta: balance ? formatMoney(balance, store.currency.code) : 'No balance yet',
       desc: 'Redeem gift cards and pay with your balance at checkout.',
       href: '/gift-cards#balance',
+    },
+    {
+      title: 'Subscribe & Save',
+      meta: subs.length ? `${plural(subs.length, 'subscription')}${subs.some((s) => s.issue) ? ' · needs attention' : ''}` : 'No subscriptions',
+      desc: 'Deliveries every few months, for less. Skip, change or cancel them.',
+      href: '/subscribe-save',
     },
     { title: 'Your messages', meta: newMessages ? `${newMessages} new` : 'Order and return updates', desc: 'Shipping and delivery updates, refunds, our replies and answers to your questions.', href: '/account/messages' },
     { title: 'Your Payments', meta: 'Saved cards', desc: 'Cards you’ve saved for paying on Stripe. Add or remove them.', href: '/account/payments' },

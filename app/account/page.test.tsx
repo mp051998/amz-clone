@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   inbox: [] as { at: string }[],
   seenAt: null as string | null,
   brands: [] as unknown[],
+  subs: [] as { issue?: unknown }[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -47,6 +48,7 @@ vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
 vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, historyPaused: async () => state.paused }));
 vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
 vi.mock('@/lib/data/brand-follows', () => ({ followedBrands: async () => state.brands }));
+vi.mock('@/lib/data/subscriptions', () => ({ listSubscriptions: async () => state.subs }));
 
 import AccountPage from './page';
 
@@ -67,6 +69,7 @@ beforeEach(() => {
   state.inbox = [];
   state.seenAt = null;
   state.brands = [];
+  state.subs = [];
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -102,6 +105,16 @@ it('counts the brands followed in this store', async () => {
   state.brands = [{ brand: 'Acme', followedAt: '2026-10-01T00:00:00Z' }, { brand: 'Bose', followedAt: '2026-09-01T00:00:00Z' }];
   render(await AccountPage());
   expect(within(tile('Brands you follow')).getByText('2 brands')).toBeInTheDocument();
+});
+
+it('counts the Subscribe & Save subscriptions, and says when one needs attention', async () => {
+  render(await AccountPage());
+  expect(tile('Subscribe & Save')).toHaveAttribute('href', '/subscribe-save');
+  expect(within(tile('Subscribe & Save')).getByText('No subscriptions')).toBeInTheDocument();
+  cleanup();
+  state.subs = [{}, { issue: { kind: 'payment', on: '2026-11-09' } }];
+  render(await AccountPage());
+  expect(within(tile('Subscribe & Save')).getByText('2 subscriptions · needs attention')).toBeInTheDocument();
 });
 
 it('sends the signed-out to sign in', async () => {

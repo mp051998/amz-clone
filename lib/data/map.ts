@@ -2,12 +2,13 @@ import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
 import { isUsedCondition } from '../offers';
 import { isUnitKind } from '../unit-price';
-import type { Address, CancelReason, Cart, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus } from '../types';
+import type { Address, CancelReason, Cart, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus, Subscription, SubscriptionIssue } from '../types';
 
 type ProductRow = Database['public']['Views']['catalog_products_all']['Row'];
 type AddressRow = Database['public']['Tables']['addresses']['Row'];
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
+type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
 
 const opt = <T>(v: T | null | undefined): T | undefined => (v === null ? undefined : v);
 
@@ -50,6 +51,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     ...(row.offer_of ? { offerOf: row.offer_of } : {}),
     ...(isUsedCondition(row.condition) ? { condition: row.condition } : {}),
     ...(row.condition_note ? { conditionNote: row.condition_note } : {}),
+    // absent on rows read before the Subscribe & Save migration lands
+    ...(row.subscribe_save ? { subscribeSave: true } : {}),
   };
 }
 
@@ -185,6 +188,9 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       // absent on rows read before the seller offers migration lands (and on cancelled items)
       ...(it.offer_of ? { offerOf: it.offer_of } : {}),
       ...(isUsedCondition(it.condition) ? { condition: it.condition } : {}),
+      // absent on rows read before the Subscribe & Save migration lands
+      ...(it.subscription_id ? { subscriptionId: it.subscription_id } : {}),
+      ...(it.unit_sns_minor ? { unitSnsMinor: it.unit_sns_minor } : {}),
     }));
 }
 
@@ -210,6 +216,8 @@ export function toOrder(row: OrderWithItems): Order {
   const promoMinor = items.reduce((s, it) => s + (it.unitPromoMinor ?? 0) * it.qty, 0);
   // and the quantity discounts' part
   const qtyDiscountMinor = items.reduce((s, it) => s + (it.unitQtyDiscountMinor ?? 0) * it.qty, 0);
+  // and Subscribe & Save's
+  const snsMinor = items.reduce((s, it) => s + (it.unitSnsMinor ?? 0) * it.qty, 0);
   const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
@@ -227,6 +235,7 @@ export function toOrder(row: OrderWithItems): Order {
       discountMinor: row.discount_minor ?? 0,
       ...(qtyDiscountMinor ? { qtyDiscountMinor } : {}),
       ...(promoMinor ? { promoMinor } : {}),
+      ...(snsMinor ? { snsMinor } : {}),
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
       // absent on rows read before the gift wrap migration lands
@@ -273,5 +282,24 @@ export function toOrder(row: OrderWithItems): Order {
     // absent on rows read before the archive migration lands
     ...(row.archived_at ? { archivedAt: row.archived_at } : {}),
     ...(cancellations.length ? { cancellations } : {}),
+  };
+}
+
+/** subscriptions row (from a select or RPC JSON) → Subscription. */
+export function toSubscription(row: SubscriptionRow): Subscription {
+  return {
+    id: row.id,
+    market: row.market_id as Market,
+    productId: row.product_id,
+    qty: row.qty,
+    everyMonths: row.every_months,
+    nextOn: row.next_on,
+    ...(row.address_id ? { addressId: row.address_id } : {}),
+    paymentMethod: row.payment_method as PaymentMethod,
+    status: row.status === 'cancelled' ? 'cancelled' : 'active',
+    ...(row.issue && row.issue_on ? { issue: { kind: row.issue as SubscriptionIssue, on: row.issue_on } } : {}),
+    ...(row.last_order_id ? { lastOrderId: row.last_order_id } : {}),
+    createdAt: row.created_at,
+    ...(row.cancelled_at ? { cancelledAt: row.cancelled_at } : {}),
   };
 }

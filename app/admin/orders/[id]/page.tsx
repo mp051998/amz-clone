@@ -154,11 +154,14 @@ export default async function AdminOrderPage({ params, searchParams }: {
             ))}
             <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">
               <div className="flex justify-between"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(order.totals.subtotalMinor)}</dd></div>
-              {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) ? (
-                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0))}</dd></div>
+              {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0))}</dd></div>
               ) : null}
               {order.totals.qtyDiscountMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(order.totals.qtyDiscountMinor)}</dd></div>
+              ) : null}
+              {order.totals.snsMinor ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Subscribe &amp; Save</dt><dd className="m-0 tabular-nums">−{money(order.totals.snsMinor)}</dd></div>
               ) : null}
               {order.totals.promoMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Promotion{order.promoCode ? ` (${order.promoCode})` : ''}</dt><dd className="m-0 tabular-nums">−{money(order.totals.promoMinor)}</dd></div>

@@ -14,7 +14,7 @@ import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTog
 import { LastPurchased } from '@/components/product/LastPurchased';
 import { ratingText, sellerRatings, type SellerRating } from '@/lib/data/seller-feedback';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
-import { byTimeText, dayLabel, orderWithinText, releaseDate } from '@/components/orders/format';
+import { byTimeText, dayLabel, longDate, orderWithinText, releaseDate } from '@/components/orders/format';
 import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
@@ -78,6 +78,9 @@ import { unitsLeft } from '@/lib/purchase-limits';
 import { asksFit, FIT_LABELS } from '@/lib/review-fit';
 import { listOffers } from '@/lib/data/offers';
 import { kindsLabel, offerSummary } from '@/lib/offers';
+import { SubscribeSave } from '@/components/product/SubscribeSave';
+import { subscriptionFor } from '@/lib/data/subscriptions';
+import { snsPriceMinor, storeDay } from '@/lib/subscribe-save';
 import { OtherSellers } from '@/components/product/Offers';
 import { offerItem } from '@/components/product/offerItems';
 
@@ -172,7 +175,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -199,6 +202,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     user ? offersP.then((o) => lastPurchase(client, user.id, [p.id, ...o.map((x) => x.id)])).catch((): LastPurchase | null => null) : Promise.resolve(null),
     p.archived ? Promise.resolve([]) : alsoBought(client, p).catch(() => []),
     offersP,
+    user && p.subscribeSave && !p.archived ? subscriptionFor(client, p.id) : Promise.resolve(null),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -470,6 +474,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   preOrder={release ? { release: releaseDate(new Date(release), store) } : undefined}
                 />
               )}
+              {p.subscribeSave && !p.archived && (p.stock > 0 || mySub) ? (
+                <SubscribeSave
+                  productId={p.id}
+                  priceText={money(snsPriceMinor(p.priceMinor))}
+                  listText={money(p.priceMinor)}
+                  maxQty={p.stock}
+                  setupHref={storePath(store, '/subscribe-save/new')}
+                  subscribed={mySub ? { qty: mySub.qty, everyMonths: mySub.everyMonths, nextText: longDate(storeDay(mySub.nextOn), store), manageHref: storePath(store, '/subscribe-save') } : undefined}
+                />
+              ) : null}
               {otherSellers.length && offerTotals ? (
                 <OtherSellers
                   name={p.title}
