@@ -321,7 +321,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-[18px] max-sm:basis-full">
               <div className="flex flex-col gap-2">
                 {p.brand ? (
-                  <a href={storePath(store, `/s?brand=${encodeURIComponent(p.brand)}`)} className="self-start text-[14px] text-ink-2 no-underline hover:text-accent-ink">{p.brand}</a>
+                  <a href={storePath(store, `/stores/${encodeURIComponent(p.brand)}`)} className="self-start text-[14px] text-ink-2 no-underline hover:text-accent-ink">Visit the {p.brand} Store</a>
                 ) : null}
                 <h1 className="m-0 text-[clamp(24px,3vw,32px)] font-semibold leading-[1.12] tracking-[-0.01em] text-pretty">{p.title}</h1>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
