@@ -191,6 +191,7 @@ export default async function OrderPage({
   const windows = returns ? returnWindows(returns, now) : null;
   const missingUntil = reportMissingUntil(order, returns, now);
   const reportedMissing = returns?.returns.some((r) => r.reason === 'not_received' && r.status !== 'cancelled') ?? false;
+  const missingItems = returns?.returns.some((r) => r.reason === 'missing_item') ?? false;
   // how an open return goes back can change until it reaches us; a courier collects from the
   // delivery address, which an order collected from a pickup point doesn't have
   const sending = new Set(returns?.returns.filter((r) => r.status === 'requested' && r.reason !== 'not_received').map((r) => r.id) ?? []);
@@ -303,6 +304,10 @@ export default async function OrderPage({
           <Alert tone="success">Your claim is withdrawn.</Alert>
         ) : returned === 'missing-replacement' && reportedMissing ? (
           <Alert tone="success">Sorry your order didn’t arrive. We’re sending it again at no charge, as shown below.</Alert>
+        ) : returned === 'missing-items' && missingItems ? (
+          <Alert tone="success">Sorry those items were missing. We’ve refunded them, as shown below.</Alert>
+        ) : returned === 'missing-items-replacement' && missingItems ? (
+          <Alert tone="success">Sorry those items were missing. We’re sending them again at no charge, as shown below.</Alert>
         ) : archived === '1' && order.archivedAt ? (
           <Alert tone="success">
             Order archived. It’s no longer in your order list; find it under{' '}
@@ -597,9 +602,14 @@ export default async function OrderPage({
                 </p>
               </div>
               {canStartReturn(returns, now) ? (
-                <a href={sp(`/orders/${encodeURIComponent(order.id)}/return`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>
-                  {Object.values(returns.replaceable).some((n) => n > 0) ? 'Return or replace items' : 'Return items'}
-                </a>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a href={sp(`/orders/${encodeURIComponent(order.id)}/missing`)} className={buttonClasses({ variant: 'link' })}>
+                    Item missing from package?
+                  </a>
+                  <a href={sp(`/orders/${encodeURIComponent(order.id)}/return`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>
+                    {Object.values(returns.replaceable).some((n) => n > 0) ? 'Return or replace items' : 'Return items'}
+                  </a>
+                </div>
               ) : null}
             </div>
             {returns.returns.map((r) => (

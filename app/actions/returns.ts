@@ -8,6 +8,7 @@ import { storePath } from '@/lib/marketplace';
 import { DataError } from '@/lib/data/errors';
 import { cancelReturn, chooseReturnMethod, isExchange, requestReturn } from '@/lib/data/returns';
 import { reportNotReceived } from '@/lib/data/not-received';
+import { reportMissingItems } from '@/lib/data/missing-items';
 import type { OrderReturn } from '@/lib/types';
 
 const ORDER_ID = /^\d{3}-\d{7}-\d{7}$/;
@@ -149,4 +150,41 @@ export async function reportMissing(orderId: string, resolution: string): Promis
   }
   revalidatePath('/', 'layout');
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : `return=${resolution === 'replacement' ? 'missing-replacement' : 'missing'}`}`));
+}
+
+/**
+ * The "Item missing from package" form (bound to the order id): one `qty:<productId>` field per
+ * item, the resolution (a refund, or the items sent again), where a refund goes (`refundTo`) and an
+ * optional comment. Back to the order on success, or to the form with the error.
+ */
+export async function reportItemsMissing(orderId: string, formData: FormData): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(`${page}/missing`)}`));
+  const items = [...formData.entries()]
+    .filter(([k]) => k.startsWith('qty:'))
+    .map(([k, v]) => ({ productId: k.slice(4), qty: Number(v) }))
+    .filter((it) => it.qty > 0);
+  let failure: DataError | null = null;
+  let reported: OrderReturn | null = null;
+  try {
+    reported = await reportMissingItems(await db(), orderId, {
+      items,
+      resolution: formData.get('resolution'),
+      refundTo: formData.get('refundTo'),
+      comment: formData.get('comment'),
+    });
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    failure = err;
+  }
+  if (failure) {
+    const qs = new URLSearchParams({ error: failure.code });
+    if (failure.detail) qs.set('field', failure.detail);
+    redirect(sp(`${page}/missing?${qs}`));
+  }
+  revalidatePath('/', 'layout');
+  redirect(sp(`${page}?placed=0&return=${reported?.resolution === 'replacement' ? 'missing-items-replacement' : 'missing-items'}`));
 }
