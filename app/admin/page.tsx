@@ -63,6 +63,7 @@ export default async function AdminHome() {
       tiles: [
         { label: 'Out of stock', count: o.stock.out, href: to('/admin/products?stock=out'), note: 'On sale with none left: shoppers can’t buy them.', tone: 'bad' },
         { label: 'Product reports', count: o.productReports, href: to('/admin/product-reports'), note: 'Shoppers say a listing is wrong, fake, unsafe or offensive.', tone: 'warn' },
+        { label: 'Lower prices', count: o.lowerPrices, href: to('/admin/product-reports/lower-prices'), note: 'Shoppers say they saw a product for less elsewhere.', tone: 'warn' },
         { label: 'Low stock', count: o.stock.low, href: to('/admin/products?stock=low'), note: `On sale with 1 to ${LOW_STOCK} left.`, tone: 'warn' },
       ],
     },

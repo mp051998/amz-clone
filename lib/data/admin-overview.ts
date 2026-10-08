@@ -7,6 +7,7 @@ import { listQuestionQueue } from './admin-questions';
 import { listAdminReturns } from './admin-returns';
 import { listReviewQueue } from './admin-reviews';
 import { listClaimQueue } from './atoz-claims';
+import { listPriceReportQueue } from './lower-price';
 import { listProductReportQueue } from './product-reports';
 import { listCaseQueue } from './support';
 
@@ -29,6 +30,8 @@ export interface AdminOverview {
   unansweredQuestions: number;
   /** open reports on the store's products */
   productReports: number;
+  /** lower prices shoppers told us about, not reviewed yet (not urgent, so not in attentionCount) */
+  lowerPrices: number;
   support: {
     waiting: number;
     /** when the longest-waiting case last changed (the shopper wrote), if any wait */
@@ -38,7 +41,7 @@ export interface AdminOverview {
 }
 
 export async function adminOverview(db: Db, market: Market): Promise<AdminOverview> {
-  const [orders, returns, claims, reviews, questions, reports, support, stock] = await Promise.all([
+  const [orders, returns, claims, reviews, questions, reports, support, stock, prices] = await Promise.all([
     listAdminOrders(db, market, { filter: 'preparing' }),
     listAdminReturns(db, market, { filter: 'open' }),
     listClaimQueue(db, market, { filter: 'open' }),
@@ -47,6 +50,7 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
     listProductReportQueue(db, market, { view: 'open' }),
     listCaseQueue(db, market, { view: 'waiting' }),
     countAdminStock(db, market),
+    listPriceReportQueue(db, market, { view: 'open' }),
   ]);
   return {
     orders: { toShip: orders.counts.preparing, inTransit: orders.counts.shipped, refundIssues: orders.counts.refund_issues },
@@ -55,6 +59,7 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
     reportedReviews: reviews.counts.reported,
     unansweredQuestions: questions.counts.unanswered,
     productReports: reports.counts.open,
+    lowerPrices: prices.counts.open,
     support: { waiting: support.counts.waiting, oldestWaiting: support.cases[0]?.updatedAt ?? null },
     stock,
   };

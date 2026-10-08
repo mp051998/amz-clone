@@ -806,6 +806,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"price_reports": {
+                  Row: {
+                    "city": string | null,"created_at": string,"id": string,"our_price_minor": number,"price_minor": number,"product_id": string,"reviewed_at": string | null,"reviewed_by": string | null,"seen_at": string,"seen_on": string | null,"shipping_minor": number,"status": string,"store_name": string | null,"updated_at": string,"url": string | null,"user_id": string | null
+                  }
+                  Insert: {
+                    "city"?: string | null,"created_at"?: string,"id"?: string,"our_price_minor": number,"price_minor": number,"product_id": string,"reviewed_at"?: string | null,"reviewed_by"?: string | null,"seen_at": string,"seen_on"?: string | null,"shipping_minor"?: number,"status"?: string,"store_name"?: string | null,"updated_at"?: string,"url"?: string | null,"user_id"?: string | null
+                  }
+                  Update: {
+                    "city"?: string | null,"created_at"?: string,"id"?: string,"our_price_minor"?: number,"price_minor"?: number,"product_id"?: string,"reviewed_at"?: string | null,"reviewed_by"?: string | null,"seen_at"?: string,"seen_on"?: string | null,"shipping_minor"?: number,"status"?: string,"store_name"?: string | null,"updated_at"?: string,"url"?: string | null,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "price_reports_product_id_fkey"
+      columns: ["product_id"]
+      isOneToOne: false
+      referencedRelation: "products"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"product_recalls": {
                   Row: {
                     "hazard": string,"issued_at": string,"issued_by": string | null,"product_id": string,"remedy": string,"updated_at": string
@@ -1318,6 +1337,12 @@ isOneToOne: false
 { Args: { "p_product_id": string }; Returns: {
               "average": number,"feature": string,"ratings": number
             }[]
+                           },
+"report_lower_price":
+{ Args: { "p_city"?: string,"p_price_minor": number,"p_product": string,"p_seen_at": string,"p_seen_on"?: string,"p_shipping_minor"?: number,"p_store"?: string,"p_url"?: string }; Returns: Json
+                           },
+"review_price_reports":
+{ Args: { "p_product": string }; Returns: number
                            },
 "resolve_product_report":
 { Args: { "p_note"?: string,"p_report": string,"p_status": string }; Returns: Json
