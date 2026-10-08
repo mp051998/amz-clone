@@ -22,6 +22,7 @@ import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { QuestionsPanel } from '@/components/product/QuestionsPanel';
 import { ReportIssue } from '@/components/product/ReportIssue';
+import { LowerPrice } from '@/components/product/LowerPrice';
 import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { FrequentlyReturned, UsuallyKept } from '@/components/product/FrequentlyReturned';
@@ -60,6 +61,7 @@ import { plusMembership } from '@/lib/data/plus';
 import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/data/questions';
+import { myOpenPriceReport } from '@/lib/data/lower-price';
 import { myOpenReport } from '@/lib/data/product-reports';
 import { getRecall, type Recall } from '@/lib/data/recalls';
 import { lastPurchase, type LastPurchase } from '@/lib/data/buy-again';
@@ -183,7 +185,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnDays] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnDays, myPrice] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p), features: featuresFor(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -214,6 +216,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve(new Map<string, LightningDeal>()) : lightningDealsFor(client, [p.id]),
     p.archived ? Promise.resolve([]) : listBankOffers(client, store.id),
     categoryReturnDays(client, store.id, p.category, store.returns.days),
+    user && !p.archived ? myOpenPriceReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -582,6 +585,21 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             <p className="m-0 whitespace-pre-line text-[15px] leading-relaxed text-ink-2 text-pretty">{info.description}</p>
           </section>
         ) : null}
+
+        {p.archived || p.offerOf ? null : (
+          <section id="lower-price" aria-label="Tell us about a lower price" className="flex max-w-[860px] flex-col gap-2 border-t border-line pt-4">
+            <LowerPrice
+              productId={p.id}
+              priceMinor={p.priceMinor}
+              currency={cur}
+              signedIn={Boolean(user)}
+              signinHref={storePath(store, `/signin?next=${encodeURIComponent(`${here}#lower-price`)}`)}
+              open={myPrice}
+              locale={store.locale.default}
+              timeZone={store.dates.timeZone}
+            />
+          </section>
+        )}
 
         {p.archived ? null : (
           <section id="report" aria-label="Report an issue" className="flex max-w-[860px] flex-col gap-2 border-t border-line pt-4">

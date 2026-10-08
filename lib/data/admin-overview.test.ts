@@ -41,6 +41,12 @@ vi.mock('./product-reports', () => ({
     return { reports: [], total: 9, counts: { open: 9, closed: 1, all: 10 } };
   },
 }));
+vi.mock('./lower-price', () => ({
+  listPriceReportQueue: async (_db: unknown, _market: unknown, opts: unknown) => {
+    calls.push(['prices', opts]);
+    return { products: [], counts: { open: 11, reviewed: 2 } };
+  },
+}));
 vi.mock('./support', () => ({
   listCaseQueue: async (_db: unknown, _market: unknown, opts: unknown) => {
     calls.push(['support', opts]);
@@ -72,6 +78,7 @@ describe('adminOverview', () => {
       reportedReviews: 3,
       unansweredQuestions: 5,
       productReports: 9,
+      lowerPrices: 11,
       support: { waiting: 2, oldestWaiting: '2026-10-01T09:00:00Z' },
       stock: { out: 6, low: 8 },
     });
@@ -84,6 +91,7 @@ describe('adminOverview', () => {
       reports: { view: 'open' },
       support: { view: 'waiting' },
       stock: 'IN',
+      prices: { view: 'open' },
     });
   });
 
@@ -102,6 +110,7 @@ describe('attentionCount', () => {
     reportedReviews: 0,
     unansweredQuestions: 0,
     productReports: 0,
+    lowerPrices: 0,
     support: { waiting: 0, oldestWaiting: null },
     stock: { out: 0, low: 0 },
   };
@@ -118,6 +127,7 @@ describe('attentionCount', () => {
       reportedReviews: 5,
       unansweredQuestions: 6,
       productReports: 8,
+      lowerPrices: 12,
       support: { waiting: 7, oldestWaiting: '2026-10-01T09:00:00Z' },
       stock: { out: 9, low: 9 },
     };

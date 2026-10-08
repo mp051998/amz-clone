@@ -65,6 +65,7 @@ export default async function AdminProductReportsPage({ searchParams }: { search
       store={store}
       path="/admin/product-reports"
       title="Product reports"
+      actions={<a href={to('/admin/product-reports/lower-prices')} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Lower prices</a>}
       lede={<>What shoppers say is wrong with a listing. Fix the listing and resolve the report, or dismiss it; shoppers aren’t told either way.</>}
     >
       <AdminTabs

@@ -27,6 +27,7 @@ const quiet = (): AdminOverview => ({
   reportedReviews: 0,
   unansweredQuestions: 0,
   productReports: 0,
+  lowerPrices: 0,
   support: { waiting: 0, oldestWaiting: null },
   stock: { out: 0, low: 0 },
 });
@@ -50,6 +51,7 @@ it('counts each queue and links to it in this store', async () => {
     reportedReviews: 3,
     unansweredQuestions: 0,
     productReports: 5,
+    lowerPrices: 7,
     support: { waiting: 2, oldestWaiting: '2026-10-01T09:00:00Z' },
     stock: { out: 6, low: 8 },
   } satisfies AdminOverview;
@@ -70,6 +72,7 @@ it('counts each queue and links to it in this store', async () => {
     ['Reported reviews', '3', '/in/admin/reviews'],
     ['Unanswered questions', '0', '/in/admin/questions'],
     ['Product reports', '5', '/in/admin/product-reports'],
+    ['Lower prices', '7', '/in/admin/product-reports/lower-prices'],
     ['Out of stock', '6', '/in/admin/products?stock=out'],
     ['Low stock', '8', '/in/admin/products?stock=low'],
   ];
