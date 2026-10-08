@@ -28,6 +28,8 @@ const DELIVERED = { h: 11, m: 30 };
 
 /** Fast delivery: ships 3 h after the order, then the evening run (out 17:00, delivered 19:30 local). */
 const FAST_SHIP_HOURS = 3;
+/** No-Rush Shipping ships this many days after standard would (orders_fill_schedule). */
+export const NO_RUSH_DAYS = 4;
 const FAST_OUT = { h: 17, m: 0 };
 const FAST_DELIVERED = { h: 19, m: 30 };
 
@@ -136,6 +138,11 @@ function plan(t0: number, timeZone: string, speed: ShipSpeed = 'standard', day?:
     const { shipped, outForDelivery, delivered } = deliveryDayAfter(t0, day, timeZone);
     return [shipped, outForDelivery, delivered];
   }
+  if (speed === 'no_rush') {
+    const shipped = t0 + (TRACKING_PLAN[2].afterHours + NO_RUSH_DAYS * 24) * HOUR;
+    const { outForDelivery, delivered } = deliveryAfter(shipped, timeZone);
+    return [shipped, outForDelivery, delivered];
+  }
   if (speed === 'fast') {
     const shipped = t0 + FAST_SHIP_HOURS * HOUR;
     const { outForDelivery, delivered } = fastDeliveryAfter(shipped, timeZone);
@@ -151,7 +158,8 @@ function plan(t0: number, timeZone: string, speed: ShipSpeed = 'standard', day?:
  * wouldn't beat standard delivery (so it isn't offered); matches `private.fast_delivery_offered`.
  * `fastBy` is the last moment an order still gets that fast delivery (the run's day, 17:00 less
  * the 3 h to ship and the 2 h before the van leaves: noon). `day` is when it would come on the
- * Delivery Day `deliveryDay` (ISO weekday), null without one. With `release` (ISO) still to come
+ * Delivery Day `deliveryDay` (ISO weekday), null without one. `noRush` is when No-Rush Shipping
+ * would bring it (null for a pre-order: it already waits). With `release` (ISO) still to come
  * — a pre-order — everything runs from the release instead, and fast delivery isn't offered.
  */
 export function deliveryOptions(
@@ -159,14 +167,15 @@ export function deliveryOptions(
   timeZone: string,
   deliveryDay?: number | null,
   release?: string | null,
-): { standard: string; fast: string | null; fastBy: string | null; day: string | null } {
+): { standard: string; fast: string | null; fastBy: string | null; day: string | null; noRush: string | null } {
   const from = Math.max(now.getTime(), release ? Date.parse(release) || 0 : 0);
   const standard = plan(from, timeZone)[2];
   const fast = plan(from, timeZone, 'fast')[2];
   const day = deliveryDay ? new Date(plan(from, timeZone, 'day', deliveryDay)[2]).toISOString() : null;
-  if (fast >= standard || from > now.getTime()) return { standard: new Date(standard).toISOString(), fast: null, fastBy: null, day };
+  const noRush = from > now.getTime() ? null : new Date(plan(from, timeZone, 'no_rush')[2]).toISOString();
+  if (fast >= standard || from > now.getTime()) return { standard: new Date(standard).toISOString(), fast: null, fastBy: null, day, noRush };
   const by = wallTime(localDay(fast, timeZone), FAST_OUT.h, FAST_OUT.m, timeZone) - (FAST_SHIP_HOURS + 2) * HOUR;
-  return { standard: new Date(standard).toISOString(), fast: new Date(fast).toISOString(), fastBy: new Date(by).toISOString(), day };
+  return { standard: new Date(standard).toISOString(), fast: new Date(fast).toISOString(), fastBy: new Date(by).toISOString(), day, noRush };
 }
 
 /** Schedule the database saves for an order placed at `placedAt` (ISO). */

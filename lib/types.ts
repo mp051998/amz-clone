@@ -271,7 +271,7 @@ export interface ShippingAddress {
 }
 
 /** Delivery speed chosen at checkout: standard, faster (paid), or on the Plus member's Delivery Day. */
-export type ShipSpeed = 'standard' | 'fast' | 'day';
+export type ShipSpeed = 'standard' | 'fast' | 'day' | 'no_rush';
 
 export interface Order {
   id: string;
@@ -303,6 +303,8 @@ export interface Order {
   shipSpeed?: ShipSpeed;
   /** a Delivery Day order: the weekday it arrives on (ISO, 1 = Monday) */
   deliveryDay?: number;
+  /** a No-Rush order: the reward it earns (to the gift card balance once it ships), and when it was credited */
+  noRushReward?: { amountMinor: number; creditedAt?: string };
   /**
    * a pickup order: the pickup point it goes to (its name and street are `shipTo.line1` and
    * `line2`) and the six-digit code to collect it with

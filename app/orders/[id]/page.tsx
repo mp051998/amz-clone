@@ -6,7 +6,7 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
-import { dayLabel, lcFirst, longDate, orderView, paidWithText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
+import { dayLabel, lcFirst, longDate, noRushText, orderView, paidWithText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions/returns';
 import { withdrawMyClaim } from '@/app/actions/claims';
@@ -118,6 +118,7 @@ export default async function OrderPage({
 
   const now = new Date();
   const money = (minor: number) => formatMoney(minor, order.currency);
+  const noRush = noRushText(order, now, money, store);
   const sp = (path: string) => storePath(store, path);
   const view = orderView(order, store, now);
   const countText = `${view.itemCount} ${view.itemCount === 1 ? 'item' : 'items'}`;
@@ -311,6 +312,7 @@ export default async function OrderPage({
             ...(order.releaseAt ? [{ label: 'Pre-order', value: `${Date.parse(order.releaseAt) > now.getTime() ? 'Releases' : 'Released'} ${releaseDate(new Date(order.releaseAt), store)}` }] : []),
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.shipSpeed === 'day' ? [{ label: 'Delivery', value: `Your Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` }] : []),
+            ...(noRush ? [{ label: 'Delivery', value: noRush }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
             ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),
             { label: 'Paid with', value: paidWithText(order) },

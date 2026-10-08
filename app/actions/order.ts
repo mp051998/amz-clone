@@ -6,14 +6,14 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
+import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
 import { deliveryReasons, leaveDeliveryFeedback, removeDeliveryFeedback } from '@/lib/data/delivery-feedback';
 import { buyNowQuery, readBuyNow } from '@/lib/buy-now';
 import { readPromoCode } from '@/lib/promo';
-import type { Order } from '@/lib/types';
+import type { Order, ShipSpeed } from '@/lib/types';
 
 /**
  * Checkout form → order. The database locks and reserves stock, prices every
@@ -58,7 +58,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       },
       pickupPoint: typeof formData.get('pickupPoint') === 'string' && formData.get('pickupPoint') ? String(formData.get('pickupPoint')) : undefined,
       gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage'), wrap: formData.get('giftWrap') === 'on' } : undefined,
-      speed: formData.get('shipSpeed') === 'fast' ? 'fast' : formData.get('shipSpeed') === 'day' ? 'day' : undefined,
+      speed: isShipSpeed(formData.get('shipSpeed')) ? (formData.get('shipSpeed') as ShipSpeed) : undefined,
       buyNow,
       emiMonths: method === 'emi' ? Number(formData.get('emiTenure')) || undefined : undefined,
       promoCode: promo,

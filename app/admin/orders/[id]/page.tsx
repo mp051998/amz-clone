@@ -208,7 +208,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
               ...(order.pickup ? [{ label: 'Pickup', value: <><span className="font-mono text-[13px]">{order.pickup.pointId}</span> · code <span className="font-mono">{order.pickup.code}</span></> }] : []),
               { label: 'Phone', value: s.phone },
               ...(s.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{s.instructions}</span> }] : []),
-              { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : order.shipSpeed === 'day' ? `Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` : 'Standard' },
+              { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : order.shipSpeed === 'day' ? `Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` : order.shipSpeed === 'no_rush' ? `No-Rush · ${order.noRushReward?.creditedAt ? 'reward credited' : 'reward when it ships'}` : 'Standard' },
               ...(order.gift ? [{ label: 'Gift note', value: order.gift.message ? <span className="whitespace-pre-line">{order.gift.message}</span> : 'Gift, no note' }] : []),
               ...(order.gift?.wrapped ? [{ label: 'Gift wrap', value: 'Wrap every item' }] : []),
               ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),

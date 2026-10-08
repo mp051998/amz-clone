@@ -40,3 +40,19 @@ it('offers the Delivery Day, with or without faster delivery', () => {
   fireEvent.click(screen.getByLabelText(/Standard delivery/));
   expect(form().get('shipSpeed')).toBe('standard');
 });
+
+it('offers No-Rush Shipping', () => {
+  const { container } = render(
+    <form>
+      <DeliverySpeed
+        standard={{ label: 'Standard delivery', sub: 'Arriving tomorrow, October 8 · FREE' }}
+        noRush={{ label: 'No-Rush Shipping', sub: 'Arriving Monday, October 12 · FREE · get a $1.00 reward on your gift card balance when it ships' }}
+      />
+    </form>,
+  );
+  const form = () => new FormData(container.querySelector('form')!);
+  expect(screen.getByText(/get a \$1\.00 reward/)).toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText(/No-Rush Shipping/));
+  expect(form().get('shipSpeed')).toBe('no_rush');
+  expect(container.querySelector('#ship-no-rush')).toBeChecked();
+});

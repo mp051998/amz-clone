@@ -60,6 +60,7 @@ function entryText(e: BalanceEntry, reloadText: string): string {
     case 'gift_card': return e.giftCardCode ? `Gift card ${e.giftCardCode}` : 'Gift card';
     case 'reload': return reloadText;
     case 'order': return e.orderId ? `Order ${e.orderId}` : 'Order';
+    case 'reward': return e.orderId ? `No-Rush reward for order ${e.orderId}` : 'No-Rush reward';
     default: return e.orderId ? `Refund for order ${e.orderId}` : 'Refund';
   }
 }
