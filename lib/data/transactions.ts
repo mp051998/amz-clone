@@ -74,7 +74,8 @@ function orderTransactions(o: Order, now: Date): Transaction[] {
     }
   } else if (o.refund?.status !== 'not_charged' && charged > 0) {
     // a card payment that arrived after the stock sold out was charged (and refunded) unplaced
-    out.push({ ...base, key: `order:${o.id}`, kind: 'charge', source: 'order', amountMinor: charged, at: o.placedAt ?? o.createdAt, status: 'completed' });
+    // a Pay on Delivery order paid online ahead of the delivery was charged then
+    out.push({ ...base, key: `order:${o.id}`, kind: 'charge', source: 'order', amountMinor: charged, at: o.prepaidAt ?? o.placedAt ?? o.createdAt, status: 'completed' });
   }
   for (const c of cancelled) {
     out.push(...splitRefund({

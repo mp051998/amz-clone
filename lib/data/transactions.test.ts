@@ -71,6 +71,13 @@ describe('buildTransactions', () => {
     expect(list[1].at).toBe('2026-09-23T15:00:00Z');
   });
 
+  it('charges a Pay on Delivery order paid ahead of the delivery when it was paid', () => {
+    const paid = order('P', '2026-10-03T09:00:00Z', { paymentMethod: 'upi', paymentLabel: 'UPI', prepaidAt: '2026-10-04T11:00:00Z', deliveredAt: '2026-10-08T15:00:00Z' });
+    const list = buildTransactions([paid], [], [], NOW);
+    expect(brief(list)).toEqual(['order:P charge 2500 completed']);
+    expect(list[0].at).toBe('2026-10-04T11:00:00Z');
+  });
+
   it('leaves out orders that were never charged', () => {
     const unpaid = order('U', '2026-10-01T09:00:00Z', { placedAt: undefined, status: 'cancelled', refund: { status: 'not_charged', amountMinor: 0 } });
     const free = order('F', '2026-10-01T09:00:00Z', { paymentMethod: 'giftcard', totals: { subtotalMinor: 0, shipMinor: 0, taxMinor: 0, totalMinor: 0 } });

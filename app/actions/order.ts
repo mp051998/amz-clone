@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
+import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, payCodOrder, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { isSplitMethod } from '@/lib/data/balance';
@@ -214,6 +214,27 @@ export async function changeOrderAddress(orderId: string, formData: FormData): P
   }
   revalidatePath(page);
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'address=changed'}`));
+}
+
+/**
+ * "Pay now" on a Pay on Delivery order (bound to the id): pay it online (UPI, net banking or the
+ * Amazon Pay balance) before it arrives. Back to the order, which confirms it or says why not.
+ */
+export async function payCodNow(orderId: string, formData: FormData): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let code: string | null = null;
+  try {
+    await payCodOrder(await db(), orderId, formData.get('method'), formData.get('bank'));
+  } catch (err) {
+    code = err instanceof DataError ? err.code : 'internal';
+    if (!(err instanceof DataError)) console.error('[orders] pay now failed', orderId, err);
+  }
+  revalidatePath('/', 'layout');
+  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}#pay-now` : 'paid=1'}`));
 }
 
 /** "Leave seller feedback" for one seller in a delivered order (or change it), or remove it. */

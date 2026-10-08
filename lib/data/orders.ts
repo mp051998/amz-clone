@@ -262,6 +262,30 @@ export async function setOrderAddress(db: Db, id: string, addressId: unknown): P
   return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
 }
 
+/** How a Pay on Delivery order can be paid before it arrives (amazon.in "Pay now"). */
+export const PAY_NOW_METHODS = ['upi', 'netbanking', 'amazonpay'] as const;
+export type PayNowMethod = (typeof PAY_NOW_METHODS)[number];
+
+export function isPayNowMethod(v: unknown): v is PayNowMethod {
+  return typeof v === 'string' && (PAY_NOW_METHODS as readonly string[]).includes(v);
+}
+
+/**
+ * Owner pays their Pay on Delivery order now (UPI, net banking with an optional bank, or the
+ * Amazon Pay balance), any time before it's delivered, for a contactless delivery. From then on
+ * it's an order paid that way: cancellations and returns refund it. `order_not_payable` when it
+ * isn't an open COD order (or has been delivered), `insufficient_balance` when the balance is short.
+ */
+export async function payCodOrder(db: Db, id: string, method: unknown, bank?: unknown): Promise<Order> {
+  if (!isPayNowMethod(method)) throw new DataError('invalid_input', 'method', 'Choose how to pay.');
+  const name = method === 'netbanking' ? readBank(bank) : undefined;
+  const json = unwrap(
+    await db.rpc('pay_my_cod_order', { p_order_id: id, p_method: method, ...(name ? { p_bank: name } : {}) }),
+  );
+  if (!json) throw new DataError('order_not_found');
+  return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
 /** Owner moves an order to (or back from) the "Archived" view of their order list. */
 export async function archiveOrder(db: Db, id: string, archived: boolean): Promise<Order> {
   const json = unwrap(await db.rpc('archive_my_order', { p_order_id: id, p_archived: archived }));
