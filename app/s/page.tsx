@@ -33,6 +33,7 @@ import { plusMembership } from '@/lib/data/plus';
 import { recordSearch, relatedSearches } from '@/lib/data/search-terms';
 import { couponPercents } from '@/lib/data/coupons';
 import { buyingChoices } from '@/lib/data/offers';
+import { isTopSeller, topSellers } from '@/lib/bestseller-rank';
 import { kindName, type OfferSummary } from '@/lib/offers';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { dayLabel } from '@/components/orders/format';
@@ -219,11 +220,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (k && total > 0 && !one(sp, 'page') && !one(sp, 'sort') && !one(sp, 'w') && !one(sp, 'preset') && !facetFilters && !facets.includeOutOfStock) {
     after(() => recordSearch(anonClient(), store.id, k));
   }
-  const [variants, coupons, choices] = await Promise.all([
+  const [variants, coupons, choices, tops] = await Promise.all([
     variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : []))),
     couponPercents(client, items.map((r) => r.product.id)),
     // "More Buying Choices" (none before the offers migration)
     buyingChoices(client, items.map((r) => r.product.id)).catch(() => new Map<string, OfferSummary>()),
+    // "#1 Best Seller in …": the bestsellers list's top product of each department on the page
+    topSellers(client, store.id, items.map((r) => r.product.category)).catch(() => new Map()),
   ]);
   const range = budgetRange(store.id, category);
   const cur = store.currency.code;
@@ -389,6 +392,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                         couponPct={coupons.get(r.product.id)}
                         choices={choices.get(r.product.id)}
                         condition={facets.condition}
+                        bestSeller={isTopSeller(r.product, tops)}
                       />
                     </div>
                   </li>

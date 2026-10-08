@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import type { Product } from '@/lib/types';
@@ -27,8 +27,8 @@ const base: Product = {
   curBase: 'USD',
 };
 
-function show(over: Partial<Product> = {}) {
-  render(<ResultCard ranked={{ product: { ...base, ...over }, insight: null, match: 90, why: [], warn: null }} store={amazon} saved={false} />);
+function show(over: Partial<Product> = {}, props: { bestSeller?: boolean } = {}) {
+  render(<ResultCard ranked={{ product: { ...base, ...over }, insight: null, match: 90, why: [], warn: null }} store={amazon} saved={false} {...props} />);
   return screen.getByRole('article');
 }
 
@@ -107,4 +107,19 @@ it('shows other sellers’ offers as More Buying Choices, linking to them', () =
   expect(screen.getByRole('link', { name: '$189.99 (3 used & new offers)' }).getAttribute('href')).toMatch(/\/product\/p1\/offers\?condition=used$/);
   cleanup();
   expect(show()).not.toHaveTextContent('More Buying Choices');
+});
+
+it("marks its department's #1 best seller, linking to that list", () => {
+  const card = show({ badge: 'Best Seller' }, { bestSeller: true });
+  expect(within(card).getByRole('link', { name: '#1 Best Seller in Headphones' })).toHaveAttribute('href', '/bestsellers?c=headphones');
+  // not twice
+  expect(within(card).getAllByText(/Best Seller/)).toHaveLength(1);
+  cleanup();
+
+  const other = show({ badge: 'Overall Pick' }, { bestSeller: true });
+  expect(other).toHaveTextContent('Overall Pick');
+  expect(within(other).getByRole('link', { name: '#1 Best Seller in Headphones' })).toBeInTheDocument();
+  cleanup();
+
+  expect(within(show()).queryByRole('link', { name: /#1 Best Seller/ })).toBeNull();
 });

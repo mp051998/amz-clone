@@ -47,6 +47,8 @@ export interface ResultCardProps {
   choices?: OfferSummary;
   /** the search's "Condition" filter: the offers link opens on it */
   condition?: OfferKind;
+  /** it's #1 on its department's bestsellers list ("#1 Best Seller in Headphones") */
+  bestSeller?: boolean;
 }
 
 export interface ResultDelivery {
@@ -67,7 +69,7 @@ export function deliveryLine(store: Store, priceMinor: number, stock: number, de
 }
 
 /** Ranked search result card (prototype Search screen; design.md §5 Why it's here). */
-export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct, choices, condition }: ResultCardProps) {
+export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct, choices, condition, bestSeller = false }: ResultCardProps) {
   const p = r.product;
   const cur = store.currency.code;
   const href = storePath(store, `/product/${p.id}`);
@@ -84,7 +86,19 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
         <ProductFrame src={p.image} alt="" priority={priority} />
       </a>
       <div className="flex flex-col gap-1">
-        {p.badge ? <Badge tone="dark" className="self-start">{p.badge}</Badge> : null}
+        {/* the list says it already; a hand-set "Best Seller" badge would only repeat it */}
+        {p.badge && !(bestSeller && /best ?seller/i.test(p.badge)) ? <Badge tone="dark" className="self-start">{p.badge}</Badge> : null}
+        {bestSeller ? (
+          <a
+            href={storePath(store, `/bestsellers?c=${encodeURIComponent(p.category)}`)}
+            className="inline-flex items-center gap-1.5 self-start text-[13px] text-ink-2 no-underline hover:text-ink"
+          >
+            <Badge tone="dark">#1 Best Seller</Badge>{' '}
+            <span>
+              in <span className="underline underline-offset-2">{p.categoryName}</span>
+            </span>
+          </a>
+        ) : null}
         <h3 className="m-0 text-[18px] font-semibold leading-tight">
           <a href={href} className="line-clamp-3 text-ink no-underline hover:underline">{p.title}</a>
         </h3>
