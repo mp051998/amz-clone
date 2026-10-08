@@ -220,6 +220,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"brand_follows": {
+                  Row: {
+                    "brand": string,"followed_at": string,"market_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "brand": string,"followed_at"?: string,"market_id": string,"user_id": string
+                  }
+                  Update: {
+                    "brand"?: string,"followed_at"?: string,"market_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"coupon_clips": {
                   Row: {
                     "clipped_at": string,"product_id": string,"user_id": string
@@ -1003,6 +1016,12 @@ isOneToOne: false
                            },
 "clip_coupon":
 { Args: { "p_product": string }; Returns: Json
+                           },
+"follow_brand":
+{ Args: { "p_market": string,"p_brand": string }; Returns: string
+                           },
+"unfollow_brand":
+{ Args: { "p_market": string,"p_brand": string }; Returns: boolean
                            },
 "attach_gift_card_session":
 { Args: { "p_purchase": string,"p_session_id": string }; Returns: undefined
