@@ -33,6 +33,11 @@ export function isPlusPlanId(v: unknown): v is PlusPlanId {
   return v === 'monthly' || v === 'quarterly' || v === 'annual';
 }
 
+/** "Annual plan", "3-month plan", "Monthly plan": the same in every store. */
+export function planLongName(id: PlusPlanId): string {
+  return id === 'annual' ? 'Annual plan' : id === 'quarterly' ? '3-month plan' : 'Monthly plan';
+}
+
 /** A store's plan by id (undefined when the store doesn't sell it). */
 export function plusPlan(market: Market, id: PlusPlanId): PlusPlan | undefined {
   return PLUS_PLANS[market].find((p) => p.id === id);

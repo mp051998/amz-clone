@@ -11,6 +11,7 @@ import { INBOX_DAYS, inboxSeenAt, isNewMessage, listInbox, markInboxSeen, type I
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { planLongName } from '@/lib/plus-plans';
 import { db } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Your messages · Store' };
@@ -35,6 +36,8 @@ const HEAD: Record<InboxKind, string> = {
   deal_live: 'A deal you’re watching is live',
   claim_granted: 'A-to-z Guarantee claim granted',
   claim_denied: 'A-to-z Guarantee claim denied',
+  plus_renewal: 'Your Plus membership renews soon',
+  plus_ending: 'Your Plus membership is ending',
 };
 
 /** "It overheats" → "It overheats."; a sentence that already ends stays as it is. */
@@ -43,7 +46,7 @@ function sentence(text: string): string {
 }
 
 /** One line under the heading saying what it means for the shopper. */
-function note(m: InboxMessage, money: (minor: number) => string, balance: string): string {
+function note(m: InboxMessage, money: (minor: number) => string, balance: string, date: (iso: string) => string): string {
   switch (m.kind) {
     case 'shipped':
       return 'Your order is on its way.';
@@ -85,6 +88,10 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
       return `We’ve stepped in for ${m.from ?? 'the seller'}: ${money(m.amountMinor ?? 0)} back to how you paid.${m.detail ? ` ${sentence(m.detail)}` : ''}`;
     case 'claim_denied':
       return `Your claim about ${m.from ?? 'the seller'}’s items wasn’t granted${m.detail ? `: ${sentence(m.detail)}` : '.'}`;
+    case 'plus_renewal':
+      return `It renews on the ${planLongName(m.plan ?? 'annual').toLowerCase()} on ${date(m.periodEnd ?? m.at)}. To switch plans or end it then, manage it before that day.`;
+    case 'plus_ending':
+      return `It ends on ${date(m.periodEnd ?? m.at)}, and FREE delivery with it. Keep your membership to carry on.`;
   }
 }
 
@@ -123,7 +130,7 @@ export default async function MessagesPage() {
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your messages</h1>
           <span className="text-[15px] text-ink-2">
-            Updates on your orders, returns, reviews, recalls, support cases, questions and the deals you’re watching in this store from the last {INBOX_DAYS} days.
+            Updates on your orders, returns, reviews, recalls, support cases, questions, the deals you’re watching and your Plus membership in this store from the last {INBOX_DAYS} days.
             {fresh ? ` ${fresh} new since you last looked.` : ''}
           </span>
           <a href={sp('/account/communications')} className="self-start text-[14px] text-ink underline underline-offset-2">
@@ -157,7 +164,7 @@ export default async function MessagesPage() {
                     {m.subject}
                   </a>
                   <span className="line-clamp-3 text-[14px] text-ink-2">
-                    {note(m, money, balance)}
+                    {note(m, money, balance, (iso) => day.format(new Date(iso)))}
                     {m.orderId ? <span className="text-ink-3"> · Order <span className="font-mono text-[13px]">{m.orderId}</span></span> : null}
                   </span>
                 </li>
