@@ -61,7 +61,7 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
     case 'replacement_delivered':
       return 'Your replacement arrived.';
     case 'support_reply':
-      return 'Read our reply and answer it on your case.';
+      return m.from ? `${m.from} replied to your message. Read it and answer on your case.` : 'Read our reply and answer it on your case.';
     case 'answer':
       return `${m.from ?? 'A shopper'} answered: “${m.detail ?? ''}”`;
     case 'review_request':
@@ -123,7 +123,7 @@ export default async function MessagesPage() {
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' ? 'text-bad' : ''}`}>
-                        {HEAD[m.kind]}
+                        {m.kind === 'support_reply' && m.from ? 'Seller replied' : HEAD[m.kind]}
                         {isNewMessage(m, seenAt) ? <span className="sr-only"> (new)</span> : null}
                       </span>
                       {isNewMessage(m, seenAt) ? <span aria-hidden><StatusChip label="New" tone="dark" /></span> : null}

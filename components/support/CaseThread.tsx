@@ -11,22 +11,31 @@ const STATUS: Record<SupportStatus, { customer: string; agent: string; tone: Chi
   closed: { customer: 'Closed', agent: 'Closed', tone: 'neutral' },
 };
 
-/** A case's status, worded for whoever is looking. */
-export function CaseStatus({ status, viewer }: { status: SupportStatus; viewer: Viewer }) {
-  return <StatusChip label={STATUS[status][viewer]} tone={STATUS[status].tone} />;
+/** A shopper's case with a seller: they're the one replying. */
+const SELLER_STATUS: Record<SupportStatus, string> = { open: 'Waiting for the seller', answered: 'Seller replied', closed: 'Closed' };
+
+/** A case's status, worded for whoever is looking (and, for its shopper, who answers it). */
+export function CaseStatus({ status, viewer, seller }: { status: SupportStatus; viewer: Viewer; seller?: string }) {
+  const label = seller && viewer === 'customer' ? SELLER_STATUS[status] : STATUS[status][viewer];
+  return <StatusChip label={label} tone={STATUS[status].tone} />;
 }
 
 /**
  * A support case's messages, oldest first. The viewer's own messages say "You"; the other side is
- * the store ("Store support") for a shopper, or the shopper's name for an admin.
+ * the store ("Store support", or the seller on a case with one) for a shopper, or the shopper's
+ * name for an admin, whose replies on a seller's case go out as the seller.
  */
-export function CaseThread({ messages, viewer, customer, time }: {
+export function CaseThread({ messages, viewer, customer, seller, time }: {
   messages: SupportMessage[];
   viewer: Viewer;
   customer: string;
+  seller?: string;
   time: (iso: string) => string;
 }) {
-  const who = (m: SupportMessage) => (m.from === viewer ? 'You' : m.from === 'agent' ? 'Store support' : customer || 'Customer');
+  const who = (m: SupportMessage) => {
+    if (m.from === viewer) return viewer === 'agent' && seller ? `You, as ${seller}` : 'You';
+    return m.from === 'agent' ? seller ?? 'Store support' : customer || 'Customer';
+  };
   return (
     <ol aria-label="Messages" className="m-0 flex list-none flex-col gap-3 p-0">
       {messages.map((m) => (

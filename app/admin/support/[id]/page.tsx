@@ -37,7 +37,10 @@ export default async function AdminSupportCasePage({ params, searchParams }: { p
       lede={
         <span className="flex flex-wrap items-center gap-2">
           <CaseStatus status={thread.status} viewer="agent" />
-          <span>{thread.customer || 'Customer'} · {TOPIC_LABELS[thread.topic]} · Opened {adminTime(thread.createdAt, store)}</span>
+          <span>
+            {thread.customer || 'Customer'} · {TOPIC_LABELS[thread.topic]}
+            {thread.seller ? <> · For seller <span className="font-semibold text-ink">{thread.seller}</span></> : null} · Opened {adminTime(thread.createdAt, store)}
+          </span>
           {thread.orderId ? (
             <a href={to(`/admin/orders/${encodeURIComponent(thread.orderId)}`)} className="text-ink underline underline-offset-2">
               Order <span className="font-mono">{thread.orderId}</span>
@@ -51,13 +54,13 @@ export default async function AdminSupportCasePage({ params, searchParams }: { p
       {error ? <Alert tone="error">{ERROR[error] ?? messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert> : null}
 
       <div className="flex max-w-[760px] flex-col gap-5">
-        <CaseThread messages={thread.messages} viewer="agent" customer={thread.customer} time={(iso) => adminTime(iso, store)} />
+        <CaseThread messages={thread.messages} viewer="agent" customer={thread.customer} seller={thread.seller} time={(iso) => adminTime(iso, store)} />
         {closed ? (
           <p className="m-0 text-[15px] text-ink-2">Closed{thread.closedAt ? ` ${adminTime(thread.closedAt, store)}` : ''}. Nobody can reply on it now.</p>
         ) : (
           <>
             <form action={replyAsStoreAction.bind(null, thread.id)} className="flex flex-col gap-2">
-              <label htmlFor="cs-reply" className="text-[14px] font-semibold">Reply as the store</label>
+              <label htmlFor="cs-reply" className="text-[14px] font-semibold">{thread.seller ? `Reply as ${thread.seller}` : 'Reply as the store'}</label>
               <textarea id="cs-reply" name="body" required minLength={2} maxLength={MESSAGE_MAX} rows={5} className={`${fieldClass} h-auto py-2.5 leading-normal`} />
               <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} self-start`}>Send reply</button>
             </form>

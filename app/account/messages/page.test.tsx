@@ -88,6 +88,15 @@ it('groups messages by day, each saying what happened and linking to it', async 
   expect(before[1]).toHaveTextContent('Ravi answered: “No, it clicks off.”');
 });
 
+it('says when it was a seller who replied', async () => {
+  state.list = [msg({ key: 'support_reply:m3', kind: 'support_reply', at: '2026-10-06T06:00:00Z', subject: 'Missing lid', href: '/customer-service/cases/c2', from: 'Acme Goods', orderId: undefined })];
+  render(await MessagesPage());
+  const [row] = screen.getAllByRole('listitem');
+  expect(within(row).getByText('Seller replied')).toBeInTheDocument();
+  expect(row).toHaveTextContent('Acme Goods replied to your message. Read it and answer on your case.');
+  expect(within(row).queryByText('Customer service replied')).toBeNull();
+});
+
 it('says which items were cancelled and what came back for them', async () => {
   state.list = [
     msg({ key: 'items_refunded:c1', kind: 'items_refunded', at: '2026-10-06T06:05:00Z', subject: 'Mug and 1 more', amountMinor: 5400 }),

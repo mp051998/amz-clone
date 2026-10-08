@@ -13,6 +13,8 @@ const state = vi.hoisted(() => ({
   getCase: [] as unknown[][],
   unread: [] as string[],
   seen: [] as string[],
+  sellers: [] as string[],
+  caseOrders: [] as unknown[][],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -31,7 +33,11 @@ vi.mock('@/lib/auth', () => ({ readUser: async () => state.user }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/support', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/data/support')>()),
-  listCaseOrders: async () => state.orders,
+  listCaseOrders: async (...args: unknown[]) => {
+    state.caseOrders.push(args.slice(1));
+    return state.orders;
+  },
+  isStoreSeller: async (_db: unknown, _market: string, seller: string) => state.sellers.includes(seller),
   listMyCases: async () => state.cases,
   getCase: async (...args: unknown[]) => {
     state.getCase.push(args.slice(1));
@@ -74,7 +80,7 @@ const thread = (over: Partial<SupportThread> = {}): SupportThread => ({
 
 const order = (over: Partial<CaseOrder> = {}): CaseOrder => ({ id: 'ORD-1', placedAt: '2026-10-01T12:00:00Z', summary: 'Desk Lamp and 1 more', ...over });
 
-const contact = async (sp: { order?: string; topic?: string; error?: string } = {}) => render(await ContactPage({ searchParams: Promise.resolve(sp) }));
+const contact = async (sp: { order?: string; topic?: string; seller?: string; error?: string } = {}) => render(await ContactPage({ searchParams: Promise.resolve(sp) }));
 const caseView = async (sp: { done?: string; error?: string } = {}, id = ID) =>
   render(await SupportCasePage({ params: Promise.resolve({ id }), searchParams: Promise.resolve(sp) }));
 
@@ -88,6 +94,8 @@ beforeEach(() => {
   state.getCase = [];
   state.unread = [];
   state.seen = [];
+  state.sellers = [];
+  state.caseOrders = [];
 });
 
 it('sends the signed-out to sign in, keeping the order they asked about', async () => {
@@ -178,6 +186,48 @@ it('lets a closed case be read but not replied to', async () => {
   expect(screen.queryByRole('button', { name: 'Close case' })).not.toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Contact us again' })).toHaveAttribute('href', '/customer-service/contact?order=ORD-1');
   expect(screen.getByText('This case is closed. Contact us again to open a new one.')).toBeInTheDocument();
+});
+
+it('contacts a seller: their orders only, the seller kept on the form, and a clear error for a mismatched order', async () => {
+  state.sellers = ['Acme Goods'];
+  state.orders = [order({ summary: 'Kettle' })];
+  await contact({ seller: 'Acme Goods', order: 'ORD-1' });
+  expect(screen.getByRole('heading', { name: 'Contact Acme Goods' })).toBeInTheDocument();
+  expect(state.caseOrders).toEqual([['US', 'u1', 20, 'Acme Goods']]);
+  expect((screen.getByRole('combobox', { name: /Order/ }) as HTMLSelectElement).value).toBe('ORD-1');
+  expect(document.querySelector('input[type="hidden"][name="seller"]')).toHaveAttribute('value', 'Acme Goods');
+  cleanup();
+
+  await contact({ seller: 'Acme Goods', error: 'seller_order' });
+  expect(screen.getByRole('alert')).toHaveTextContent('That order has nothing from this seller in it.');
+});
+
+it('sends an unknown seller’s question to the store instead, and says so', async () => {
+  await contact({ seller: 'Nobody Sells Here' });
+  expect(screen.getByRole('heading', { name: 'Contact us' })).toBeInTheDocument();
+  expect(screen.getByText(/That seller isn’t selling in this store/)).toBeInTheDocument();
+  expect(document.querySelector('input[name="seller"]')).toBeNull();
+  expect(state.caseOrders).toEqual([['US', 'u1', 20, undefined]]);
+});
+
+it('shows a seller’s case as with the seller, in the list and the thread', async () => {
+  state.cases = [supportCase({ seller: 'Acme Goods', status: 'answered' })];
+  render(await SupportCasesPage());
+  expect(screen.getByText('Seller replied')).toBeInTheDocument();
+  expect(screen.getByText(/With Acme Goods/)).toBeInTheDocument();
+  cleanup();
+
+  state.thread = thread({ seller: 'Acme Goods', status: 'answered' });
+  await caseView({ done: 'opened' });
+  expect(screen.getByText('Message sent to Acme Goods. They’ll reply here, and you can add to it any time.')).toBeInTheDocument();
+  expect(screen.getByText(/With seller/)).toHaveTextContent('With seller Acme Goods');
+  const messages = within(screen.getByRole('list', { name: 'Messages' })).getAllByRole('listitem');
+  expect(messages.map((m) => m.getAttribute('aria-label')?.split(',')[0])).toEqual(['You', 'Acme Goods']);
+  cleanup();
+
+  state.thread = thread({ seller: 'Acme Goods', status: 'closed', closedAt: '2026-10-04T12:00:00Z', orderId: 'ORD-1' });
+  await caseView();
+  expect(screen.getByRole('link', { name: 'Contact the seller again' })).toHaveAttribute('href', '/customer-service/contact?seller=Acme+Goods&order=ORD-1');
 });
 
 it('is not found for someone else’s case', async () => {

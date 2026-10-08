@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell';
 import { Page, PageHead, Section, cardGrid } from '@/components/brand/Page';
 import { RankCard } from '@/components/bestsellers/RankCard';
 import { viewerSavedIds } from '@/components/deals/viewerSaved';
+import { buttonClasses } from '@/components/primitives/Button';
 import { SellerRatings } from '@/components/seller/SellerRatings';
 import { listProducts } from '@/lib/data/catalog';
 import { sellerProfile } from '@/lib/data/seller-feedback';
@@ -36,7 +37,15 @@ export default async function SellerPage({ searchParams }: { searchParams: Searc
   return (
     <AppShell>
       <Page>
-        <PageHead kicker="Seller" title={seller}>
+        <PageHead
+          kicker="Seller"
+          title={seller}
+          actions={
+            <a href={storePath(store, `/customer-service/contact?${new URLSearchParams({ seller })}`)} className={buttonClasses({ variant: 'secondary' })}>
+              Contact seller
+            </a>
+          }
+        >
           Ratings come from shoppers who bought from {seller} in this store, once their order arrived.
         </PageHead>
         <Section>

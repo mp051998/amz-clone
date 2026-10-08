@@ -57,7 +57,7 @@ export interface InboxMessage {
   toBalance?: true;
   /** why a return wasn't accepted, or the answer's text */
   detail?: string;
-  /** answers: who wrote it */
+  /** answers: who wrote it; support replies: the seller, on a case with one */
   from?: string;
 }
 
@@ -80,12 +80,13 @@ export interface InboxReturn {
   toBalance?: true;
 }
 
-/** One of the store's replies on the shopper's support case. */
+/** One of the store's replies on the shopper's support case (or a seller's, on a case with one). */
 export interface InboxReply {
   id: string;
   caseId: string;
   subject: string;
   at: string;
+  seller?: string;
 }
 
 /** Someone else's answer to the shopper's question. */
@@ -185,6 +186,7 @@ export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone =
       at: m.at,
       subject: m.subject,
       href: `/customer-service/cases/${encodeURIComponent(m.caseId)}`,
+      ...(m.seller ? { from: m.seller } : {}),
     })),
     ...(src.toReview ?? []).map((r): InboxMessage => ({
       key: `review_request:${r.product.id}`,
@@ -265,13 +267,13 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
   }));
 }
 
-type ReplyRow = { id: string; case_id: string; created_at: string; support_cases: { subject: string } };
+type ReplyRow = { id: string; case_id: string; created_at: string; support_cases: { subject: string; seller: string | null } };
 
 async function inboxReplies(db: Db, market: Market, userId: string, since: string): Promise<InboxReply[]> {
   const rows = unwrap(
     await db
       .from('support_messages')
-      .select('id, case_id, created_at, support_cases!inner(subject, market_id, user_id)')
+      .select('id, case_id, created_at, support_cases!inner(subject, seller, market_id, user_id)')
       .eq('author', 'agent')
       .eq('support_cases.market_id', market)
       .eq('support_cases.user_id', userId)
@@ -279,7 +281,13 @@ async function inboxReplies(db: Db, market: Market, userId: string, since: strin
       .order('created_at', { ascending: false })
       .limit(INBOX_LIMIT),
   ) as unknown as ReplyRow[];
-  return rows.map((r) => ({ id: r.id, caseId: r.case_id, subject: r.support_cases.subject, at: r.created_at }));
+  return rows.map((r) => ({
+    id: r.id,
+    caseId: r.case_id,
+    subject: r.support_cases.subject,
+    at: r.created_at,
+    ...(r.support_cases.seller ? { seller: r.support_cases.seller } : {}),
+  }));
 }
 
 async function inboxAnswers(db: Db, market: Market, userId: string, since: string): Promise<InboxAnswer[]> {

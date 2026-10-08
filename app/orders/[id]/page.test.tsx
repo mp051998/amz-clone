@@ -394,6 +394,14 @@ const rated = {
   createdAt: daysAgo(1), updatedAt: daysAgo(1),
 };
 
+it('lets the shopper contact the seller of each item about this order', async () => {
+  const placed = order({ items: twoSellers });
+  state.order = placed;
+  await show();
+  expect(screen.getByRole('link', { name: 'Contact Kettle Co about Kettle' })).toHaveAttribute('href', `/customer-service/contact?seller=Kettle+Co&order=${placed.id}`);
+  expect(screen.getByRole('link', { name: 'Contact Mugs Inc about Mug lid' })).toHaveAttribute('href', `/customer-service/contact?seller=Mugs+Inc&order=${placed.id}`);
+});
+
 it('once delivered, asks for feedback on each seller in the order', async () => {
   state.order = order({ deliveredAt: daysAgo(2), items: twoSellers });
   await show();
