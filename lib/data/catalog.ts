@@ -125,6 +125,8 @@ export interface ListOptions {
   category?: string;
   /** only this seller's products */
   seller?: string;
+  /** only this brand's products */
+  brand?: string;
   dealsOnly?: boolean;
   order?: ListOrder;
   limit?: number;
@@ -137,6 +139,7 @@ export async function listProducts(db: Db, market: Market, opts: ListOptions = {
   let q = db.from('catalog_products').select('*').eq('market_id', market);
   if (opts.category) q = q.eq('category_slug', opts.category);
   if (opts.seller) q = q.eq('seller', opts.seller);
+  if (opts.brand) q = q.eq('brand', opts.brand);
   if (opts.dealsOnly) q = q.eq('deal', true).not('deal_pct', 'is', null);
   if (opts.excludeId) q = q.neq('id', opts.excludeId);
   switch (opts.order ?? 'position') {
