@@ -376,7 +376,7 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
               {isIN ? 'Shop the festival sales before everyone else' : 'Get first access to our biggest sale days'}
             </h2>
             <p className="m-0 text-[14px] leading-relaxed text-on-ink/80">
-              Early access plus member-only prices all year. Deals still show their real list price, so you can judge the saving yourself.
+              Lightning Deals open to members half an hour early, plus member-only prices all year. Deals still show their real list price, so you can judge the saving yourself.
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">

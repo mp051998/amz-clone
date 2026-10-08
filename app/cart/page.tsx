@@ -242,11 +242,17 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                             compact
                           />
                         ) : null}
-                        {l.available && p.memberPct ? (
+                        {l.available && l.earlyAccessMinor ? (
+                          <span className="flex flex-wrap items-center gap-1.5 text-[13px]">
+                            <MemberDealTag label={`${store.membership.name} early access`} />
+                            <span className="font-semibold text-good-strong">You save {money(l.earlyAccessMinor)} with the Lightning Deal price, before it starts</span>
+                          </span>
+                        ) : null}
+                        {l.available && p.memberPct && !(l.memberMinor && l.memberMinor <= (l.earlyAccessMinor ?? 0)) ? (
                           <span className="flex flex-wrap items-center gap-1.5 text-[13px]">
                             <MemberDealTag label={memberDealLabel(store.membership.name)} />
                             {l.memberMinor ? (
-                              <span className="font-semibold text-good-strong">You save {money(l.memberMinor)} as a {store.membership.name} member</span>
+                              <span className="font-semibold text-good-strong">You save {money(l.memberMinor - (l.earlyAccessMinor ?? 0))} as a {store.membership.name} member</span>
                             ) : (
                               <span className="text-ink-2">
                                 {store.membership.name} members save {money(memberUnitOff(p.memberPct, p.priceMinor) * l.qty)}.{' '}

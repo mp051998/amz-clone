@@ -3,6 +3,7 @@ import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
 import { isDropoffSpot } from '../dropoff';
 import { isExchangeCondition } from '../exchange';
+import { earlyAccessAt } from '../lightning';
 import { isUsedCondition } from '../offers';
 import { isUnitKind } from '../unit-price';
 import type { Address, CancelReason, Cart, LightningDeal, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus, Subscription, SubscriptionIssue } from '../types';
@@ -86,6 +87,7 @@ interface CartJson {
     added_price_minor?: number | null;
     promo_minor?: number;
     member_minor?: number;
+    early_access_minor?: number;
     qty_discount_minor?: number;
     size?: string | null;
     needs_size?: boolean;
@@ -123,6 +125,8 @@ export function toCart(json: unknown): Cart {
       ...(l.promo_minor ? { promoMinor: l.promo_minor } : {}),
       // absent before the Plus exclusive deals migration, and for anyone but a member
       ...(l.member_minor ? { memberMinor: l.member_minor } : {}),
+      // absent before the Lightning Deal early access migration, and outside it
+      ...(l.early_access_minor ? { earlyAccessMinor: l.early_access_minor } : {}),
       // absent before the quantity discounts migration
       ...(l.qty_discount_minor ? { qtyDiscountMinor: l.qty_discount_minor } : {}),
       // absent before the sizes migration
@@ -388,6 +392,7 @@ export function toLightningDeal(row: LightningDealRow): LightningDeal | null {
     claimed: row.claimed,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
+    earlyAccessAt: earlyAccessAt(row.starts_at),
     state,
   };
 }

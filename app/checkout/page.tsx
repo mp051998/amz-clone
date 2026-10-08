@@ -419,8 +419,11 @@ export default async function CheckoutPage({
                     {l.product.maxPerCustomer ? (
                       <span className={`block text-[13px]${overLimit.includes(l) ? ' font-semibold text-warn' : ' text-ink-3'}`}>{limitNote(l.product.maxPerCustomer, leftOf(l))}</span>
                     ) : null}
-                    {l.memberMinor ? (
-                      <span className="block text-[13px] font-semibold text-good-strong">{l.product.memberPct}% {store.membership.name} exclusive deal · −{money(l.memberMinor)}</span>
+                    {l.earlyAccessMinor ? (
+                      <span className="block text-[13px] font-semibold text-good-strong">{store.membership.name} early access to a Lightning Deal · −{money(l.earlyAccessMinor)}</span>
+                    ) : null}
+                    {(l.memberMinor ?? 0) > (l.earlyAccessMinor ?? 0) ? (
+                      <span className="block text-[13px] font-semibold text-good-strong">{l.product.memberPct}% {store.membership.name} exclusive deal · −{money((l.memberMinor ?? 0) - (l.earlyAccessMinor ?? 0))}</span>
                     ) : null}
                     {l.discountMinor && l.discountMinor > (l.promoMinor ?? 0) + (l.memberMinor ?? 0) + (l.qtyDiscountMinor ?? 0) ? (
                       <span className="block text-[13px] font-semibold text-good-strong">{l.coupon?.percentOff}% coupon applied · −{money(l.discountMinor - (l.promoMinor ?? 0) - (l.memberMinor ?? 0) - (l.qtyDiscountMinor ?? 0))}</span>

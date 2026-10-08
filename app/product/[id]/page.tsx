@@ -102,6 +102,7 @@ import { subscriptionFor } from '@/lib/data/subscriptions';
 import { snsPriceMinor, storeDay } from '@/lib/subscribe-save';
 import { OtherSellers } from '@/components/product/Offers';
 import { LightningDealInfo } from '@/components/deals/LightningDeal';
+import { inEarlyAccess } from '@/lib/lightning';
 import { WatchDeal } from '@/components/deals/WatchDeal';
 import { watchedDeals } from '@/lib/data/deal-watches';
 import { lightningDealsFor } from '@/lib/data/lightning-deals';
@@ -472,8 +473,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   ) : null}
                   {deal ? (
                     <>
-                      <LightningDealInfo deal={deal} money={(minor) => money(minor)} />
-                      {deal.state === 'upcoming' ? <WatchDeal dealId={deal.id} watching={watchingDeal} name={p.title} market={store.id} className="mt-1.5 max-w-[240px] flex-none self-start" /> : null}
+                      <LightningDealInfo deal={deal} money={(minor) => money(minor)} early={{ membership: store.membership.name, member: plus != null, joinHref: storePath(store, '/prime') }} />
+                      {/* a member in its early access buys it now, at the deal price */}
+                      {deal.state === 'upcoming' && !(plus && inEarlyAccess(deal)) ? <WatchDeal dealId={deal.id} watching={watchingDeal} name={p.title} market={store.id} className="mt-1.5 max-w-[240px] flex-none self-start" /> : null}
                     </>
                   ) : p.deal ? (
                     <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span>
