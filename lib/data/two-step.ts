@@ -43,6 +43,12 @@ function failed(step: string, r: { status: number; message: string }): never {
   throw new DataError('two_step_unavailable', step, r.message || undefined);
 }
 
+/** The QR code as an image URL: Supabase Auth sends an SVG data URI, or (some versions) the SVG itself. */
+export function qrImage(qr: string): string {
+  const svg = qr.trim();
+  return svg.startsWith('<') ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : svg;
+}
+
 /** The caller as Supabase Auth sees them, factors included. */
 async function authUser(token: string): Promise<{ id: string } & FactorHolder> {
   const r = await auth<{ id: string } & FactorHolder>(token, '/user');
@@ -68,7 +74,7 @@ export async function enrollTwoStep(token: string): Promise<TwoStepSetup> {
   }
   const r = await auth<{ id: string; totp: { qr_code: string; secret: string; uri: string } }>(token, '/factors', { method: 'POST', body: { factor_type: 'totp' } });
   if (!r.data) failed('enroll', r);
-  return { factorId: r.data.id, qrCode: r.data.totp.qr_code, secret: r.data.totp.secret, uri: r.data.totp.uri };
+  return { factorId: r.data.id, qrCode: qrImage(r.data.totp.qr_code), secret: r.data.totp.secret, uri: r.data.totp.uri };
 }
 
 /**

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/config', () => ({ SUPABASE_URL: 'https://sb.test', SUPABASE_ANON_KEY: 'anon-key', assertSupabaseEnv: () => {} }));
 
-import { confirmTwoStep, enrollTwoStep, turnOffTwoStep, twoStepOn, verifySecondStep } from './two-step';
+import { confirmTwoStep, enrollTwoStep, qrImage, turnOffTwoStep, twoStepOn, verifySecondStep } from './two-step';
 
 type Reply = { status?: number; body?: unknown };
 interface Call {
@@ -75,6 +75,15 @@ describe('enrollTwoStep', () => {
     replies['GET /user'] = { body: { id: 'u1', factors: [] } };
     replies['POST /factors'] = { status: 422, body: { msg: 'MFA enroll is disabled for TOTP' } };
     await expect(enrollTwoStep('tok')).rejects.toMatchObject({ code: 'two_step_unavailable' });
+  });
+});
+
+describe('qrImage', () => {
+  it('keeps a data URI and turns bare SVG into one', () => {
+    expect(qrImage('data:image/svg+xml;utf-8,<svg/>')).toBe('data:image/svg+xml;utf-8,<svg/>');
+    const uri = qrImage('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1"/></svg>\n');
+    expect(uri).toMatch(/^data:image\/svg\+xml;charset=utf-8,%3C%3Fxml/);
+    expect(decodeURIComponent(uri.split(',')[1])).toBe('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1"/></svg>');
   });
 });
 
