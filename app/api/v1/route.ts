@@ -103,6 +103,7 @@ export function GET(): Response {
       'POST   /reviews/:id/report',
       'GET    /products/:id/questions?q=&limit=&offset=',
       'POST   /products/:id/questions',
+      'POST   /products/:id/ask',
       'POST   /products/:id/report',
       'POST   /products/:id/lower-price',
       'DELETE /questions/:id',
