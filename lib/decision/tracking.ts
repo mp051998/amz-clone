@@ -32,7 +32,7 @@ const FAST_OUT = { h: 17, m: 0 };
 const FAST_DELIVERED = { h: 19, m: 30 };
 
 type OrderLike = Pick<Order, 'status' | 'createdAt'> &
-  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'shipSpeed' | 'deliveryDay' | 'pickup'>>;
+  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'shipSpeed' | 'deliveryDay' | 'pickup' | 'releaseAt'>>;
 
 /** The steps' labels: a pickup order's last one is "Ready for pickup" rather than "Delivered". */
 function labelsFor(order: OrderLike): string[] {
@@ -60,6 +60,18 @@ function localDay(t: number, timeZone: string): Ymd {
 function wallTime([y, mo, d]: Ymd, h: number, m: number, timeZone: string): number {
   const wall = Date.UTC(y, mo, d, h, m);
   return wall - zoneOffset(wall - zoneOffset(wall, timeZone), timeZone);
+}
+
+/** Local midnight (ISO) starting the day `ymd` ("2026-11-20") in the time zone. */
+export function localDayStart(ymd: string, timeZone: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(wallTime([y, m - 1, d], 0, 0, timeZone)).toISOString();
+}
+
+/** The local day ("2026-11-20") an instant (ISO) falls on in the time zone. */
+export function localDayOf(iso: string, timeZone: string): string {
+  const [y, m, d] = localDay(Date.parse(iso), timeZone);
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 /**
@@ -130,17 +142,20 @@ function plan(t0: number, timeZone: string, speed: ShipSpeed = 'standard', day?:
  * wouldn't beat standard delivery (so it isn't offered); matches `private.fast_delivery_offered`.
  * `fastBy` is the last moment an order still gets that fast delivery (the run's day, 17:00 less
  * the 3 h to ship and the 2 h before the van leaves: noon). `day` is when it would come on the
- * Delivery Day `deliveryDay` (ISO weekday), null without one.
+ * Delivery Day `deliveryDay` (ISO weekday), null without one. With `release` (ISO) still to come
+ * — a pre-order — everything runs from the release instead, and fast delivery isn't offered.
  */
 export function deliveryOptions(
   now: Date,
   timeZone: string,
   deliveryDay?: number | null,
+  release?: string | null,
 ): { standard: string; fast: string | null; fastBy: string | null; day: string | null } {
-  const standard = plan(now.getTime(), timeZone)[2];
-  const fast = plan(now.getTime(), timeZone, 'fast')[2];
-  const day = deliveryDay ? new Date(plan(now.getTime(), timeZone, 'day', deliveryDay)[2]).toISOString() : null;
-  if (fast >= standard) return { standard: new Date(standard).toISOString(), fast: null, fastBy: null, day };
+  const from = Math.max(now.getTime(), release ? Date.parse(release) || 0 : 0);
+  const standard = plan(from, timeZone)[2];
+  const fast = plan(from, timeZone, 'fast')[2];
+  const day = deliveryDay ? new Date(plan(from, timeZone, 'day', deliveryDay)[2]).toISOString() : null;
+  if (fast >= standard || from > now.getTime()) return { standard: new Date(standard).toISOString(), fast: null, fastBy: null, day };
   const by = wallTime(localDay(fast, timeZone), FAST_OUT.h, FAST_OUT.m, timeZone) - (FAST_SHIP_HOURS + 2) * HOUR;
   return { standard: new Date(standard).toISOString(), fast: new Date(fast).toISOString(), fastBy: new Date(by).toISOString(), day };
 }
@@ -160,15 +175,16 @@ export function plannedSchedule(
   };
 }
 
-/** Step instants: the saved schedule when the order has one, else the plan from `t0`. */
+/**
+ * Step instants: the saved schedule when the order has one, else the plan from `t0` — or, for a
+ * pre-order, from its release (as `orders_fill_schedule` does), where preparing starts too.
+ */
 function stepTimes(order: OrderLike, t0: number, timeZone: string): number[] {
+  const release = order.releaseAt ? Date.parse(order.releaseAt) : NaN;
+  const from = Number.isFinite(release) ? Math.max(t0, release) : t0;
   const saved = [order.shippedAt, order.outForDeliveryAt, order.deliveredAt].map((s) => (s ? Date.parse(s) : NaN));
-  if (saved.every(Number.isFinite)) {
-    const [shipped, out, delivered] = saved;
-    return [t0, Math.min(t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped), shipped, out, delivered];
-  }
-  const [shipped, outForDelivery, delivered] = plan(t0, timeZone, order.shipSpeed, order.deliveryDay);
-  return [t0, Math.min(t0 + TRACKING_PLAN[1].afterHours * HOUR, shipped), shipped, outForDelivery, delivered];
+  const [shipped, out, delivered] = saved.every(Number.isFinite) ? saved : plan(from, timeZone, order.shipSpeed, order.deliveryDay);
+  return [t0, Math.min(from + TRACKING_PLAN[1].afterHours * HOUR, shipped), shipped, out, delivered];
 }
 
 function startOf(order: OrderLike, now: Date): number {
@@ -207,7 +223,7 @@ export function trackingSteps(order: OrderLike, now: Date = new Date(), timeZone
     ];
   }
   if (order.status === 'awaiting_payment') {
-    const times = stepTimes({ status: 'placed', createdAt: order.createdAt, shipSpeed: order.shipSpeed, deliveryDay: order.deliveryDay }, now.getTime(), timeZone);
+    const times = stepTimes({ status: 'placed', createdAt: order.createdAt, shipSpeed: order.shipSpeed, deliveryDay: order.deliveryDay, releaseAt: order.releaseAt }, now.getTime(), timeZone);
     const labels = labelsFor(order);
     return TRACKING_PLAN.map((_, i) => ({
       label: labels[i],

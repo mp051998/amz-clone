@@ -91,7 +91,7 @@ export default async function EditProductPage({ params, searchParams }: {
       ) : null}
       <ProductForm
         action={saveProduct.bind(null, product.id)}
-        initial={productFormValues(product)}
+        initial={productFormValues(product, store.dates.timeZone)}
         categories={categories.map((c) => ({ value: c.slug, label: c.name }))}
         badges={PRODUCT_BADGES}
         currencySymbol={store.currency.symbol}

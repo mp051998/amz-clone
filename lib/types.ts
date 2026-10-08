@@ -41,6 +41,8 @@ export interface Product {
   unit?: ProductUnit;
   /** "Save 5% when you buy 2 or more": a percent off each unit of a line of at least minQty (absent: none). */
   qtyDiscount?: QtyDiscount;
+  /** when it comes out: until then it's sold as a pre-order and ships on the day (absent: out already). */
+  releaseAt?: string;
 }
 
 export interface Category {
@@ -270,6 +272,8 @@ export interface Order {
    * `line2`) and the six-digit code to collect it with
    */
   pickup?: { pointId: string; code: string };
+  /** a pre-order: when its last item comes out; it ships from then (absent: nothing on it was a pre-order). */
+  releaseAt?: string;
   /** EMI orders: how many monthly payments the shopper chose. */
   emiMonths?: number;
   /** the promotion code used at checkout (absent without one) */

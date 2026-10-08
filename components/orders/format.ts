@@ -45,6 +45,11 @@ export function shortDate(date: Date, store: StoreDates): string {
   return new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', timeZone: store.dates.timeZone }).format(date);
 }
 
+/** A release date, with its year: "November 20, 2026" (US) / "20 November 2026" (IN). */
+export function releaseDate(date: Date, store: StoreDates): string {
+  return new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone }).format(date);
+}
+
 /** "Sunday, September 28" (US) / "Sunday, 28 September" (IN). */
 export function longDate(date: Date, store: StoreDates): string {
   return new Intl.DateTimeFormat(store.locale.default, { weekday: 'long', day: 'numeric', month: 'long', timeZone: store.dates.timeZone }).format(date);
@@ -108,9 +113,12 @@ export function deliveryWindow(eta: Date, store: StoreDates): string {
   return `${hour(from)} – ${hour(to)}`;
 }
 
-/** When a cart placed now would arrive (same offset the tracking timeline uses). */
-export function cartEta(now: Date = new Date(), store?: StoreDates): Date {
-  const eta = deliveryEta({ status: 'placed', createdAt: now.toISOString() }, now, store?.dates.timeZone);
+/**
+ * When a cart placed now would arrive (same offset the tracking timeline uses) — from `release`
+ * (ISO) instead when it holds a pre-order.
+ */
+export function cartEta(now: Date = new Date(), store?: StoreDates, release?: string | null): Date {
+  const eta = deliveryEta({ status: 'placed', createdAt: now.toISOString(), ...(release ? { releaseAt: release } : {}) }, now, store?.dates.timeZone);
   return eta ? new Date(eta) : new Date(now.getTime() + 2 * DAY);
 }
 
@@ -227,6 +235,17 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   const rel = eta ? relativeDayName(eta, store, now) : null;
   const when = eta ? (rel ? rel.toLowerCase() : longDate(eta, store)) : 'soon';
   const out = current?.label === 'Out for delivery';
+  // a pre-order waits for its release, then goes as any other order
+  const release = order.releaseAt && Date.parse(order.releaseAt) > now.getTime() ? new Date(order.releaseAt) : null;
+  if (release) {
+    return {
+      steps, eta, delivered, itemCount, cancelUntil,
+      kicker: 'PRE-ORDER',
+      headline: `Arriving ${when}`,
+      window: `Releases ${releaseDate(release, store)} · ships that day`,
+      chip: { label: `Arriving ${when}`, tone: 'good' },
+    };
+  }
   return {
     steps, eta, delivered, itemCount, cancelUntil,
     kicker: out ? 'OUT FOR DELIVERY' : 'ON TIME',

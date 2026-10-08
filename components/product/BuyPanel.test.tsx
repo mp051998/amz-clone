@@ -117,3 +117,12 @@ it('has no size to pick for a product without sizes', () => {
   expect(screen.queryByRole('radio')).toBeNull();
   expect(screen.queryByText('Size Chart')).toBeNull();
 });
+
+it('sells a pre-order: says when it’s released, and Buy Now reads Pre-order now', () => {
+  show({}, { preOrder: { release: 'November 20, 2026' } });
+  expect(screen.getByText('This item will be released on November 20, 2026.')).toBeInTheDocument();
+  expect(screen.queryByText('In stock')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Pre-order now' })).toHaveAttribute('type', 'submit');
+  expect(screen.queryByRole('button', { name: 'Buy Now' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeInTheDocument();
+});

@@ -28,9 +28,9 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
   const base = from && from.market === store.id ? from : null;
 
   const initial: ProductFormValues = base
-    ? { ...productFormValues(base), variantLabel: '', stock: '0', gallery: '' }
+    ? { ...productFormValues(base, store.dates.timeZone), variantLabel: '', stock: '0', gallery: '' }
     : {
-        title: '', brand: '', category: categories[0]?.slug ?? '', image: '', price: '', listPrice: '', deal: false, coupon: '', limit: '', sizes: '', unit: '', qtyPct: '', qtyMin: '',
+        title: '', brand: '', category: categories[0]?.slug ?? '', image: '', price: '', listPrice: '', deal: false, coupon: '', limit: '', sizes: '', unit: '', qtyPct: '', qtyMin: '', release: '',
         badge: '', boughtPastMonth: '', seller: '', shipsFrom: '', bullets: '', description: '', details: '', stock: '0',
         gallery: '', variantGroup: '', variantAxis: '', variantLabel: '',
       };

@@ -42,6 +42,7 @@ const product = (category: string): ProductInput => ({
   sizes: null,
   unit: null,
   qtyDiscount: null,
+  releaseAt: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Test Seller',
