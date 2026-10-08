@@ -223,6 +223,7 @@ Postgres as that user, so RLS decides what each caller can see.
 | --- | --- | --- | --- |
 | GET | `/products/:id/questions?q=&limit=10&offset=0` | | `{items: Question[], total}`: most answered first, then newest, each with all its answers (most helpful first, then oldest). `q` (up to 100 characters, matched literally, any case) keeps questions whose text, or one of whose answers, contains it. |
 | POST 🔒 | `/products/:id/questions` | `{body}` | `201 {question}`. 10–300 characters (`422 invalid_input`, `detail: "body"`). Asking the same question twice is `409 duplicate`; an archived product is `409 product_unavailable`. |
+| POST | `/products/:id/ask` | `{question}` | `{question, answer, snippets: [{kind: details\|qa\|review, text, question?, rating?}], terms, source}`: the product page's "Looking for specific info?". The question (3–150 characters, `422 invalid_input`, `detail: "question"`) is matched against the product's bullets, details and description, its answered questions and its 300 most helpful visible reviews; up to 4 passages come back, best first: at most 2 of each kind and one per review or question, each matching at least a third of the question's words (word forms count: *charging* finds *charge*). A Q&A passage is an answer, with the `question` it answers; a review passage is one sentence (or the title), with its stars. `terms` are the question's words, stemmed, for highlighting. `answer` is an AI answer written from the details and the best Q&A and reviews (see AI layer): null with no provider, or when they don't answer it; `source` says which. `404 product_not_found` for a product not in this store. |
 | POST 🔒 | `/products/:id/report` | `{reason, details?}` | Report an issue with the product. `reason`: `wrong_info`, `pricing`, `counterfeit`, `safety`, `offensive` or `other`; `details` up to 1000 characters, at least 10 for `other` (`422 invalid_input`, `detail: "reason"` / `"details"`). `201 {report, updated: false}`; while your report on that product is open, sending again rewrites it: `200 {report, updated: true}`. `report`: `{id, productId, reason, details, status, createdAt, updatedAt, resolvedAt, resolutionNote}`. Up to 20 open reports per shopper (`409 too_many_reports`). |
 | POST 🔒 | `/products/:id/lower-price` | `{seenAt, priceMinor, shippingMinor?, url?, store?, city?, seenOn?}` | "Would you like to tell us about a lower price?" `seenAt`: `online` (`url`, an `http(s)` page, and `shippingMinor`, default 0) or `store` (`store` up to 80 characters, `city` up to 60, and `seenOn`, `YYYY-MM-DD` within the last 30 days). `priceMinor` plus `shippingMinor` must be under the product's price now (`422 invalid_input`, `detail` the field: `seen_at`, `price`, `shipping`, `url`, `store`, `city` or `seen_on`). `201 {report, updated: false}`; while your report on that product is open, sending again rewrites it: `200 {report, updated: true}`. `report`: `{id, productId, ourPriceMinor, seenAt, url, storeName, city, seenOn, priceMinor, shippingMinor, status, createdAt, updatedAt, reviewedAt}`. Up to 20 open per shopper (`409 too_many_reports`); an archived product is `404 product_not_found`. The store doesn't reply. |
 | DELETE 🔒 | `/questions/:id` | | `204`. Deletes your question and its answers (an admin can delete any); `404 question_not_found` otherwise. |
@@ -475,13 +476,13 @@ Saved products, per store. Two system lists are created on first use: `consideri
 
 ## AI layer
 
-Four decision features. Each one runs deterministic **rules** first, so every endpoint works with no configuration. When `GEMINI_API_KEY` is set, the server also asks Gemini (`GEMINI_MODEL`, default `gemini-2.5-flash`, called over plain REST).
+Four decision features, plus the product page's question box (`POST /products/:id/ask`). Each one runs deterministic **rules** first, so every endpoint works with no configuration. When `GEMINI_API_KEY` is set, the server also asks Gemini (`GEMINI_MODEL`, default `gemini-2.5-flash`, called over plain REST).
 
 How AI replies are handled:
 - Replies must be JSON. They are validated with zod, and weights are clamped to the category's attribute keys (0..5).
 - Any failure falls back to the rules result: no key, HTTP or safety error, timeout (4s for query parsing, 8s otherwise), unparseable JSON, or a schema mismatch.
 - Every result carries `source: "rules" | "ai"`.
-- Successful AI results are cached in `ai_cache` (service role only). TTLs: query 7d, profile 30d, reviews 14d, compare 1d.
+- Successful AI results are cached in `ai_cache` (service role only). TTLs: query 7d, profile 30d, reviews 14d, compare 1d, product questions 7d.
 - The key never leaves the server.
 
 | Method | Path | Body | Notes |

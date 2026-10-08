@@ -20,6 +20,7 @@ import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
 import { ShareButton } from '@/components/product/ShareButton';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
+import { AskProduct } from '@/components/product/AskProduct';
 import { QuestionsPanel } from '@/components/product/QuestionsPanel';
 import { ReportIssue } from '@/components/product/ReportIssue';
 import { LowerPrice } from '@/components/product/LowerPrice';
@@ -90,6 +91,7 @@ import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { unitsLeft } from '@/lib/purchase-limits';
 import { asksFit, FIT_LABELS } from '@/lib/review-fit';
 import { featuresFor } from '@/lib/review-features';
+import { askSuggestions } from '@/lib/product-ask';
 import { listOffers } from '@/lib/data/offers';
 import { kindsLabel, offerSummary } from '@/lib/offers';
 import { SubscribeSave } from '@/components/product/SubscribeSave';
@@ -582,6 +584,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             <BoughtTogether productId={p.id} items={bundleEntries} currency={cur} />
           </section>
         ) : null}
+
+        <AskProduct productId={p.id} suggestions={askSuggestions(featuresFor(p), asksFit(p))} />
 
         <Reviews
           data={reviews}

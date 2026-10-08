@@ -16,6 +16,7 @@ export const CACHE_TTL: Record<string, number> = {
   profile: 30 * 86_400,
   reviews: 14 * 86_400,
   compare: 86_400,
+  ask: 7 * 86_400,
 };
 
 export function cacheKey(feature: string, providerId: string, input: unknown): string {
