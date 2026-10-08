@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, payCodOrder, placeOrder, setOrderAddress, setOrderDropoff, setOrderInstructions } from '@/lib/data/orders';
+import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, payCodOrder, placeOrder, requestCancellation, setOrderAddress, setOrderDropoff, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout, startPayNowCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { isSplitMethod } from '@/lib/data/balance';
@@ -127,6 +127,29 @@ export async function cancelMyOrder(orderId: string): Promise<void> {
   }
   revalidatePath('/', 'layout');
   redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}` : 'cancelled=1'}`));
+}
+
+/**
+ * "Request cancellation" on a shipped order's page (bound to the order id, checked as above):
+ * back to the order, `cancelled=stopped` when it was stopped on its way (`1` if it hadn't
+ * shipped after all), or the error (`order_not_cancellable` once it's out for delivery).
+ */
+export async function requestMyCancellation(orderId: string): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let order: Order | null = null;
+  let code: string | null = null;
+  try {
+    order = await requestCancellation(await db(), orderId);
+  } catch (err) {
+    code = err instanceof DataError ? err.code : 'internal';
+    if (!(err instanceof DataError)) console.error('[orders] request cancellation failed', orderId, err);
+  }
+  revalidatePath('/', 'layout');
+  redirect(sp(`${page}?placed=0&${order ? `cancelled=${order.cancelReason === 'intercepted' ? 'stopped' : '1'}` : `error=${encodeURIComponent(code ?? 'internal')}`}`));
 }
 
 /**

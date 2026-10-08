@@ -1478,6 +1478,9 @@ isOneToOne: false
 "report_not_received":
 { Args: { "p_order_id": string,"p_resolution"?: string }; Returns: Json
                            },
+"request_order_cancellation":
+{ Args: { "p_order_id": string }; Returns: Json
+                           },
 "product_return_signal":
 { Args: { "p_product": string }; Returns: Json
                            },

@@ -355,7 +355,21 @@ export async function cancelOrder(db: Db, id: string): Promise<Order> {
   const res = await db.rpc('cancel_my_order', { p_order_id: id });
   // PGRST202: the RPC doesn't exist yet (lifecycle migration not applied)
   if (res.error?.code === 'PGRST202') return cancelPendingOrder(db, id);
-  const json = unwrap(res);
+  return settleCancel(db, id, unwrap(res));
+}
+
+/**
+ * Owner asks for a shipped order to be stopped on its way ("Request cancellation"): until it's
+ * out for delivery the carrier sends it back, so it's cancelled (`cancelReason` 'intercepted'),
+ * stock back and refunded as cancelOrder does. Not shipped yet it's simply cancelled;
+ * `order_not_cancellable` (detail: the stage) once it's out for delivery or delivered.
+ */
+export async function requestCancellation(db: Db, id: string): Promise<Order> {
+  return settleCancel(db, id, unwrap(await db.rpc('request_order_cancellation', { p_order_id: id })));
+}
+
+/** After a whole order is cancelled: close any Stripe page still open, and refund a card payment. */
+async function settleCancel(db: Db, id: string, json: unknown): Promise<Order> {
   if (!json) throw new DataError('order_not_found');
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
   // an unpaid card order, or a Pay on Delivery one being paid now by card: close its Stripe page
