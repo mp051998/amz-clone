@@ -19,6 +19,10 @@ export interface PaymentSectionProps {
   balance?: BalanceInfo;
   /** EMI plans for the order total, each tenure with its monthly payment ("₹5,000 a month · No Cost EMI") */
   emi?: { months: number; text: string }[];
+  /** the method to start on (else the first) */
+  initial?: string;
+  /** how the shopper paid last time in this store, marked "Last used" */
+  lastUsed?: string;
 }
 
 export interface BalanceInfo {
@@ -61,8 +65,8 @@ const BANKS = ['HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank', 'K
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
  * form while the list is collapsed); the selected method's demo fields show under the list.
  */
-export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi }: PaymentSectionProps) {
-  const [selected, setSelected] = useState(methods[0] ?? 'card');
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed }: PaymentSectionProps) {
+  const [selected, setSelected] = useState(initial && methods.includes(initial) ? initial : methods[0] ?? 'card');
   const [open, setOpen] = useState(false);
   const listId = 'checkout-payment-options';
 
@@ -84,7 +88,7 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
             onChange={() => setSelected(m)}
             label={LABEL[m] ?? m}
             sub={subFor(m, stripeCard)}
-            badge={m === 'cod' ? 'No card needed' : m === 'upi' ? 'Instant' : undefined}
+            badge={m === lastUsed ? 'Last used' : m === 'cod' ? 'No card needed' : m === 'upi' ? 'Instant' : undefined}
           />
         ))}
         <p className="m-0 text-[13px] text-ink-3">

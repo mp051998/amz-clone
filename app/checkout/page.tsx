@@ -21,7 +21,7 @@ import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
-import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
+import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX, lastPaymentMethod } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
 import { listPickupPoints } from '@/lib/data/pickup';
 import { weekdayName } from '@/lib/delivery-day';
@@ -84,7 +84,7 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points] = await Promise.all([
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod] = await Promise.all([
     promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
@@ -92,6 +92,7 @@ export default async function CheckoutPage({
     plusMembership(client),
     storeBalance(client, store.id),
     listPickupPoints(client, store.id),
+    lastPaymentMethod(client, store.id),
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
   const cart = priced?.cart ?? null;
@@ -220,6 +221,9 @@ export default async function CheckoutPage({
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
     ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance'), reloadHref: stripeConfigured ? sp('/gift-cards#reload') : undefined }
     : undefined;
+  // start on how they paid last time, unless it can't pay for this order (a balance that's short)
+  const lastUsed = lastMethod && methods.includes(lastMethod) ? lastMethod : undefined;
+  const initialMethod = lastUsed && !(isBalanceMethod(lastUsed) && (!balance || balance.short)) ? lastUsed : undefined;
 
   return shell(
     <>
@@ -273,7 +277,7 @@ export default async function CheckoutPage({
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} pickupPoints={pickupPoints} />
-          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} />
           <StepCard
             n={3}
             title="Delivery"

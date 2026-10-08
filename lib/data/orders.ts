@@ -162,6 +162,23 @@ export async function listOrders(db: Db, market: Market, opts: { limit?: number 
   return unwrap(res).map((row) => toOrder(row as unknown as Parameters<typeof toOrder>[0]));
 }
 
+/**
+ * How the caller paid for their latest placed order in a store, so checkout can start on it as
+ * Amazon does; null with no orders (or when it can't be read: checkout then starts on the first).
+ */
+export async function lastPaymentMethod(db: Db, market: Market): Promise<PaymentMethod | null> {
+  const { data, error } = await db
+    .from('orders')
+    .select('payment_method')
+    .eq('market_id', market)
+    .not('placed_at', 'is', null)
+    .order('placed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return isPaymentMethod(data?.payment_method) ? data.payment_method : null;
+}
+
 export async function countOrders(db: Db, market: Market): Promise<number> {
   const query = (placedOnly: boolean) => {
     const q = db.from('orders').select('id', { count: 'exact', head: true }).eq('market_id', market);
