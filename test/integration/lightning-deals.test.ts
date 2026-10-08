@@ -10,7 +10,7 @@ const tag = crypto.randomUUID().slice(0, 6);
 const input = (n: number, over: Partial<ProductInput> = {}): ProductInput => ({
   title: `Ld${tag} desk lamp ${n}`,
   brand: 'Lumen',
-  category: 'home',
+  category: 'home-kitchen',
   image: '/products/placeholder.jpg',
   priceMinor: 5000,
   listMinor: null,
