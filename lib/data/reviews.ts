@@ -383,7 +383,7 @@ export async function awaitingReview(db: Db, market: Market, userId: string, now
   const [orders, reviewed] = await Promise.all([
     db
       .from('orders')
-      .select('id, delivered_at, order_items(product_id)')
+      .select('id, delivered_at, order_items(product_id, offer_of)')
       .eq('user_id', userId)
       .eq('market_id', market)
       .eq('status', 'placed')
@@ -396,8 +396,10 @@ export async function awaitingReview(db: Db, market: Market, userId: string, now
   const first = new Map<string, { orderId: string; deliveredAt: string }>();
   for (const o of unwrap(orders)) {
     for (const it of o.order_items ?? []) {
-      if (it.product_id && o.delivered_at && !done.has(it.product_id) && !first.has(it.product_id)) {
-        first.set(it.product_id, { orderId: o.id, deliveredAt: o.delivered_at });
+      // bought from another seller: the review is the product's
+      const id = it.offer_of ?? it.product_id;
+      if (id && o.delivered_at && !done.has(id) && !first.has(id)) {
+        first.set(id, { orderId: o.id, deliveredAt: o.delivered_at });
       }
     }
   }

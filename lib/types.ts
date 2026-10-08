@@ -43,7 +43,16 @@ export interface Product {
   qtyDiscount?: QtyDiscount;
   /** when it comes out: until then it's sold as a pre-order and ships on the day (absent: out already). */
   releaseAt?: string;
+  /** another seller's offer of this product (its id): not listed on its own, its page is the product's (absent: the product itself). */
+  offerOf?: string;
+  /** an offer's condition, when it isn't new (absent: new). */
+  condition?: UsedCondition;
+  /** what the seller says about the item's condition (absent: nothing). */
+  conditionNote?: string;
 }
+
+/** The conditions an offer can be in other than new: Amazon's renewed and used grades. */
+export type UsedCondition = 'renewed' | 'used_like_new' | 'used_very_good' | 'used_good' | 'used_acceptable';
 
 export interface Category {
   slug: string;
@@ -150,6 +159,10 @@ export interface ReturnItem {
   qty: number;
   /** the size ordered, for a product that comes in sizes */
   size?: string;
+  /** bought as another seller's offer: the product it's an offer of (reviews, buy again and recalls go by it) */
+  offerOf?: string;
+  /** the condition it was bought in, when it wasn't new (another seller's renewed or used offer) */
+  condition?: UsedCondition;
 }
 
 /** A return of some of a delivered order's items. */
@@ -207,6 +220,10 @@ export interface OrderItem {
   protectionMinor?: number;
   /** the size ordered, for a product that comes in sizes */
   size?: string;
+  /** the product it was another seller's offer on (absent when bought from the product itself) */
+  offerOf?: string;
+  /** a renewed or used offer's condition (absent when new) */
+  condition?: UsedCondition;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */

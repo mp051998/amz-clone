@@ -19,6 +19,18 @@ describe('pastPurchases', () => {
     expect(past.find((x) => x.productId === 'b')).toMatchObject({ orders: 2, lastOrderId: 'o2' });
   });
 
+  it('counts an item bought from another seller as its product, once an order', () => {
+    const used = { ...item('a-o1'), offerOf: 'a', condition: 'used_good' as const };
+    const past = pastPurchases([
+      order('o1', '2026-09-01T10:00:00Z', ['a']),
+      { ...order('o2', '2026-09-10T10:00:00Z', ['b']), items: [used, item('a'), item('b')] } as Order,
+    ]);
+    expect(past.map((x) => [x.productId, x.orders, x.lastOrderId])).toEqual([
+      ['a', 2, 'o2'],
+      ['b', 1, 'o2'],
+    ]);
+  });
+
   it('skips cancelled and unpaid orders', () => {
     const past = pastPurchases([
       order('o1', '2026-09-01T10:00:00Z', ['a']),

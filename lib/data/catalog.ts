@@ -24,16 +24,12 @@ export interface ProductReadOptions {
 }
 
 /**
- * Rows by id from catalog_products_all (archived included) or catalog_products (active only).
- * Falls back to catalog_products if the _all view isn't there yet: Vercel can deploy this code a
- * minute before the migration that adds it, and until then nothing is archived anyway.
+ * Rows by id from catalog_products_all: on sale only, or archived ones too. Other sellers' offers
+ * are read like any product here; only listings (catalog_products) leave them out.
  */
 async function productRows(db: Db, ids: readonly string[], opts: ProductReadOptions) {
-  if (opts.includeArchived) {
-    const res = await db.from('catalog_products_all').select('*').in('id', [...ids]);
-    if (!res.error) return res.data;
-  }
-  return unwrap(await db.from('catalog_products').select('*').in('id', [...ids]));
+  const rows = db.from('catalog_products_all').select('*').in('id', [...ids]);
+  return unwrap(await (opts.includeArchived ? rows : rows.is('archived_at', null)));
 }
 
 export async function getProduct(db: Db, id: string, opts: ProductReadOptions = {}): Promise<Product | null> {

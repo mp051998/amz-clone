@@ -35,6 +35,7 @@ import { limitNote, unitsLeft } from '@/lib/purchase-limits';
 import { protectionPlanName } from '@/lib/protection';
 import { qtyDiscountShortfall } from '@/lib/qty-discount';
 import { latestRelease, releaseOf } from '@/lib/pre-order';
+import { conditionLabel } from '@/lib/offers';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
@@ -207,6 +208,11 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                             {l.qty > 1 ? <span className="text-ink-3"> · {money(p.priceMinor)} each</span> : null}
                           </span>
                         )}
+                        {p.offerOf ? (
+                          <span className="text-[13px] text-ink-2">
+                            {p.condition ? <><strong className="font-semibold text-ink">{conditionLabel(p.condition)}</strong> · </> : null}Sold by {p.seller}
+                          </span>
+                        ) : null}
                         {l.available && p.sizes ? (
                           <>
                             <CartSize id={p.id} size={l.size} sizes={p.sizes} name={p.title} />

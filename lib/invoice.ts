@@ -1,4 +1,4 @@
-import type { Order, OrderReturn } from './types';
+import type { Order, OrderReturn, UsedCondition } from './types';
 
 export interface InvoiceLine {
   productId: string;
@@ -6,6 +6,8 @@ export interface InvoiceLine {
   seller: string;
   /** the size ordered, for a product that comes in sizes */
   size?: string;
+  /** a renewed or used item's condition (absent when new) */
+  condition?: UsedCondition;
   qty: number;
   unitMinor: number;
   /** at the list price */
@@ -69,6 +71,7 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     title: it.title,
     seller: it.seller,
     ...(it.size ? { size: it.size } : {}),
+    ...(it.condition ? { condition: it.condition } : {}),
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,

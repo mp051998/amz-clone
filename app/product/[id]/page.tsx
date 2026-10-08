@@ -76,6 +76,10 @@ import { promosFor } from '@/lib/promo';
 import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { unitsLeft } from '@/lib/purchase-limits';
 import { asksFit, FIT_LABELS } from '@/lib/review-fit';
+import { listOffers } from '@/lib/data/offers';
+import { kindsLabel, offerSummary } from '@/lib/offers';
+import { OtherSellers } from '@/components/product/Offers';
+import { offerItem } from '@/components/product/offerItems';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -100,6 +104,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 /** Decision params that travel with product links (search → PDP → alternatives). */
 const CARRY = ['w', 'preset', 'use', 'budget'] as const;
+/** Offers shown in the product page's "Other sellers on Amazon" (the rest are a link away). */
+const OTHER_SELLERS = 3;
 
 function carryQuery(sp: SP): string {
   const out = new URLSearchParams();
@@ -148,6 +154,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const client = await db();
   const p = await getProduct(client, id, { includeArchived: true });
   if (!p) notFound();
+  // another seller's offer is sold from its product's page (an error from adding it goes along)
+  if (p.offerOf) {
+    const error = typeof sp.error === 'string' ? `?error=${encodeURIComponent(sp.error)}` : '';
+    redirect(storePath({ id: p.market }, `/product/${encodeURIComponent(p.offerOf)}${error}`));
+  }
 
   const store = await getMarketplace();
   // each store sells its own catalog — send a cross-store link to the product's home store
@@ -159,7 +170,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot] = await Promise.all([
+  // other sellers' offers (none before the offers migration lands, or off sale)
+  const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -173,7 +186,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve(null) : couponFor(client, p.id, user != null),
     listQuestions(client, p.id, user?.id ?? null, { limit: 10 }).catch((): QuestionPage => ({ items: [], total: 0 })),
     countAnsweredQuestions(client, p.id),
-    sellerRatings(client, store.id, [p.seller]).catch(() => new Map<string, SellerRating>()),
+    offersP.then((o) => sellerRatings(client, store.id, [...new Set([p.seller, ...o.slice(0, OTHER_SELLERS).map((x) => x.seller)])])).catch(() => new Map<string, SellerRating>()),
     user && !p.archived ? myOpenReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : readReturnSignal(client, p.id).catch((): ReturnSignal | null => null),
     p.archived ? Promise.resolve(null) : protectionOffer(client, p.id).catch(() => null),
@@ -182,8 +195,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve([]) : alsoViewed(client, p).catch(() => []),
     // a recall takes a product off sale, so only an archived one can have one
     p.archived ? getRecall(client, p.id).catch((): Recall | null => null) : Promise.resolve(null),
-    user ? lastPurchase(client, user.id, p.id).catch((): LastPurchase | null => null) : Promise.resolve(null),
+    // bought from any of its sellers
+    user ? offersP.then((o) => lastPurchase(client, user.id, [p.id, ...o.map((x) => x.id)])).catch((): LastPurchase | null => null) : Promise.resolve(null),
     p.archived ? Promise.resolve([]) : alsoBought(client, p).catch(() => []),
+    offersP,
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -251,6 +266,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     diff: a.diff,
     match: tuned ? a.match : undefined,
   }));
+
+  // "Other sellers on Amazon": the cheapest few, and every way to buy it (its own offer too, when it can be)
+  const otherSellers = offers.slice(0, OTHER_SELLERS).map((x) => offerItem(x, { store, priceText: money(x.priceMinor, x.curBase), rating: sellers.get(x.seller) }));
+  const offerTotals = offerSummary(p.stock > 0 ? [p, ...offers] : offers);
 
   const bestsellersHref = storePath(store, `/bestsellers?c=${encodeURIComponent(p.category)}`);
   const scores = scoresFor(p, insight);
@@ -451,6 +470,14 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   preOrder={release ? { release: releaseDate(new Date(release), store) } : undefined}
                 />
               )}
+              {otherSellers.length && offerTotals ? (
+                <OtherSellers
+                  name={p.title}
+                  offers={otherSellers}
+                  allHref={storePath(store, `/product/${encodeURIComponent(p.id)}/offers`)}
+                  allLabel={`${kindsLabel(offerTotals)} (${num(offerTotals.count)}) from ${money(offerTotals.fromMinor)}`}
+                />
+              ) : null}
             </aside>
           </div>
         </div>
