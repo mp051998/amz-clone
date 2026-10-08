@@ -175,7 +175,7 @@ describe('Pay now on Pay on Delivery orders', () => {
       });
 
     const o = await cod(shopper);
-    expect((await post(o.id, { method: 'card' })).status).toBe(422);
+    expect((await post(o.id, { method: 'cheque' })).status).toBe(422);
     const res = await post(o.id, { method: 'netbanking', bank: 'ICICI Bank' });
     expect(res.status).toBe(200);
     const { order } = (await res.json()) as { order: { paymentMethod: string; paymentLabel: string; prepaidAt?: string } };
