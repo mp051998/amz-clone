@@ -6,9 +6,10 @@ import { Page, PageHead, Section, cardGrid } from '@/components/brand/Page';
 import { Pill } from '@/components/decision/Pill';
 import { EmptyState } from '@/components/decision/Badges';
 import { buttonClasses } from '@/components/primitives/Button';
+import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getProducts, listProducts } from '@/lib/data/catalog';
-import { watchedDeals } from '@/lib/data/deal-watches';
+import { myWatchedDeals, watchedDeals } from '@/lib/data/deal-watches';
 import { lightningDeals } from '@/lib/data/lightning-deals';
 import { storeCategories } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -20,19 +21,29 @@ export const metadata: Metadata = { title: "Today's Deals · Store" };
 export default async function DealsPage({ searchParams }: { searchParams: Promise<{ c?: string; off?: string; type?: string }> }) {
   const sp = await searchParams;
   const c = sp.c;
-  const off = readDiscount(sp.off);
-  const lightningOnly = sp.type === 'lightning';
+  const type = sp.type === 'lightning' || sp.type === 'watched' ? sp.type : null;
+  const lightningOnly = type === 'lightning';
+  // "Watched deals": the Lightning Deals the shopper watches, live or coming up
+  const watchedOnly = type === 'watched';
+  const off = watchedOnly ? null : readDiscount(sp.off);
   const store = await getMarketplace();
   const client = await db();
-  const [deals, categories, saved, lightning] = await Promise.all([
+  const [deals, categories, saved, lightning, watchedList, user] = await Promise.all([
     listProducts(client, store.id, { dealsOnly: true }),
     storeCategories(),
     viewerSavedIds(store.id),
     lightningDeals(client, store.id),
+    myWatchedDeals(client, store.id),
+    readUser(),
   ]);
+  const watchedProducts = watchedOnly ? await getProducts(client, watchedList.map((d) => d.productId)) : [];
+  const watched = watchedList.flatMap((deal) => {
+    const product = watchedProducts.find((p) => p.id === deal.productId);
+    return product ? [{ product, deal }] : [];
+  });
   const liveById = new Map(lightning.live.map((d) => [d.productId, d]));
   const all = lightningOnly ? deals.filter((p) => liveById.has(p.id)) : deals;
-  const present = new Set(all.map((p) => p.category));
+  const present = new Set(watchedOnly ? watched.map((w) => w.product.category) : all.map((p) => p.category));
   const chips = categories.filter((cat) => present.has(cat.slug));
   const categoryName = (slug: string) => categories.find((x) => x.slug === slug)?.name ?? slug;
   const inCategory = c ? all.filter((p) => p.category === c) : all;
@@ -40,21 +51,22 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   // Lightning Deals ending soonest first; otherwise the biggest real saving first — the reason a deal is worth a look
   const ends = (id: string) => liveById.get(id)?.endsAt ?? '';
   const sorted = [...items].sort(lightningOnly ? (a, b) => ends(a.id).localeCompare(ends(b.id)) : (a, b) => (b.dealPct ?? 0) - (a.dealPct ?? 0));
-  const discounts = discountOptions(inCategory.map((p) => p.dealPct ?? 0), off);
+  const discounts = watchedOnly ? [] : discountOptions(inCategory.map((p) => p.dealPct ?? 0), off);
+  const watchedHere = c ? watched.filter((w) => w.product.category === c) : watched;
   // what's coming up: in this category, before any discount filter (they aren't discounted yet)
   const upcoming = (await getProducts(client, lightning.upcoming.map((d) => d.productId)))
     .filter((p) => !c || p.category === c)
     .map((p) => ({ product: p, deal: lightning.upcoming.find((d) => d.productId === p.id)! }));
   const watching = await watchedDeals(client, upcoming.map((u) => u.deal.id));
   /** this view with the category, discount and/or deal type changed */
-  const dealsHref = (next: { c?: string | null; off?: number | null; type?: 'lightning' | null }) => {
+  const dealsHref = (next: { c?: string | null; off?: number | null; type?: 'lightning' | 'watched' | null }) => {
     const qs = new URLSearchParams();
     const cat = next.c === undefined ? c : next.c;
     const min = next.off === undefined ? off : next.off;
-    const type = next.type === undefined ? (lightningOnly ? 'lightning' : null) : next.type;
+    const kind = next.type === undefined ? type : next.type;
     if (cat) qs.set('c', cat);
-    if (min) qs.set('off', String(min));
-    if (type) qs.set('type', type);
+    if (min && kind !== 'watched') qs.set('off', String(min));
+    if (kind) qs.set('type', kind);
     const q = qs.toString();
     return storePath(store, q ? `/deals?${q}` : '/deals');
   };
@@ -63,16 +75,23 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   return (
     <AppShell>
       <Page>
-        <PageHead kicker={`Today's deals · ${deals.length} live`} title={`${lightningOnly ? 'Lightning Deals' : c ? 'Deals' : "Today's deals"}${c ? ` in ${categoryName(c)}` : ''}`}>
-          Only products with a real saving on their list price, biggest saving first. Compare a few before you commit.
+        <PageHead kicker={`Today's deals · ${deals.length} live`} title={`${watchedOnly ? 'Watched deals' : lightningOnly ? 'Lightning Deals' : c ? 'Deals' : "Today's deals"}${c ? ` in ${categoryName(c)}` : ''}`}>
+          {watchedOnly
+            ? 'The Lightning Deals you’re watching: live ones first, ending soonest, then what’s coming up.'
+            : 'Only products with a real saving on their list price, biggest saving first. Compare a few before you commit.'}
         </PageHead>
 
         <Section>
           <nav aria-label="Deal categories" className="no-scrollbar -mx-[clamp(16px,3vw,24px)] flex gap-2 overflow-x-auto px-[clamp(16px,3vw,24px)] pb-1">
-            <Pill href={dealsHref({ c: null, type: null })} selected={!c && !lightningOnly}>All deals</Pill>
+            <Pill href={dealsHref({ c: null, type: null })} selected={!c && !type}>All deals</Pill>
             {lightning.live.length || lightningOnly ? (
               <Pill href={dealsHref({ type: lightningOnly ? null : 'lightning' })} selected={lightningOnly}>
                 Lightning Deals <span className="font-mono text-[12px] opacity-75">{lightning.live.length}</span>
+              </Pill>
+            ) : null}
+            {watchedList.length || watchedOnly ? (
+              <Pill href={dealsHref({ type: watchedOnly ? null : 'watched' })} selected={watchedOnly}>
+                Watched deals <span className="font-mono text-[12px] opacity-75">{watchedList.length}</span>
               </Pill>
             ) : null}
             {chips.map((cat) => (
@@ -92,10 +111,31 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           <p className="m-0 text-[14px] text-ink-3">
             {c ? <>{categoryName(c)} · </> : <>All categories · </>}
             {offText ? <>{offText} · </> : null}
-            <span className="tabular-nums">{items.length}</span> {items.length === 1 ? 'deal' : 'deals'}
+            <span className="tabular-nums">{watchedOnly ? watchedHere.length : items.length}</span>{' '}
+            {watchedOnly ? (watchedHere.length === 1 ? 'watched deal' : 'watched deals') : items.length === 1 ? 'deal' : 'deals'}
           </p>
 
-          {sorted.length ? (
+          {watchedOnly ? (
+            watchedHere.length ? (
+              <div className={cardGrid}>
+                {watchedHere.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching />))}
+              </div>
+            ) : !user ? (
+              <EmptyState
+                title="Sign in to see the deals you’re watching"
+                action={<a href={storePath(store, `/signin?next=${encodeURIComponent('/deals?type=watched')}`)} className={buttonClasses({ variant: 'dark' })}>Sign in</a>}
+              >
+                Watch an upcoming Lightning Deal and it shows up here, and in your messages when it goes live.
+              </EmptyState>
+            ) : (
+              <EmptyState
+                title={`You’re not watching any deals${c ? ` in ${categoryName(c)}` : ''}`}
+                action={<a href={`${dealsHref({ type: null })}${upcoming.length ? '#upcoming' : ''}`} className={buttonClasses({ variant: 'secondary' })}>{upcoming.length ? 'See upcoming deals' : 'See all deals'}</a>}
+              >
+                Watch an upcoming Lightning Deal and it shows up here, and in your messages when it goes live.
+              </EmptyState>
+            )
+          ) : sorted.length ? (
             <div className={cardGrid}>
               {sorted.map((p) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={liveById.get(p.id)} />))}
             </div>
@@ -125,7 +165,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           )}
         </Section>
 
-        {upcoming.length && !off ? (
+        {upcoming.length && !off && !watchedOnly ? (
           <Section id="upcoming" title="Upcoming Lightning Deals" note="At these prices from when each starts, for a few hours or until they're claimed">
             <div className={cardGrid}>
               {upcoming.map(({ product: p, deal }) => (<DealCard key={p.id} product={p} store={store} saved={saved.has(p.id)} lightning={deal} watching={watching.has(deal.id)} />))}
