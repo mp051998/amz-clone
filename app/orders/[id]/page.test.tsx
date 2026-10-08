@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[], returnBy: undefined as string | undefined, claims: [] as unknown[] }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[], returnBy: undefined as string | undefined, claims: [] as unknown[], wallet: null as number | null }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -43,6 +43,7 @@ vi.mock('@/app/actions/order', () => ({
   archiveMyOrder: async () => {},
   cancelMyOrder: async () => {},
   payForOrder: async () => {},
+  payCodNow: async () => {},
   updateOrderInstructions: async () => {},
   changeOrderAddress: async () => {},
   rateSeller: async () => {},
@@ -66,6 +67,11 @@ vi.mock('@/lib/data/pickup', async (original) => ({
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 vi.mock('@/lib/data/atoz-claims', () => ({ orderClaims: async () => state.claims }));
 vi.mock('@/app/actions/claims', () => ({ withdrawMyClaim: async () => {} }));
+vi.mock('@/lib/stripe', () => ({ stripe: null, stripeConfigured: true }));
+vi.mock('@/lib/data/balance', async (original) => ({
+  ...(await original<typeof import('@/lib/data/balance')>()),
+  storeBalance: async () => state.wallet,
+}));
 
 import OrderPage from './page';
 
@@ -108,6 +114,7 @@ beforeEach(() => {
   state.recalled = [];
   state.returnBy = undefined;
   state.claims = [];
+  state.wallet = null;
 });
 
 it('warns about a recalled item and marks it, linking to what to do', async () => {
@@ -277,6 +284,49 @@ it('an unpaid card order offers to finish paying or cancel', async () => {
   await show();
   expect(screen.queryByRole('region', { name: 'Payment' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Complete payment' })).toBeNull();
+});
+
+it('a Pay on Delivery order can be paid now, by card, UPI, net banking or a balance that covers it', async () => {
+  // placed an hour ago, so it's still on its way
+  const placedAt = new Date(Date.now() - 3_600_000).toISOString();
+  const onDelivery = { paymentMethod: 'cod' as const, paymentLabel: 'Cash on Delivery', createdAt: placedAt, placedAt };
+  state.order = order(onDelivery);
+  state.wallet = 2000;
+  await show();
+  const pay = screen.getByRole('region', { name: 'Pay now for a contactless delivery' });
+  expect(pay).toHaveTextContent('You’re paying $30.00 on delivery.');
+  expect(within(pay).getByRole('radio', { name: /Credit or debit card/ })).not.toBeChecked();
+  expect(within(pay).getByRole('radio', { name: /UPI/ })).toBeChecked();
+  expect(within(pay).getByRole('radio', { name: /Net banking/ })).toBeInTheDocument();
+  expect(within(pay).getByRole('combobox', { name: 'Bank, for net banking' })).toHaveValue('HDFC Bank');
+  const wallet = within(pay).getByRole('radio', { name: /Gift card balance/ });
+  expect(wallet).toBeDisabled();
+  expect(pay).toHaveTextContent('$20.00 available, not enough for this order');
+  expect(within(pay).getByRole('button', { name: 'Pay $30.00 now' })).toBeInTheDocument();
+  cleanup();
+
+  state.wallet = 5000;
+  await show();
+  expect(screen.getByRole('radio', { name: /Gift card balance/ })).toBeEnabled();
+  cleanup();
+
+  // paid now: it says so, and there's nothing more to pay
+  state.order = order({ ...onDelivery, paymentMethod: 'upi', paymentLabel: 'UPI', prepaidAt: placedAt });
+  await show({ paid: '1' });
+  expect(screen.getByText('Paid, thanks. $30.00 by UPI: there’s nothing to pay when it arrives.')).toBeInTheDocument();
+  expect(screen.getByText('Paid with', { selector: 'dt' }).nextElementSibling).toHaveTextContent('UPI · paid before delivery');
+  expect(screen.queryByRole('region', { name: 'Pay now for a contactless delivery' })).toBeNull();
+  cleanup();
+
+  // a card payment the order couldn't take was refunded
+  state.order = order(onDelivery);
+  await show({ error: 'amount_mismatch', refunded: '1' });
+  expect(screen.getByText('Your order’s total changed while you were paying. We’ve refunded your card payment in full.')).toBeInTheDocument();
+  cleanup();
+
+  state.order = order({ ...onDelivery, status: 'cancelled' });
+  await show();
+  expect(screen.queryByRole('region', { name: 'Pay now for a contactless delivery' })).toBeNull();
 });
 
 it('an order can be archived, and an archived one says so and can come back', async () => {

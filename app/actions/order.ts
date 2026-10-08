@@ -7,7 +7,7 @@ import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
 import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, payCodOrder, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
-import { resumeCardCheckout, startCardCheckout } from '@/lib/data/payments';
+import { resumeCardCheckout, startCardCheckout, startPayNowCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { isSplitMethod } from '@/lib/data/balance';
 import { leaveSellerFeedback, removeSellerFeedback } from '@/lib/data/seller-feedback';
@@ -218,7 +218,8 @@ export async function changeOrderAddress(orderId: string, formData: FormData): P
 
 /**
  * "Pay now" on a Pay on Delivery order (bound to the id): pay it online (UPI, net banking or the
- * Amazon Pay balance) before it arrives. Back to the order, which confirms it or says why not.
+ * Amazon Pay balance) before it arrives, or by card on Stripe's page. Back to the order, which
+ * confirms it or says why not.
  */
 export async function payCodNow(orderId: string, formData: FormData): Promise<void> {
   const market = await getMarket();
@@ -227,14 +228,27 @@ export async function payCodNow(orderId: string, formData: FormData): Promise<vo
   const page = `/orders/${encodeURIComponent(orderId)}`;
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
   let code: string | null = null;
+  let url: string | null = null;
   try {
-    await payCodOrder(await db(), orderId, formData.get('method'), formData.get('bank'));
+    const client = await db();
+    if (formData.get('method') === 'card') {
+      const order = await getOrder(client, orderId);
+      if (!order) throw new DataError('order_not_found');
+      const origin = await siteOrigin();
+      url = await startPayNowCheckout(
+        order,
+        { successUrl: `${origin}${sp(`${page}/paid`)}`, cancelUrl: `${origin}${sp(`${page}?placed=0`)}#pay-now` },
+        await readUser(),
+      );
+    } else {
+      await payCodOrder(client, orderId, formData.get('method'), formData.get('bank'));
+    }
   } catch (err) {
     code = err instanceof DataError ? err.code : 'internal';
     if (!(err instanceof DataError)) console.error('[orders] pay now failed', orderId, err);
   }
   revalidatePath('/', 'layout');
-  redirect(sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}#pay-now` : 'paid=1'}`));
+  redirect(url ?? sp(`${page}?placed=0&${code ? `error=${encodeURIComponent(code)}#pay-now` : 'paid=1'}`));
 }
 
 /** "Leave seller feedback" for one seller in a delivered order (or change it), or remove it. */

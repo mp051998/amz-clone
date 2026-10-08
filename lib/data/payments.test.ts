@@ -35,13 +35,13 @@ vi.mock('../supabase/admin', () => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { stripe_session_id: h.sessionId }, error: null }) }) }) }),
     rpc: async (fn: string) => {
       h.calls.push(['rpc', fn]);
-      return { data: fn === 'confirm_order_payment' ? { id: 'ORD-1', status: 'placed' } : null, error: null };
+      return { data: fn === 'confirm_order_payment' || fn === 'confirm_pay_now_payment' ? { id: 'ORD-1', status: 'placed' } : null, error: null };
     },
   }),
 }));
 vi.mock('./refunds', () => ({ refundOrder: async () => {} }));
 
-import { expireCardCheckout, resumeCardCheckout, startCardCheckout } from './payments';
+import { expireCardCheckout, resumeCardCheckout, startCardCheckout, startPayNowCheckout } from './payments';
 
 const unpaid = {
   id: 'ORD-1',
@@ -111,4 +111,40 @@ it('asks Stripe for what the balance didn’t pay, as one line', async () => {
 
   await startCardCheckout(unpaid, urls);
   expect((h.created as typeof params).line_items[0].price_data.unit_amount).toBe(1000);
+});
+
+const onDelivery = { ...unpaid, id: 'ORD-3', market: 'IN', currency: 'INR', status: 'placed', paymentMethod: 'cod' } as Order;
+
+it('Pay now by card: one page for the order’s total, card only, told apart by its metadata', async () => {
+  h.sessionId = null;
+  expect(await startPayNowCheckout(onDelivery, urls)).toBe('https://checkout.stripe.com/c/new');
+  expect(h.calls).toEqual([['create'], ['rpc', 'attach_pay_now_session']]);
+  expect(h.created).toMatchObject({
+    payment_method_types: ['card'],
+    metadata: { kind: 'pay_now', orderId: 'ORD-3' },
+    line_items: [{ quantity: 1, price_data: { currency: 'inr', unit_amount: 1000, product_data: { name: 'Order ORD-3' } } }],
+  });
+});
+
+it('Pay now by card: back to the open page, a new one when the total has changed, confirmed when paid', async () => {
+  h.session = { id: 'cs_old', status: 'open', url: 'https://checkout.stripe.com/c/old', amount_total: 1000, metadata: { kind: 'pay_now', orderId: 'ORD-3' } };
+  expect(await startPayNowCheckout(onDelivery, urls)).toBe('https://checkout.stripe.com/c/old');
+  expect(h.calls).toEqual([['retrieve', 'cs_old']]);
+
+  h.calls = [];
+  h.session = { ...h.session, amount_total: 1500 };
+  expect(await startPayNowCheckout(onDelivery, urls)).toBe('https://checkout.stripe.com/c/new');
+  expect(h.calls).toEqual([['retrieve', 'cs_old'], ['expire', 'cs_old'], ['create'], ['rpc', 'attach_pay_now_session']]);
+
+  h.calls = [];
+  h.session = { id: 'cs_old', status: 'complete', payment_status: 'paid', amount_total: 1000, currency: 'inr', metadata: { kind: 'pay_now', orderId: 'ORD-3' } };
+  expect(await startPayNowCheckout(onDelivery, urls)).toBeNull();
+  expect(h.calls).toContainEqual(['rpc', 'confirm_pay_now_payment']);
+  expect(h.calls).not.toContainEqual(['create']);
+});
+
+it('Pay now by card: only for a placed Pay on Delivery order', async () => {
+  await expect(startPayNowCheckout({ ...onDelivery, paymentMethod: 'upi' }, urls)).rejects.toMatchObject({ code: 'order_not_payable' });
+  await expect(startPayNowCheckout({ ...onDelivery, status: 'cancelled' }, urls)).rejects.toMatchObject({ code: 'order_not_payable' });
+  expect(h.calls).toEqual([]);
 });
