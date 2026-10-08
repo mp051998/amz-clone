@@ -83,6 +83,7 @@ export function GET(): Response {
       'DELETE /answers/:id',
       'POST   /answers/:id/helpful',
       'GET    /coupons',
+      'GET    /bank-offers',
       'GET    /deals/lightning',
       'POST   /deals/lightning/:id/watch',
       'DELETE /deals/lightning/:id/watch',

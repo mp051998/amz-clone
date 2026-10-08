@@ -39,6 +39,8 @@ import { protectionPlanName } from '@/lib/protection';
 import { EMI_MIN_MINOR, emiPlans } from '@/lib/emi';
 import { PromoCode } from '@/components/checkout/PromoCode';
 import { checkoutQuote, type CheckoutQuote } from '@/lib/data/promo';
+import { listBankOffers } from '@/lib/data/bank-offers';
+import { bankOfferChoices, bankOfferText, paidUnits } from '@/lib/bank-offers';
 import { promoProblem, readPromoCode } from '@/lib/promo';
 import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { limitNote, unitsLeft } from '@/lib/purchase-limits';
@@ -84,7 +86,7 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod] = await Promise.all([
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers] = await Promise.all([
     promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
@@ -93,6 +95,7 @@ export default async function CheckoutPage({
     storeBalance(client, store.id),
     listPickupPoints(client, store.id),
     lastPaymentMethod(client, store.id),
+    listBankOffers(client, store.id),
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
   const cart = priced?.cart ?? null;
@@ -221,6 +224,13 @@ export default async function CheckoutPage({
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
     ? { text: money(balanceMinor), short: balanceMinor < totals.totalMinor, redeemHref: sp('/gift-cards#balance'), reloadHref: stripeConfigured ? sp('/gift-cards#reload') : undefined }
     : undefined;
+  // each bank's Bank Offer for these items, under net banking and EMI
+  const bankOfferNotes = Object.fromEntries(
+    Object.entries(bankOfferChoices(bankOffers, paidUnits(lines))).map(([m, byBank]) => [
+      m,
+      Object.fromEntries(Object.entries(byBank).map(([bank, c]) => [bank, { text: bankOfferText(c.offer, money), ...(c.savingsMinor > 0 ? { savings: money(c.savingsMinor) } : {}) }])),
+    ]),
+  );
   // start on how they paid last time, unless it can't pay for this order (a balance that's short)
   const lastUsed = lastMethod && methods.includes(lastMethod) ? lastMethod : undefined;
   const initialMethod = lastUsed && !(isBalanceMethod(lastUsed) && (!balance || balance.short)) ? lastUsed : undefined;
@@ -277,7 +287,7 @@ export default async function CheckoutPage({
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} pickupPoints={pickupPoints} />
-          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} bankOffers={bankOfferNotes} />
           <StepCard
             n={3}
             title="Delivery"

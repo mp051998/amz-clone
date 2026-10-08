@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Input } from '../primitives/Input';
 import { selectClass } from '../lib/controls';
 import { OptionCard, StepCard } from './StepCard';
+import { CHECKOUT_BANKS } from '@/lib/bank-offers';
 
 export interface PaymentSectionProps {
   /** ordered payment method keys from the store config (card, upi, cod, …). */
@@ -23,6 +24,16 @@ export interface PaymentSectionProps {
   initial?: string;
   /** how the shopper paid last time in this store, marked "Last used" */
   lastUsed?: string;
+  /** net banking and EMI: each bank's Bank Offer for this order, shown when that bank is chosen */
+  bankOffers?: Partial<Record<'netbanking' | 'emi', Record<string, BankOfferNote>>>;
+}
+
+/** A bank's offer for this order: its terms, and what it takes off (absent when the items don't reach its minimum). */
+export interface BankOfferNote {
+  /** "10% Instant Discount up to ₹1,500 on HDFC Bank EMI, on orders of ₹5,000 and above" */
+  text: string;
+  /** "₹1,500.00" */
+  savings?: string;
 }
 
 export interface BalanceInfo {
@@ -59,13 +70,13 @@ function subFor(m: string, stripeCard: boolean): string {
   }
 }
 
-const BANKS = ['HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank', 'Kotak Mahindra Bank', 'Yes Bank'];
+const BANKS: readonly string[] = CHECKOUT_BANKS;
 
 /**
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
  * form while the list is collapsed); the selected method's demo fields show under the list.
  */
-export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed }: PaymentSectionProps) {
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed, bankOffers }: PaymentSectionProps) {
   const [selected, setSelected] = useState(initial && methods.includes(initial) ? initial : methods[0] ?? 'card');
   const [open, setOpen] = useState(false);
   const listId = 'checkout-payment-options';
@@ -88,7 +99,7 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
             onChange={() => setSelected(m)}
             label={LABEL[m] ?? m}
             sub={subFor(m, stripeCard)}
-            badge={m === lastUsed ? 'Last used' : m === 'cod' ? 'No card needed' : m === 'upi' ? 'Instant' : undefined}
+            badge={m === lastUsed ? 'Last used' : m === 'cod' ? 'No card needed' : m === 'upi' ? 'Instant' : hasOffers(bankOffers, m) ? 'Bank offers' : undefined}
           />
         ))}
         <p className="m-0 text-[13px] text-ink-3">
@@ -97,7 +108,12 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
             : 'Demo only — no real payment is processed. Any values work.'}
         </p>
       </div>
-      <div className="sm:pl-[42px]">{selected === 'card' && stripeCard ? stripeCardNotice() : fields(selected, curSymbol, defaultName, balance, emi)}</div>
+      <div className="sm:pl-[42px]">
+        {selected === 'card' && stripeCard ? stripeCardNotice()
+          : selected === 'netbanking' ? <NetBankingFields offers={bankOffers?.netbanking} />
+          : selected === 'emi' ? <EmiFields emi={emi} offers={bankOffers?.emi} />
+          : fields(selected, curSymbol, defaultName, balance)}
+      </div>
     </StepCard>
   );
 }
@@ -117,7 +133,69 @@ function stripeCardNotice() {
 
 const note = 'm-0 text-[13px] text-ink-2';
 
-function fields(method: string, curSymbol: string, defaultName: string, balance?: BalanceInfo, emi?: PaymentSectionProps['emi']) {
+function hasOffers(offers: PaymentSectionProps['bankOffers'], method: string): boolean {
+  return (method === 'netbanking' || method === 'emi') && Object.keys(offers?.[method] ?? {}).length > 0;
+}
+
+/** The chosen bank's offer: what it takes off this order, or what it needs. */
+function BankOfferLine({ offer }: { offer: BankOfferNote }) {
+  return offer.savings ? (
+    <p className="m-0 rounded-input bg-good-bg p-2.5 text-[13px] text-ink-2" role="status">
+      <b className="font-semibold text-good-strong">Bank Offer: −{offer.savings} on this order.</b> {offer.text}.
+    </p>
+  ) : (
+    <p className={`rounded-input bg-surface-2 p-2.5 ${note}`} role="status">
+      <b className="font-semibold text-ink">Bank Offer:</b> {offer.text}.
+    </p>
+  );
+}
+
+function BankSelect({ name, label, bank, onChange }: { name: string; label: string; bank: string; onChange: (bank: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-ink">
+      {label}
+      <select name={name} value={bank} onChange={(e) => onChange(e.target.value)} className={`w-full font-normal ${selectClass}`}>
+        {BANKS.map((b) => (<option key={b} value={b}>{b}</option>))}
+      </select>
+    </label>
+  );
+}
+
+function NetBankingFields({ offers }: { offers?: Record<string, BankOfferNote> }) {
+  const [bank, setBank] = useState(BANKS[0]);
+  const offer = offers?.[bank];
+  return (
+    <div className="flex max-w-[420px] flex-col gap-2">
+      <BankSelect name="bank" label="Choose your bank" bank={bank} onChange={setBank} />
+      {offer ? <BankOfferLine offer={offer} /> : null}
+    </div>
+  );
+}
+
+function EmiFields({ emi, offers }: { emi?: PaymentSectionProps['emi']; offers?: Record<string, BankOfferNote> }) {
+  const [bank, setBank] = useState(BANKS[0]);
+  const offer = offers?.[bank];
+  return (
+    <div className="grid max-w-[520px] grid-cols-1 gap-3 sm:grid-cols-2">
+      <BankSelect name="emiBank" label="Bank" bank={bank} onChange={setBank} />
+      <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-ink">
+        Tenure
+        <select name="emiTenure" defaultValue="3" className={`w-full font-normal ${selectClass}`}>
+          {emi?.length
+            ? emi.map((t) => (<option key={t.months} value={t.months}>{t.months} months · {t.text}</option>))
+            : ['3', '6', '9', '12'].map((t) => (<option key={t} value={t}>{t} months</option>))}
+        </select>
+      </label>
+      {offer ? <div className="sm:col-span-2"><BankOfferLine offer={offer} /></div> : null}
+      <p className={`sm:col-span-2 ${note}`}>
+        {emi?.length ? 'No Cost EMI takes the bank’s interest off as a discount; longer plans carry it. ' : 'Interest and processing fees apply as per your bank. '}
+        (Demo — no EMI is created.)
+      </p>
+    </div>
+  );
+}
+
+function fields(method: string, curSymbol: string, defaultName: string, balance?: BalanceInfo) {
   switch (method) {
     case 'card':
       return (
@@ -138,43 +216,11 @@ function fields(method: string, curSymbol: string, defaultName: string, balance?
           <p className={note}>A collect request would be sent to your UPI app. (Demo — nothing is sent.)</p>
         </div>
       );
-    case 'netbanking':
-      return (
-        <label className="flex max-w-[420px] flex-col gap-1.5 text-[14px] font-semibold text-ink">
-          Choose your bank
-          <select name="bank" defaultValue={BANKS[0]} className={`w-full font-normal ${selectClass}`}>
-            {BANKS.map((b) => (<option key={b} value={b}>{b}</option>))}
-          </select>
-        </label>
-      );
     case 'cod':
       return (
         <p className={`max-w-[480px] rounded-input bg-surface-2 p-3 ${note}`}>
           Pay by cash, UPI or card to the delivery agent when your order arrives. <b className="text-ink">{curSymbol}0.00</b> is charged now.
         </p>
-      );
-    case 'emi':
-      return (
-        <div className="grid max-w-[520px] grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-ink">
-            Bank
-            <select name="emiBank" defaultValue={BANKS[0]} className={`w-full font-normal ${selectClass}`}>
-              {BANKS.map((b) => (<option key={b} value={b}>{b}</option>))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-ink">
-            Tenure
-            <select name="emiTenure" defaultValue="3" className={`w-full font-normal ${selectClass}`}>
-              {emi?.length
-                ? emi.map((t) => (<option key={t.months} value={t.months}>{t.months} months · {t.text}</option>))
-                : ['3', '6', '9', '12'].map((t) => (<option key={t} value={t}>{t} months</option>))}
-            </select>
-          </label>
-          <p className={`sm:col-span-2 ${note}`}>
-            {emi?.length ? 'No Cost EMI takes the bank’s interest off as a discount; longer plans carry it. ' : 'Interest and processing fees apply as per your bank. '}
-            (Demo — no EMI is created.)
-          </p>
-        </div>
       );
     default:
       return null;

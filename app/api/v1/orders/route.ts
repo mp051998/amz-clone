@@ -14,13 +14,14 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day', buyNow?: { productId, qty? }, promoCode?, gst?: { gstin, name } }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day', buyNow?: { productId, qty? }, promoCode?, bank?, gst?: { gstin, name } }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to. India only: `gst`
  * makes the invoice out to that GSTIN and business name (`invalid_input` gstin | gstName before
  * anything is reserved; `gst_unavailable` in other stores). `shipping.pickupPoint` (an id from
- * `GET /pickup-points`) collects the order there with a pickup code instead.
+ * `GET /pickup-points`) collects the order there with a pickup code instead. Net banking and EMI:
+ * `bank` names the shopper's bank, and its best Bank Offer (`GET /bank-offers`) comes off the items.
  */
 export const POST = route(async (ctx) => {
   requireUser(ctx);
@@ -44,6 +45,9 @@ export const POST = route(async (ctx) => {
   if (b.promoCode !== undefined && b.promoCode !== null && typeof b.promoCode !== 'string') {
     throw new DataError('invalid_input', 'promoCode', 'Enter a promotion code.');
   }
+  if (b.bank !== undefined && b.bank !== null && typeof b.bank !== 'string') {
+    throw new DataError('invalid_input', 'bank', 'Choose your bank from the list.');
+  }
 
   const gr = b.gst && typeof b.gst === 'object' ? (b.gst as { gstin?: unknown; name?: unknown }) : null;
   if (b.gst !== undefined && b.gst !== null && !gr) throw new DataError('invalid_input', 'gstin', 'Send gst as { gstin, name }.');
@@ -58,6 +62,7 @@ export const POST = route(async (ctx) => {
     buyNow,
     emiMonths,
     promoCode: typeof b.promoCode === 'string' ? b.promoCode : null,
+    bank: b.bank,
     gst: gr ? { gstin: gr.gstin, name: gr.name } : undefined,
   });
   if (order.status === 'placed') return json({ order }, { status: 201 });

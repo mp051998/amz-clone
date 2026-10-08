@@ -65,3 +65,29 @@ it('marks the last-used method without starting on it, and ignores one the store
   render(<PaymentSection {...base} methods={['card', 'upi']} initial="emi" />);
   expect(screen.getAllByRole('radio')[0]).toBeChecked();
 });
+
+it('shows the chosen bank’s offer under net banking and EMI, and what it takes off', () => {
+  const bankOffers = {
+    netbanking: { 'Axis Bank': { text: '5% Instant Discount up to ₹500.00 on Axis Bank net banking, on orders of ₹1,000.00 and above', savings: '₹99.95' } },
+    emi: {
+      'HDFC Bank': { text: '10% Instant Discount up to ₹1,500.00 on HDFC Bank EMI, on orders of ₹5,000.00 and above' },
+      'ICICI Bank': { text: '10% Instant Discount up to ₹1,000.00 on ICICI Bank EMI and net banking', savings: '₹400.00' },
+    },
+  };
+  render(<PaymentSection {...base} curSymbol="₹" methods={['upi', 'netbanking', 'emi']} bankOffers={bankOffers} />);
+  expect(screen.getByLabelText(/Net banking/).closest('label')).toHaveTextContent('Bank offers');
+
+  fireEvent.click(screen.getByLabelText(/Net banking/));
+  // HDFC first: no net banking offer
+  expect(screen.queryByText(/Bank Offer/)).toBeNull();
+  fireEvent.change(screen.getByLabelText('Choose your bank'), { target: { value: 'Axis Bank' } });
+  expect(screen.getByRole('status')).toHaveTextContent('Bank Offer: −₹99.95 on this order. 5% Instant Discount up to ₹500.00 on Axis Bank net banking');
+
+  fireEvent.click(screen.getByLabelText(/^EMI/));
+  // HDFC's needs more than this order comes to
+  expect(screen.getByRole('status')).toHaveTextContent(/^Bank Offer: 10% Instant Discount up to ₹1,500.00 on HDFC Bank EMI, on orders of ₹5,000.00 and above\.$/);
+  fireEvent.change(screen.getByLabelText('Bank'), { target: { value: 'ICICI Bank' } });
+  expect(screen.getByRole('status')).toHaveTextContent('Bank Offer: −₹400.00 on this order.');
+  fireEvent.change(screen.getByLabelText('Bank'), { target: { value: 'Yes Bank' } });
+  expect(screen.queryByRole('status')).toBeNull();
+});
