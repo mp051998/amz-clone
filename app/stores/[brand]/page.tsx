@@ -1,11 +1,15 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { FollowBrand } from '@/components/brand/FollowBrand';
 import { Page, PageHead, Section, cardGrid } from '@/components/brand/Page';
 import { RankCard } from '@/components/bestsellers/RankCard';
 import { Pill } from '@/components/decision/Pill';
 import { viewerSavedIds } from '@/components/deals/viewerSaved';
+import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
+import { readUser } from '@/lib/auth';
+import { isFollowingBrand } from '@/lib/data/brand-follows';
 import { brandStore } from '@/lib/data/brands';
 import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -13,6 +17,7 @@ import { db } from '@/lib/supabase/server';
 import type { Product } from '@/lib/types';
 
 type Params = Promise<{ brand: string }>;
+type SearchParams = Promise<{ follow_error?: string }>;
 
 /** The brand in the path ("/stores/Bose", "/stores/Acme%20Audio"). */
 function brandName(raw: string): string {
@@ -32,14 +37,17 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 /**
  * A brand's store, linked from "Visit the Bose Store" on its product pages: its best sellers, its
- * deals, then everything it sells here by department, as Amazon's brand stores lay it out.
+ * deals, then everything it sells here by department, as Amazon's brand stores lay it out. "Follow"
+ * keeps the brand in the shopper's Brands you follow.
  */
-export default async function BrandStorePage({ params }: { params: Params }) {
+export default async function BrandStorePage({ params, searchParams }: { params: Params; searchParams?: SearchParams }) {
   const brand = brandName((await params).brand);
   if (!brand) notFound();
   const store = await getMarketplace();
-  const [shop, saved] = await Promise.all([brandStore(await db(), store.id, brand), viewerSavedIds(store.id)]);
+  const client = await db();
+  const [shop, saved, user, sp] = await Promise.all([brandStore(client, store.id, brand), viewerSavedIds(store.id), readUser(), searchParams ?? Promise.resolve({} as Awaited<SearchParams>)]);
   if (!shop) notFound();
+  const following = user ? await isFollowingBrand(client, store.id, user.id, shop.brand).catch(() => false) : false;
 
   // search narrowed to the brand (and a department), with its filters and sorts
   const search = (dept?: string) =>
@@ -69,14 +77,24 @@ export default async function BrandStorePage({ params }: { params: Params }) {
           kicker="Brand store"
           title={shop.brand}
           actions={
-            <a href={search()} className={buttonClasses({ variant: 'secondary' })}>
-              Search all {shop.brand}
-            </a>
+            <>
+              <FollowBrand brand={shop.brand} following={following} next={`/stores/${encodeURIComponent(shop.brand)}`} />
+              <a href={search()} className={buttonClasses({ variant: 'secondary' })}>
+                Search all {shop.brand}
+              </a>
+            </>
           }
         >
           {shop.count === 1 ? 'One product' : `${shop.count} products`} from {shop.brand} in this store
           {shop.departments.length > 1 ? `, across ${shop.departments.length} departments` : ''}.
+          {following ? (
+            <>
+              {' '}You follow {shop.brand}: see what&rsquo;s new from it in{' '}
+              <a href={storePath(store, '/account/brands')} className="text-ink underline underline-offset-2">Brands you follow</a>.
+            </>
+          ) : null}
         </PageHead>
+        {sp.follow_error ? <Alert tone="error">{sp.follow_error === 'not_found' ? `Nothing from ${shop.brand} is on sale in this store to follow.` : 'We couldn’t change that. Please try again.'}</Alert> : null}
         {shop.departments.length > 1 ? (
           <nav aria-label={`${shop.brand} store`} className="flex flex-wrap gap-2">
             {nav.map((n) => (

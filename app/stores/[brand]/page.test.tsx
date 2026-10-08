@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { product } from '@/test/fixtures/decision';
 
-const state = vi.hoisted(() => ({ products: [] as unknown[], asked: [] as unknown[] }));
+const state = vi.hoisted(() => ({ products: [] as unknown[], asked: [] as unknown[], user: null as unknown, following: false, followAsked: [] as unknown[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -16,13 +16,20 @@ vi.mock('@/components/AppShell', () => ({ AppShell: ({ children }: { children: R
 vi.mock('@/lib/marketplace-server', () => ({ getMarketplace: async () => amazon }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/components/deals/viewerSaved', () => ({ viewerSavedIds: async () => new Set<string>() }));
+vi.mock('@/lib/auth', () => ({ readUser: async () => state.user }));
+vi.mock('@/lib/data/brand-follows', () => ({
+  isFollowingBrand: async (_db: unknown, ...args: unknown[]) => (state.followAsked.push(args), state.following),
+}));
+vi.mock('@/app/actions/brands', () => ({ setBrandFollowed: async () => {} }));
 vi.mock('@/lib/data/catalog', () => ({
   listProducts: async (_db: unknown, market: string, opts: unknown) => (state.asked.push([market, opts]), state.products),
 }));
 
 import BrandStorePage, { generateMetadata } from './page';
 
-const show = async (brand: string) => render(await BrandStorePage({ params: Promise.resolve({ brand }) }));
+const show = async (brand: string, sp: { follow_error?: string } = {}) =>
+  render(await BrandStorePage({ params: Promise.resolve({ brand }), searchParams: Promise.resolve(sp) }));
+const field = (form: HTMLElement, name: string) => (form.querySelector(`input[name="${name}"]`) as HTMLInputElement).value;
 const section = (name: string) => screen.getByRole('heading', { level: 2, name }).closest('section') as HTMLElement;
 
 afterEach(cleanup);
@@ -33,6 +40,9 @@ beforeEach(() => {
     product({ id: 'mug', title: 'Acme Audio Mug', brand: 'Acme Audio', category: 'home-kitchen', categoryName: 'Home & Kitchen' }),
   ];
   state.asked = [];
+  state.user = null;
+  state.following = false;
+  state.followAsked = [];
 });
 
 it("shows the brand's best sellers, deals and departments", async () => {
@@ -73,6 +83,31 @@ it('shows a one-department brand as its best sellers alone', async () => {
   expect(screen.queryByRole('heading', { level: 2, name: 'Electronics' })).toBeNull();
   expect(screen.queryByRole('heading', { level: 2, name: 'Deals' })).toBeNull();
   expect(screen.getAllByText('Only Thing')).toHaveLength(1);
+});
+
+it('offers to follow the brand, signed out too (sign-in comes first)', async () => {
+  await show('Acme%20Audio');
+  const follow = screen.getByRole('button', { name: 'Follow', pressed: false });
+  const form = follow.closest('form') as HTMLElement;
+  expect([field(form, 'brand'), field(form, 'follow'), field(form, 'next')]).toEqual(['Acme Audio', '1', '/stores/Acme%20Audio']);
+  expect(state.followAsked).toEqual([]);
+  expect(screen.queryByRole('link', { name: 'Brands you follow' })).toBeNull();
+});
+
+it('shows a followed brand as Following, which unfollows it', async () => {
+  state.user = { id: 'u1', email: 'a@b.test' };
+  state.following = true;
+  await show('Acme Audio');
+  expect(state.followAsked).toEqual([['US', 'u1', 'Acme Audio']]);
+  const following = screen.getByRole('button', { name: 'Following', pressed: true });
+  expect(field(following.closest('form') as HTMLElement, 'follow')).toBe('0');
+  expect(screen.getByText(/You follow Acme Audio: see what’s new from it in/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Brands you follow' })).toHaveAttribute('href', '/account/brands');
+});
+
+it('says when following didn’t work', async () => {
+  await show('Acme Audio', { follow_error: 'not_found' });
+  expect(screen.getByRole('alert')).toHaveTextContent('Nothing from Acme Audio is on sale in this store to follow.');
 });
 
 it('is not found for a brand with nothing on sale here', async () => {

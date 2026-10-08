@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
   unread: [] as string[],
   inbox: [] as { at: string }[],
   seenAt: null as string | null,
+  brands: [] as unknown[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -45,6 +46,7 @@ vi.mock('@/lib/data/inbox', async (actual) => ({
 vi.mock('@/lib/storefront', () => ({ viewerCart: async () => ({ count: 0 }) }));
 vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, historyPaused: async () => state.paused }));
 vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
+vi.mock('@/lib/data/brand-follows', () => ({ followedBrands: async () => state.brands }));
 
 import AccountPage from './page';
 
@@ -64,6 +66,7 @@ beforeEach(() => {
   state.unread = [];
   state.inbox = [];
   state.seenAt = null;
+  state.brands = [];
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -89,6 +92,16 @@ it('says when there is nothing yet, or history is paused (India store paths)', a
   state.recent = ['p1'];
   render(await AccountPage());
   expect(within(tile('Browsing history')).getByText('Paused')).toBeInTheDocument();
+});
+
+it('counts the brands followed in this store', async () => {
+  render(await AccountPage());
+  expect(tile('Brands you follow')).toHaveAttribute('href', '/account/brands');
+  expect(within(tile('Brands you follow')).getByText('None yet')).toBeInTheDocument();
+  cleanup();
+  state.brands = [{ brand: 'Acme', followedAt: '2026-10-01T00:00:00Z' }, { brand: 'Bose', followedAt: '2026-09-01T00:00:00Z' }];
+  render(await AccountPage());
+  expect(within(tile('Brands you follow')).getByText('2 brands')).toBeInTheDocument();
 });
 
 it('sends the signed-out to sign in', async () => {
