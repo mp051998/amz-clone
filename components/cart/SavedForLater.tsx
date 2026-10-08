@@ -2,6 +2,7 @@ import { ProductFrame } from '@/components/decision';
 import { isBackInStock } from '@/lib/data/collections';
 import type { CollectionItem } from '@/lib/decision/types';
 import { formatMoney } from '@/lib/marketplaces';
+import { cn } from '../lib/cn';
 import { SavedItemActions } from './CartActions';
 
 export interface SavedForLaterProps {
@@ -9,14 +10,16 @@ export interface SavedForLaterProps {
   items: CollectionItem[];
   /** store-prefixed path */
   sp: (path: string) => string;
+  /** false under the cart's "Saved for later | Buy it again" tabs, where the tab names the list */
+  titled?: boolean;
 }
 
 /** The cart's "Saved for later" list: each item at today's price, back into the cart in one tap. */
-export function SavedForLater({ collectionId, items, sp }: SavedForLaterProps) {
+export function SavedForLater({ collectionId, items, sp, titled = true }: SavedForLaterProps) {
   if (!items.length) return null;
   return (
     <section className="flex flex-col gap-2.5" aria-labelledby="later-h">
-      <h2 id="later-h" className="m-0 text-[20px] font-semibold">
+      <h2 id="later-h" className={cn('m-0 text-[20px] font-semibold', !titled && 'sr-only')}>
         Saved for later <span className="font-normal text-ink-3">({items.length} {items.length === 1 ? 'item' : 'items'})</span>
       </h2>
       <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">

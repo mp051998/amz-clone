@@ -8,7 +8,7 @@ import { CartSelect, CartSelectAll } from '@/components/cart/CartSelect';
 import { cartNotice } from '@/components/cart/notice';
 import { SaveForLater, SwapButton } from '@/components/cart/CartActions';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
-import { SavedForLater } from '@/components/cart/SavedForLater';
+import { CartLists, cartList } from '@/components/cart/CartLists';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { ShareButton } from '@/components/product/ShareButton';
@@ -17,6 +17,8 @@ import { removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listCollections } from '@/lib/data/collections';
+import { buyAgain } from '@/lib/data/buy-again';
+import { buyableAgain, type BuyAgainItem } from '@/lib/buy-again';
 import { plusMembership } from '@/lib/data/plus';
 import { memberDealLabel, memberUnitOff } from '@/lib/member-deals';
 import { MemberDealTag } from '@/components/product/MemberDeal';
@@ -42,6 +44,10 @@ import { productUrl } from '@/lib/seo';
 import { conditionLabel } from '@/lib/offers';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
+
+/** Past purchases read for the cart's "Buy it again", and how many of them it shows. */
+const AGAIN_SCAN = 24;
+const AGAIN_SHOWN = 8;
 
 /** The shopper's collections (signed-in only): price-drop chips and the "Saved for later" list. */
 async function savedLists(market: Market): Promise<Collection[]> {
@@ -82,7 +88,11 @@ async function setup(lines: CartLine[]): Promise<Accessory[]> {
   }
 }
 
-export default async function CartPage({ searchParams }: { searchParams: Promise<{ error?: string | string[]; skipped?: string | string[] }> }) {
+export default async function CartPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string | string[]; skipped?: string | string[]; list?: string | string[] }>;
+}) {
   const [store, query] = await Promise.all([getMarketplace(), searchParams]);
   const problem = cartNotice(query.error, query.skipped);
   const notice = problem ? <Alert tone="error">{problem}</Alert> : null;
@@ -91,12 +101,24 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const sp = (path: string) => storePath(store, path);
   const [cart, user] = await Promise.all([viewerCart(), readUser()]);
   const { lines, selectedCount: count, totals } = cart;
-  const [lists, recent] = await Promise.all([
+  const [lists, recent, bought] = await Promise.all([
     user ? savedLists(store.id) : Promise.resolve([]),
     recentProducts(await db(), store.id, { exclude: lines.map((l) => l.product.id) }),
+    user ? db().then((c) => buyAgain(c, store.id, AGAIN_SCAN)).catch((): BuyAgainItem[] => []) : Promise.resolve([]),
   ]);
   const later = lists.find((c) => c.kind === 'later');
-  const savedSection = later ? <SavedForLater collectionId={later.id} items={later.items} sp={sp} /> : null;
+  // what's in the cart already (another seller's offer as its product) isn't offered again
+  const inCart = new Set(lines.flatMap((l) => [l.product.id, l.product.offerOf ?? l.product.id]));
+  const again = buyableAgain(bought.filter((x) => !inCart.has(x.productId)), AGAIN_SHOWN + 1);
+  const savedSection = (
+    <CartLists
+      later={later ? { collectionId: later.id, items: later.items } : null}
+      again={again.slice(0, AGAIN_SHOWN)}
+      moreAgain={again.length > AGAIN_SHOWN}
+      view={cartList(query.list)}
+      store={store}
+    />
+  );
   const history = <BrowsingHistory products={recent} store={store} />;
 
   if (lines.length === 0) {
