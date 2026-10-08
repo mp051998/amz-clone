@@ -1,5 +1,6 @@
 import type { ReviewFacets, ReviewFilter as ServerFilter, ReviewStars } from '@/lib/data/reviews';
 import type { Review } from '@/lib/types';
+import { textMentions, themeWords } from '@/lib/review-themes';
 
 /** Reviews loaded at a time: the first page, and again after a filter changes. */
 export const REVIEW_PAGE = 30;
@@ -15,31 +16,10 @@ export interface ReviewFilter {
   test: (r: Review) => boolean;
 }
 
-const STOP = new Set(['quality', 'life', 'for', 'money', 'the', 'and', 'with', 'overall', 'build']);
-const EXTRA: Record<string, string[]> = {
-  value: ['price', 'worth', 'cheap', 'expensive', 'value'],
-  noise: ['noise', 'anc', 'cancel'],
-  battery: ['battery', 'charge', 'charging'],
-  comfort: ['comfort', 'fit', 'wear'],
-  sound: ['sound', 'bass', 'audio'],
-};
-
-/** Words that identify a theme in review text ("Battery life" → battery|charge|charging). */
-export function themeWords(theme: string): string[] {
-  const words = theme.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !STOP.has(w));
-  const base = words.length ? words : theme.toLowerCase().split(/\s+/).filter(Boolean);
-  const out = new Set<string>();
-  for (const w of base) {
-    const key = Object.keys(EXTRA).find((k) => w.startsWith(k));
-    (key ? EXTRA[key] : [w]).forEach((x) => out.add(x));
-  }
-  return [...out];
-}
+export { themeWords };
 
 export function mentions(r: Review, words: string[]): boolean {
-  if (!words.length) return false;
-  const text = `${r.title} ${r.body}`.toLowerCase();
-  return words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text));
+  return textMentions(r, words);
 }
 
 /** How many reviews a database filter would list, from the product's facets. */

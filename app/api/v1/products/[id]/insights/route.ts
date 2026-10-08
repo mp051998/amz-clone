@@ -1,7 +1,7 @@
 import { json, preflight, route } from '@/lib/api/http';
 import { getProduct } from '@/lib/data/catalog';
 import { DataError } from '@/lib/data/errors';
-import { getInsight } from '@/lib/data/insights';
+import { getInsight, withReviewCounts } from '@/lib/data/insights';
 import { decisionConfig } from '@/lib/decision/attributes';
 import { deriveInsight } from '@/lib/decision/derive';
 import { getProvider } from '@/lib/ai';
@@ -21,7 +21,7 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
     insight = (await summarizeReviews(id)) ?? insight;
   }
   if (!insight) {
-    insight = { ...deriveInsight(product, decisionConfig(product.category), { pricePercentile: 0.5 }), updatedAt: new Date().toISOString() };
+    insight = await withReviewCounts(ctx.db, { ...deriveInsight(product, decisionConfig(product.category), { pricePercentile: 0.5 }), updatedAt: new Date().toISOString() });
   }
   return json({ insight, attributes: decisionConfig(product.category).attributes.map(({ key, label, phrase }) => ({ key, label, phrase })) });
 });

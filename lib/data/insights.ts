@@ -1,7 +1,9 @@
 import type { Db } from '../db/client';
 import type { Database, Json } from '../db/database.types';
 import type { ProductInsight } from '../decision/types';
+import { countThemes } from '../review-themes';
 import { unwrap } from './errors';
+import { reviewWords } from './reviews';
 
 type InsightRow = Database['public']['Tables']['product_insights']['Row'];
 
@@ -42,10 +44,29 @@ export function toInsight(row: InsightRow): ProductInsight {
   };
 }
 
-/** One product's insight (public read), or null when none is stored. */
+/**
+ * A rules insight with its praised and criticized themes counted from the product's written
+ * reviews (`words`, else read here), so "Value for money · 3 mentions" means three reviews say so:
+ * the rules builder only picks themes from the product's specs and can't count anything. Themes
+ * no review mentions are dropped, and both lists are empty if the reviews can't be read. AI
+ * insights already count the reviews they were given and are returned as they are.
+ */
+export async function withReviewCounts(
+  db: Db,
+  insight: ProductInsight,
+  words?: Promise<{ rating: number; title: string; body: string }[] | null>,
+): Promise<ProductInsight> {
+  if (insight.source !== 'rules' || (!insight.praised.length && !insight.criticized.length)) return insight;
+  const reviews = await (words ?? reviewWords(db, insight.productId).catch(() => null));
+  return { ...insight, ...(reviews ? countThemes(insight, reviews) : { praised: [], criticized: [] }) };
+}
+
+/** One product's insight (public read), or null when none is stored. Rules themes are counted from its reviews. */
 export async function getInsight(db: Db, productId: string): Promise<ProductInsight | null> {
+  // read alongside, so counting adds no round trip
+  const words = reviewWords(db, productId).catch(() => null);
   const row = unwrap(await db.from('product_insights').select('*').eq('product_id', productId).maybeSingle());
-  return row ? toInsight(row) : null;
+  return row ? withReviewCounts(db, toInsight(row), words) : null;
 }
 
 /** Insights for many products, keyed by product id (missing ids are simply absent). */
