@@ -310,6 +310,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"lightning_deals": {
+                  Row: {
+                    "id": string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed": number,"starts_at": string,"ends_at": string,"started_at": string | null,"was_price_minor": number | null,"was_list_minor": number | null,"was_deal_pct": number | null,"was_deal": boolean | null,"ended_at": string | null,"end_reason": string | null,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed"?: number,"starts_at": string,"ends_at": string,"started_at"?: string | null,"was_price_minor"?: number | null,"was_list_minor"?: number | null,"was_deal_pct"?: number | null,"was_deal"?: boolean | null,"ended_at"?: string | null,"end_reason"?: string | null,"created_at"?: string
+                  }
+                  Update: {
+                    "id"?: string,"product_id"?: string,"market_id"?: string,"deal_price_minor"?: number,"quota"?: number,"claimed"?: number,"starts_at"?: string,"ends_at"?: string,"started_at"?: string | null,"was_price_minor"?: number | null,"was_list_minor"?: number | null,"was_deal_pct"?: number | null,"was_deal"?: boolean | null,"ended_at"?: string | null,"end_reason"?: string | null,"created_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"markets": {
                   Row: {
                     "currency": string,"demo_gift_card_minor": number,"fast_ship_fee_minor": number,"delivery_day": boolean,"free_ship_threshold_minor": number,"gift_wrap_minor": number | null,"id": string,"max_line_qty": number,"payment_methods": (string)[],"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string,"protection_categories": (string)[],"protection_min_minor": number | null,"protection_round_minor": number | null,"emi_min_minor": number | null,"subscribe_methods": (string)[]
@@ -381,13 +394,13 @@ isOneToOne: false
                   ]
                 },"order_items": {
                   Row: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"lightning_deal_id": string | null
                   }
                   Insert: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"lightning_deal_id"?: string | null
                   }
                   Update: {
-                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number
+                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"lightning_deal_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1261,6 +1274,12 @@ isOneToOne: false
                            },
 "run_subscriptions":
 { Args: { "p_on"?: string }; Returns: number
+                           },
+"tick_lightning_deals":
+{ Args: never; Returns: number
+                           },
+"plan_lightning_deals":
+{ Args: { "p_slot"?: string }; Returns: number
                            },
 "set_shared_gift":
 { Args: { "p_token": string; "p_product": string; "p_quantity"?: number }; Returns: undefined
