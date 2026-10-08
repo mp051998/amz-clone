@@ -29,6 +29,8 @@ import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { FrequentlyReturned, UsuallyKept } from '@/components/product/FrequentlyReturned';
 import { categoryReturnPolicy, returnPolicyText } from '@/lib/data/return-policy';
 import { holidayReturnBy } from '@/lib/holiday-returns';
+import { memberDealLabel, memberPrice } from '@/lib/member-deals';
+import { MemberDeal } from '@/components/product/MemberDeal';
 import { exchangeOffer } from '@/lib/data/exchange';
 import { exchangeUpTo, exchangeValue, KIND_LABEL } from '@/lib/exchange';
 import { typicalPrice, typicalToShow } from '@/lib/data/typical-price';
@@ -458,6 +460,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     size={32}
                     unitText={p.unit ? unitPriceText(priceMinor, cur, p.unit) : undefined}
                   />
+                  {p.memberPct ? (
+                    <MemberDeal
+                      label={memberDealLabel(store.membership.name)}
+                      membership={store.membership.name}
+                      pct={p.memberPct}
+                      priceText={money(memberPrice(p)!)}
+                      member={plus != null}
+                      joinHref={storePath(store, '/prime')}
+                    />
+                  ) : null}
                   {deal ? (
                     <>
                       <LightningDealInfo deal={deal} money={(minor) => money(minor)} />

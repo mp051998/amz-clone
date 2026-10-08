@@ -31,7 +31,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'qtyPct', 'qtyMin', 'release', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'qtyPct', 'qtyMin', 'member', 'release', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 /** Field errors the data layer can raise after validation. */
 const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
@@ -72,6 +72,9 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   const qtyMinText = values.qtyMin.trim();
   const qtyWhole = (t: string) => (/^\d+$/.test(t) ? Number(t) : NaN);
   const qtyDiscount = !qtyPctText && !qtyMinText ? null : { percentOff: qtyWhole(qtyPctText), minQty: qtyWhole(qtyMinText) };
+  // "15" % off for Plus members: blank for no member deal
+  const memberText = values.member.trim().replace(/%$/, '').trim();
+  const memberPct = !memberText ? null : qtyWhole(memberText);
   // "2026-11-20" from the date field: that day's midnight in the store; blank once it's out
   const releaseText = values.release.trim();
   const releaseAt = !releaseText ? null : /^\d{4}-\d{2}-\d{2}$/.test(releaseText) ? localDayStart(releaseText, store.dates.timeZone) : releaseText;
@@ -91,6 +94,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     climate: climateCerts(values.climate.split(',')),
     unit,
     qtyDiscount,
+    memberPct,
     releaseAt,
     badge: values.badge,
     boughtPastMonth: values.boughtPastMonth,
@@ -116,6 +120,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   if (Number.isNaN(maxPerCustomer)) errors.maxPerCustomer = 'Enter a whole number like 3, or leave it blank';
   if (qtyDiscount && (!qtyPctText || !qtyMinText)) errors.qtyDiscount = 'Enter both the percent off and how many it takes, or leave both blank';
   else if (qtyDiscount && (Number.isNaN(qtyDiscount.percentOff) || Number.isNaN(qtyDiscount.minQty))) errors.qtyDiscount = 'Enter whole numbers like 5 (% off) and 2 (units)';
+  if (Number.isNaN(memberPct)) errors.memberPct = 'Enter a whole percent like 15, or leave it blank';
   if (unitText && !unit) errors.unit = 'Enter how much it holds, like 3 fl oz, 150 ml or 30 count, or leave it blank';
   if (details.error) errors.details = details.error;
   if (kept.length + galleryUploads.length > GALLERY_MAX) errors.gallery = `Up to ${GALLERY_MAX} more images; remove ${kept.length + galleryUploads.length - GALLERY_MAX}`;

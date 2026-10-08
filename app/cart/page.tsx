@@ -17,6 +17,8 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listCollections } from '@/lib/data/collections';
 import { plusMembership } from '@/lib/data/plus';
+import { memberDealLabel, memberUnitOff } from '@/lib/member-deals';
+import { MemberDealTag } from '@/components/product/MemberDeal';
 import { accessoriesFor, alternativesFor, type Accessory, type Alternative } from '@/lib/decision/server';
 import { shortTitle } from '@/lib/decision/verdict';
 import { recentProducts } from '@/lib/recent-products';
@@ -160,9 +162,10 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const dropFor = (l: CartLine) => Math.max(0, (saved.get(l.product.id) ?? 0) - l.product.priceMinor);
   const dropSum = lines.reduce((s, l) => s + dropFor(l) * l.qty, 0);
   const discount = totals.discountMinor ?? 0;
-  // coupons and quantity discounts are shown apart; the discount covers both
+  // member deals, coupons and quantity discounts are shown apart; the discount covers them all
+  const memberMinor = totals.memberMinor ?? 0;
   const qtyDiscountMinor = totals.qtyDiscountMinor ?? 0;
-  const couponMinor = discount - qtyDiscountMinor;
+  const couponMinor = discount - memberMinor - qtyDiscountMinor;
   // the free-delivery threshold goes by what's paid for the items, after coupons
   const toFree = cart.freeShipThresholdMinor - (totals.subtotalMinor - discount);
 
@@ -239,8 +242,21 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                             compact
                           />
                         ) : null}
-                        {l.discountMinor && l.discountMinor > (l.qtyDiscountMinor ?? 0) ? (
-                          <span className="text-[13px] font-semibold text-good-strong">You save {money(l.discountMinor - (l.qtyDiscountMinor ?? 0))} with the coupon</span>
+                        {l.available && p.memberPct ? (
+                          <span className="flex flex-wrap items-center gap-1.5 text-[13px]">
+                            <MemberDealTag label={memberDealLabel(store.membership.name)} />
+                            {l.memberMinor ? (
+                              <span className="font-semibold text-good-strong">You save {money(l.memberMinor)} as a {store.membership.name} member</span>
+                            ) : (
+                              <span className="text-ink-2">
+                                {store.membership.name} members save {money(memberUnitOff(p.memberPct, p.priceMinor) * l.qty)}.{' '}
+                                <a href={storePath(store, '/prime')} className="text-ink underline underline-offset-2">Join {store.membership.name}</a>
+                              </span>
+                            )}
+                          </span>
+                        ) : null}
+                        {l.discountMinor && l.discountMinor > (l.memberMinor ?? 0) + (l.qtyDiscountMinor ?? 0) ? (
+                          <span className="text-[13px] font-semibold text-good-strong">You save {money(l.discountMinor - (l.memberMinor ?? 0) - (l.qtyDiscountMinor ?? 0))} with the coupon</span>
                         ) : null}
                         {l.available && p.qtyDiscount ? (
                           l.qtyDiscountMinor ? (
@@ -321,6 +337,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
             ) : null}
             <dl className="m-0 flex flex-col gap-2 text-[15px]">
               <div className="flex justify-between gap-3"><dt>Subtotal ({count} {count === 1 ? 'item' : 'items'})</dt><dd className="m-0 font-bold tabular-nums">{money(totals.subtotalMinor)}</dd></div>
+              {memberMinor > 0 ? (
+                <div className="flex justify-between gap-3 text-good-strong"><dt>{store.membership.name} savings</dt><dd className="m-0 font-bold tabular-nums">−{money(memberMinor)}</dd></div>
+              ) : null}
               {couponMinor > 0 ? (
                 <div className="flex justify-between gap-3 text-good-strong"><dt>Coupon savings</dt><dd className="m-0 font-bold tabular-nums">−{money(couponMinor)}</dd></div>
               ) : null}

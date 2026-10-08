@@ -130,6 +130,7 @@ export function productFormValues(p: AdminProduct, timeZone: string): ProductFor
     unit: p.unit ? unitSizeText(p.unit) : '',
     qtyPct: p.qtyDiscount ? String(p.qtyDiscount.percentOff) : '',
     qtyMin: p.qtyDiscount ? String(p.qtyDiscount.minQty) : '',
+    member: p.memberPct == null ? '' : String(p.memberPct),
     release: p.releaseAt ? localDayOf(p.releaseAt, timeZone) : '',
     badge: p.badge ?? '',
     boughtPastMonth: p.boughtPastMonth ?? '',

@@ -6,6 +6,7 @@ import { deriveInsight, pricePercentiles } from '../decision/derive';
 import { DETAIL_LIMITS, toDetailRows, type DetailRow } from '../product-details';
 import { CLIMATE_CERTS, climateCerts, type ClimateCert } from '../climate';
 import type { Market } from '../types';
+import { MEMBER_PCT_MAX } from '../member-deals';
 import { QTY_DISCOUNT_MAX_QTY, QTY_DISCOUNT_MIN_QTY, QTY_DISCOUNT_PCT_MAX, type QtyDiscount } from '../qty-discount';
 import { isUnitKind, UNIT_KINDS, UNIT_QTY_MAX, type ProductUnit } from '../unit-price';
 import { getProduct } from './catalog';
@@ -63,6 +64,8 @@ export interface ProductInput {
   unit: ProductUnit | null;
   /** "Save 5% when you buy 2 or more": percent off (1–50) each unit of a line of at least minQty (2–99), or null for none. */
   qtyDiscount: QtyDiscount | null;
+  /** Plus exclusive deal: percent off (1–50) its price for members, or null for none; left as it is when not given. */
+  memberPct?: number | null;
   /** when it comes out (ISO; the store's midnight that day): sold as a pre-order until then, or null once out. */
   releaseAt: string | null;
   badge: string | null;
@@ -167,6 +170,13 @@ const ProductInputSchema = z
       })
       .nullable()
       .default(null),
+    memberPct: z
+      .number()
+      .int('Enter a whole percent')
+      .min(1, `Member deals are 1% to ${MEMBER_PCT_MAX}% off`)
+      .max(MEMBER_PCT_MAX, `Member deals are 1% to ${MEMBER_PCT_MAX}% off`)
+      .nullable()
+      .optional(),
     releaseAt: z.iso.datetime({ offset: true, error: 'Enter the release date' }).nullable().default(null),
     badge: optional(40),
     boughtPastMonth: optional(40),
@@ -271,6 +281,7 @@ function toRow(p: ProductInput) {
     unit_kind: p.unit?.kind ?? null,
     qty_discount_pct: p.qtyDiscount?.percentOff ?? null,
     qty_discount_min: p.qtyDiscount?.minQty ?? null,
+    ...(p.memberPct !== undefined ? { member_pct: p.memberPct } : {}),
     release_at: p.releaseAt,
     badge: p.badge,
     bought_past_month: p.boughtPastMonth,
@@ -444,6 +455,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     unit: r.unit_qty != null && isUnitKind(r.unit_kind) ? { qty: Number(r.unit_qty), kind: r.unit_kind } : null,
     // absent before the quantity discounts migration
     qtyDiscount: r.qty_discount_pct && r.qty_discount_min ? { percentOff: r.qty_discount_pct, minQty: r.qty_discount_min } : null,
+    // absent before the Plus exclusive deals migration
+    memberPct: r.member_pct ?? null,
     // absent before the pre-orders migration
     releaseAt: r.release_at ?? null,
     badge: r.badge,

@@ -34,6 +34,7 @@ export interface ProductFormValues {
   /** quantity discount percent and the units it starts at, both blank for none. */
   qtyPct: string;
   qtyMin: string;
+  member: string;
   /** release date ("2026-11-20", the store's day), blank once it's out. */
   release: string;
   badge: string;
@@ -223,6 +224,16 @@ export function ProductForm({
                 hint="2 to 99 of it in one order. Shoppers see “Save 5% when you buy 2 or more”."
               />
             </div>
+            <Input
+              label="Plus exclusive deal (% off)"
+              name="member"
+              inputMode="numeric"
+              defaultValue={val('member')}
+              error={e.memberPct}
+              placeholder="15"
+              hint="Optional, 1 to 50, off its price for Plus members only, before coupons and other discounts. Everyone else sees what members pay."
+              className="sm:max-w-[240px]"
+            />
             <div className="flex flex-col gap-1">
               <Checkbox label="Show on Today’s Deals" name="deal" defaultChecked={v ? v.deal === 'on' : initial.deal} />
               {e.deal ? <span className="text-[13px] text-bad">⚠ {e.deal}</span> : <span className="text-[13px] text-ink-3">The discount is worked out from the list price.</span>}

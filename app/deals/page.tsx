@@ -21,15 +21,18 @@ export const metadata: Metadata = { title: "Today's Deals · Store" };
 export default async function DealsPage({ searchParams }: { searchParams: Promise<{ c?: string; off?: string; type?: string }> }) {
   const sp = await searchParams;
   const c = sp.c;
-  const type = sp.type === 'lightning' || sp.type === 'watched' ? sp.type : null;
+  const type = sp.type === 'lightning' || sp.type === 'watched' || sp.type === 'member' ? sp.type : null;
   const lightningOnly = type === 'lightning';
   // "Watched deals": the Lightning Deals the shopper watches, live or coming up
   const watchedOnly = type === 'watched';
-  const off = watchedOnly ? null : readDiscount(sp.off);
+  // "Plus exclusive deals": what's cheaper for members, deal or not; its saving is the member price's
+  const memberOnly = type === 'member';
+  const off = watchedOnly || memberOnly ? null : readDiscount(sp.off);
   const store = await getMarketplace();
   const client = await db();
-  const [deals, categories, saved, lightning, watchedList, user] = await Promise.all([
+  const [deals, memberDeals, categories, saved, lightning, watchedList, user] = await Promise.all([
     listProducts(client, store.id, { dealsOnly: true }),
+    listProducts(client, store.id, { memberDeals: true }),
     storeCategories(),
     viewerSavedIds(store.id),
     lightningDeals(client, store.id),
@@ -42,7 +45,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     return product ? [{ product, deal }] : [];
   });
   const liveById = new Map(lightning.live.map((d) => [d.productId, d]));
-  const all = lightningOnly ? deals.filter((p) => liveById.has(p.id)) : deals;
+  const all = lightningOnly ? deals.filter((p) => liveById.has(p.id)) : memberOnly ? memberDeals : deals;
   const present = new Set(watchedOnly ? watched.map((w) => w.product.category) : all.map((p) => p.category));
   const chips = categories.filter((cat) => present.has(cat.slug));
   const categoryName = (slug: string) => categories.find((x) => x.slug === slug)?.name ?? slug;
@@ -50,8 +53,10 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const items = atLeast(inCategory, off);
   // Lightning Deals ending soonest first; otherwise the biggest real saving first — the reason a deal is worth a look
   const ends = (id: string) => liveById.get(id)?.endsAt ?? '';
-  const sorted = [...items].sort(lightningOnly ? (a, b) => ends(a.id).localeCompare(ends(b.id)) : (a, b) => (b.dealPct ?? 0) - (a.dealPct ?? 0));
-  const discounts = watchedOnly ? [] : discountOptions(inCategory.map((p) => p.dealPct ?? 0), off);
+  const sorted = [...items].sort(
+    lightningOnly ? (a, b) => ends(a.id).localeCompare(ends(b.id)) : memberOnly ? (a, b) => (b.memberPct ?? 0) - (a.memberPct ?? 0) : (a, b) => (b.dealPct ?? 0) - (a.dealPct ?? 0),
+  );
+  const discounts = watchedOnly || memberOnly ? [] : discountOptions(inCategory.map((p) => p.dealPct ?? 0), off);
   const watchedHere = c ? watched.filter((w) => w.product.category === c) : watched;
   // what's coming up: in this category, before any discount filter (they aren't discounted yet)
   const upcoming = (await getProducts(client, lightning.upcoming.map((d) => d.productId)))
@@ -59,25 +64,28 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     .map((p) => ({ product: p, deal: lightning.upcoming.find((d) => d.productId === p.id)! }));
   const watching = await watchedDeals(client, upcoming.map((u) => u.deal.id));
   /** this view with the category, discount and/or deal type changed */
-  const dealsHref = (next: { c?: string | null; off?: number | null; type?: 'lightning' | 'watched' | null }) => {
+  const dealsHref = (next: { c?: string | null; off?: number | null; type?: 'lightning' | 'watched' | 'member' | null }) => {
     const qs = new URLSearchParams();
     const cat = next.c === undefined ? c : next.c;
     const min = next.off === undefined ? off : next.off;
     const kind = next.type === undefined ? type : next.type;
     if (cat) qs.set('c', cat);
-    if (min && kind !== 'watched') qs.set('off', String(min));
+    if (min && kind !== 'watched' && kind !== 'member') qs.set('off', String(min));
     if (kind) qs.set('type', kind);
     const q = qs.toString();
     return storePath(store, q ? `/deals?${q}` : '/deals');
   };
   const offText = off ? `${off}% off or more` : null;
+  const memberDealsTitle = `${store.membership.name} exclusive deals`;
 
   return (
     <AppShell>
       <Page>
-        <PageHead kicker={`Today's deals · ${deals.length} live`} title={`${watchedOnly ? 'Watched deals' : lightningOnly ? 'Lightning Deals' : c ? 'Deals' : "Today's deals"}${c ? ` in ${categoryName(c)}` : ''}`}>
+        <PageHead kicker={`Today's deals · ${deals.length} live`} title={`${watchedOnly ? 'Watched deals' : lightningOnly ? 'Lightning Deals' : memberOnly ? memberDealsTitle : c ? 'Deals' : "Today's deals"}${c ? ` in ${categoryName(c)}` : ''}`}>
           {watchedOnly
             ? 'The Lightning Deals you’re watching: live ones first, ending soonest, then what’s coming up.'
+            : memberOnly
+            ? `Lower prices only ${store.membership.name} members get, at checkout. Biggest member saving first.`
             : 'Only products with a real saving on their list price, biggest saving first. Compare a few before you commit.'}
         </PageHead>
 
@@ -87,6 +95,11 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             {lightning.live.length || lightningOnly ? (
               <Pill href={dealsHref({ type: lightningOnly ? null : 'lightning' })} selected={lightningOnly}>
                 Lightning Deals <span className="font-mono text-[12px] opacity-75">{lightning.live.length}</span>
+              </Pill>
+            ) : null}
+            {memberDeals.length || memberOnly ? (
+              <Pill href={dealsHref({ type: memberOnly ? null : 'member' })} selected={memberOnly}>
+                {memberDealsTitle} <span className="font-mono text-[12px] opacity-75">{memberDeals.length}</span>
               </Pill>
             ) : null}
             {watchedList.length || watchedOnly ? (
@@ -146,6 +159,13 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                 action={<a href={dealsHref({ off: null })} className={buttonClasses({ variant: 'secondary' })}>Show every discount</a>}
               >
                 The biggest saving here is {Math.max(...inCategory.map((p) => p.dealPct ?? 0))}% off.
+              </EmptyState>
+            ) : memberOnly ? (
+              <EmptyState
+                title={`No ${memberDealsTitle}${c ? ` in ${categoryName(c)}` : ''} right now`}
+                action={<a href={dealsHref({ type: null })} className={buttonClasses({ variant: 'secondary' })}>See all deals</a>}
+              >
+                Member prices change often. Check back soon.
               </EmptyState>
             ) : lightningOnly ? (
               <EmptyState
