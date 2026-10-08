@@ -884,13 +884,13 @@ isOneToOne: false
                   ]
                 },"reviews": {
                   Row: {
-                    "author_name": string,"body": string,"created_at": string,"fit": string | null,"helpful_count": number,"hidden_at": string | null,"hidden_reason": string | null,"id": string,"moderated_at": string | null,"photos": string[],"product_id": string,"rating": number,"seeded": boolean,"title": string,"updated_at": string,"user_id": string | null,"verified": boolean
+                    "author_name": string,"body": string,"created_at": string,"features": Json,"fit": string | null,"helpful_count": number,"hidden_at": string | null,"hidden_reason": string | null,"id": string,"moderated_at": string | null,"photos": string[],"product_id": string,"rating": number,"seeded": boolean,"title": string,"updated_at": string,"user_id": string | null,"verified": boolean
                   }
                   Insert: {
-                    "author_name": string,"body": string,"created_at"?: string,"fit"?: string | null,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id": string,"rating": number,"seeded"?: boolean,"title": string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name": string,"body": string,"created_at"?: string,"features"?: Json,"fit"?: string | null,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id": string,"rating": number,"seeded"?: boolean,"title": string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Update: {
-                    "author_name"?: string,"body"?: string,"created_at"?: string,"fit"?: string | null,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id"?: string,"rating"?: number,"seeded"?: boolean,"title"?: string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name"?: string,"body"?: string,"created_at"?: string,"features"?: Json,"fit"?: string | null,"helpful_count"?: number,"hidden_at"?: string | null,"hidden_reason"?: string | null,"id"?: string,"moderated_at"?: string | null,"photos"?: string[],"product_id"?: string,"rating"?: number,"seeded"?: boolean,"title"?: string,"updated_at"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Relationships: [
                     {
@@ -1256,6 +1256,11 @@ isOneToOne: false
                            },
 "report_product":
 { Args: { "p_details"?: string,"p_product": string,"p_reason": string }; Returns: Json
+                           },
+"review_feature_ratings":
+{ Args: { "p_product_id": string }; Returns: {
+              "average": number,"feature": string,"ratings": number
+            }[]
                            },
 "resolve_product_report":
 { Args: { "p_note"?: string,"p_report": string,"p_status": string }; Returns: Json

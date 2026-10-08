@@ -26,7 +26,7 @@ async function requireUser() {
 
 export async function submitReview(
   productId: string,
-  input: { rating: number; title: string; body: string; authorName?: string; photos?: string[]; fit?: string | null },
+  input: { rating: number; title: string; body: string; authorName?: string; photos?: string[]; fit?: string | null; features?: Record<string, number> | null },
 ): Promise<ActionResult<{ review: Review }>> {
   return run(async () => {
     const user = await requireUser();

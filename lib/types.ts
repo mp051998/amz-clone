@@ -1,5 +1,6 @@
 import type { CurrencyCode } from './contracts';
 import type { QtyDiscount } from './qty-discount';
+import type { FeatureStars } from './review-features';
 import type { ProductUnit } from './unit-price';
 
 /** Storefront id — amazon.com (US) or amazon.in (IN). */
@@ -377,6 +378,8 @@ export interface Review {
   photos: ReviewPhoto[];
   /** clothing and shoes: how the author found it fits (absent when not answered) */
   fit?: ReviewFit;
+  /** "By feature": the author's 1–5 stars on features of the product (absent when none rated) */
+  features?: FeatureStars;
 }
 
 /** "How does it fit?" on a review of clothing or shoes. */

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const loads = vi.hoisted(() => ({ calls: [] as unknown[][], items: [] as unknown[], submitted: [] as unknown[][], uploads: 0 }));
@@ -414,4 +414,57 @@ it('shows how its reviews say it fits, and each reviewer’s answer', () => {
 it('has no fit summary until enough shoppers have said', () => {
   render(<ReviewsPanel {...props({ askFit: true })} />);
   expect(screen.queryByRole('list', { name: 'How it fits' })).not.toBeInTheDocument();
+});
+
+it('asks its category’s features, sending the ones rated (and leaving out a cleared one)', async () => {
+  render(<ReviewsPanel {...props({ askFeatures: ['easy_to_use', 'easy_to_clean', 'value_for_money'] })} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Write a review' }));
+  const group = screen.getByRole('group', { name: /Rate features/ });
+  expect(within(group).getAllByRole('radiogroup').map((g) => g.getAttribute('aria-label'))).toEqual(['Easy to use', 'Easy to clean', 'Value for money']);
+  fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Easy to use' })).getByRole('radio', { name: '5 stars' }));
+  fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Value for money' })).getByRole('radio', { name: '3 stars' }));
+  fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Easy to clean' })).getByRole('radio', { name: '2 stars' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Clear Easy to clean' }));
+  expect(within(screen.getByRole('radiogroup', { name: 'Easy to clean' })).getByRole('radio', { name: '2 stars' })).not.toBeChecked();
+  fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Your rating' })).getByRole('radio', { name: '4 stars' }));
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'Handy' } });
+  fireEvent.change(screen.getByLabelText('Your review'), { target: { value: 'Does the job.' } });
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit review' })));
+  expect(loads.submitted).toEqual([['p1', expect.objectContaining({ rating: 4, features: { easy_to_use: 5, value_for_money: 3 } })]]);
+});
+
+it('starts from the features of your own review, and asks none on a book', async () => {
+  const { unmount } = render(<ReviewsPanel {...props({ askFeatures: ['fun', 'durability'], mine: review('m', 5, 'Mine', { mine: true, features: { fun: 4 } }) as never })} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit your review' }));
+  expect(within(screen.getByRole('radiogroup', { name: 'Fun' })).getByRole('radio', { name: '4 stars' })).toHaveAttribute('aria-checked', 'true');
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Update review' })));
+  expect(loads.submitted[0][1]).toMatchObject({ features: { fun: 4 } });
+  unmount();
+
+  render(<ReviewsPanel {...props({ mine: review('m', 5, 'Mine', { mine: true }) as never })} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit your review' }));
+  expect(screen.queryByRole('group', { name: /Rate features/ })).not.toBeInTheDocument();
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Update review' })));
+  expect(loads.submitted[1][1]).not.toHaveProperty('features');
+});
+
+it('shows each feature’s average by feature, and nothing until there are some', () => {
+  render(
+    <ReviewsPanel
+      {...props({
+        askFeatures: ['easy_to_use', 'value_for_money'],
+        features: [
+          { feature: 'easy_to_use', label: 'Easy to use', average: 4.6, count: 12 },
+          { feature: 'value_for_money', label: 'Value for money', average: 4, count: 3 },
+        ],
+      })}
+    />,
+  );
+  const rows = within(screen.getByRole('list', { name: 'Ratings by feature' })).getAllByRole('listitem');
+  expect(rows.map((r) => r.textContent!.replace(/★/g, ''))).toEqual(['Easy to use4.6from 12 ratings', 'Value for money4.0from 3 ratings']);
+  expect(within(rows[0]).getByRole('img', { name: '4.6 out of 5 stars' })).toBeInTheDocument();
+  cleanup();
+
+  render(<ReviewsPanel {...props({ askFeatures: ['easy_to_use'] })} />);
+  expect(screen.queryByText('By feature')).not.toBeInTheDocument();
 });

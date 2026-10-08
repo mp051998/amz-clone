@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'rea
 import { useRouter } from 'next/navigation';
 import type { ReviewFacets, ReviewFilter, ReviewSort, ReviewStars } from '@/lib/data/reviews';
 import type { CustomerImage } from '@/lib/data/review-photos';
+import { FEATURE_LABELS, type FeatureRating, type FeatureStars, type ReviewFeature } from '@/lib/review-features';
 import { FIT_LABELS, REVIEW_FITS, type FitSummary } from '@/lib/review-fit';
 import { readReviewSearch, REVIEW_SEARCH_MAX } from '@/lib/review-search';
 import type { RatingSummary, Review, ReviewFit } from '@/lib/types';
@@ -11,6 +12,7 @@ import { Kicker, SourceTag } from '../decision/Badges';
 import { Pill } from '../decision/Pill';
 import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
+import { Stars } from '../primitives/Stars';
 import { fieldClass, selectClass } from '../lib/controls';
 import { cn } from '../lib/cn';
 import { CustomerImages, PhotoPicker, ReviewPhotoThumbs } from './ReviewPhotos';
@@ -48,6 +50,10 @@ export interface ReviewsPanelProps {
   askFit?: boolean;
   /** how its reviews say it fits (null with too few answers) */
   fit?: FitSummary | null;
+  /** "By feature": the features the form asks to rate (its category's; none for books) */
+  askFeatures?: readonly ReviewFeature[];
+  /** each asked feature's average, once enough have rated it */
+  features?: FeatureRating[];
 }
 
 /** Review text with what was searched for in bold. */
@@ -62,11 +68,11 @@ function Highlight({ text, q }: { text: string; q?: string }) {
 }
 
 /** Clickable 1–5 star picker for the write-review form. */
-function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+function StarPicker({ value, onChange, label = 'Your rating', small = false }: { value: number; onChange: (n: number) => void; label?: string; small?: boolean }) {
   const [hover, setHover] = useState(0);
   const shown = hover || value;
   return (
-    <div className="flex items-center gap-0.5" role="radiogroup" aria-label="Your rating">
+    <div className="flex items-center gap-0.5" role="radiogroup" aria-label={label}>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
@@ -77,7 +83,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (n: number) 
           onMouseEnter={() => setHover(n)}
           onMouseLeave={() => setHover(0)}
           onClick={() => onChange(n)}
-          className="flex h-11 w-10 items-center justify-center text-[26px] leading-none"
+          className={cn('flex items-center justify-center leading-none', small ? 'h-9 w-8 text-[20px]' : 'h-11 w-10 text-[26px]')}
         >
           <span aria-hidden className={n <= shown ? 'text-star' : 'text-line-3'}>★</span>
         </button>
@@ -102,7 +108,7 @@ function scrollToId(id: string) {
  * (so they cover every review, with exact counts); theme chips narrow the loaded reviews. Every
  * write (review, helpful, report, delete) goes through the server actions in app/actions/review.ts.
  */
-export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, insight, aiPending, customerImages = [], askFit = false, fit = null }: ReviewsPanelProps) {
+export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, insight, aiPending, customerImages = [], askFit = false, fit = null, askFeatures = [], features = [] }: ReviewsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
@@ -117,7 +123,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
   const [active, setActive] = useState<string[]>([]);
   const [notice, setNotice] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName, photos: mine?.photos ?? [], fit: (mine?.fit ?? null) as ReviewFit | null });
+  const [form, setForm] = useState({ rating: mine?.rating ?? 0, title: mine?.title ?? '', body: mine?.body ?? '', name: mine?.author ?? defaultName, photos: mine?.photos ?? [], fit: (mine?.fit ?? null) as ReviewFit | null, features: (mine?.features ?? {}) as FeatureStars });
   const [error, setError] = useState('');
 
   // fresh server data after router.refresh() replaces the local list (and it comes top-first, unfiltered)
@@ -230,6 +236,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
       const res = await submitReview(productId, {
         rating: form.rating, title: form.title, body: form.body, authorName: form.name, photos: form.photos.map((p) => p.path),
         ...(askFit ? { fit: form.fit } : {}),
+        ...(askFeatures.length ? { features: Object.fromEntries(askFeatures.flatMap((f) => (form.features[f] ? [[f, form.features[f]]] : []))) } : {}),
       });
       if (!res.ok) return setError(res.message);
       setError('');
@@ -243,7 +250,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
     startTransition(async () => {
       const res = await removeReview(productId, id);
       if (!res.ok) return setNotice((n) => ({ ...n, [id]: res.message }));
-      setForm({ rating: 0, title: '', body: '', name: defaultName, photos: [], fit: null });
+      setForm({ rating: 0, title: '', body: '', name: defaultName, photos: [], fit: null, features: {} });
       toast('Your review was deleted');
       router.refresh();
     });
@@ -343,6 +350,21 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                         <span className="block h-full bg-ink" style={{ width: `${fit.pct[f]}%` }} />
                       </span>
                       <span aria-hidden className="w-[38px] text-right text-ink-2 tabular-nums">{fit.pct[f]}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {features.length ? (
+              <div id="by-feature" className="mt-2 flex scroll-mt-[140px] flex-col gap-1.5 border-t border-line pt-3">
+                <strong className="text-[14px] font-semibold">By feature</strong>
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="Ratings by feature">
+                  {features.map((f) => (
+                    <li key={f.feature} className="flex min-h-6 items-center gap-2 text-[13px]">
+                      <span className="min-w-0 flex-1">{f.label}</span>
+                      <Stars rating={f.average} size={14} />
+                      <span className="w-[26px] text-right font-semibold tabular-nums">{f.average.toFixed(1)}</span>
+                      <span className="sr-only">from {num(f.count)} ratings</span>
                     </li>
                   ))}
                 </ul>
@@ -476,6 +498,27 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                     </button>
                   ) : null}
                 </div>
+              </fieldset>
+            ) : null}
+            {askFeatures.length ? (
+              <fieldset className="m-0 flex min-w-0 flex-col gap-0.5 border-0 p-0">
+                <legend className="mb-1 p-0 text-[14px] font-semibold">Rate features <span className="font-normal text-ink-3">(optional)</span></legend>
+                {askFeatures.map((f) => (
+                  <div key={f} className="flex flex-wrap items-center gap-x-3">
+                    <span className="w-[136px] text-[14px]">{FEATURE_LABELS[f]}</span>
+                    <StarPicker small label={FEATURE_LABELS[f]} value={form.features[f] ?? 0} onChange={(n) => setForm((x) => ({ ...x, features: { ...x.features, [f]: n } }))} />
+                    {form.features[f] ? (
+                      <button
+                        type="button"
+                        aria-label={`Clear ${FEATURE_LABELS[f]}`}
+                        onClick={() => setForm((x) => ({ ...x, features: { ...x.features, [f]: undefined } }))}
+                        className="min-h-[36px] px-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
               </fieldset>
             ) : null}
             <label className="flex flex-col gap-1.5 text-[14px] font-semibold" htmlFor="rv-name">

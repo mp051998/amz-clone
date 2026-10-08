@@ -2,7 +2,8 @@ import { body, intParam, json, preflight, requireUser, route } from '@/lib/api/h
 import { getProduct } from '@/lib/data/catalog';
 import { DataError } from '@/lib/data/errors';
 import { customerImages } from '@/lib/data/review-photos';
-import { listReviews, readReviewFilter, readReviewSort, reviewFitCounts, upsertReview } from '@/lib/data/reviews';
+import { listReviews, readReviewFilter, readReviewSort, reviewFeatureRows, reviewFitCounts, upsertReview } from '@/lib/data/reviews';
+import { featureRatings } from '@/lib/review-features';
 import { fitSummary } from '@/lib/review-fit';
 
 /**
@@ -11,11 +12,11 @@ import { fitSummary } from '@/lib/review-fit';
  * (1–3★); verified=1 keeps verified purchases, photos=1 reviews with photos, q= ones
  * whose headline or text contains it (2–100 characters). `total` counts the filtered reviews. `images`: the
  * newest photos from its reviews. `fit`: how its reviews say it fits (clothing and shoes), null with
- * fewer than 3 answers.
+ * fewer than 3 answers. `features`: "By feature", each feature's average stars once 3 have rated it.
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const sp = ctx.req.nextUrl.searchParams;
-  const [page, images, fit] = await Promise.all([
+  const [page, images, fit, features] = await Promise.all([
     listReviews(ctx.db, id, ctx.user?.id ?? null, {
       limit: intParam(sp.get('limit'), 10, 1, 50),
       offset: intParam(sp.get('offset'), 0, 0, 100_000),
@@ -24,12 +25,13 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
     }),
     customerImages(ctx.db, id),
     reviewFitCounts(ctx.db, id).then(fitSummary),
+    reviewFeatureRows(ctx.db, id).then((rows) => featureRatings(rows)),
   ]);
-  return json({ ...page, images, fit });
+  return json({ ...page, images, fit, features });
 });
 
 /**
- * POST /api/v1/products/:id/reviews { rating, title, body, authorName?, photos?, fit? }
+ * POST /api/v1/products/:id/reviews { rating, title, body, authorName?, photos?, fit?, features? }
  * Create or replace the caller's review (one per customer). "Verified Purchase"
  * is decided by the database: the caller has a delivered order containing it.
  */
