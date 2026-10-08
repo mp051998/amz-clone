@@ -24,6 +24,7 @@ import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
+import { getPickupPoint, pickupBy } from '@/lib/data/pickup';
 import { getProducts } from '@/lib/data/catalog';
 import { reviewedProductIds } from '@/lib/data/reviews';
 import { feedbackOpen, feedbackOpenUntil, orderFeedback, orderSellers, type SellerFeedback } from '@/lib/data/seller-feedback';
@@ -117,7 +118,11 @@ export default async function OrderPage({
   // the address can change until the order ships; delivery instructions until it's out for delivery
   const stage = orderStage(order, now, store.dates.timeZone);
   const addressOpen = stage === 'preparing';
-  const instructionsOpen = stage === 'preparing' || stage === 'shipped';
+  // a pickup order has no courier to instruct
+  const instructionsOpen = !order.pickup && (stage === 'preparing' || stage === 'shipped');
+  const point = order.pickup ? await getPickupPoint(client, store.id, order.pickup.pointId).catch(() => null) : null;
+  const readyAt = order.deliveredAt ?? (view.delivered ? view.eta?.toISOString() : undefined);
+  const collectBy = point && readyAt ? pickupBy(readyAt, point.holdDays) : null;
   const [returns, current, reviewed, sellerFeedback, saved, deliveryFeedback] = confirming
     ? [null, [], new Set<string>(), noFeedback, [], null]
     : await Promise.all([
@@ -151,7 +156,7 @@ export default async function OrderPage({
           <span aria-hidden className="flex h-14 w-14 items-center justify-center rounded-full bg-good-dot text-[28px] font-bold text-white">✓</span>
           <h1 className="m-0 text-[clamp(28px,4vw,38px)] font-semibold tracking-[-0.02em]">Order placed, thanks {firstName(user)}.</h1>
           <div className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-5">
-            <span className="text-[13px] text-ink-3">Arriving</span>
+            <span className="text-[13px] text-ink-3">{order.pickup ? 'Ready for pickup' : 'Arriving'}</span>
             <strong className="text-[24px] font-semibold">{view.eta ? dayLabel(view.eta, store, now) : 'Soon'}</strong>
             <span className="text-[15px] text-ink-2">{addressLine(order)}</span>
             <div className="mt-2 flex flex-wrap justify-between gap-1.5 border-t border-line-2 pt-3 text-[14px]">
@@ -249,7 +254,7 @@ export default async function OrderPage({
         <FactsCard
           rows={[
             { label: 'Items', value: order.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ') },
-            { label: 'Deliver to', value: addressLine(order) },
+            { label: order.pickup ? 'Pick up at' : 'Deliver to', value: addressLine(order) },
             ...(order.shipTo.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{order.shipTo.instructions}</span> }] : []),
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.shipSpeed === 'day' ? [{ label: 'Delivery', value: `Your Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` }] : []),
@@ -260,6 +265,28 @@ export default async function OrderPage({
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
           ]}
         />
+
+        {order.pickup && order.status !== 'cancelled' ? (
+          <section className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-[22px]" aria-labelledby="pickup-h">
+            <h2 id="pickup-h" className="m-0 text-[18px] font-semibold">Pickup code</h2>
+            {view.delivered ? (
+              <>
+                <strong className="font-mono text-[32px] font-semibold tracking-[0.2em] text-ink" aria-label={`Pickup code ${order.pickup.code.split('').join(' ')}`}>{order.pickup.code}</strong>
+                <p className="m-0 text-[15px] text-ink-2">
+                  {point?.kind === 'counter' ? 'Give this code at the counter' : 'Enter this code at the locker'}
+                  {collectBy ? <>, by <strong className="font-semibold text-ink">{longDate(collectBy, store)}</strong></> : null}.
+                </p>
+              </>
+            ) : (
+              <p className="m-0 text-[15px] text-ink-2">Your pickup code shows here once the order is ready at {order.shipTo.line1}.</p>
+            )}
+            {point ? (
+              <p className="m-0 text-[14px] text-ink-3">
+                {point.name} · {point.hours} · holds orders {point.holdDays} days{point.kind === 'locker' ? ' · no cash' : ''}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         {addressOpen ? (
           <details className="rounded-panel border border-line bg-surface px-[18px] py-3.5" open={error === 'address_not_found' || undefined}>

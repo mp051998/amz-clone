@@ -198,7 +198,8 @@ export default async function AdminOrderPage({ params, searchParams }: {
             rows={[
               { label: 'Customer', value: order.customer.name || s.name },
               { label: 'Email', value: order.customer.email ? <a href={`mailto:${order.customer.email}`} className="break-all text-ink underline underline-offset-2">{order.customer.email}</a> : order.customer.id ? '—' : 'Account closed' },
-              { label: 'Deliver to', value: [s.name, s.line1, s.line2, s.landmark, `${s.city}, ${s.state} ${s.postcode}`].filter(Boolean).join(', ') },
+              { label: order.pickup ? 'Pick up at' : 'Deliver to', value: [s.name, s.line1, s.line2, s.landmark, `${s.city}, ${s.state} ${s.postcode}`].filter(Boolean).join(', ') },
+              ...(order.pickup ? [{ label: 'Pickup', value: <><span className="font-mono text-[13px]">{order.pickup.pointId}</span> · code <span className="font-mono">{order.pickup.code}</span></> }] : []),
               { label: 'Phone', value: s.phone },
               ...(s.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{s.instructions}</span> }] : []),
               { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : order.shipSpeed === 'day' ? `Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` : 'Standard' },
