@@ -73,12 +73,12 @@ afterAll(async () => {
 
 describe('Climate Pledge Friendly', () => {
   it('keeps an admin’s certifications, each once in a fixed order, and shows them on the product and its offers', async () => {
-    expect((await getAdminProduct(boss.db, board))?.climate).toEqual(['forest', 'recycled']);
-    expect((await getProduct(anon(), board))?.climate).toEqual(['forest', 'recycled']);
+    expect((await getAdminProduct(boss.db, board))?.climate).toEqual(['recycled', 'forest']);
+    expect((await getProduct(anon(), board))?.climate).toEqual(['recycled', 'forest']);
     expect((await getAdminProduct(boss.db, plain))?.climate).toEqual([]);
     expect((await getProduct(anon(), plain))?.climate).toBeUndefined();
     // an offer is certified as its product is
-    expect((await getProduct(anon(), offer()))?.climate).toEqual(['forest', 'recycled']);
+    expect((await getProduct(anon(), offer()))?.climate).toEqual(['recycled', 'forest']);
   });
 
   it('filters search to certified products, and counts them for the filter', async () => {
@@ -104,7 +104,7 @@ describe('Climate Pledge Friendly', () => {
     expect((await getAdminProduct(boss.db, plain))?.climate).toEqual([]);
 
     await updateProduct(boss.db, board, input({ priceMinor: 2400 }));
-    expect((await getAdminProduct(boss.db, board))?.climate).toEqual(['forest', 'recycled']);
+    expect((await getAdminProduct(boss.db, board))?.climate).toEqual(['recycled', 'forest']);
 
     await updateProduct(boss.db, board, input({ climate: [] }));
     expect((await getProduct(anon(), board))?.climate).toBeUndefined();
