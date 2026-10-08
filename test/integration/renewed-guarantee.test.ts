@@ -157,8 +157,11 @@ describe('the Renewed Guarantee', () => {
 
   it('is served at /renewed', async () => {
     const list = await import('@/app/api/v1/renewed/route');
+    const token = (await buyer.db.auth.getSession()).data.session!.access_token;
     const get = async (market: Market) =>
-      (await (await list.GET(new NextRequest('http://localhost/api/v1/renewed', { headers: { 'x-market': market } }), { params: Promise.resolve({}) })).json()) as {
+      (await (
+        await list.GET(new NextRequest('http://localhost/api/v1/renewed', { headers: { authorization: `Bearer ${token}`, 'x-market': market } }), { params: Promise.resolve({}) })
+      ).json()) as {
         renewed: { offer: { id: string }; product: { id: string } }[];
         guaranteeDays: number | null;
       };
