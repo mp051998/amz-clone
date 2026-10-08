@@ -39,12 +39,13 @@ const input = (name: string): ProductInput => ({
 
 let boss: TestUser;
 let buyer: TestUser;
+// signed in without purchases: the API is called with a token (no request scope for cookies here)
+let viewer: TestUser;
 const ids: Record<'kettle' | 'mug' | 'teapot' | 'lamp' | 'bulb', string> = { kettle: '', mug: '', teapot: '', lamp: '', bulb: '' };
 
 type Groups = { groups: { reason: string; anchor: { id: string }; items: { id: string }[] }[] };
-const recs = async (query: string, user?: TestUser): Promise<[string, string, string[]][]> => {
-  const headers: Record<string, string> = {};
-  if (user) headers.authorization = `Bearer ${(await user.db.auth.getSession()).data.session!.access_token}`;
+const recs = async (query: string, user: TestUser = viewer): Promise<[string, string, string[]][]> => {
+  const headers = { authorization: `Bearer ${(await user.db.auth.getSession()).data.session!.access_token}` };
   const res = await GET(new NextRequest(`http://localhost/api/v1/recommendations?market=US&${query}`, { headers }), { params: Promise.resolve({}) });
   expect(res.status).toBe(200);
   const body = (await res.json()) as Groups;
@@ -54,6 +55,7 @@ const recs = async (query: string, user?: TestUser): Promise<[string, string, st
 beforeAll(async () => {
   boss = await newUser('Recs Admin');
   buyer = await newUser('Recs Buyer');
+  viewer = await newUser('Recs Viewer');
   const { error } = await admin().from('admins').insert({ user_id: boss.id });
   if (error) throw error;
   for (const name of Object.keys(ids) as (keyof typeof ids)[]) ids[name] = await createProduct(boss.db, 'US', input(name));
@@ -65,6 +67,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteUser(buyer);
+  await deleteUser(viewer);
   for (const id of Object.values(ids)) if (id) await admin().from('products').delete().eq('id', id);
   await deleteUser(boss);
 });
