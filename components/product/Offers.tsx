@@ -9,6 +9,8 @@ export interface OfferItem {
   condition: string;
   /** what the seller says about its condition */
   note?: string;
+  /** a renewed offer's "90-day Renewed Guarantee", in a store with one, and where it's explained */
+  guarantee?: { label: string; href: string };
   seller: string;
   sellerHref: string;
   /** "92% positive (25 ratings)" */
@@ -51,6 +53,7 @@ export function OtherSellers({ name, offers, allHref, allLabel }: { name: string
             <div className="flex min-w-0 flex-col gap-0.5 text-[14px]">
               <strong className="text-[17px] font-semibold tabular-nums">{o.priceText}</strong>
               <span className="font-semibold">{o.condition}</span>
+              {o.guarantee ? <span className="text-ink-2">{o.guarantee.label}</span> : null}
               <SoldBy offer={o} />
             </div>
             <AddOffer offer={o} name={name} />
@@ -76,6 +79,11 @@ export function OfferList({ name, offers }: { name: string; offers: OfferItem[] 
               <span className="font-semibold">Condition: {o.condition}</span>
               {o.note ? <span className="text-ink-2"> — {o.note}</span> : null}
             </span>
+            {o.guarantee ? (
+              <a href={o.guarantee.href} className="self-start text-ink underline underline-offset-2">
+                {o.guarantee.label}
+              </a>
+            ) : null}
             <span className="text-ink-2">Ships from {o.shipsFrom}</span>
             <SoldBy offer={o} />
           </div>

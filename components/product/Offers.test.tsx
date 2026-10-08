@@ -50,6 +50,12 @@ describe('offerItem', () => {
     expect(item).not.toHaveProperty('sellerRating');
   });
 
+  it('gives a renewed offer the store’s Renewed Guarantee, where there is one', () => {
+    expect(offerItem(product({ condition: 'renewed' }), { store: amazon, priceText: '$9' }).guarantee).toEqual({ label: '90-day Renewed Guarantee', href: '/renewed' });
+    expect(offerItem(product({ condition: 'renewed' }), { store: amazonIn, priceText: '₹9' })).not.toHaveProperty('guarantee');
+    expect(offerItem(product(), { store: amazon, priceText: '$9' })).not.toHaveProperty('guarantee');
+  });
+
   it('leaves out a seller with no ratings', () => {
     expect(offerItem(product(), { store: amazon, priceText: '$1', rating: { ratings: 0, average: 0, positivePct: 0 } })).not.toHaveProperty('sellerRating');
     expect(positiveText({ ratings: 1, average: 5, positivePct: 100 })).toBe('100% positive (1 rating)');
@@ -62,14 +68,19 @@ describe('OtherSellers', () => {
     render(
       <OtherSellers
         name="Verity"
-        offers={[offer(), offer({ id: 'p1-o2', priceText: '$11.20', condition: 'New', seller: 'Marketplace Seller', sellerRating: '80% positive (5 ratings)' })]}
+        offers={[
+          offer(),
+          offer({ id: 'p1-o2', priceText: '$11.20', condition: 'New', seller: 'Marketplace Seller', sellerRating: '80% positive (5 ratings)' }),
+          offer({ id: 'p1-o3', condition: 'Renewed', guarantee: { label: '90-day Renewed Guarantee', href: '/renewed' } }),
+        ]}
         allHref="/product/p1/offers"
         allLabel="New & Used (4) from $9.49"
       />,
     );
     const box = screen.getByRole('region', { name: 'Other sellers on Amazon' });
     const rows = within(box).getAllByRole('listitem');
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
+    expect(rows[2].textContent).toContain('90-day Renewed Guarantee');
     expect(rows[0].textContent).toContain('$9.49');
     expect(rows[0].textContent).toContain('Used – Very Good');
     expect(within(rows[0]).getByRole('link', { name: 'Lumen Store' })).toHaveAttribute('href', '/seller?name=Lumen%20Store');
@@ -88,10 +99,13 @@ describe('OfferList', () => {
         offers={[
           offer({ id: 'p1', priceText: '$17.99', condition: 'New', seller: 'Amazon.com', shipsFrom: 'Amazon', featured: true, delivery: 'FREE delivery Tuesday, October 13' }),
           offer({ note: 'Cover has light wear' }),
+          offer({ id: 'p1-o3', condition: 'Renewed', guarantee: { label: '90-day Renewed Guarantee', href: '/renewed' } }),
         ]}
       />,
     );
-    const [first, second] = screen.getAllByRole('listitem');
+    const [first, second, third] = screen.getAllByRole('listitem');
+    expect(within(third).getByRole('link', { name: '90-day Renewed Guarantee' })).toHaveAttribute('href', '/renewed');
+    expect(within(second).queryByRole('link', { name: /Renewed Guarantee/ })).toBeNull();
     expect(within(first).getByText('Featured offer')).toBeInTheDocument();
     expect(first.textContent).toContain('FREE delivery Tuesday, October 13');
     expect(first.textContent).toContain('Condition: New');
