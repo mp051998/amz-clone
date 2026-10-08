@@ -153,7 +153,9 @@ export type ReturnReason =
   | 'missing_parts'
   | 'not_as_described'
   /** a "Package didn't arrive" claim: the whole order, refunded at once with nothing sent back */
-  | 'not_received';
+  | 'not_received'
+  /** a granted A-to-z Guarantee claim: one seller's items, refunded at once with nothing sent back */
+  | 'atoz_claim';
 
 /** refund: money back once the items arrive; replacement: the same items again, sent now at no charge. */
 export type ReturnResolution = 'refund' | 'replacement';

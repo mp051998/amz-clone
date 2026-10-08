@@ -6,6 +6,7 @@ import { listAdminOrders } from './admin-orders';
 import { listQuestionQueue } from './admin-questions';
 import { listAdminReturns } from './admin-returns';
 import { listReviewQueue } from './admin-reviews';
+import { listClaimQueue } from './atoz-claims';
 import { listProductReportQueue } from './product-reports';
 import { listCaseQueue } from './support';
 
@@ -21,6 +22,8 @@ export interface AdminOverview {
     refundIssues: number;
   };
   returns: { open: number; refundIssues: number };
+  /** A-to-z Guarantee claims under review */
+  claims: number;
   /** reviews with open reports */
   reportedReviews: number;
   unansweredQuestions: number;
@@ -35,9 +38,10 @@ export interface AdminOverview {
 }
 
 export async function adminOverview(db: Db, market: Market): Promise<AdminOverview> {
-  const [orders, returns, reviews, questions, reports, support, stock] = await Promise.all([
+  const [orders, returns, claims, reviews, questions, reports, support, stock] = await Promise.all([
     listAdminOrders(db, market, { filter: 'preparing' }),
     listAdminReturns(db, market, { filter: 'open' }),
+    listClaimQueue(db, market, { filter: 'open' }),
     listReviewQueue(db, market, { view: 'reported' }),
     listQuestionQueue(db, market, { view: 'unanswered' }),
     listProductReportQueue(db, market, { view: 'open' }),
@@ -47,6 +51,7 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
   return {
     orders: { toShip: orders.counts.preparing, inTransit: orders.counts.shipped, refundIssues: orders.counts.refund_issues },
     returns: { open: returns.counts.open, refundIssues: returns.counts.refund_issues },
+    claims: claims.counts.open,
     reportedReviews: reviews.counts.reported,
     unansweredQuestions: questions.counts.unanswered,
     productReports: reports.counts.open,
@@ -55,7 +60,7 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
   };
 }
 
-/** How many things on the overview want an admin now (refunds, returns, reviews, questions, product reports, cases, orders to ship). */
+/** How many things on the overview want an admin now (refunds, returns, claims, reviews, questions, product reports, cases, orders to ship). */
 export function attentionCount(o: AdminOverview): number {
-  return o.orders.toShip + o.orders.refundIssues + o.returns.open + o.returns.refundIssues + o.reportedReviews + o.unansweredQuestions + o.productReports + o.support.waiting;
+  return o.orders.toShip + o.orders.refundIssues + o.returns.open + o.returns.refundIssues + o.claims + o.reportedReviews + o.unansweredQuestions + o.productReports + o.support.waiting;
 }

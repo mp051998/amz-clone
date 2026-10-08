@@ -39,6 +39,7 @@ export default async function AdminHome() {
         { label: 'Orders to ship', count: o.orders.toShip, href: to('/admin/orders?filter=preparing'), note: 'Placed, not shipped yet.', tone: 'warn' },
         { label: 'Order refund problems', count: o.orders.refundIssues, href: to('/admin/orders?filter=refund_issues'), note: 'Cancelled card orders whose refund didn’t go through.', tone: 'bad' },
         { label: 'Returns to process', count: o.returns.open, href: to('/admin/returns'), note: 'Requested or on the way back: receive them to refund.', tone: 'warn' },
+        { label: 'A-to-z claims', count: o.claims, href: to('/admin/claims'), note: 'Shoppers asking the store to step in on another seller’s order.', tone: 'warn' },
         { label: 'Return refund problems', count: o.returns.refundIssues, href: to('/admin/returns?filter=refund_issues'), note: 'Received returns whose refund didn’t go through.', tone: 'bad' },
         { label: 'In transit', count: o.orders.inTransit, href: to('/admin/orders?filter=shipped'), note: 'Shipped, not delivered yet.', tone: 'none' },
       ],

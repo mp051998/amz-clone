@@ -192,6 +192,38 @@ it('tells the shopper when a deal they watch goes live', () => {
   ]);
 });
 
+it('tells the shopper what the store decided on their A-to-z claims', () => {
+  const acme = { ...ITEM, productId: 'b', title: 'Bluetooth Speaker', seller: 'Acme' };
+  const o = order('111-0000001-0000001', '2026-09-01T10:00:00Z', { items: [ITEM, acme, { ...acme, productId: 'c', title: 'Speaker Stand' }] });
+  const claims = [
+    { id: 'c1', orderId: o.id, seller: 'Acme', status: 'granted' as const, decidedAt: '2026-10-06T08:00:00Z', refundMinor: 5300, note: null },
+    { id: 'c2', orderId: '111-0000002-0000002', seller: 'Zed', status: 'denied' as const, decidedAt: '2026-10-05T08:00:00Z', refundMinor: 0, note: 'Tracking shows it was signed for.' },
+  ];
+  const inbox = buildInbox({ orders: [o], returns: [], replies: [], answers: [], claims }, NOW).filter((m) => m.kind.startsWith('claim_'));
+  expect(inbox).toEqual([
+    {
+      key: 'claim_granted:c1',
+      kind: 'claim_granted',
+      at: '2026-10-06T08:00:00Z',
+      subject: 'Bluetooth Speaker and 1 more',
+      href: '/orders/111-0000001-0000001?placed=0#claims',
+      orderId: '111-0000001-0000001',
+      from: 'Acme',
+      amountMinor: 5300,
+    },
+    {
+      key: 'claim_denied:c2',
+      kind: 'claim_denied',
+      at: '2026-10-05T08:00:00Z',
+      subject: 'Items sold by Zed',
+      href: '/orders/111-0000002-0000002?placed=0#claims',
+      orderId: '111-0000002-0000002',
+      from: 'Zed',
+      detail: 'Tracking shows it was signed for.',
+    },
+  ]);
+});
+
 it('keeps the latest ones when there are too many', () => {
   const replies: InboxReply[] = Array.from({ length: INBOX_LIMIT + 5 }, (_, i) => ({
     id: `m${i}`,

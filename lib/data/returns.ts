@@ -32,6 +32,11 @@ export function isStoreFault(reason: ReturnReason): boolean {
   return STORE_FAULT_REASONS.includes(reason);
 }
 
+/** Refunded on the spot with nothing to send back: a package that didn't arrive, or a granted A-to-z Guarantee claim. */
+export function nothingSentBack(reason: ReturnReason): boolean {
+  return reason === 'not_received' || reason === 'atoz_claim';
+}
+
 type Row = Record<string, unknown>;
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 
