@@ -16,7 +16,7 @@ export const amazon: PublicMarketplace = {
     { method: 'giftcard', phase: 1 },
   ],
   delivery: { methods: ['standard', 'two-day', 'one-day', 'same-day'], freeThresholdMinor: 3500 },
-  returns: { days: 30, renewedDays: 90 },
+  returns: { days: 30, renewedDays: 90, holiday: true },
   membership: { name: 'Plus' },
   nav: {
     subnav: ["Today's Deals", 'Prime Video', 'Customer Service', 'Registry', 'Gift Cards', 'Sell'],

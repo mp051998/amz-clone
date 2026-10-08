@@ -77,9 +77,10 @@ export interface PublicMarketplace {
   /**
    * days after delivery a shopper can start a return (markets.return_days in the database), and
    * the Renewed Guarantee's days for an item bought renewed (markets.renewed_return_days; absent:
-   * no guarantee, the category's window).
+   * no guarantee, the category's window), and whether it has amazon.com's holiday returns (bought
+   * November 1 to December 31, returnable until January 31: markets.holiday_returns).
    */
-  returns: { days: number; renewedDays?: number };
+  returns: { days: number; renewedDays?: number; holiday?: boolean };
   membership: { name: string };
   nav: { subnav: string[]; departments: string[] };
   ui: MarketplaceUi;

@@ -28,6 +28,7 @@ import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { FrequentlyReturned, UsuallyKept } from '@/components/product/FrequentlyReturned';
 import { categoryReturnPolicy, returnPolicyText } from '@/lib/data/return-policy';
+import { holidayReturnBy } from '@/lib/holiday-returns';
 import { memberDealLabel, memberPrice } from '@/lib/member-deals';
 import { MemberDeal } from '@/components/product/MemberDeal';
 import { exchangeOffer } from '@/lib/data/exchange';
@@ -257,6 +258,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const here = `/product/${encodeURIComponent(p.id)}`;
   const qs = carryQuery(sp);
 
+  // the same schedule checkout and order tracking use
+  const now = new Date();
+  // a pre-order arrives once it's out, with no faster option
+  const release = releaseOf(p, now);
+  const options = deliveryOptions(now, store.dates.timeZone, null, release);
+  // amazon.com's holiday returns: bought now, it goes back until January 31, or its own window from
+  // the standard delivery when that ends later
+  const holidayBy = returnPolicy.days > 0 ? holidayReturnBy(store, now) : null;
+  const returnsUntil = holidayBy ? new Date(Math.max(holidayBy.getTime(), Date.parse(options.standard) + returnPolicy.days * 86_400_000)) : null;
+
   // Purchase confidence: rating × volume × written-review signal
   const written = reviews.page.items;
   const verifiedPct = written.length ? Math.round((written.filter((r) => r.verified).length / written.length) * 100) : null;
@@ -264,7 +275,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const confidence: ConfidenceRow[] = [
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
-    { k: 'Returns', v: returnPolicyText(returnPolicy.days, returnPolicy.replacementOnly) },
+    {
+      k: 'Returns',
+      v: returnsUntil
+        ? `${returnPolicy.replacementOnly ? 'Replaceable' : 'Returnable'} until ${releaseDate(returnsUntil, store)} · holiday returns`
+        : returnPolicyText(returnPolicy.days, returnPolicy.replacementOnly),
+    },
     { k: 'Sold by', v: sellerRating ? `${p.seller} · ${sellerRating.positivePct}% positive` : p.seller },
   ];
 
@@ -281,11 +297,6 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         replacementOnly: returnPolicy.replacementOnly,
         money: (minor) => formatMoney(minor, cur),
       });
-  // the same schedule checkout and order tracking use
-  const now = new Date();
-  // a pre-order arrives once it's out, with no faster option
-  const release = releaseOf(p, now);
-  const options = deliveryOptions(now, store.dates.timeZone, null, release);
   const delivery = {
     member: store.membership.name,
     // members get standard and faster delivery free on every order
