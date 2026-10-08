@@ -20,6 +20,7 @@ const SECTIONS = [
   { path: '/admin/categories', label: 'Categories' },
   { path: '/admin/orders', label: 'Orders' },
   { path: '/admin/sales', label: 'Sales' },
+  { path: '/admin/deals', label: 'Deals' },
   { path: '/admin/returns', label: 'Returns' },
   { path: '/admin/reviews', label: 'Reviews' },
   { path: '/admin/questions', label: 'Questions' },

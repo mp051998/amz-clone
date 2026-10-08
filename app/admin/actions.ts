@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import {
   createProduct,
   deleteProduct,
+  getAdminProduct,
   GALLERY_MAX,
   imageFileError,
   setArchived,
@@ -13,6 +14,7 @@ import {
   validateProduct,
   type ProductFieldErrors,
 } from '@/lib/data/admin-catalog';
+import { cancelLightningDeal, dealProblemOf, getAdminLightningDeal, parseDealForm, scheduleLightningDeal } from '@/lib/data/admin-lightning-deals';
 import { DataError } from '@/lib/data/errors';
 import { recallProduct } from '@/lib/data/recalls';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -198,4 +200,56 @@ export async function recallProductAction(id: string, formData: FormData): Promi
   }
   revalidatePath('/', 'layout');
   redirect(`${edit}?done=${updated ? 'recall_updated' : 'recalled'}#recall`);
+}
+
+/**
+ * Schedule a Lightning Deal from a product's admin page: deal price, units, an optional start (the
+ * store's local date and time; blank for now) and hours. Problems come back as `deal_error`.
+ */
+export async function scheduleDealAction(id: string, formData: FormData): Promise<void> {
+  const store = await getMarketplace();
+  const { client, error } = await adminClient();
+  const edit = storePath(store, `/admin/products/${encodeURIComponent(id)}`);
+  if (error) redirect(`${edit}?error=forbidden`);
+  const product = await getAdminProduct(client, id);
+  if (!product || product.market !== store.id) redirect(`${edit}?error=product_not_found`);
+  const form = (k: string) => String(formData.get(k) ?? '');
+  const parsed = parseDealForm(
+    { price: form('price'), quota: form('quota'), starts: form('starts'), hours: form('hours') },
+    { id: product.id, priceMinor: product.priceMinor, stock: product.stock },
+    { timeZone: store.dates.timeZone },
+  );
+  if (parsed.problem) redirect(`${edit}?deal_error=${parsed.problem}#lightning-deal`);
+  try {
+    await scheduleLightningDeal(client, parsed.input);
+  } catch (err) {
+    if (err instanceof DataError) {
+      const problem = dealProblemOf(err);
+      redirect(problem ? `${edit}?deal_error=${problem}#lightning-deal` : `${edit}?error=${err.code}#lightning-deal`);
+    }
+    throw err;
+  }
+  revalidatePath('/', 'layout');
+  redirect(`${edit}?done=deal_scheduled#lightning-deal`);
+}
+
+/** Cancel a deal before it starts, or end a live one now; back to the deals list or the product. */
+export async function cancelDealAction(id: string, from: 'live' | 'upcoming' | { product: string }): Promise<void> {
+  const store = await getMarketplace();
+  const { client, error } = await adminClient();
+  const back = typeof from === 'object'
+    ? storePath(store, `/admin/products/${encodeURIComponent(from.product)}`)
+    : storePath(store, `/admin/deals${from === 'live' ? '' : '?view=upcoming'}`);
+  const join = back.includes('?') ? '&' : '?';
+  const anchor = typeof from === 'object' ? '#lightning-deal' : '';
+  if (error) redirect(`${back}${join}error=forbidden${anchor}`);
+  try {
+    if (!(await getAdminLightningDeal(client, store.id, id))) throw new DataError('not_found');
+    await cancelLightningDeal(client, id);
+  } catch (err) {
+    if (err instanceof DataError) redirect(`${back}${join}error=${err.code}${anchor}`);
+    throw err;
+  }
+  revalidatePath('/', 'layout');
+  redirect(`${back}${join}done=deal_cancelled${anchor}`);
 }
