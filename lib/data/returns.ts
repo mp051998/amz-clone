@@ -1,6 +1,8 @@
 import type { Db } from '../db/client';
+import { localDayOf } from '../decision/tracking';
 import type { Order, OrderReturn, ReturnReason, ReturnResolution, ReturnStatus } from '../types';
 import { DataError, unwrap } from './errors';
+import { toPickupPoint, type PickupRow } from './pickup';
 
 /**
  * Returns of delivered orders (20261004090000_returns.sql). The database owns the rules: the
@@ -64,6 +66,8 @@ export function toReturn(json: unknown): OrderReturn {
     ...(r.refund_to === 'balance' ? { refundToBalance: true } : {}),
     dropoffCode: String(r.dropoff_code ?? ''),
     dropoffBy: String(r.dropoff_by),
+    ...(r.method === 'dropoff' && r.dropoff_point && typeof r.dropoff_point === 'object' ? { dropoffPoint: toPickupPoint(r.dropoff_point as PickupRow) } : {}),
+    ...(r.method === 'pickup' && str(r.pickup_on) ? { pickupOn: str(r.pickup_on) } : {}),
     rejectNote: str(r.reject_note),
     createdAt: String(r.created_at),
     receivedAt: str(r.received_at),
@@ -223,4 +227,64 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
 export async function cancelReturn(db: Db, returnId: string): Promise<OrderReturn> {
   if (!/^[0-9a-f-]{36}$/i.test(returnId)) throw new DataError('return_not_found');
   return toReturn(unwrap(await db.rpc('cancel_my_return', { p_return_id: returnId })));
+}
+
+/** The most days ahead a courier pickup of a return can be booked. */
+export const RETURN_PICKUP_DAYS = 7;
+
+/**
+ * The days a courier can collect a return ("2026-10-09"…, in the store's time zone): from
+ * tomorrow, a week at most and never past `until`, the drop-off deadline. choose_return_method
+ * checks the same.
+ */
+export function returnPickupDays(timeZone: string, now: Date = new Date(), until?: string): string[] {
+  const last = until ? localDayOf(until, timeZone) : null;
+  const [y, m, d] = localDayOf(now.toISOString(), timeZone).split('-').map(Number);
+  const days: string[] = [];
+  for (let i = 1; i <= RETURN_PICKUP_DAYS; i++) {
+    const day = new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10);
+    if (last && day > last) break;
+    days.push(day);
+  }
+  return days;
+}
+
+export interface ReturnMethodInput {
+  /** 'dropoff' (the default) or 'pickup' */
+  method?: unknown;
+  /** dropping off: the Hub Locker or Hub Counter (blank: any drop-off point) */
+  pickupPointId?: unknown;
+  /** a pickup: the day, "2026-10-14" */
+  pickupOn?: unknown;
+}
+
+const METHOD_ERROR: Record<string, string> = {
+  method: 'Choose how it goes back: drop it off, or have it picked up from the delivery address.',
+  pickup_point: 'Choose a drop-off point in this store.',
+  pickup_on: 'Choose a pickup day from tomorrow until the drop-off deadline.',
+};
+
+const isDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().startsWith(v);
+
+/**
+ * How an open return goes back: dropped off (at a chosen Hub Locker or Hub Counter, or any
+ * drop-off point) or collected from the delivery address on a day. It can change until the items
+ * reach the store; an order collected from a pickup point can only be dropped off.
+ */
+export async function chooseReturnMethod(db: Db, returnId: string, input: ReturnMethodInput): Promise<OrderReturn> {
+  if (!/^[0-9a-f-]{36}$/i.test(returnId)) throw new DataError('return_not_found');
+  const method = input.method == null || input.method === '' ? 'dropoff' : input.method;
+  if (method !== 'dropoff' && method !== 'pickup') throw new DataError('invalid_input', 'method', METHOD_ERROR.method);
+  const point = typeof input.pickupPointId === 'string' ? input.pickupPointId.trim() : '';
+  const day = typeof input.pickupOn === 'string' ? input.pickupOn.trim() : '';
+  if (method === 'pickup' && !isDay(day)) throw new DataError('invalid_input', 'pickup_on', METHOD_ERROR.pickup_on);
+  const res = await db.rpc('choose_return_method', {
+    p_return_id: returnId,
+    p_method: method,
+    ...(method === 'dropoff' && point ? { p_point: point } : {}),
+    ...(method === 'pickup' ? { p_pickup_on: day } : {}),
+  });
+  const detail = res.error?.message === 'invalid_input' ? res.error.details : '';
+  if (detail && METHOD_ERROR[detail]) throw new DataError('invalid_input', detail, METHOD_ERROR[detail]);
+  return toReturn(unwrap(res));
 }

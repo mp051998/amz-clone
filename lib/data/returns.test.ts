@@ -3,7 +3,7 @@ import { refundBreakdown, refundTo, returnChip, returnRefundTo } from '@/compone
 import type { Db } from '../db/client';
 import type { Order, OrderReturn } from '../types';
 import { DataError } from './errors';
-import { canStartReturn, getOrderReturns, isReturnReason, reportMissingUntil, requestReturn, returnWindows, toReturn, type OrderReturns } from './returns';
+import { canStartReturn, chooseReturnMethod, getOrderReturns, isReturnReason, reportMissingUntil, requestReturn, returnPickupDays, returnWindows, toReturn, type OrderReturns } from './returns';
 
 const row = {
   id: 'r1',
@@ -251,5 +251,63 @@ describe('package didn’t arrive', () => {
     expect(refundBreakdown(r, 'USD')).toBe('Items $40.00 · tax $3.20 · gift wrap $3.99');
     expect(toReturn(row).wrapMinor).toBeUndefined();
     expect(isReturnReason('not_received')).toBe(false);
+  });
+});
+
+describe('return methods', () => {
+  const RID = '00000000-0000-4000-8000-000000000001';
+  const point = { id: 'US-SEA-JUNIPER', kind: 'locker', name: 'Hub Locker – Juniper', line1: '2121 7th Ave', city: 'Seattle', state: 'WA', postcode: '98121', hours: 'Open 24 hours', hold_days: 3 };
+  function fakeDb(error: { message: string; details: string } | null = null) {
+    const rpc = vi.fn(async () => (error ? { data: null, error: { code: 'P0001', hint: '', ...error } } : { data: { ...row, status: 'requested', method: 'pickup', pickup_on: '2026-10-10' }, error: null }));
+    return { db: { rpc } as unknown as Db, rpc };
+  }
+  const code = (p: Promise<unknown>) => p.then(() => 'ok', (e: DataError) => `${e.code}:${e.detail}`);
+
+  it('maps a drop-off point or a pickup day, and nothing for any drop-off point', () => {
+    expect(toReturn({ ...row, method: 'dropoff', dropoff_point: point, pickup_on: null })).toMatchObject({
+      dropoffPoint: { id: 'US-SEA-JUNIPER', kind: 'locker', name: 'Hub Locker – Juniper', holdDays: 3 },
+    });
+    const pickup = toReturn({ ...row, method: 'pickup', dropoff_point: null, pickup_on: '2026-10-10' });
+    expect([pickup.pickupOn, pickup.dropoffPoint]).toEqual(['2026-10-10', undefined]);
+    const anywhere = toReturn({ ...row, method: 'dropoff', dropoff_point: null, pickup_on: null });
+    expect(['dropoffPoint' in anywhere, 'pickupOn' in anywhere]).toEqual([false, false]);
+    // before the migration: dropped off anywhere
+    expect('pickupOn' in toReturn(row) || 'dropoffPoint' in toReturn(row)).toBe(false);
+  });
+
+  it('offers pickup days from tomorrow in the store, a week ahead, up to the drop-off deadline', () => {
+    // 11 PM in Seattle on Thursday the 8th is already Friday in UTC
+    const now = new Date('2026-10-09T06:00:00Z');
+    expect(returnPickupDays('America/Los_Angeles', now)).toEqual(['2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15']);
+    expect(returnPickupDays('Asia/Kolkata', now)).toEqual(['2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16']);
+    expect(returnPickupDays('America/Los_Angeles', now, '2026-10-11T06:59:00Z')).toEqual(['2026-10-09', '2026-10-10']);
+    expect(returnPickupDays('America/Los_Angeles', now, '2026-10-08T12:00:00Z')).toEqual([]);
+    // across the month end
+    expect(returnPickupDays('UTC', new Date('2026-10-30T12:00:00Z')).slice(0, 3)).toEqual(['2026-10-31', '2026-11-01', '2026-11-02']);
+  });
+
+  it('drops off anywhere by default, at a point when one is chosen, or books a pickup day', async () => {
+    const { db, rpc } = fakeDb();
+    await chooseReturnMethod(db, RID, {});
+    await chooseReturnMethod(db, RID, { method: 'dropoff', pickupPointId: ' US-SEA-JUNIPER ', pickupOn: '2026-10-10' });
+    const r = await chooseReturnMethod(db, RID, { method: 'pickup', pickupPointId: 'US-SEA-JUNIPER', pickupOn: '2026-10-10' });
+    expect(r.pickupOn).toBe('2026-10-10');
+    expect((rpc.mock.calls as unknown as [string, Record<string, unknown>][]).map(([fn, a]) => [fn, a])).toEqual([
+      ['choose_return_method', { p_return_id: RID, p_method: 'dropoff' }],
+      ['choose_return_method', { p_return_id: RID, p_method: 'dropoff', p_point: 'US-SEA-JUNIPER' }],
+      ['choose_return_method', { p_return_id: RID, p_method: 'pickup', p_pickup_on: '2026-10-10' }],
+    ]);
+  });
+
+  it('turns away a bad method or day before asking, and words what the database turns away', async () => {
+    const { db, rpc } = fakeDb();
+    expect(await code(chooseReturnMethod(db, 'nope', { method: 'dropoff' }))).toBe('return_not_found:undefined');
+    expect(await code(chooseReturnMethod(db, RID, { method: 'teleport' }))).toBe('invalid_input:method');
+    expect(await code(chooseReturnMethod(db, RID, { method: 'pickup' }))).toBe('invalid_input:pickup_on');
+    expect(await code(chooseReturnMethod(db, RID, { method: 'pickup', pickupOn: '2026-02-30' }))).toBe('invalid_input:pickup_on');
+    expect(rpc).not.toHaveBeenCalled();
+    const late = await chooseReturnMethod(fakeDb({ message: 'invalid_input', details: 'pickup_on' }).db, RID, { method: 'pickup', pickupOn: '2027-01-01' }).catch((e: DataError) => e);
+    expect([(late as DataError).message, (late as DataError).detail]).toEqual(['Choose a pickup day from tomorrow until the drop-off deadline.', 'pickup_on']);
+    expect(await code(chooseReturnMethod(fakeDb({ message: 'return_not_open', details: '' }).db, RID, { method: 'dropoff' }))).toBe('return_not_open:undefined');
   });
 });

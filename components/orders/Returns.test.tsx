@@ -85,3 +85,31 @@ it('a refund asked for on the balance says it went there, with no wait for the c
   expect(screen.getByText(/\$21\.60 refunded to your gift card balance on/)).toBeTruthy();
   expect(screen.queryByText(/Card refunds take/)).toBeNull();
 });
+
+const refund: OrderReturn = { ...swap, reason: 'no_longer_needed', resolution: 'refund', replacement: undefined, itemsMinor: 2000, refundMinor: 2000 };
+const COUNTER = { id: 'US-SEA-BROADWAY', kind: 'counter' as const, name: 'Hub Counter – Broadway Market', line1: '401 Broadway E', city: 'Seattle', state: 'WA', postcode: '98102', hours: 'Mon–Sat 8 AM–9 PM, Sun 10 AM–6 PM', holdDays: 14 };
+
+it('says how a return goes back: anywhere, at the point chosen, or picked up on its day', () => {
+  const lead = (r: OrderReturn, pickupFrom?: string) => {
+    render(<ReturnCard r={r} currency="USD" market="US" method="card" label="Visa ending 4242" store={amazon} now={new Date('2026-10-08T12:00:00Z')} pickupFrom={pickupFrom} />);
+    const text = [...screen.getByRole('article').querySelectorAll('p')].find((p) => p.textContent?.includes('this code'))?.textContent;
+    cleanup();
+    return text;
+  };
+  expect(lead(refund)).toBe('Drop it off by Tuesday, October 20 at any drop-off point and show this code: AB12-CD34. We’ll refund $20.00 to Visa ending 4242 once it reaches us.');
+  expect(lead({ ...refund, dropoffPoint: COUNTER })).toBe(
+    'Drop it off by Tuesday, October 20 at Hub Counter – Broadway Market, 401 Broadway E, Seattle (Mon–Sat 8 AM–9 PM, Sun 10 AM–6 PM), and show this code: AB12-CD34. We’ll refund $20.00 to Visa ending 4242 once it reaches us.',
+  );
+  // a locker takes the code on its screen
+  expect(lead({ ...refund, dropoffPoint: { ...COUNTER, kind: 'locker' } })).toMatch(/, and enter this code: AB12-CD34\./);
+  expect(lead({ ...refund, pickupOn: '2026-10-10' }, '1 Main St, Austin 78701')).toBe(
+    'We’ll collect it from 1 Main St, Austin 78701 on Saturday, October 10. Have it packed and ready, and give the courier this code: AB12-CD34. We’ll refund $20.00 to Visa ending 4242 once it reaches us.',
+  );
+  // the original of a replacement goes back the same way
+  expect(lead({ ...swap, pickupOn: '2026-10-10' }, '1 Main St, Austin 78701')).toMatch(/We’ll collect the original from 1 Main St, Austin 78701 on Saturday, October 10\./);
+});
+
+it('shows the way to change it while the return is open', () => {
+  render(<ReturnCard r={refund} currency="USD" market="US" method="card" label="Visa ending 4242" store={amazon} change={<button type="button">Change return method</button>} />);
+  expect(screen.getByRole('button', { name: 'Change return method' })).toBeTruthy();
+});

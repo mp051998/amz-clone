@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[] }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[], returnBy: undefined as string | undefined }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -36,7 +36,7 @@ vi.mock('@/lib/decision/server', () => ({
 }));
 vi.mock('@/lib/data/returns', async (original) => ({
   ...(await original<typeof import('@/lib/data/returns')>()),
-  getOrderReturns: async () => ({ delivered: true, returnable: {}, replaceable: {}, returns: state.returns }),
+  getOrderReturns: async () => ({ delivered: true, returnBy: state.returnBy, returnable: {}, replaceable: {}, returns: state.returns }),
   canStartReturn: () => false,
 }));
 vi.mock('@/app/actions/order', () => ({
@@ -58,7 +58,11 @@ vi.mock('@/lib/data/seller-feedback', async (original) => ({
   ...(await original<typeof import('@/lib/data/seller-feedback')>()),
   orderFeedback: async () => new Map(state.feedback),
 }));
-vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {}, reportMissing: async () => {} }));
+vi.mock('@/app/actions/returns', () => ({ cancelMyReturn: async () => {}, changeReturnMethod: async () => {}, reportMissing: async () => {} }));
+vi.mock('@/lib/data/pickup', async (original) => ({
+  ...(await original<typeof import('@/lib/data/pickup')>()),
+  listPickupPoints: async () => [{ id: 'US-AUS-BLUEBONNET', kind: 'locker', name: 'Hub Locker – Bluebonnet', line1: '1000 E 41st St', city: 'Austin', state: 'TX', postcode: '78751', hours: 'Open 24 hours', holdDays: 3 }],
+}));
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
 import OrderPage from './page';
@@ -100,6 +104,7 @@ beforeEach(() => {
   state.addressReads = 0;
   state.returns = [];
   state.recalled = [];
+  state.returnBy = undefined;
 });
 
 it('warns about a recalled item and marks it, linking to what to do', async () => {
@@ -625,4 +630,63 @@ it('once reported, says it was refunded instead', async () => {
   await show({ return: 'missing' });
   expect(screen.getByText('Sorry your order didn’t arrive. We’ve refunded it, as shown below.')).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
+});
+
+describe('return method', () => {
+  const started = () => {
+    const delivered = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    state.order = order({ deliveredAt: delivered });
+    state.returnBy = new Date(Date.now() + 20 * 86_400_000).toISOString();
+    return {
+      id: 'r1', orderId: 'ORD-9', status: 'requested', reason: 'no_longer_needed', resolution: 'refund',
+      items: [{ productId: 'm', title: 'Mug', image: '', unitPriceMinor: 2000, qty: 1 }],
+      itemsMinor: 2000, taxMinor: 0, shipMinor: 0, refundMinor: 2000, dropoffCode: 'AB12-CD34',
+      dropoffBy: new Date(Date.now() + 12 * 86_400_000).toISOString(), createdAt: delivered,
+    };
+  };
+
+  it('can change how an open return goes back, picked up from the delivery address', async () => {
+    state.returns = [{ ...started(), pickupOn: undefined }];
+    await show();
+    const change = screen.getByText('Change return method').closest('details')!;
+    const how = within(change).getByRole('group', { name: 'How will you send it back?' });
+    expect((within(how).getByRole('radio', { name: /Drop it off/ }) as HTMLInputElement).defaultChecked).toBe(true);
+    expect(within(how).getByText(/A courier collects it from 1 Main St, Austin 78701\./)).toBeInTheDocument();
+    expect(within(how).getAllByRole('option', { name: /Hub Locker – Bluebonnet/ })).toHaveLength(1);
+    expect((within(how).getByRole('combobox', { name: 'Pickup day' }) as HTMLSelectElement).options).toHaveLength(7);
+    expect(within(change).getByRole('button', { name: 'Save return method' })).toBeInTheDocument();
+  });
+
+  it('keeps the choice made, and says when it changed', async () => {
+    const r = started();
+    const day = new Date(Date.now() + 3 * 86_400_000).toLocaleDateString('en-CA', { timeZone: amazon.dates.timeZone });
+    state.returns = [{ ...r, pickupOn: day }];
+    await show({ return: 'method' });
+    expect(screen.getByText('Return method changed.')).toBeInTheDocument();
+    expect(screen.getByText(/We’ll collect it from 1 Main St, Austin 78701 on/)).toBeInTheDocument();
+    const pickup = screen.getByRole('radio', { name: /Have it picked up/ }) as HTMLInputElement;
+    expect(pickup.defaultChecked).toBe(true);
+    expect((screen.getByRole('combobox', { name: 'Pickup day' }) as HTMLSelectElement).value).toBe(day);
+  });
+
+  it('says when the method didn’t take, the return still started', async () => {
+    state.returns = [started()];
+    await show({ return: 'started', method_error: 'pickup_on' });
+    expect(screen.getByText('Return started, but that pickup day isn’t available. Choose a day from tomorrow until the drop-off deadline.')).toBeInTheDocument();
+    cleanup();
+    await show({ method_error: 'pickup_point' });
+    expect(screen.getByText('That drop-off point isn’t taking returns. Choose another, or drop it off at any point.')).toBeInTheDocument();
+  });
+
+  it('only drops off a pickup order, and has nothing to change once it’s back', async () => {
+    state.returns = [started()];
+    state.order = { ...(state.order as Order), pickup: { pointId: 'US-AUS-BLUEBONNET', code: '123456' } };
+    await show();
+    expect(screen.getByText('Change return method')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Have it picked up/ })).toBeNull();
+    cleanup();
+    state.returns = [{ ...started(), status: 'received', receivedAt: new Date().toISOString(), refund: { status: 'pending' } }];
+    await show();
+    expect(screen.queryByText('Change return method')).toBeNull();
+  });
 });

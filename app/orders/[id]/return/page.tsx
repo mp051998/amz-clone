@@ -7,12 +7,14 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { fieldClass, selectClass } from '@/components/lib/controls';
 import { longDate, returnUntilText, shortDate } from '@/components/orders/format';
 import { REASON_LABEL, refundTo } from '@/components/orders/Returns';
+import { ReturnMethodFields } from '@/components/orders/ReturnMethod';
 import { startReturn } from '@/app/actions/returns';
 import { readUser } from '@/lib/auth';
 import { balanceMethod, isBalanceMethod } from '@/lib/data/balance';
 import { messageFor } from '@/lib/data/errors';
 import { getOrder } from '@/lib/data/orders';
-import { canStartReturn, getOrderReturns, RETURN_REASONS, returnWindows } from '@/lib/data/returns';
+import { listPickupPoints } from '@/lib/data/pickup';
+import { canStartReturn, getOrderReturns, RETURN_REASONS, returnPickupDays, returnWindows } from '@/lib/data/returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -43,7 +45,7 @@ export default async function ReturnPage({
   const page = `/orders/${encodeURIComponent(id)}`;
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(`${page}/return`)}`));
   const client = await db();
-  const [order, returns] = await Promise.all([getOrder(client, id), getOrderReturns(client, id)]);
+  const [order, returns, points] = await Promise.all([getOrder(client, id), getOrderReturns(client, id), listPickupPoints(client, store.id)]);
   if (!order || !returns) notFound();
   if (order.market !== store.id) redirect(storePath({ id: order.market }, `${page}/return`));
 
@@ -58,6 +60,8 @@ export default async function ReturnPage({
   const original = refundTo(order.paymentMethod, order.paymentLabel);
   // an order paid from the balance is refunded to it anyway
   const balance = isBalanceMethod(order.paymentMethod) ? null : refundTo(balanceMethod(order.market), '');
+  // a courier collects from the delivery address, which an order collected from a pickup point doesn't have
+  const collectFrom = order.pickup ? undefined : [order.shipTo.line1, order.shipTo.line2, `${order.shipTo.city} ${order.shipTo.postcode}`].filter(Boolean).join(', ');
   const errorText = error ? (error === 'invalid_input' && field && FIELD_ERROR[field]) || messageFor(error) || 'Something went wrong. Please try again.' : null;
 
   return (
@@ -175,6 +179,16 @@ export default async function ReturnPage({
                 </label>
               </fieldset>
             ) : null}
+
+            <ReturnMethodFields
+              idPrefix="return"
+              legend="How will you send it back?"
+              points={points}
+              days={returnPickupDays(store.dates.timeZone, now)}
+              pickupFrom={collectFrom}
+              store={store}
+              now={now}
+            />
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="return-comment" className="text-[14px] font-semibold">Anything else? <span className="font-normal text-ink-3">(optional)</span></label>
