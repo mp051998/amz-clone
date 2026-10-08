@@ -69,10 +69,14 @@ describe('holiday returns', () => {
 
   it('GET /products/:id says until when one bought now can go back', async () => {
     const item = await import('@/app/api/v1/products/[id]/route');
-    const get = async (market: 'US' | 'IN', id: string) =>
-      (await (
-        await item.GET(new NextRequest(`http://localhost/api/v1/products/${id}`, { headers: { 'x-market': market } }), { params: Promise.resolve({ id }) })
-      ).json()) as { holidayReturnBy: string | null };
+    const token = (await buyer.db.auth.getSession()).data.session!.access_token;
+    const get = async (market: 'US' | 'IN', id: string) => {
+      const res = await item.GET(new NextRequest(`http://localhost/api/v1/products/${id}?market=${market}`, { headers: { authorization: `Bearer ${token}` } }), {
+        params: Promise.resolve({ id }),
+      });
+      expect(res.status).toBe(200);
+      return (await res.json()) as { holidayReturnBy: string | null };
+    };
     // in season (November and December) the end of January 31, else null
     expect((await get('US', us.id)).holidayReturnBy).toBe(holidayReturnBy(MARKETS.US, new Date())?.toISOString() ?? null);
     expect((await get('IN', inProduct.id)).holidayReturnBy).toBeNull();
