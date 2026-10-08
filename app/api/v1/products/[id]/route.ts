@@ -9,6 +9,7 @@ import { lightningDealsFor } from '@/lib/data/lightning-deals';
 import { categoryReturnPolicy } from '@/lib/data/return-policy';
 import { typicalPrice, typicalToShow } from '@/lib/data/typical-price';
 import { returnSignal } from '@/lib/data/return-signal';
+import { holidayReturnBy } from '@/lib/holiday-returns';
 import { MARKETS } from '@/lib/marketplace';
 import { protectionPlanName } from '@/lib/protection';
 import { emiPlans } from '@/lib/emi';
@@ -25,7 +26,9 @@ import { exchangeUpTo } from '@/lib/exchange';
  * with whether the caller watches it (`watchingDeal`; an upcoming one, signed in), and `returnDays`,
  * how many days after delivery it can be returned (its category's window in its store, else the
  * store's; 0 when it can't be), and `replacementOnly`, true when it goes back for a fault only and is
- * replaced (refunded only when it can't be), and `exchange` (`{kind, upToMinor}`: Buy Now takes an old
+ * replaced (refunded only when it can't be), and `holidayReturnBy` (bought now, amazon.com's holiday
+ * returns let it go back until then, or its own window from delivery if later; null out of season,
+ * in India or when it can't be returned), and `exchange` (`{kind, upToMinor}`: Buy Now takes an old
  * phone or laptop off it, up to that much; models from GET /exchange-devices) or null, and
  * `typicalPriceMinor`, amazon.com's "Typical price" (the 90-day median) when the price is below it
  * and there's no list price above the price, else null (always in India).
@@ -49,7 +52,7 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const emi = product.archived ? [] : emiPlans(product.market, product.priceMinor);
   const lightningDeal = lightning?.get(id) ?? null;
   const watchingDeal = ctx.user && lightningDeal?.state === 'upcoming' ? (await watchedDeals(ctx.db, [lightningDeal.id])).has(lightningDeal.id) : false;
-  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, fit: product.sizes?.length ? (returns?.fit ?? null) : null, protection, emi, lightningDeal, watchingDeal, returnDays: policy.days, replacementOnly: policy.replacementOnly, exchange, typicalPriceMinor: typicalToShow(typical, product.priceMinor, product.listMinor) });
+  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, fit: product.sizes?.length ? (returns?.fit ?? null) : null, protection, emi, lightningDeal, watchingDeal, returnDays: policy.days, replacementOnly: policy.replacementOnly, holidayReturnBy: policy.days > 0 ? (holidayReturnBy(MARKETS[product.market], new Date())?.toISOString() ?? null) : null, exchange, typicalPriceMinor: typicalToShow(typical, product.priceMinor, product.listMinor) });
 });
 
 export const OPTIONS = preflight;

@@ -27,6 +27,7 @@ import { claimableSellers, claimOpenUntil, type AtozClaim } from '@/lib/atoz';
 import { DropoffField, InstructionsField } from '@/components/checkout/AddressFields';
 import { deliveryOptions, orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
+import { holidayReturnBy } from '@/lib/holiday-returns';
 import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
@@ -188,6 +189,8 @@ export default async function OrderPage({
   );
   const otherAddresses = saved.filter((a) => !sameAddress(a, order.shipTo));
   const returnBy = returns?.returnBy ? new Date(returns.returnBy) : null;
+  // bought November 1 to December 31 in the US: the window runs to January 31 (when that's later)
+  const holidayBy = order.placedAt ? holidayReturnBy(store, order.placedAt) : null;
   const windows = returns ? returnWindows(returns, now) : null;
   const missingUntil = reportMissingUntil(order, returns, now);
   const reportedMissing = returns?.returns.some((r) => r.reason === 'not_received' && r.status !== 'cancelled') ?? false;
@@ -613,7 +616,7 @@ export default async function OrderPage({
                   {reportedMissing
                     ? 'You told us this order didn’t arrive.'
                     : canStartReturn(returns, now)
-                      ? `Eligible for return ${windows ? returnUntilText(windows, store) : `until ${longDate(returnBy, store)}`}.`
+                      ? `${holidayBy && windows?.first.getTime() === holidayBy.getTime() ? 'Holiday returns: eligible' : 'Eligible'} for return ${windows ? returnUntilText(windows, store) : `until ${longDate(returnBy, store)}`}.`
                       : !order.items.some(isReturnable)
                         ? order.items.length === 1
                           ? 'This item can’t be returned.'
