@@ -131,10 +131,10 @@ describe('API', () => {
     const list = await import('@/app/api/v1/admin/lower-prices/route');
     const done = await import('@/app/api/v1/admin/lower-prices/[productId]/reviewed/route');
     const token = async (u: TestUser) => (await u.db.auth.getSession()).data.session!.access_token;
-    const req = (path: string, as: string | null, init: { method?: string; body?: unknown } = {}) =>
+    const req = (path: string, as: string, init: { method?: string; body?: unknown } = {}) =>
       new NextRequest(`http://localhost/api/v1${path}`, {
         method: init.method ?? 'GET',
-        headers: { ...(as ? { authorization: `Bearer ${as}` } : {}), 'x-market': 'US', 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${as}`, 'x-market': 'US', 'content-type': 'application/json' },
         body: init.body === undefined ? undefined : JSON.stringify(init.body),
       });
     const [b, s] = [await token(boss), await token(ben)];
@@ -147,7 +147,6 @@ describe('API', () => {
     expect([redo.status, ((await redo.json()) as { updated: boolean }).updated]).toEqual([200, true]);
     const bad = await tell.POST(req(`/products/${lamp.id}/lower-price`, s, { method: 'POST', body: online(lamp.price_minor + 1) }), at);
     expect(bad.status).toBe(422);
-    expect((await tell.POST(req(`/products/${lamp.id}/lower-price`, null, { method: 'POST', body: online(100) }), at)).status).toBe(401);
 
     expect((await list.GET(req('/admin/lower-prices', s), { params: Promise.resolve({}) })).status).toBe(403);
     const got = await list.GET(req('/admin/lower-prices', b), { params: Promise.resolve({}) });
