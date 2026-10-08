@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createProduct, type ProductInput } from '@/lib/data/admin-catalog';
-import { watchDeal, watchedDeals } from '@/lib/data/deal-watches';
+import { myWatchedDeals, watchDeal, watchedDeals } from '@/lib/data/deal-watches';
 import { listInbox } from '@/lib/data/inbox';
 import { admin, anon, deleteUser, newUser, type TestUser } from './helpers';
 
@@ -150,11 +150,25 @@ describe('Watching a Lightning Deal', () => {
     expect(after.watching).not.toContain(upcoming);
   });
 
+  it('lists what the shopper watches in each store (“Watched deals”), and at /deals/lightning/watched', async () => {
+    expect((await myWatchedDeals(shopper.db, 'US')).map((d) => [d.id, d.productId, d.state])).toEqual([[upcoming, lampUS, 'upcoming']]);
+    expect(await myWatchedDeals(shopper.db, 'IN')).toEqual([]);
+    expect(await myWatchedDeals(other.db, 'US')).toEqual([]);
+    expect(await myWatchedDeals(anon(), 'US')).toEqual([]);
+
+    const watched = await import('@/app/api/v1/deals/lightning/watched/route');
+    const token = (await shopper.db.auth.getSession()).data.session!.access_token;
+    const res = await watched.GET(new NextRequest('http://localhost/api/v1/deals/lightning/watched', { headers: { authorization: `Bearer ${token}`, 'x-market': 'US' } }), { params: Promise.resolve({}) });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { deals: { deal: { id: string }; product: { id: string } }[] }).deals.map((d) => [d.deal.id, d.product.id])).toEqual([[upcoming, lampUS]]);
+  });
+
   it('puts the deal in the watcher’s messages when it goes live, and says when it’s over', async () => {
     expect(await watchDeal(shopper.db, upcomingIN)).toBe(true);
     expect(await dealMessages(shopper, 'US')).toEqual([]);
 
     await goLive(upcoming);
+    expect((await myWatchedDeals(shopper.db, 'US')).map((d) => [d.id, d.state])).toEqual([[upcoming, 'live']]);
     const [msg] = await dealMessages(shopper, 'US');
     expect(msg).toMatchObject({ key: `deal_live:${upcoming}`, subject: `Dw${tag} reading lamp 1`, href: `/product/${lampUS}`, amountMinor: 3000 });
     expect(msg.over).toBeUndefined();
@@ -165,6 +179,8 @@ describe('Watching a Lightning Deal', () => {
     const cancel = await boss.db.rpc('cancel_lightning_deal', { p_id: upcoming });
     if (cancel.error) throw cancel.error;
     expect(await dealMessages(shopper, 'US')).toMatchObject([{ key: `deal_live:${upcoming}`, over: true }]);
+    // cancelled: no longer a watched deal
+    expect(await myWatchedDeals(shopper.db, 'US')).toEqual([]);
 
     await goLive(upcomingIN);
     expect(await dealMessages(shopper, 'IN')).toMatchObject([{ key: `deal_live:${upcomingIN}`, href: `/product/${lampIN}` }]);
