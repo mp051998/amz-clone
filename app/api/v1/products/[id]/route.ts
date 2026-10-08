@@ -7,6 +7,7 @@ import { DataError } from '@/lib/data/errors';
 import { exchangeOffer } from '@/lib/data/exchange';
 import { lightningDealsFor } from '@/lib/data/lightning-deals';
 import { categoryReturnPolicy } from '@/lib/data/return-policy';
+import { typicalPrice, typicalToShow } from '@/lib/data/typical-price';
 import { returnSignal } from '@/lib/data/return-signal';
 import { MARKETS } from '@/lib/marketplace';
 import { protectionPlanName } from '@/lib/protection';
@@ -25,12 +26,14 @@ import { exchangeUpTo } from '@/lib/exchange';
  * how many days after delivery it can be returned (its category's window in its store, else the
  * store's; 0 when it can't be), and `replacementOnly`, true when it goes back for a fault only and is
  * replaced (refunded only when it can't be), and `exchange` (`{kind, upToMinor}`: Buy Now takes an old
- * phone or laptop off it, up to that much; models from GET /exchange-devices) or null.
+ * phone or laptop off it, up to that much; models from GET /exchange-devices) or null, and
+ * `typicalPriceMinor`, amazon.com's "Typical price" (the 90-day median) when the price is below it
+ * and there's no list price above the price, else null (always in India).
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const product = await getProduct(ctx.db, id, { includeArchived: true });
   if (!product) throw new DataError('product_not_found');
-  const [info, ratings, coupon, returns, plan, lightning, policy, trade] = await Promise.all([
+  const [info, ratings, coupon, returns, plan, lightning, policy, trade, typical] = await Promise.all([
     getProductInfo(ctx.db, id),
     getRatingSummary(ctx.db, id),
     product.archived ? null : couponFor(ctx.db, id, ctx.user != null),
@@ -39,13 +42,14 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
     product.archived ? null : lightningDealsFor(ctx.db, [id]),
     categoryReturnPolicy(ctx.db, product.market, product.category, MARKETS[product.market].returns.days),
     product.archived ? null : exchangeOffer(ctx.db, product.market, product.category),
+    product.archived || !MARKETS[product.market].pricing.typicalLabel ? null : typicalPrice(ctx.db, id),
   ]);
   const exchange = trade ? { kind: trade.kind, upToMinor: exchangeUpTo(trade.devices, product.priceMinor) } : null;
   const protection = plan ? { name: protectionPlanName(product.market), unitMinor: plan } : null;
   const emi = product.archived ? [] : emiPlans(product.market, product.priceMinor);
   const lightningDeal = lightning?.get(id) ?? null;
   const watchingDeal = ctx.user && lightningDeal?.state === 'upcoming' ? (await watchedDeals(ctx.db, [lightningDeal.id])).has(lightningDeal.id) : false;
-  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, fit: product.sizes?.length ? (returns?.fit ?? null) : null, protection, emi, lightningDeal, watchingDeal, returnDays: policy.days, replacementOnly: policy.replacementOnly, exchange });
+  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, fit: product.sizes?.length ? (returns?.fit ?? null) : null, protection, emi, lightningDeal, watchingDeal, returnDays: policy.days, replacementOnly: policy.replacementOnly, exchange, typicalPriceMinor: typicalToShow(typical, product.priceMinor, product.listMinor) });
 });
 
 export const OPTIONS = preflight;
