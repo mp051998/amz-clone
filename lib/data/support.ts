@@ -8,7 +8,8 @@ import { DataError, unwrap } from './errors';
  * Writes go through open_support_case / reply_support_case / close_support_case
  * (20261031090000_support_cases.sql); reads lean on RLS (your own cases, or any as an admin).
  * A case has a new reply for its shopper while the store has written since they last opened it
- * (20261102090000_support_seen.sql).
+ * (20261102090000_support_seen.sql). "Contact seller" opens a case with one of the store's sellers
+ * on it (contact_seller, 20261214090000_contact_seller.sql), which the admins answer for the seller.
  */
 
 export const SUPPORT_TOPICS = ['order', 'delivery', 'return', 'payment', 'account', 'other'] as const;
@@ -37,6 +38,8 @@ export interface SupportCase {
   subject: string;
   status: SupportStatus;
   orderId: string | null;
+  /** a case with one of the store's sellers ("Contact seller"), who answers it */
+  seller?: string;
   customer: string;
   createdAt: string;
   updatedAt: string;
@@ -61,7 +64,7 @@ export function supportTopic(v: unknown): SupportTopic | null {
 
 type Row = Record<string, unknown>;
 
-const CASE_COLS = 'id, topic, subject, status, order_id, customer_name, created_at, updated_at, closed_at';
+const CASE_COLS = 'id, topic, subject, status, order_id, seller, customer_name, created_at, updated_at, closed_at';
 const MESSAGE_COLS = 'id, author, body, created_at';
 
 function toCase(r: Row): SupportCase {
@@ -71,6 +74,7 @@ function toCase(r: Row): SupportCase {
     subject: String(r.subject ?? ''),
     status: (['open', 'answered', 'closed'].includes(String(r.status)) ? r.status : 'open') as SupportStatus,
     orderId: r.order_id == null ? null : String(r.order_id),
+    ...(typeof r.seller === 'string' && r.seller ? { seller: r.seller } : {}),
     customer: String(r.customer_name ?? ''),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -89,9 +93,14 @@ export interface NewCase {
   subject?: unknown;
   body?: unknown;
   orderId?: unknown;
+  /** one of the store's sellers, to contact them instead of the store */
+  seller?: unknown;
 }
 
-/** Open a case in `market` with its first message (10–2,000 characters). */
+/**
+ * Open a case in `market` with its first message (10–2,000 characters): with the store, or with
+ * `seller` when given (then an `orderId` must have that seller's items in it).
+ */
 export async function openCase(db: Db, market: Market, input: NewCase): Promise<SupportCase> {
   const topic = supportTopic(input.topic);
   if (!topic) throw new DataError('invalid_input', 'topic', 'Choose what your question is about.');
@@ -100,8 +109,11 @@ export async function openCase(db: Db, market: Market, input: NewCase): Promise<
   if (subject.length < 3 || subject.length > SUBJECT_MAX) throw new DataError('invalid_input', 'subject', `Add a subject of 3 to ${SUBJECT_MAX} characters.`);
   if (body.length < 10 || body.length > MESSAGE_MAX) throw new DataError('invalid_input', 'body', 'Tell us a little more: at least 10 characters, up to 2,000.');
   const orderId = typeof input.orderId === 'string' && input.orderId.trim() ? input.orderId.trim() : undefined;
+  const seller = typeof input.seller === 'string' && input.seller.trim() ? input.seller.trim() : undefined;
   const json = unwrap(
-    await db.rpc('open_support_case', { p_market: market, p_topic: topic, p_subject: subject, p_body: body, p_order: orderId }),
+    seller
+      ? await db.rpc('contact_seller', { p_market: market, p_seller: seller, p_topic: topic, p_subject: subject, p_body: body, p_order: orderId })
+      : await db.rpc('open_support_case', { p_market: market, p_topic: topic, p_subject: subject, p_body: body, p_order: orderId }),
   ) as Row;
   return toCase(json);
 }
@@ -261,17 +273,20 @@ export interface CaseOrder {
   summary: string;
 }
 
-/** The caller's latest placed orders in a store, newest first, to ask about. */
-export async function listCaseOrders(db: Db, market: Market, userId: string, limit = 20): Promise<CaseOrder[]> {
+/**
+ * The caller's latest placed orders in a store, newest first, to ask about. With `seller`, only the
+ * orders with that seller's items, summed up by those items.
+ */
+export async function listCaseOrders(db: Db, market: Market, userId: string, limit = 20, seller?: string): Promise<CaseOrder[]> {
+  let q = db
+    .from('orders')
+    .select(seller ? 'id, placed_at, created_at, order_items!inner(title)' : 'id, placed_at, created_at, order_items(title)')
+    .eq('user_id', userId)
+    .eq('market_id', market)
+    .not('placed_at', 'is', null);
+  if (seller) q = q.eq('order_items.seller', seller);
   const rows = unwrap(
-    await db
-      .from('orders')
-      .select('id, placed_at, created_at, order_items(title)')
-      .eq('user_id', userId)
-      .eq('market_id', market)
-      .not('placed_at', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(limit),
+    await q.order('created_at', { ascending: false }).limit(limit),
   ) as unknown as { id: string; placed_at: string | null; created_at: string; order_items: { title: string }[] }[];
   return rows.map((o) => {
     const [first, ...rest] = o.order_items.map((i) => i.title);
@@ -281,4 +296,11 @@ export async function listCaseOrders(db: Db, market: Market, userId: string, lim
       summary: first ? (rest.length ? `${first} and ${rest.length} more` : first) : 'Order',
     };
   });
+}
+
+/** Whether `seller` sells (or has sold) anything in the store: who "Contact seller" can reach. */
+export async function isStoreSeller(db: Db, market: Market, seller: string): Promise<boolean> {
+  if (!seller.trim()) return false;
+  const { data, error } = await db.from('products').select('id').eq('market_id', market).eq('seller', seller).limit(1);
+  return !error && (data?.length ?? 0) > 0;
 }

@@ -502,6 +502,15 @@ export default async function OrderPage({
                     Gift receipt for this item
                   </a>
                 ) : null}
+                {order.status === 'awaiting_payment' ? null : (
+                  <a
+                    href={sp(`/customer-service/contact?${new URLSearchParams({ seller: it.seller, order: order.id })}`)}
+                    className="self-start text-[13px] text-ink underline underline-offset-2"
+                    aria-label={`Contact ${it.seller} about ${it.title}`}
+                  >
+                    Contact seller
+                  </a>
+                )}
               </div>
               <div className="flex flex-none flex-col items-end gap-1.5">
                 <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>

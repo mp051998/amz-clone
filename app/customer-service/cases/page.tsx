@@ -55,13 +55,14 @@ export default async function SupportCasesPage() {
                       {unread.has(c.id) ? <span className="sr-only"> (new reply)</span> : null}
                     </span>
                     <span className="text-[13px] text-ink-3">
+                      {c.seller ? `With ${c.seller} · ` : ''}
                       {TOPIC_LABELS[c.topic]}
                       {c.orderId ? <> · Order <span className="font-mono">{c.orderId}</span></> : null} · Updated {shortDate(new Date(c.updatedAt), store)}
                     </span>
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
                     {unread.has(c.id) ? <span aria-hidden><StatusChip label="New reply" tone="dark" /></span> : null}
-                    <CaseStatus status={c.status} viewer="customer" />
+                    <CaseStatus status={c.status} viewer="customer" seller={c.seller} />
                   </span>
                 </a>
               </li>

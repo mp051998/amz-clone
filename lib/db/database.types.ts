@@ -660,13 +660,13 @@ isOneToOne: false
                   ]
                 },"support_cases": {
                   Row: {
-                    "closed_at": string | null,"created_at": string,"customer_name": string,"customer_seen_at": string | null,"id": string,"market_id": string,"order_id": string | null,"status": string,"subject": string,"topic": string,"updated_at": string,"user_id": string | null
+                    "closed_at": string | null,"created_at": string,"customer_name": string,"customer_seen_at": string | null,"id": string,"market_id": string,"order_id": string | null,"seller": string | null,"status": string,"subject": string,"topic": string,"updated_at": string,"user_id": string | null
                   }
                   Insert: {
-                    "closed_at"?: string | null,"created_at"?: string,"customer_name": string,"customer_seen_at"?: string | null,"id"?: string,"market_id": string,"order_id"?: string | null,"status"?: string,"subject": string,"topic": string,"updated_at"?: string,"user_id"?: string | null
+                    "closed_at"?: string | null,"created_at"?: string,"customer_name": string,"customer_seen_at"?: string | null,"id"?: string,"market_id": string,"order_id"?: string | null,"seller"?: string | null,"status"?: string,"subject": string,"topic": string,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "closed_at"?: string | null,"created_at"?: string,"customer_name"?: string,"customer_seen_at"?: string | null,"id"?: string,"market_id"?: string,"order_id"?: string | null,"status"?: string,"subject"?: string,"topic"?: string,"updated_at"?: string,"user_id"?: string | null
+                    "closed_at"?: string | null,"created_at"?: string,"customer_name"?: string,"customer_seen_at"?: string | null,"id"?: string,"market_id"?: string,"order_id"?: string | null,"seller"?: string | null,"status"?: string,"subject"?: string,"topic"?: string,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1167,6 +1167,9 @@ isOneToOne: false
                            },
 "reply_support_case":
 { Args: { "p_body": string,"p_case": string }; Returns: Json
+                           },
+"contact_seller":
+{ Args: { "p_body": string,"p_market": string,"p_order"?: string,"p_seller": string,"p_subject": string,"p_topic": string }; Returns: Json
                            },
 "close_support_case":
 { Args: { "p_case": string }; Returns: Json

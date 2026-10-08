@@ -12,14 +12,16 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/me/support { topic, subject, body, orderId? } — open a support case with its first
- * message. topic: order | delivery | return | payment | account | other. `201 {case}`; up to 5
- * cases waiting or answered per store (`409 too_many_cases`).
+ * POST /api/v1/me/support { topic, subject, body, orderId?, seller? } — open a support case with its
+ * first message. topic: order | delivery | return | payment | account | other. With `seller`, the
+ * case goes to that seller ("Contact seller"; `404 seller_not_found` if they sell nothing in this
+ * store), and `orderId` must have their items in it. `201 {case}`; up to 5 cases waiting or
+ * answered per store (`409 too_many_cases`).
  */
 export const POST = route(async (ctx) => {
   requireUser(ctx);
   const b = await body(ctx.req);
-  const supportCase = await openCase(ctx.db, ctx.market, { topic: b.topic, subject: b.subject, body: b.body, orderId: b.orderId });
+  const supportCase = await openCase(ctx.db, ctx.market, { topic: b.topic, subject: b.subject, body: b.body, orderId: b.orderId, seller: b.seller });
   return json({ case: supportCase }, { status: 201 });
 });
 
