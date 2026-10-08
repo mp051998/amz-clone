@@ -377,13 +377,13 @@ isOneToOne: false
                   ]
                 },"markets": {
                   Row: {
-                    "currency": string,"demo_gift_card_minor": number,"fast_ship_fee_minor": number,"delivery_day": boolean,"free_ship_threshold_minor": number,"gift_wrap_minor": number | null,"id": string,"max_line_qty": number,"payment_methods": (string)[],"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string,"protection_categories": (string)[],"protection_min_minor": number | null,"protection_round_minor": number | null,"emi_min_minor": number | null,"subscribe_methods": (string)[],"no_rush_reward_minor": number | null,"cod_max_minor": number | null,"delivery_otp_min_minor": number | null
+                    "currency": string,"demo_gift_card_minor": number,"fast_ship_fee_minor": number,"delivery_day": boolean,"free_ship_threshold_minor": number,"gift_wrap_minor": number | null,"id": string,"max_line_qty": number,"payment_methods": (string)[],"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string,"protection_categories": (string)[],"protection_min_minor": number | null,"protection_round_minor": number | null,"emi_min_minor": number | null,"subscribe_methods": (string)[],"no_rush_reward_minor": number | null,"cod_max_minor": number | null,"delivery_otp_min_minor": number | null,"plus_plans": (string)[]
                   }
                   Insert: {
-                    "currency": string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor": number,"gift_wrap_minor"?: number | null,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"return_days"?: number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null
+                    "currency": string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor": number,"gift_wrap_minor"?: number | null,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"return_days"?: number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null,"plus_plans"?: (string)[]
                   }
                   Update: {
-                    "currency"?: string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor"?: number,"gift_wrap_minor"?: number | null,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"return_days"?: number,"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null
+                    "currency"?: string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor"?: number,"gift_wrap_minor"?: number | null,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"return_days"?: number,"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null,"plus_plans"?: (string)[]
                   }
                   Relationships: [
                     
@@ -649,16 +649,22 @@ isOneToOne: false
                   ]
                 },"plus_members": {
                   Row: {
-                    "joined_at": string,"user_id": string,"delivery_day": number | null
+                    "joined_at": string,"user_id": string,"delivery_day": number | null,"market_id": string,"plan": string,"next_plan": string | null,"renews_at": string,"auto_renew": boolean
                   }
                   Insert: {
-                    "joined_at"?: string,"user_id": string,"delivery_day"?: number | null
+                    "joined_at"?: string,"user_id": string,"delivery_day"?: number | null,"market_id"?: string,"plan"?: string,"next_plan"?: string | null,"renews_at": string,"auto_renew"?: boolean
                   }
                   Update: {
-                    "joined_at"?: string,"user_id"?: string,"delivery_day"?: number | null
+                    "joined_at"?: string,"user_id"?: string,"delivery_day"?: number | null,"market_id"?: string,"plan"?: string,"next_plan"?: string | null,"renews_at"?: string,"auto_renew"?: boolean
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "plus_members_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"profiles": {
                   Row: {
@@ -1180,10 +1186,16 @@ isOneToOne: false
 { Args: never; Returns: boolean
                            },
 "join_plus":
-{ Args: never; Returns: Json
+{ Args: { "p_market"?: string,"p_plan"?: string }; Returns: Json
                            },
 "leave_plus":
 { Args: never; Returns: undefined
+                           },
+"set_plus_plan":
+{ Args: { "p_plan": string }; Returns: Json
+                           },
+"set_plus_renewal":
+{ Args: { "p_renew": boolean }; Returns: Json
                            },
 "set_delivery_day":
 { Args: { "p_day": number | null }; Returns: Json
@@ -1409,6 +1421,9 @@ isOneToOne: false
                            },
 "cancel_subscription":
 { Args: { "p_id": string }; Returns: Json
+                           },
+"run_plus_renewals":
+{ Args: never; Returns: Json
                            },
 "run_subscriptions":
 { Args: { "p_on"?: string }; Returns: number

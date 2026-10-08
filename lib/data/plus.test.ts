@@ -1,30 +1,59 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { DataError } from './errors';
-import { joinPlus, leavePlus, plusMembership, setDeliveryDay } from './plus';
+import { joinPlus, leavePlus, plusMembership, setDeliveryDay, setPlusPlan, setPlusRenewal } from './plus';
 
-/** A client whose plus_members read and RPCs answer with `reply`, recording the RPC names. */
+/** A client whose plus_members read and RPCs answer with `reply`, recording the RPC names and arguments. */
 function fakeDb(reply: { data: unknown; error: unknown }) {
   const rpcs: string[] = [];
+  const args: unknown[] = [];
   const db = {
     from: () => ({ select: () => ({ maybeSingle: async () => reply }) }),
-    rpc: async (fn: string) => (rpcs.push(fn), reply),
+    rpc: async (fn: string, a?: unknown) => (rpcs.push(fn), args.push(a), reply),
   };
-  return { db: db as unknown as Db, rpcs };
+  return { db: db as unknown as Db, rpcs, args };
 }
 
+const ROW = {
+  joined_at: '2026-10-06T10:00:00Z',
+  delivery_day: null,
+  market_id: 'IN',
+  plan: 'quarterly',
+  next_plan: null,
+  renews_at: '2027-01-06T10:00:00Z',
+  auto_renew: true,
+};
+const MEMBER = { since: '2026-10-06T10:00:00Z', market: 'IN', plan: 'quarterly', renewsAt: '2027-01-06T10:00:00Z', autoRenew: true };
+
 it('reads the membership, or null when there is none or it cannot be read', async () => {
-  expect(await plusMembership(fakeDb({ data: { joined_at: '2026-10-06T10:00:00Z' }, error: null }).db)).toEqual({ since: '2026-10-06T10:00:00Z' });
-  expect(await plusMembership(fakeDb({ data: { joined_at: '2026-10-06T10:00:00Z', delivery_day: 5 }, error: null }).db)).toEqual({ since: '2026-10-06T10:00:00Z', deliveryDay: 5 });
+  expect(await plusMembership(fakeDb({ data: ROW, error: null }).db)).toEqual(MEMBER);
+  expect(await plusMembership(fakeDb({ data: { ...ROW, delivery_day: 5, next_plan: 'annual', auto_renew: false }, error: null }).db)).toEqual({
+    ...MEMBER,
+    deliveryDay: 5,
+    nextPlan: 'annual',
+    autoRenew: false,
+  });
+  // before the plans migration: monthly in the US store, renewing
+  expect(await plusMembership(fakeDb({ data: { joined_at: '2026-10-06T10:00:00Z' }, error: null }).db)).toEqual({
+    since: '2026-10-06T10:00:00Z',
+    market: 'US',
+    plan: 'monthly',
+    autoRenew: true,
+  });
   expect(await plusMembership(fakeDb({ data: null, error: null }).db)).toBeNull();
   // signed out (anon can't read the table), or before the migration
   expect(await plusMembership(fakeDb({ data: null, error: { code: '42501', message: 'permission denied' } }).db)).toBeNull();
 });
 
-it('joins and leaves through the RPCs', async () => {
-  const join = fakeDb({ data: { joined_at: '2026-10-06T10:00:00Z' }, error: null });
-  expect(await joinPlus(join.db)).toEqual({ since: '2026-10-06T10:00:00Z' });
+it('joins on a plan and leaves through the RPCs', async () => {
+  const join = fakeDb({ data: ROW, error: null });
+  expect(await joinPlus(join.db, 'IN', 'quarterly')).toEqual(MEMBER);
   expect(join.rpcs).toEqual(['join_plus']);
+  expect(join.args).toEqual([{ p_market: 'IN', p_plan: 'quarterly' }]);
+  // monthly in the US store unless told otherwise
+  const plain = fakeDb({ data: ROW, error: null });
+  await joinPlus(plain.db);
+  expect(plain.args).toEqual([{ p_market: 'US', p_plan: 'monthly' }]);
 
   const leave = fakeDb({ data: null, error: null });
   await leavePlus(leave.db);
@@ -44,4 +73,21 @@ it('sets or clears the Delivery Day through the RPC', async () => {
   // not a member
   const refused = fakeDb({ data: null, error: { code: 'P0001', message: 'plus_required' } });
   await expect(setDeliveryDay(refused.db, 5)).rejects.toMatchObject({ code: 'plus_required', status: 403 });
+});
+
+it('switches plans and turns renewal on or off through the RPCs', async () => {
+  const sw = fakeDb({ data: { ...ROW, next_plan: 'annual' }, error: null });
+  expect(await setPlusPlan(sw.db, 'annual')).toEqual({ ...MEMBER, nextPlan: 'annual' });
+  expect(sw.rpcs).toEqual(['set_plus_plan']);
+  expect(sw.args).toEqual([{ p_plan: 'annual' }]);
+
+  const off = fakeDb({ data: { ...ROW, auto_renew: false }, error: null });
+  expect(await setPlusRenewal(off.db, false)).toEqual({ ...MEMBER, autoRenew: false });
+  expect(off.rpcs).toEqual(['set_plus_renewal']);
+  expect(off.args).toEqual([{ p_renew: false }]);
+
+  const refused = fakeDb({ data: null, error: { code: 'P0001', message: 'plus_required' } });
+  await expect(setPlusRenewal(refused.db, true)).rejects.toMatchObject({ code: 'plus_required', status: 403 });
+  const unsold = fakeDb({ data: null, error: { code: '22023', message: 'invalid_input', details: 'plan' } });
+  await expect(setPlusPlan(unsold.db, 'quarterly')).rejects.toMatchObject({ code: 'invalid_input', status: 422 });
 });

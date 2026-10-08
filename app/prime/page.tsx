@@ -7,7 +7,7 @@ import { CheckList } from '@/components/decision/CheckList';
 import { buttonClasses } from '@/components/primitives/Button';
 import { cn } from '@/components/lib/cn';
 import { Alert } from '@/components/primitives/Alert';
-import { JoinPlusButton, LeavePlusButton } from '@/components/prime/PlusMembership';
+import { JoinPlusButton, LeavePlusButton, RenewalButton, SwitchPlanButton } from '@/components/prime/PlusMembership';
 import { DeliveryDayForm } from '@/components/prime/DeliveryDay';
 import { weekdayName } from '@/lib/delivery-day';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -15,16 +15,9 @@ import { storePath } from '@/lib/marketplace';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
+import { PLUS_PLANS, plusPlan, type PlusPlanId } from '@/lib/plus-plans';
 
 export const metadata: Metadata = { title: 'Plus membership · Store' };
-
-interface Plan {
-  name: string;
-  price: string;
-  per: string;
-  note: string;
-  best?: boolean;
-}
 
 interface Benefit {
   title: string;
@@ -34,7 +27,7 @@ interface Benefit {
   cta: string;
 }
 
-export default async function PlusPage({ searchParams }: { searchParams: Promise<{ joined?: string; left?: string; day?: string }> }) {
+export default async function PlusPage({ searchParams }: { searchParams: Promise<{ joined?: string; left?: string; day?: string; plan?: string; renew?: string }> }) {
   const [store, user, sp] = await Promise.all([getMarketplace(), readUser(), searchParams]);
   const plus = user ? await plusMembership(await db()) : null;
   const isIN = store.id === 'IN';
@@ -45,15 +38,15 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
   const dealsHref = storePath(store, '/deals');
   const videoHref = storePath(store, '/prime-video');
 
-  const memberSince = plus
-    ? new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone }).format(new Date(plus.since))
-    : '';
-  /** A join call to action: sign up first when signed out, join at once when signed in. */
-  const join = (label: string, opts: { variant?: 'primary' | 'secondary'; size?: 'lg'; block?: boolean } = {}) =>
+  const fullDate = (iso: string) =>
+    new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone }).format(new Date(iso));
+  const memberSince = plus ? fullDate(plus.since) : '';
+  /** A join call to action: sign up first when signed out, join at once (on `plan`) when signed in. */
+  const join = (label: string, opts: { variant?: 'primary' | 'secondary'; size?: 'lg'; block?: boolean; plan?: PlusPlanId } = {}) =>
     joinHref ? (
       <a href={joinHref} className={buttonClasses({ variant: opts.variant ?? 'primary', size: opts.size, block: opts.block })}>{label}</a>
     ) : (
-      <JoinPlusButton label={label} variant={opts.variant ?? 'primary'} size={opts.size} block={opts.block} />
+      <JoinPlusButton label={label} plan={opts.plan} variant={opts.variant ?? 'primary'} size={opts.size} block={opts.block} />
     );
   const joinText = (children: ReactNode) =>
     joinHref ? <a href={joinHref} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">{children}</a> : <strong className="font-semibold text-ink">{children}</strong>;
@@ -62,16 +55,12 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
     ? `${sym}299/month, ${sym}599 for 3 months, or ${sym}1,499/year`
     : `${sym}14.99/month or ${sym}139/year`;
 
-  const plans: Plan[] = isIN
-    ? [
-        { name: 'Monthly', price: `${sym}299`, per: '/month', note: 'Billed every month. Cancel anytime.' },
-        { name: '3 months', price: `${sym}599`, per: '/3 months', note: `Works out to about ${sym}200 a month.` },
-        { name: 'Annual', price: `${sym}1,499`, per: '/year', note: `About ${sym}125 a month — the lowest monthly cost.`, best: true },
-      ]
-    : [
-        { name: 'Monthly', price: `${sym}14.99`, per: '/month', note: 'Billed every month. Cancel anytime.' },
-        { name: 'Annual', price: `${sym}139`, per: '/year', note: `Just ${sym}11.58 a month — the lowest monthly cost.`, best: true },
-      ];
+  const plans = PLUS_PLANS[store.id];
+
+  // the membership's plan, in the store it's billed in, and when it renews (or ends)
+  const current = plus ? plusPlan(plus.market, plus.plan) : undefined;
+  const next = plus?.nextPlan ? plusPlan(plus.market, plus.nextPlan) : undefined;
+  const periodEnd = plus?.renewsAt ? fullDate(plus.renewsAt) : null;
 
   const benefits: Benefit[] = [
     {
@@ -128,7 +117,7 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
               plus ? (
                 <>
                   <a href={dealsHref} className={buttonClasses({ variant: 'primary', size: 'lg' })}>Shop today&apos;s deals</a>
-                  <LeavePlusButton />
+                  <a href="#membership" className={buttonClasses({ variant: 'secondary', size: 'lg' })}>Manage membership</a>
                 </>
               ) : (
                 <>
@@ -141,7 +130,7 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
             {plus ? (
               <>
                 <p className="m-0">You&apos;re a Plus member since {memberSince}. FREE delivery on every order and FREE faster delivery are on, in both stores.</p>
-                <p className="m-0 mt-2 text-[14px] text-ink-3">Nothing is billed in this demo store. End the membership any time.</p>
+                <p className="m-0 mt-2 text-[14px] text-ink-3">Nothing is billed in this demo store. Switch plans or end the membership any time.</p>
               </>
             ) : (
               <>
@@ -166,6 +155,47 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
             </p>
           </div>
         </div>
+
+        {plus ? (
+          <Section id="membership" title="Your membership" note="Plan and renewal">
+            <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
+              {sp.plan && next && sp.plan === next.id && periodEnd ? <Alert tone="success">You&apos;ll switch to the {next.long.toLowerCase()} on {periodEnd}.</Alert> : null}
+              {sp.plan && !next && current && sp.plan === current.id ? <Alert tone="info">You&apos;re staying on the {current.long.toLowerCase()}.</Alert> : null}
+              {sp.renew === 'off' && !plus.autoRenew && periodEnd ? <Alert tone="info">Your membership won&apos;t renew. It ends on {periodEnd}, and you keep every benefit until then.</Alert> : null}
+              {sp.renew === 'on' && plus.autoRenew && periodEnd ? <Alert tone="success">Your membership will renew on {periodEnd}.</Alert> : null}
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <strong className="text-[17px] font-semibold">{current?.long ?? 'Plus'}</strong>
+                {current ? <span className="text-[15px] tabular-nums text-ink-2">{current.price}{current.per}</span> : null}
+              </div>
+              <p className="m-0 text-[15px] text-ink-2">
+                {!periodEnd ? (
+                  'Renews automatically at the end of each period.'
+                ) : !plus.autoRenew ? (
+                  <>Ends on <strong className="font-semibold text-ink">{periodEnd}</strong>. You keep FREE delivery and every other benefit until then.</>
+                ) : next ? (
+                  <>Switches to the {next.long.toLowerCase()} ({next.price}{next.per}) on <strong className="font-semibold text-ink">{periodEnd}</strong>.</>
+                ) : (
+                  <>Renews on <strong className="font-semibold text-ink">{periodEnd}</strong>.</>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-2.5">
+                {plus.autoRenew ? (
+                  <>
+                    {PLUS_PLANS[plus.market]
+                      .filter((p) => p.id !== (plus.nextPlan ?? plus.plan))
+                      .map((p) => (
+                        <SwitchPlanButton key={p.id} plan={p.id} label={p.id === plus.plan ? `Keep the ${p.long.toLowerCase()}` : `Switch to the ${p.long.toLowerCase()}`} />
+                      ))}
+                    {periodEnd ? <RenewalButton renew={false} label={`End on ${periodEnd}`} /> : null}
+                  </>
+                ) : (
+                  <RenewalButton renew variant="primary" label="Keep my membership" />
+                )}
+                <LeavePlusButton label="End now" />
+              </div>
+            </div>
+          </Section>
+        ) : null}
 
         {plus && store.features.deliveryDay ? (
           <Section id="delivery-day" title="Your Delivery Day" note="Fewer boxes, fewer trips">
@@ -214,7 +244,7 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
                     <span className="text-[15px] text-ink-2">{p.per}</span>
                   </p>
                   <p className="m-0 flex-1 text-[14px] text-ink-2">{p.note}</p>
-                  <div className="mt-2 flex">{join(`Choose ${p.name.toLowerCase()}`, { variant: p.best ? 'primary' : 'secondary', block: true })}</div>
+                  <div className="mt-2 flex">{join(`Choose ${p.name.toLowerCase()}`, { variant: p.best ? 'primary' : 'secondary', block: true, plan: p.id })}</div>
                 </div>
               ))}
             </div>

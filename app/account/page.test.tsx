@@ -10,7 +10,7 @@ const state = vi.hoisted(() => ({
   orders: 2,
   recent: [] as string[],
   paused: false,
-  plus: null as { since: string } | null,
+  plus: null as { since: string; renewsAt?: string; autoRenew?: boolean } | null,
   balance: 0 as number | null,
   collections: [] as unknown[],
   toReview: [] as unknown[],
@@ -130,6 +130,15 @@ it('shows the Plus membership, joined or not', async () => {
   expect(tile('Plus membership')).toHaveAttribute('href', '/prime');
   expect(within(tile('Plus membership')).getByText('Not a member')).toBeInTheDocument();
   cleanup();
+  state.plus = { since: '2026-10-01T10:00:00Z', renewsAt: '2026-11-01T10:00:00Z', autoRenew: true };
+  render(await AccountPage());
+  expect(within(tile('Plus membership')).getByText('Member · renews November 1')).toBeInTheDocument();
+  cleanup();
+  state.plus = { since: '2026-10-01T10:00:00Z', renewsAt: '2026-11-01T10:00:00Z', autoRenew: false };
+  render(await AccountPage());
+  expect(within(tile('Plus membership')).getByText('Member · ends November 1')).toBeInTheDocument();
+  cleanup();
+  // before the plans migration
   state.plus = { since: '2026-10-01T10:00:00Z' };
   render(await AccountPage());
   expect(within(tile('Plus membership')).getByText('Member · FREE delivery')).toBeInTheDocument();
