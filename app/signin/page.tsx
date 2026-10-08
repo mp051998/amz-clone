@@ -22,6 +22,7 @@ const ERRORS: Record<string, string> = {
   name: 'Keep your name under 80 characters.',
   signup: "We couldn't create your account. Try again.",
   '1': 'Enter a valid email address.',
+  expired: 'Your sign-in timed out. Sign in again.',
 };
 
 /** Why the shopper was sent here, from the `next` path. */

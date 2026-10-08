@@ -8,6 +8,7 @@ import { createClient as createCookieClient } from '../supabase/server';
 import { isToken } from '../session';
 import { DataError } from '../data/errors';
 import type { Market } from '../types';
+import { owesSecondStep } from '../two-step';
 
 /**
  * Plumbing shared by every /api/v1 route: who is calling, which store, the
@@ -16,7 +17,9 @@ import type { Market } from '../types';
  * Auth: `Authorization: Bearer <access token>` (from POST /api/v1/auth/token),
  * or the web app's Supabase session cookie. Either way the database sees the
  * caller's JWT, so row-level security applies to API calls exactly as it does to
- * pages. Store: `?market=US|IN` (or `X-Market`), default US. Guest carts:
+ * pages. A token that still owes the code of two-step verification (a password sign-in, with it
+ * on) is refused with `401 two_step_required` until POST /auth/token/verify upgrades it.
+ * Store: `?market=US|IN` (or `X-Market`), default US. Guest carts:
  * `X-Cart-Token: <uuid>`; the first guest write mints one and returns it in the
  * `X-Cart-Token` response header.
  */
@@ -89,10 +92,12 @@ async function clientFor(req: NextRequest): Promise<{ db: Db; user: ApiUser | nu
     });
     const { data, error } = await db.auth.getUser(token);
     if (error || !data.user) throw new DataError('not_authenticated', undefined, 'Invalid or expired access token.');
+    if (owesSecondStep(data.user, token)) throw new DataError('two_step_required');
     return { db, user: { id: data.user.id, email: data.user.email ?? null } };
   }
   const db = await createCookieClient();
   const { data } = await db.auth.getUser();
+  if (data.user && owesSecondStep(data.user, (await db.auth.getSession()).data.session?.access_token)) throw new DataError('two_step_required');
   return { db, user: data.user ? { id: data.user.id, email: data.user.email ?? null } : null };
 }
 

@@ -9,6 +9,7 @@ import { DataError } from '@/lib/data/errors';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
+import { owesSecondStep, VERIFY_PATH } from '@/lib/two-step';
 
 const PAGE = '/account/security';
 
@@ -68,6 +69,7 @@ export async function updatePassword(_prev: AccountFormState, formData: FormData
     return { field: 'confirmPassword', error: 'The two passwords don’t match.' };
   }
   let recovering = false;
+  let secondStep = false;
   try {
     const [{ data: claims }, { data: session }] = await Promise.all([client.auth.getClaims(), client.auth.getSession()]);
     if (!claims || !session.session) throw new DataError('not_authenticated');
@@ -79,8 +81,13 @@ export async function updatePassword(_prev: AccountFormState, formData: FormData
       accessToken: session.session.access_token,
     });
     await client.auth.setSession({ access_token: fresh.access_token, refresh_token: fresh.refresh_token });
+    // a password sign-in: with two-step verification on, the new session needs a code too
+    secondStep = owesSecondStep(fresh.user, fresh.access_token);
   } catch (err) {
     return failed(err);
+  }
+  if (secondStep) {
+    redirect(`${storePath({ id: await getMarket() }, VERIFY_PATH)}?${new URLSearchParams({ next: `${PAGE}?done=password` })}`);
   }
   // the fresh session isn't a reset session: the page lays out differently, so reload it with a notice
   if (recovering) redirect(`${storePath({ id: await getMarket() }, PAGE)}?done=password`);
