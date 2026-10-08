@@ -156,6 +156,20 @@ it('says a watched deal is live, and when it has ended since', async () => {
   expect(over).toHaveTextContent('It went live at $5.00 and has ended since.');
 });
 
+it('says what the store decided on an A-to-z claim', async () => {
+  state.list = [
+    msg({ key: 'claim_granted:c1', kind: 'claim_granted', at: '2026-10-06T06:00:00Z', subject: 'Bluetooth Speaker', href: '/orders/A-1?placed=0#claims', from: 'Acme', amountMinor: 5300 }),
+    msg({ key: 'claim_denied:c2', kind: 'claim_denied', at: '2026-10-06T05:00:00Z', subject: 'Mug', href: '/orders/A-2?placed=0#claims', from: 'Zed', detail: 'Tracking shows it was signed for' }),
+  ];
+  render(await MessagesPage());
+  const [granted, denied] = screen.getAllByRole('listitem');
+  expect(within(granted).getByText('A-to-z Guarantee claim granted')).toBeInTheDocument();
+  expect(within(granted).getByRole('link', { name: 'Bluetooth Speaker' })).toHaveAttribute('href', '/orders/A-1?placed=0#claims');
+  expect(granted).toHaveTextContent('$53.00');
+  expect(within(denied).getByText('A-to-z Guarantee claim denied')).toHaveClass('text-bad');
+  expect(denied).toHaveTextContent('Your claim about Zed’s items wasn’t granted: Tracking shows it was signed for.');
+});
+
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {
   state.store = amazonIn;
   state.seenAt = '2026-10-05T10:00:00Z';

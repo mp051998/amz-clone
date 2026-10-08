@@ -16,6 +16,12 @@ vi.mock('./admin-returns', () => ({
     return { returns: [], total: 2, counts: { open: 2, refund_issues: 0 } };
   },
 }));
+vi.mock('./atoz-claims', () => ({
+  listClaimQueue: async (_db: unknown, _market: unknown, opts: unknown) => {
+    calls.push(['claims', opts]);
+    return { claims: [], total: 4, counts: { open: 4, decided: 6, all: 10 } };
+  },
+}));
 vi.mock('./admin-reviews', () => ({
   listReviewQueue: async (_db: unknown, _market: unknown, opts: unknown) => {
     calls.push(['reviews', opts]);
@@ -62,6 +68,7 @@ describe('adminOverview', () => {
     expect(o).toEqual({
       orders: { toShip: 4, inTransit: 7, refundIssues: 1 },
       returns: { open: 2, refundIssues: 0 },
+      claims: 4,
       reportedReviews: 3,
       unansweredQuestions: 5,
       productReports: 9,
@@ -71,6 +78,7 @@ describe('adminOverview', () => {
     expect(Object.fromEntries(calls)).toEqual({
       orders: { market: 'IN', opts: { filter: 'preparing' } },
       returns: { filter: 'open' },
+      claims: { filter: 'open' },
       reviews: { view: 'reported' },
       questions: { view: 'unanswered' },
       reports: { view: 'open' },
@@ -90,6 +98,7 @@ describe('attentionCount', () => {
   const zero: AdminOverview = {
     orders: { toShip: 0, inTransit: 0, refundIssues: 0 },
     returns: { open: 0, refundIssues: 0 },
+    claims: 0,
     reportedReviews: 0,
     unansweredQuestions: 0,
     productReports: 0,
@@ -105,12 +114,13 @@ describe('attentionCount', () => {
     const o: AdminOverview = {
       orders: { toShip: 1, inTransit: 50, refundIssues: 2 },
       returns: { open: 3, refundIssues: 4 },
+      claims: 10,
       reportedReviews: 5,
       unansweredQuestions: 6,
       productReports: 8,
       support: { waiting: 7, oldestWaiting: '2026-10-01T09:00:00Z' },
       stock: { out: 9, low: 9 },
     };
-    expect(attentionCount(o)).toBe(36);
+    expect(attentionCount(o)).toBe(46);
   });
 });
