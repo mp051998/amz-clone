@@ -24,6 +24,7 @@ const SECTIONS = [
   { path: '/admin/deals', label: 'Deals' },
   { path: '/admin/returns', label: 'Returns' },
   { path: '/admin/claims', label: 'Claims' },
+  { path: '/admin/trade-ins', label: 'Trade-ins' },
   { path: '/admin/reviews', label: 'Reviews' },
   { path: '/admin/questions', label: 'Questions' },
   { path: '/admin/product-reports', label: 'Reports' },

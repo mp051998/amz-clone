@@ -647,6 +647,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"trade_ins": {
+                  Row: {
+                    "id": string,"user_id": string,"market_id": string,"device_id": string | null,"device_name": string,"kind": string,"good_minor": number,"condition": string,"quote_minor": number,"status": string,"ship_code": string,"ship_by": string,"received_condition": string | null,"credited_minor": number | null,"reject_note": string | null,"created_at": string,"closed_at": string | null
+                  }
+                  Insert: {
+                    "id"?: string,"user_id": string,"market_id": string,"device_id"?: string | null,"device_name": string,"kind": string,"good_minor": number,"condition": string,"quote_minor": number,"status"?: string,"ship_code": string,"ship_by": string,"received_condition"?: string | null,"credited_minor"?: number | null,"reject_note"?: string | null,"created_at"?: string,"closed_at"?: string | null
+                  }
+                  Update: {
+                    "id"?: string,"user_id"?: string,"market_id"?: string,"device_id"?: string | null,"device_name"?: string,"kind"?: string,"good_minor"?: number,"condition"?: string,"quote_minor"?: number,"status"?: string,"ship_code"?: string,"ship_by"?: string,"received_condition"?: string | null,"credited_minor"?: number | null,"reject_note"?: string | null,"created_at"?: string,"closed_at"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"price_history": {
                   Row: {
                     "product_id": string,"price_minor": number,"at": string
@@ -1467,6 +1480,21 @@ isOneToOne: false
                            },
 "product_return_signal":
 { Args: { "p_product": string }; Returns: Json
+                           },
+"request_trade_in":
+{ Args: { "p_device": string,"p_condition": string }; Returns: Json
+                           },
+"cancel_trade_in":
+{ Args: { "p_id": string }; Returns: Json
+                           },
+"admin_list_trade_ins":
+{ Args: { "p_market": string,"p_filter"?: string }; Returns: Json
+                           },
+"admin_receive_trade_in":
+{ Args: { "p_id": string,"p_market": string,"p_condition": string }; Returns: Json
+                           },
+"admin_reject_trade_in":
+{ Args: { "p_id": string,"p_market": string,"p_note"?: string }; Returns: Json
                            },
 "typical_price":
 { Args: { "p_product": string }; Returns: number | null

@@ -20,6 +20,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import { viewerCart } from '@/lib/storefront';
 import { historyPaused, readRecentIds } from '@/lib/recent';
 import { getMarketplace } from '@/lib/marketplace-server';
+import { hasTradeIn } from '@/lib/trade-in';
 import { storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
 import { shortDate } from '@/components/orders/format';
@@ -84,6 +85,9 @@ export default async function AccountPage() {
       desc: 'Redeem gift cards and pay with your balance at checkout.',
       href: '/gift-cards#balance',
     },
+    ...(hasTradeIn(store.id)
+      ? [{ title: 'Trade-In', meta: 'Old phones and laptops', desc: 'Trade in an old phone or laptop for credit on your balance, and track the ones you’ve sent.', href: '/trade-in' }]
+      : []),
     {
       title: 'Subscribe & Save',
       meta: subs.length ? `${plural(subs.length, 'subscription')}${subs.some((s) => s.issue) ? ' · needs attention' : ''}` : 'No subscriptions',
