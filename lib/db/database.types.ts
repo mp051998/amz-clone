@@ -951,6 +951,9 @@ isOneToOne: false
 "bought_together":
 { Args: { "p_limit"?: number,"p_product_id": string }; Returns: Json
                            },
+"also_bought":
+{ Args: { "p_limit"?: number,"p_product_id": string }; Returns: Json
+                           },
 "archive_my_order":
 { Args: { "p_archived"?: boolean,"p_order_id": string }; Returns: Json
                            },

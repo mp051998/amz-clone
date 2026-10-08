@@ -64,6 +64,7 @@ import { getRecall, type Recall } from '@/lib/data/recalls';
 import { lastPurchase, type LastPurchase } from '@/lib/data/buy-again';
 import type { Product } from '@/lib/types';
 import { protectionOffer } from '@/lib/data/cart';
+import { alsoBought } from '@/lib/data/also-bought';
 import { alsoViewed } from '@/lib/data/also-viewed';
 import { ContinueRow } from '@/components/home/HomeSections';
 import { protectionPlanName } from '@/lib/protection';
@@ -158,7 +159,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -182,6 +183,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     // a recall takes a product off sale, so only an archived one can have one
     p.archived ? getRecall(client, p.id).catch((): Recall | null => null) : Promise.resolve(null),
     user ? lastPurchase(client, user.id, p.id).catch((): LastPurchase | null => null) : Promise.resolve(null),
+    p.archived ? Promise.resolve([]) : alsoBought(client, p).catch(() => []),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -489,6 +491,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <section aria-labelledby="alts-h" className="flex flex-col gap-3.5">
             <h2 id="alts-h" className="m-0 text-[22px] font-semibold">{p.archived ? 'Similar items on sale' : 'Often compared with'}</h2>
             <Alternatives base={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} items={altCards} />
+          </section>
+        ) : null}
+
+        {alsoGot.length ? (
+          <section aria-labelledby="also-bought-h" className="flex flex-col gap-3.5">
+            <h2 id="also-bought-h" className="m-0 text-[22px] font-semibold">Customers who bought this item also bought</h2>
+            <ContinueRow products={alsoGot} store={store} kicker={(x) => x.brand ?? x.categoryName} />
           </section>
         ) : null}
 
