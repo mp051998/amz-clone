@@ -32,7 +32,12 @@ const FAST_OUT = { h: 17, m: 0 };
 const FAST_DELIVERED = { h: 19, m: 30 };
 
 type OrderLike = Pick<Order, 'status' | 'createdAt'> &
-  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'shipSpeed' | 'deliveryDay'>>;
+  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'shipSpeed' | 'deliveryDay' | 'pickup'>>;
+
+/** The steps' labels: a pickup order's last one is "Ready for pickup" rather than "Delivered". */
+function labelsFor(order: OrderLike): string[] {
+  return TRACKING_PLAN.map((s, i) => (order.pickup && i === TRACKING_PLAN.length - 1 ? 'Ready for pickup' : s.label));
+}
 
 type Ymd = [year: number, month: number, day: number];
 
@@ -203,15 +208,17 @@ export function trackingSteps(order: OrderLike, now: Date = new Date(), timeZone
   }
   if (order.status === 'awaiting_payment') {
     const times = stepTimes({ status: 'placed', createdAt: order.createdAt, shipSpeed: order.shipSpeed, deliveryDay: order.deliveryDay }, now.getTime(), timeZone);
-    return TRACKING_PLAN.map((s, i) => ({
-      label: s.label,
+    const labels = labelsFor(order);
+    return TRACKING_PLAN.map((_, i) => ({
+      label: labels[i],
       at: new Date(i === 0 ? t0 : times[i]).toISOString(),
       state: i === 0 ? 'current' : 'upcoming',
     }));
   }
   const times = stepTimes(order, t0, timeZone);
+  const labels = labelsFor(order);
   return stateFor(
-    TRACKING_PLAN.map((s, i) => ({ label: s.label, at: times[i] })),
+    TRACKING_PLAN.map((_, i) => ({ label: labels[i], at: times[i] })),
     now.getTime(),
   );
 }

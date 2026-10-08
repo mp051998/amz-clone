@@ -14,18 +14,23 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast', buyNow?: { productId, qty? }, promoCode?, gst?: { gstin, name } }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day', buyNow?: { productId, qty? }, promoCode?, gst?: { gstin, name } }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to. India only: `gst`
  * makes the invoice out to that GSTIN and business name (`invalid_input` gstin | gstName before
- * anything is reserved; `gst_unavailable` in other stores).
+ * anything is reserved; `gst_unavailable` in other stores). `shipping.pickupPoint` (an id from
+ * `GET /pickup-points`) collects the order there with a pickup code instead.
  */
 export const POST = route(async (ctx) => {
   requireUser(ctx);
   const b = await body(ctx.req);
   if (!isPaymentMethod(b.paymentMethod)) throw new DataError('payment_method_unavailable');
-  const shipping = (b.shipping && typeof b.shipping === 'object' ? b.shipping : {}) as AddressFieldsInput;
+  const shipping = (b.shipping && typeof b.shipping === 'object' ? b.shipping : {}) as AddressFieldsInput & { pickupPoint?: unknown };
+  const pickupPoint = shipping.pickupPoint;
+  if (pickupPoint !== undefined && pickupPoint !== null && (typeof pickupPoint !== 'string' || !pickupPoint.trim())) {
+    throw new DataError('pickup_point_not_found');
+  }
   const g = b.gift && typeof b.gift === 'object' ? (b.gift as { message?: unknown; wrap?: unknown }) : null;
   const gift = g ? { message: g.message, wrap: g.wrap === true } : b.gift === true ? {} : undefined;
   if (b.speed !== undefined && !isShipSpeed(b.speed)) throw new DataError('delivery_option_unavailable');
@@ -47,6 +52,7 @@ export const POST = route(async (ctx) => {
   const order = await placeOrder(ctx.db, ctx.market, {
     paymentMethod: b.paymentMethod,
     shipping,
+    pickupPoint: typeof pickupPoint === 'string' ? pickupPoint.trim() : undefined,
     gift,
     speed: isShipSpeed(b.speed) ? b.speed : undefined,
     buyNow,

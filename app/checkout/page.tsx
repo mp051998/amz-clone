@@ -22,6 +22,7 @@ import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
 import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
+import { listPickupPoints } from '@/lib/data/pickup';
 import { weekdayName } from '@/lib/delivery-day';
 import { isBalanceMethod, storeBalance } from '@/lib/data/balance';
 import { deliveryOptions } from '@/lib/decision/tracking';
@@ -82,13 +83,14 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor] = await Promise.all([
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points] = await Promise.all([
     promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
     giftWrapFee(client, store.id),
     plusMembership(client),
     storeBalance(client, store.id),
+    listPickupPoints(client, store.id),
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
   const cart = priced?.cart ?? null;
@@ -115,7 +117,12 @@ export default async function CheckoutPage({
   // checkout covers the ticked lines; unticked ones stay in the cart (Buy Now's one line is ticked)
   const lines = cart.lines.filter((l) => l.selected);
   const { selectedCount: count, totals } = cart;
-  const prefillName = (addresses.find((a) => a.isDefault) ?? addresses[0])?.name ?? user.name ?? '';
+  const home = addresses.find((a) => a.isDefault) ?? addresses[0];
+  const prefillName = home?.name ?? user.name ?? '';
+  // pickup points in the shopper's city first, then the state's, then the rest
+  const near = (p: { city: string; state: string }) =>
+    home ? (p.city.toLowerCase() === home.city.toLowerCase() ? 0 : p.state.toLowerCase() === home.state.toLowerCase() ? 1 : 2) : 0;
+  const pickupPoints = points.map((p, i) => ({ p, i })).sort((a, b) => near(a.p) - near(b.p) || a.i - b.i).map(({ p }) => p);
 
   if (cart.lines.length === 0) {
     return shell(
@@ -262,7 +269,7 @@ export default async function CheckoutPage({
           </>
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
-          <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} />
+          <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} pickupPoints={pickupPoints} />
           <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} />
           <StepCard
             n={3}

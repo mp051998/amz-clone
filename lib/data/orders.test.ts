@@ -70,6 +70,57 @@ describe('placeOrder delivery instructions', () => {
   });
 });
 
+describe('placeOrder at a pickup point', () => {
+  const POINT = { id: 'US-SEA-JUNIPER', kind: 'locker', name: 'Hub Locker – Juniper', line1: '2121 7th Ave', city: 'Seattle', state: 'WA', postcode: '98121', hours: 'Open 24 hours', hold_days: 3 };
+  /** place_order as fakeDb, with pickup_points answering `point` */
+  function pickupDb(point: Record<string, unknown> | null, reply: Record<string, unknown> = row) {
+    const calls: Record<string, unknown>[] = [];
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: point, error: null }) };
+    const db = { from: () => chain, rpc: async (_fn: string, args: Record<string, unknown>) => (calls.push(args), { data: reply, error: null }) };
+    return { db: db as unknown as Db, calls };
+  }
+
+  it('ships to the point, with only the name and phone from the form, and reads the code back', async () => {
+    const reply = { ...row, ship_line1: POINT.name, ship_line2: POINT.line1, ship_postcode: '98121', pickup_point_id: POINT.id, pickup_code: '042137' };
+    const { db, calls } = pickupDb(POINT, reply);
+    const placed = await placeOrder(db, 'US', {
+      paymentMethod: 'giftcard',
+      shipping: { fullName: 'Alex Morgan', phone: '(206) 555-0123', instructions: 'ignored' },
+      pickupPoint: POINT.id,
+    });
+    expect(calls[0].p_shipping).toEqual({
+      full_name: 'Alex Morgan',
+      phone: '2065550123',
+      line1: 'Hub Locker – Juniper',
+      line2: '2121 7th Ave',
+      landmark: null,
+      city: 'Seattle',
+      state: 'WA',
+      postcode: '98121',
+      instructions: null,
+      pickup_point: 'US-SEA-JUNIPER',
+    });
+    expect(placed.pickup).toEqual({ pointId: 'US-SEA-JUNIPER', code: '042137' });
+    expect(placed.shipTo).toMatchObject({ line1: 'Hub Locker – Juniper', line2: '2121 7th Ave' });
+  });
+
+  it('still needs who collects it, and refuses a point the store does not have', async () => {
+    await expect(placeOrder(pickupDb(POINT).db, 'US', { paymentMethod: 'giftcard', shipping: { fullName: '', phone: '2065550123' }, pickupPoint: POINT.id }))
+      .rejects.toMatchObject({ code: 'invalid_input' });
+    const missing = pickupDb(null);
+    await expect(placeOrder(missing.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING, pickupPoint: 'IN-BLR-KORAMANGALA' }))
+      .rejects.toMatchObject({ code: 'pickup_point_not_found', status: 404 });
+    expect(missing.calls).toHaveLength(0);
+  });
+
+  it('an address order sends no pickup point', async () => {
+    const { db, calls } = pickupDb(POINT);
+    const placed = await placeOrder(db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING });
+    expect(calls[0].p_shipping).not.toHaveProperty('pickup_point');
+    expect(placed.pickup).toBeUndefined();
+  });
+});
+
 describe('archiveOrder', () => {
   it('archives or brings back the order, and reads when it was archived', async () => {
     const archived = fakeDb({ ...row, archived_at: '2026-10-06T12:00:00Z' });

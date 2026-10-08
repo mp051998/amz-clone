@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
-import type { Address } from '@/lib/types';
+import type { Address, PickupPoint } from '@/lib/types';
 import { AddressStep } from './AddressStep';
 
 afterEach(cleanup);
@@ -35,4 +35,31 @@ it('a new address takes its note with the other fields', () => {
   const { container } = render(<form><AddressStep addresses={[]} isIN={false} manageHref="/account/addresses" /></form>);
   fireEvent.change(screen.getByLabelText('Delivery instructions (optional)'), { target: { value: 'Ring twice' } });
   expect(posted(container).getAll('instructions')).toEqual(['Ring twice']);
+});
+
+const locker: PickupPoint = { id: 'US-SEA-JUNIPER', kind: 'locker', name: 'Hub Locker – Juniper', line1: '2121 7th Ave', city: 'Seattle', state: 'WA', postcode: '98121', hours: 'Open 24 hours', holdDays: 3 };
+const counter: PickupPoint = { id: 'US-BOS-BACKBAY', kind: 'counter', name: 'Hub Counter – Back Bay', line1: '800 Boylston St', city: 'Boston', state: 'MA', postcode: '02199', hours: 'Daily 10 AM–8 PM', holdDays: 14 };
+
+it('a pickup point posts its id with who collects it, and no address or note', () => {
+  const { container } = render(<form><AddressStep addresses={[home]} isIN={false} manageHref="/account/addresses" pickupPoints={[locker, counter]} /></form>);
+  fireEvent.click(screen.getByRole('button', { name: 'Change delivery address' }));
+  expect(screen.getByText('Or pick it up at a Hub Locker or Counter')).toBeInTheDocument();
+  expect(screen.getByLabelText(/Hub Counter – Back Bay/)).toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText(/Hub Locker – Juniper/));
+
+  expect(screen.getByText('Pick up at Hub Locker – Juniper')).toBeInTheDocument();
+  expect(screen.getByText(/holds it for 3 days/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Who’s collecting it')).toHaveValue('Alex Morgan');
+  expect(screen.getByLabelText('Phone number')).toHaveValue('2065550123');
+  const form = posted(container);
+  expect(form.get('pickupPoint')).toBe('US-SEA-JUNIPER');
+  expect(form.get('fullName')).toBe('Alex Morgan');
+  expect(form.get('line1')).toBeNull();
+  expect(form.get('instructions')).toBeNull();
+});
+
+it('without pickup points there is no pickup choice', () => {
+  render(<form><AddressStep addresses={[home]} isIN={false} manageHref="/account/addresses" /></form>);
+  fireEvent.click(screen.getByRole('button', { name: 'Change delivery address' }));
+  expect(screen.queryByText('Or pick it up at a Hub Locker or Counter')).toBeNull();
 });
