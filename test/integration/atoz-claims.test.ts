@@ -225,6 +225,8 @@ describe('A-to-z Guarantee claims', () => {
     expect(decided.counts.all).toBeGreaterThanOrEqual(decided.counts.decided + decided.counts.open);
     expect((await listClaimQueue(boss.db, 'IN', { filter: 'open' })).claims.some((c) => c.id === granted.id)).toBe(false);
     expect((await listClaimQueue(boss.db, 'US', { filter: 'all' })).claims.some((c) => c.id === granted.id)).toBe(false);
+    // the claimed items come from an admin-only function
+    expect(await failure(listClaimQueue(shopper.db, 'IN', { filter: 'all' }))).toBe('forbidden:');
   });
 
   it('are served by the API', async () => {
@@ -245,7 +247,8 @@ describe('A-to-z Guarantee claims', () => {
     const listed = await orderClaimsRoute.GET(req(`/orders/${mixed}/claims`, mine, 'IN'), params({ id: mixed }));
     expect(listed.status).toBe(200);
     expect(((await listed.json()) as { claims: { status: string }[] }).claims.map((c) => c.status)).toEqual(['withdrawn', 'granted']);
-    expect((await orderClaimsRoute.GET(req(`/orders/${mixed}/claims`, theirs, 'IN'), params({ id: mixed }))).status).toBe(200);
+    // someone else's order (even an admin's view goes through the claim queue instead)
+    expect((await orderClaimsRoute.GET(req(`/orders/${mixed}/claims`, theirs, 'IN'), params({ id: mixed }))).status).toBe(404);
 
     const bad = await orderClaimsRoute.POST(req(`/orders/${mixed}/claims`, mine, 'IN', { method: 'POST', body: { seller: ZED, reason: 'nope', details } }), params({ id: mixed }));
     expect(bad.status).toBe(422);

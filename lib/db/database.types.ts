@@ -1283,6 +1283,9 @@ isOneToOne: false
 "decide_atoz_claim":
 { Args: { "p_claim_id": string,"p_grant": boolean,"p_note"?: string }; Returns: Json
                            },
+"admin_atoz_claim_items":
+{ Args: { "p_claim_ids": string[] }; Returns: Json
+                           },
 "close_support_case":
 { Args: { "p_case": string }; Returns: Json
                            },

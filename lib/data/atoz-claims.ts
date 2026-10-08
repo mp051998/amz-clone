@@ -138,7 +138,7 @@ export interface AdminClaimPage {
   counts: Record<AdminClaimFilter, number>;
 }
 
-type AdminRow = Row & { orders: { order_items: { product_id: string; title: string; image: string; qty: number; unit_price_minor: number; seller: string }[] } };
+type ItemRow = { product_id: string; title: string; image: string; qty: number; unit_price_minor: number };
 
 /** One page of a store's claims with every filter's count: open ones oldest first, the rest newest first. */
 export async function listClaimQueue(db: Db, market: Market, opts: { filter?: AdminClaimFilter; page?: number } = {}): Promise<AdminClaimPage> {
@@ -152,7 +152,7 @@ export async function listClaimQueue(db: Db, market: Market, opts: { filter?: Ad
   };
   let q = db
     .from('atoz_claims')
-    .select(`${COLS}, orders!inner(order_items(product_id, title, image, qty, unit_price_minor, seller))`)
+    .select(COLS)
     .eq('market_id', market);
   const statuses = FILTER_STATUS[filter];
   if (statuses) q = q.in('status', statuses);
@@ -166,11 +166,12 @@ export async function listClaimQueue(db: Db, market: Market, opts: { filter?: Ad
       return [f, counts[n].count ?? 0];
     }),
   ) as Record<AdminClaimFilter, number>;
-  const claims = (unwrap(rows) as unknown as AdminRow[]).map((r): AdminClaim => ({
+  const list = unwrap(rows) as unknown as Row[];
+  // admins can't read other shoppers' orders directly: the claimed seller's items come from an admin-only function
+  const items = (list.length ? unwrap(await db.rpc('admin_atoz_claim_items', { p_claim_ids: list.map((r) => r.id) })) : {}) as Record<string, ItemRow[]>;
+  const claims = list.map((r): AdminClaim => ({
     ...toClaim(r),
-    items: r.orders.order_items
-      .filter((i) => i.seller === r.seller)
-      .map((i) => ({ productId: i.product_id, title: i.title, image: i.image, qty: i.qty, unitPriceMinor: i.unit_price_minor })),
+    items: (items[r.id] ?? []).map((i) => ({ productId: i.product_id, title: i.title, image: i.image, qty: i.qty, unitPriceMinor: i.unit_price_minor })),
   }));
   return { claims, total: totals[filter], page, pageSize: ADMIN_CLAIMS_PAGE_SIZE, counts: totals };
 }

@@ -310,14 +310,43 @@ begin
 end
 $$;
 
+/**
+ * admin_atoz_claim_items(p_claim_ids): for the admin claim queue, each claim's items from the
+ * claimed seller in its order, keyed by claim id, in order line order (admins can't read other
+ * shoppers' orders directly). Raises forbidden.
+ */
+create function public.admin_atoz_claim_items(p_claim_ids uuid[])
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_admin();
+  return coalesce((
+    select jsonb_object_agg(c.id, coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'product_id', i.product_id, 'title', i.title, 'image', i.image,
+               'qty', i.qty, 'unit_price_minor', i.unit_price_minor) order by i.line_no)
+        from public.order_items i
+       where i.order_id = c.order_id and i.seller = c.seller), '[]'::jsonb))
+      from public.atoz_claims c
+     where c.id = any(coalesce(p_claim_ids, '{}'))
+  ), '{}'::jsonb);
+end
+$$;
+
 revoke execute on function private.atoz_claim_json(public.atoz_claims) from public, anon, authenticated;
 revoke execute on function private.is_store_seller(text) from public, anon, authenticated;
 revoke execute on function public.file_atoz_claim(text, text, text, text) from public, anon;
 revoke execute on function public.withdraw_atoz_claim(uuid) from public, anon;
 revoke execute on function public.decide_atoz_claim(uuid, boolean, text) from public, anon;
+revoke execute on function public.admin_atoz_claim_items(uuid[]) from public, anon;
 grant execute on function public.file_atoz_claim(text, text, text, text) to authenticated, service_role;
 grant execute on function public.withdraw_atoz_claim(uuid) to authenticated, service_role;
 grant execute on function public.decide_atoz_claim(uuid, boolean, text) to authenticated, service_role;
+grant execute on function public.admin_atoz_claim_items(uuid[]) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- product_return_signal (as in 20261128090000_usually_kept): a claim's refund says nothing
