@@ -83,6 +83,8 @@ import { subscriptionFor } from '@/lib/data/subscriptions';
 import { snsPriceMinor, storeDay } from '@/lib/subscribe-save';
 import { OtherSellers } from '@/components/product/Offers';
 import { LightningDealInfo } from '@/components/deals/LightningDeal';
+import { WatchDeal } from '@/components/deals/WatchDeal';
+import { watchedDeals } from '@/lib/data/deal-watches';
 import { lightningDealsFor } from '@/lib/data/lightning-deals';
 import { offerItem } from '@/components/product/offerItems';
 
@@ -216,6 +218,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const cur = store.currency.code;
   const money = (minor: number, base = p.curBase) => formatMoney(toStoreMinor(minor, cur, base), cur);
   const deal = lightning.get(p.id);
+  const watchingDeal = user && deal?.state === 'upcoming' ? (await watchedDeals(client, [deal.id])).has(deal.id) : false;
   const priceMinor = toStoreMinor(p.priceMinor, cur, p.curBase);
   const listMinor = p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined;
   const num = (n: number) => n.toLocaleString(store.locale.default);
@@ -396,7 +399,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 <div className="flex flex-col gap-1 border-t border-line pt-4">
                   <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} unitText={p.unit ? unitPriceText(priceMinor, cur, p.unit) : undefined} />
                   {deal ? (
-                    <LightningDealInfo deal={deal} money={(minor) => money(minor)} />
+                    <>
+                      <LightningDealInfo deal={deal} money={(minor) => money(minor)} />
+                      {deal.state === 'upcoming' ? <WatchDeal dealId={deal.id} watching={watchingDeal} name={p.title} market={store.id} className="mt-1.5 max-w-[240px] flex-none self-start" /> : null}
+                    </>
                   ) : p.deal ? (
                     <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span>
                   ) : null}

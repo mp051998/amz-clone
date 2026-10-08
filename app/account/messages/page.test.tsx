@@ -143,6 +143,19 @@ it('warns about a recall of something the shopper bought, linking to what to do'
   expect(row).toHaveTextContent('Something you bought has been recalled. The handle can overheat. See what to do.');
 });
 
+it('says a watched deal is live, and when it has ended since', async () => {
+  state.list = [
+    msg({ key: 'deal_live:d1', kind: 'deal_live', at: '2026-10-06T06:00:00Z', subject: 'Electric Kettle', href: '/product/k', amountMinor: 2999 }),
+    msg({ key: 'deal_live:d2', kind: 'deal_live', at: '2026-10-06T05:00:00Z', subject: 'Mug', href: '/product/m', amountMinor: 500, over: true }),
+  ];
+  render(await MessagesPage());
+  const [live, over] = screen.getAllByRole('listitem');
+  expect(within(live).getByText('A deal you’re watching is live')).toBeInTheDocument();
+  expect(within(live).getByRole('link', { name: 'Electric Kettle' })).toHaveAttribute('href', '/product/k');
+  expect(live).toHaveTextContent('It’s on at $29.99, for a few hours or until it’s all claimed.');
+  expect(over).toHaveTextContent('It went live at $5.00 and has ended since.');
+});
+
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {
   state.store = amazonIn;
   state.seenAt = '2026-10-05T10:00:00Z';

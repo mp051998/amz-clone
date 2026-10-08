@@ -9,14 +9,23 @@ import { CompareToggle } from '../decision/Compare';
 import { SaveButton } from '../decision/SaveButton';
 import { LightningDealInfo } from './LightningDeal';
 import { QuickAdd } from './QuickAdd';
+import { WatchDeal } from './WatchDeal';
 
 /**
  * Deal card after the prototype's "Deals for you" card (design-import … ~line 124): hatched frame on the
  * left, accent "N% off" tag, name, price with struck list/M.R.P., ★ rating; Compare + Save underneath.
  * No fake urgency — the saving itself is the reason it's here (design.md §12). The only timer and
- * claimed bar are a `lightning` deal's own: its real end and units.
+ * claimed bar are a `lightning` deal's own: its real end and units. An upcoming one offers "Watch
+ * this deal" in place of adding it at today's price.
  */
-export function DealCard({ product: p, store, saved = false, lightning }: { product: Product; store: Store; saved?: boolean; lightning?: LightningDeal }) {
+export function DealCard({ product: p, store, saved = false, lightning, watching = false }: {
+  product: Product;
+  store: Store;
+  saved?: boolean;
+  lightning?: LightningDeal;
+  /** whether the viewer watches its upcoming `lightning` deal */
+  watching?: boolean;
+}) {
   const href = storePath(store, `/product/${p.id}`);
   const cur = store.currency.code;
   const price = toStoreMinor(p.priceMinor, cur, p.curBase);
@@ -49,7 +58,11 @@ export function DealCard({ product: p, store, saved = false, lightning }: { prod
       <div className="flex items-center gap-2 border-t border-line-2 pt-3">
         <CompareToggle item={{ id: p.id, name: p.title, image: p.image, category: p.category, categoryName: p.categoryName }} />
         <SaveButton productId={p.id} saved={saved} name={p.title} />
-        <QuickAdd productId={p.id} name={p.title} optionsHref={p.sizes ? href : undefined} />
+        {lightning?.state === 'upcoming' ? (
+          <WatchDeal dealId={lightning.id} watching={watching} name={p.title} />
+        ) : (
+          <QuickAdd productId={p.id} name={p.title} optionsHref={p.sizes ? href : undefined} />
+        )}
       </div>
     </article>
   );

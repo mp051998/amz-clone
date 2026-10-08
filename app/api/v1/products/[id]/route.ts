@@ -2,6 +2,7 @@ import { json, preflight, route } from '@/lib/api/http';
 import { getProduct, getProductInfo, getRatingSummary } from '@/lib/data/catalog';
 import { protectionOffer } from '@/lib/data/cart';
 import { couponFor } from '@/lib/data/coupons';
+import { watchedDeals } from '@/lib/data/deal-watches';
 import { DataError } from '@/lib/data/errors';
 import { lightningDealsFor } from '@/lib/data/lightning-deals';
 import { returnSignal } from '@/lib/data/return-signal';
@@ -14,7 +15,8 @@ import { emiPlans } from '@/lib/emi';
  * `frequentlyReturned` (`{reason}` when it often comes back, else null), `usuallyKept` (true when
  * customers rarely send it back), and the store's
  * `protection` plan for it (`{name, unitMinor}` or null), and its card EMI plans (`emi`, India from
- * ₹3,000, else empty), and its Lightning Deal (`lightningDeal`: live, upcoming or sold out, else null).
+ * ₹3,000, else empty), and its Lightning Deal (`lightningDeal`: live, upcoming or sold out, else null)
+ * with whether the caller watches it (`watchingDeal`; an upcoming one, signed in).
  */
 export const GET = route<{ id: string }>(async (ctx, { id }) => {
   const product = await getProduct(ctx.db, id, { includeArchived: true });
@@ -29,7 +31,9 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
   ]);
   const protection = plan ? { name: protectionPlanName(product.market), unitMinor: plan } : null;
   const emi = product.archived ? [] : emiPlans(product.market, product.priceMinor);
-  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, protection, emi, lightningDeal: lightning?.get(id) ?? null });
+  const lightningDeal = lightning?.get(id) ?? null;
+  const watchingDeal = ctx.user && lightningDeal?.state === 'upcoming' ? (await watchedDeals(ctx.db, [lightningDeal.id])).has(lightningDeal.id) : false;
+  return json({ product: { ...product, ...info }, ratings, coupon, frequentlyReturned: returns?.frequent ?? null, usuallyKept: returns?.usuallyKept ?? false, protection, emi, lightningDeal, watchingDeal });
 });
 
 export const OPTIONS = preflight;
