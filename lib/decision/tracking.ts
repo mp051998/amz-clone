@@ -68,6 +68,15 @@ export function localDayStart(ymd: string, timeZone: string): string {
   return new Date(wallTime([y, m - 1, d], 0, 0, timeZone)).toISOString();
 }
 
+/** The instant (ISO) of a local date and time ("2026-11-20T14:30", as a datetime-local field gives it) in the time zone; null if it isn't one. */
+export function localDateTime(value: string, timeZone: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+  return new Date(wallTime([y, mo - 1, d], h, mi, timeZone)).toISOString();
+}
+
 /** The local day ("2026-11-20") an instant (ISO) falls on in the time zone. */
 export function localDayOf(iso: string, timeZone: string): string {
   const [y, m, d] = localDay(Date.parse(iso), timeZone);

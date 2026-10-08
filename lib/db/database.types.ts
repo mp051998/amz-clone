@@ -312,13 +312,13 @@ isOneToOne: false
                   ]
                 },"lightning_deals": {
                   Row: {
-                    "id": string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed": number,"starts_at": string,"ends_at": string,"started_at": string | null,"was_price_minor": number | null,"was_list_minor": number | null,"was_deal_pct": number | null,"was_deal": boolean | null,"ended_at": string | null,"end_reason": string | null,"created_at": string
+                    "id": string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed": number,"starts_at": string,"ends_at": string,"started_at": string | null,"was_price_minor": number | null,"was_list_minor": number | null,"was_deal_pct": number | null,"was_deal": boolean | null,"ended_at": string | null,"end_reason": string | null,"created_at": string,"scheduled_by": string | null
                   }
                   Insert: {
-                    "id"?: string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed"?: number,"starts_at": string,"ends_at": string,"started_at"?: string | null,"was_price_minor"?: number | null,"was_list_minor"?: number | null,"was_deal_pct"?: number | null,"was_deal"?: boolean | null,"ended_at"?: string | null,"end_reason"?: string | null,"created_at"?: string
+                    "id"?: string,"product_id": string,"market_id": string,"deal_price_minor": number,"quota": number,"claimed"?: number,"starts_at": string,"ends_at": string,"started_at"?: string | null,"was_price_minor"?: number | null,"was_list_minor"?: number | null,"was_deal_pct"?: number | null,"was_deal"?: boolean | null,"ended_at"?: string | null,"end_reason"?: string | null,"created_at"?: string,"scheduled_by"?: string | null
                   }
                   Update: {
-                    "id"?: string,"product_id"?: string,"market_id"?: string,"deal_price_minor"?: number,"quota"?: number,"claimed"?: number,"starts_at"?: string,"ends_at"?: string,"started_at"?: string | null,"was_price_minor"?: number | null,"was_list_minor"?: number | null,"was_deal_pct"?: number | null,"was_deal"?: boolean | null,"ended_at"?: string | null,"end_reason"?: string | null,"created_at"?: string
+                    "id"?: string,"product_id"?: string,"market_id"?: string,"deal_price_minor"?: number,"quota"?: number,"claimed"?: number,"starts_at"?: string,"ends_at"?: string,"started_at"?: string | null,"was_price_minor"?: number | null,"was_list_minor"?: number | null,"was_deal_pct"?: number | null,"was_deal"?: boolean | null,"ended_at"?: string | null,"end_reason"?: string | null,"created_at"?: string,"scheduled_by"?: string | null
                   }
                   Relationships: [
                     
@@ -1280,6 +1280,12 @@ isOneToOne: false
                            },
 "plan_lightning_deals":
 { Args: { "p_slot"?: string }; Returns: number
+                           },
+"schedule_lightning_deal":
+{ Args: { "p_product": string; "p_deal_price_minor": number; "p_quota": number; "p_starts_at": string | null; "p_hours": number }; Returns: string
+                           },
+"cancel_lightning_deal":
+{ Args: { "p_id": string }; Returns: undefined
                            },
 "set_shared_gift":
 { Args: { "p_token": string; "p_product": string; "p_quantity"?: number }; Returns: undefined

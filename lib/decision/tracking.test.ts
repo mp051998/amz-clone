@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, localDayOf, localDayStart, orderStage, plannedSchedule, trackingSteps } from './tracking';
+import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, localDateTime, localDayOf, localDayStart, orderStage, plannedSchedule, trackingSteps } from './tracking';
 
 const placed = '2026-09-01T00:00:00.000Z';
 const at = (h: number) => new Date(Date.parse(placed) + h * 3_600_000);
@@ -227,5 +227,13 @@ describe('local days', () => {
     expect(localDayStart('2026-07-04', 'America/New_York')).toBe('2026-07-04T04:00:00.000Z');
     expect(localDayOf('2026-11-19T18:30:00.000Z', 'Asia/Kolkata')).toBe('2026-11-20');
     expect(localDayOf('2026-11-19T18:30:00.000Z', 'America/New_York')).toBe('2026-11-19');
+  });
+
+  it('turns a store date and time into its instant', () => {
+    expect(localDateTime('2026-11-20T14:30', 'Asia/Kolkata')).toBe('2026-11-20T09:00:00.000Z');
+    expect(localDateTime('2026-07-04T09:05', 'America/New_York')).toBe('2026-07-04T13:05:00.000Z');
+    expect(localDateTime('2026-11-20', 'Asia/Kolkata')).toBeNull();
+    expect(localDateTime('2026-13-01T10:00', 'Asia/Kolkata')).toBeNull();
+    expect(localDateTime('2026-11-20T24:00', 'Asia/Kolkata')).toBeNull();
   });
 });
