@@ -24,7 +24,7 @@ let lamp: { id: string };
 let mug: { id: string };
 
 beforeAll(async () => {
-  [buyer, other, lamp, mug] = await Promise.all([newUser('Missing Items Buyer'), newUser('Missing Items Other'), pickProduct('US', 119), pickProduct('US', 120)]);
+  [buyer, other, lamp, mug] = await Promise.all([newUser('Missing Items Buyer'), newUser('Missing Items Other'), pickProduct('US', 89), pickProduct('US', 90)]);
 });
 
 afterAll(async () => {
