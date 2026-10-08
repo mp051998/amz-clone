@@ -233,6 +233,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"exchange_devices": {
+                  Row: {
+                    "active": boolean,"brand": string,"id": string,"kind": string,"market_id": string,"model": string,"value_minor": number
+                  }
+                  Insert: {
+                    "active"?: boolean,"brand": string,"id": string,"kind": string,"market_id": string,"model": string,"value_minor": number
+                  }
+                  Update: {
+                    "active"?: boolean,"brand"?: string,"id"?: string,"kind"?: string,"market_id"?: string,"model"?: string,"value_minor"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"brand_follows": {
                   Row: {
                     "brand": string,"followed_at": string,"market_id": string,"user_id": string
@@ -313,13 +326,13 @@ isOneToOne: false
                   ]
                 },"market_categories": {
                   Row: {
-                    "category_slug": string,"market_id": string,"position": number,"return_days": number | null,"replacement_only": boolean
+                    "category_slug": string,"market_id": string,"position": number,"return_days": number | null,"replacement_only": boolean,"exchange_kind": string | null
                   }
                   Insert: {
-                    "category_slug": string,"market_id": string,"position": number,"return_days"?: number | null,"replacement_only"?: boolean
+                    "category_slug": string,"market_id": string,"position": number,"return_days"?: number | null,"replacement_only"?: boolean,"exchange_kind"?: string | null
                   }
                   Update: {
-                    "category_slug"?: string,"market_id"?: string,"position"?: number,"return_days"?: number | null,"replacement_only"?: boolean
+                    "category_slug"?: string,"market_id"?: string,"position"?: number,"return_days"?: number | null,"replacement_only"?: boolean,"exchange_kind"?: string | null
                   }
                   Relationships: [
                     {
@@ -433,13 +446,13 @@ isOneToOne: false
                   ]
                 },"order_items": {
                   Row: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days": number | null,"replacement_only": boolean,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"unit_bank_minor": number,"lightning_deal_id": string | null
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days": number | null,"replacement_only": boolean,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"unit_bank_minor": number,"unit_exchange_minor": number,"lightning_deal_id": string | null
                   }
                   Insert: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days"?: number | null,"replacement_only"?: boolean,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"lightning_deal_id"?: string | null
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days"?: number | null,"replacement_only"?: boolean,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"unit_exchange_minor"?: number,"lightning_deal_id"?: string | null
                   }
                   Update: {
-                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"return_days"?: number | null,"replacement_only"?: boolean,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"lightning_deal_id"?: string | null
+                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"return_days"?: number | null,"replacement_only"?: boolean,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"unit_exchange_minor"?: number,"lightning_deal_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -464,13 +477,13 @@ isOneToOne: false
                   ]
                 },"orders": {
                   Row: {
-                    "archived_at": string | null,"cancel_reason": string | null,"cancelled_at": string | null,"created_at": string,"currency": string,"discount_minor": number,"from_cart": boolean,"gift": boolean,"gift_message": string | null,"gift_wrap": boolean,"delivered_at": string | null,"id": string,"market_id": string,"out_for_delivery_at": string | null,"payment_label": string,"payment_method": string,"placed_at": string | null,"refund_minor": number | null,"refund_status": string | null,"refunded_at": string | null,"ship_city": string,"ship_instructions": string | null,"ship_landmark": string | null,"ship_line1": string,"ship_line2": string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_speed": string,"delivery_day": number | null,"pickup_point_id": string | null,"pickup_code": string | null,"release_at": string | null,"ship_state": string,"shipped_at": string | null,"status": string,"stripe_payment_intent": string | null,"stripe_refund_id": string | null,"stripe_session_id": string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id": string | null,"wrap_minor": number,"protection_minor": number,"emi_months": number | null,"promo_code": string | null,"gstin": string | null,"gst_name": string | null,"bank": string | null,"bank_offer_id": string | null,"no_rush_reward_minor": number | null,"reward_credited_at": string | null,"balance_minor": number,"charged_minor": number | null,"balance_refund_minor": number
+                    "archived_at": string | null,"cancel_reason": string | null,"cancelled_at": string | null,"created_at": string,"currency": string,"discount_minor": number,"from_cart": boolean,"gift": boolean,"gift_message": string | null,"gift_wrap": boolean,"delivered_at": string | null,"id": string,"market_id": string,"out_for_delivery_at": string | null,"payment_label": string,"payment_method": string,"placed_at": string | null,"refund_minor": number | null,"refund_status": string | null,"refunded_at": string | null,"ship_city": string,"ship_instructions": string | null,"ship_landmark": string | null,"ship_line1": string,"ship_line2": string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_speed": string,"delivery_day": number | null,"pickup_point_id": string | null,"pickup_code": string | null,"release_at": string | null,"ship_state": string,"shipped_at": string | null,"status": string,"stripe_payment_intent": string | null,"stripe_refund_id": string | null,"stripe_session_id": string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id": string | null,"wrap_minor": number,"protection_minor": number,"emi_months": number | null,"promo_code": string | null,"gstin": string | null,"gst_name": string | null,"bank": string | null,"bank_offer_id": string | null,"no_rush_reward_minor": number | null,"reward_credited_at": string | null,"balance_minor": number,"charged_minor": number | null,"balance_refund_minor": number,"exchange_device_id": string | null,"exchange_device": string | null,"exchange_condition": string | null,"exchange_minor": number
                   }
                   Insert: {
-                    "cancelled_at"?: string | null,"created_at"?: string,"currency": string,"discount_minor"?: number,"from_cart"?: boolean,"gift"?: boolean,"gift_message"?: string | null,"gift_wrap"?: boolean,"id": string,"market_id": string,"payment_label": string,"payment_method": string,"placed_at"?: string | null,"ship_city": string,"ship_instructions"?: string | null,"ship_landmark"?: string | null,"ship_line1": string,"ship_line2"?: string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_speed"?: string,"delivery_day"?: number | null,"pickup_point_id"?: string | null,"pickup_code"?: string | null,"release_at"?: string | null,"ship_state": string,"status": string,"stripe_session_id"?: string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id"?: string | null,"archived_at"?: string | null,"cancel_reason"?: string | null,"delivered_at"?: string | null,"out_for_delivery_at"?: string | null,"refund_minor"?: number | null,"refund_status"?: string | null,"refunded_at"?: string | null,"shipped_at"?: string | null,"stripe_payment_intent"?: string | null,"stripe_refund_id"?: string | null,"wrap_minor"?: number,"protection_minor"?: number,"emi_months"?: number | null,"promo_code"?: string | null,"gstin"?: string | null,"gst_name"?: string | null,"bank"?: string | null,"bank_offer_id"?: string | null,"no_rush_reward_minor"?: number | null,"reward_credited_at"?: string | null,"balance_minor"?: number,"charged_minor"?: number | null,"balance_refund_minor"?: number
+                    "cancelled_at"?: string | null,"created_at"?: string,"currency": string,"discount_minor"?: number,"from_cart"?: boolean,"gift"?: boolean,"gift_message"?: string | null,"gift_wrap"?: boolean,"id": string,"market_id": string,"payment_label": string,"payment_method": string,"placed_at"?: string | null,"ship_city": string,"ship_instructions"?: string | null,"ship_landmark"?: string | null,"ship_line1": string,"ship_line2"?: string | null,"ship_minor": number,"ship_name": string,"ship_phone": string,"ship_postcode": string,"ship_speed"?: string,"delivery_day"?: number | null,"pickup_point_id"?: string | null,"pickup_code"?: string | null,"release_at"?: string | null,"ship_state": string,"status": string,"stripe_session_id"?: string | null,"subtotal_minor": number,"tax_minor": number,"total_minor": number,"user_id"?: string | null,"archived_at"?: string | null,"cancel_reason"?: string | null,"delivered_at"?: string | null,"out_for_delivery_at"?: string | null,"refund_minor"?: number | null,"refund_status"?: string | null,"refunded_at"?: string | null,"shipped_at"?: string | null,"stripe_payment_intent"?: string | null,"stripe_refund_id"?: string | null,"wrap_minor"?: number,"protection_minor"?: number,"emi_months"?: number | null,"promo_code"?: string | null,"gstin"?: string | null,"gst_name"?: string | null,"bank"?: string | null,"bank_offer_id"?: string | null,"no_rush_reward_minor"?: number | null,"reward_credited_at"?: string | null,"balance_minor"?: number,"charged_minor"?: number | null,"balance_refund_minor"?: number,"exchange_device_id"?: string | null,"exchange_device"?: string | null,"exchange_condition"?: string | null,"exchange_minor"?: number
                   }
                   Update: {
-                    "cancelled_at"?: string | null,"created_at"?: string,"currency"?: string,"discount_minor"?: number,"from_cart"?: boolean,"gift"?: boolean,"gift_message"?: string | null,"gift_wrap"?: boolean,"id"?: string,"market_id"?: string,"payment_label"?: string,"payment_method"?: string,"placed_at"?: string | null,"ship_city"?: string,"ship_instructions"?: string | null,"ship_landmark"?: string | null,"ship_line1"?: string,"ship_line2"?: string | null,"ship_minor"?: number,"ship_name"?: string,"ship_phone"?: string,"ship_postcode"?: string,"ship_speed"?: string,"delivery_day"?: number | null,"pickup_point_id"?: string | null,"pickup_code"?: string | null,"release_at"?: string | null,"ship_state"?: string,"status"?: string,"stripe_session_id"?: string | null,"subtotal_minor"?: number,"tax_minor"?: number,"total_minor"?: number,"user_id"?: string | null,"archived_at"?: string | null,"cancel_reason"?: string | null,"delivered_at"?: string | null,"out_for_delivery_at"?: string | null,"refund_minor"?: number | null,"refund_status"?: string | null,"refunded_at"?: string | null,"shipped_at"?: string | null,"stripe_payment_intent"?: string | null,"stripe_refund_id"?: string | null,"wrap_minor"?: number,"protection_minor"?: number,"emi_months"?: number | null,"promo_code"?: string | null,"gstin"?: string | null,"gst_name"?: string | null,"bank"?: string | null,"bank_offer_id"?: string | null,"no_rush_reward_minor"?: number | null,"reward_credited_at"?: string | null,"balance_minor"?: number,"charged_minor"?: number | null,"balance_refund_minor"?: number
+                    "cancelled_at"?: string | null,"created_at"?: string,"currency"?: string,"discount_minor"?: number,"from_cart"?: boolean,"gift"?: boolean,"gift_message"?: string | null,"gift_wrap"?: boolean,"id"?: string,"market_id"?: string,"payment_label"?: string,"payment_method"?: string,"placed_at"?: string | null,"ship_city"?: string,"ship_instructions"?: string | null,"ship_landmark"?: string | null,"ship_line1"?: string,"ship_line2"?: string | null,"ship_minor"?: number,"ship_name"?: string,"ship_phone"?: string,"ship_postcode"?: string,"ship_speed"?: string,"delivery_day"?: number | null,"pickup_point_id"?: string | null,"pickup_code"?: string | null,"release_at"?: string | null,"ship_state"?: string,"status"?: string,"stripe_session_id"?: string | null,"subtotal_minor"?: number,"tax_minor"?: number,"total_minor"?: number,"user_id"?: string | null,"archived_at"?: string | null,"cancel_reason"?: string | null,"delivered_at"?: string | null,"out_for_delivery_at"?: string | null,"refund_minor"?: number | null,"refund_status"?: string | null,"refunded_at"?: string | null,"shipped_at"?: string | null,"stripe_payment_intent"?: string | null,"stripe_refund_id"?: string | null,"wrap_minor"?: number,"protection_minor"?: number,"emi_months"?: number | null,"promo_code"?: string | null,"gstin"?: string | null,"gst_name"?: string | null,"bank"?: string | null,"bank_offer_id"?: string | null,"no_rush_reward_minor"?: number | null,"reward_credited_at"?: string | null,"balance_minor"?: number,"charged_minor"?: number | null,"balance_refund_minor"?: number,"exchange_device_id"?: string | null,"exchange_device"?: string | null,"exchange_condition"?: string | null,"exchange_minor"?: number
                   }
                   Relationships: [
                     {
@@ -1101,6 +1114,9 @@ isOneToOne: false
 "buy_now_quote":
 { Args: { "p_market": string,"p_product": string,"p_protection"?: boolean,"p_qty"?: number,"p_size"?: string }; Returns: Json
                            },
+"exchange_quote":
+{ Args: { "p_condition": string,"p_device": string,"p_market": string,"p_product": string }; Returns: Json
+                           },
 "checkout_quote":
 { Args: { "p_buy"?: Json,"p_market": string,"p_promo_code": string }; Returns: Json
                            },
@@ -1190,7 +1206,7 @@ isOneToOne: false
             }[]
                            },
 "place_order":
-{ Args: { "p_buy"?: Json,"p_emi_months"?: number,"p_gift"?: boolean,"p_gift_message"?: string,"p_gift_wrap"?: boolean,"p_market": string,"p_payment_method": string,"p_shipping": Json,"p_speed"?: string,"p_promo_code"?: string,"p_bank"?: string,"p_use_balance"?: boolean }; Returns: Json
+{ Args: { "p_buy"?: Json,"p_emi_months"?: number,"p_gift"?: boolean,"p_gift_message"?: string,"p_gift_wrap"?: boolean,"p_market": string,"p_payment_method": string,"p_shipping": Json,"p_speed"?: string,"p_promo_code"?: string,"p_bank"?: string,"p_use_balance"?: boolean,"p_exchange"?: Json }; Returns: Json
                            },
 "protection_offer":
 { Args: { "p_product": string }; Returns: number

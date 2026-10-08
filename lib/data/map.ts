@@ -1,5 +1,6 @@
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
+import { isExchangeCondition } from '../exchange';
 import { isUsedCondition } from '../offers';
 import { isUnitKind } from '../unit-price';
 import type { Address, CancelReason, Cart, LightningDeal, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus, Subscription, SubscriptionIssue } from '../types';
@@ -194,6 +195,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       ...(it.unit_sns_minor ? { unitSnsMinor: it.unit_sns_minor } : {}),
       // absent on rows read before the Bank Offers migration lands
       ...(it.unit_bank_minor ? { unitBankMinor: it.unit_bank_minor } : {}),
+      // absent on rows read before the exchange offers migration lands
+      ...(it.unit_exchange_minor ? { unitExchangeMinor: it.unit_exchange_minor } : {}),
       // absent on rows read before the category return windows migration lands, and for the store's window
       ...(typeof it.return_days === 'number' ? { returnDays: it.return_days } : {}),
       // absent on rows read before the replacement-only migration lands, and for refundable lines
@@ -233,6 +236,8 @@ export function toOrder(row: OrderWithItems): Order {
   const snsMinor = items.reduce((s, it) => s + (it.unitSnsMinor ?? 0) * it.qty, 0);
   // and the Bank Offer's
   const bankOfferMinor = items.reduce((s, it) => s + (it.unitBankMinor ?? 0) * it.qty, 0);
+  // and an exchange's
+  const exchangeMinor = items.reduce((s, it) => s + (it.unitExchangeMinor ?? 0) * it.qty, 0);
   const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
@@ -246,6 +251,17 @@ export function toOrder(row: OrderWithItems): Order {
     paymentLabel: row.payment_label,
     // absent on rows read before the split payment migration lands
     ...(row.balance_minor && row.charged_minor ? { split: { balanceMinor: row.balance_minor, chargedMinor: row.charged_minor } } : {}),
+    // absent on rows read before the exchange offers migration lands
+    ...(row.exchange_device && row.exchange_minor && isExchangeCondition(row.exchange_condition)
+      ? {
+          exchange: {
+            ...(row.exchange_device_id ? { deviceId: row.exchange_device_id } : {}),
+            device: row.exchange_device,
+            condition: row.exchange_condition,
+            valueMinor: row.exchange_minor,
+          },
+        }
+      : {}),
     totals: {
       subtotalMinor: row.subtotal_minor,
       // absent on rows read before the coupons migration lands
@@ -254,6 +270,7 @@ export function toOrder(row: OrderWithItems): Order {
       ...(promoMinor ? { promoMinor } : {}),
       ...(snsMinor ? { snsMinor } : {}),
       ...(bankOfferMinor ? { bankOfferMinor } : {}),
+      ...(exchangeMinor ? { exchangeMinor } : {}),
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
       // absent on rows read before the gift wrap migration lands

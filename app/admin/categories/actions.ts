@@ -13,6 +13,7 @@ import {
 } from '@/lib/data/admin-categories';
 import type { Db } from '@/lib/db/client';
 import { DataError } from '@/lib/data/errors';
+import { parseExchangeKind, setCategoryExchangeKind } from '@/lib/data/exchange';
 import { parseReturnDays, setCategoryReturnPolicy } from '@/lib/data/return-policy';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
@@ -96,4 +97,9 @@ export async function setReturnDaysAction(slug: string, formData: FormData): Pro
   await change(slug, 'returns', (client, market) =>
     setCategoryReturnPolicy(client, market, slug, { days: parseReturnDays(formData.get('return_days')), replacementOnly: formData.get('replacement_only') != null }),
   );
+}
+
+/** What the category takes in exchange in this store (India: phones or laptops), or nothing (blank). */
+export async function setExchangeKindAction(slug: string, formData: FormData): Promise<void> {
+  await change(slug, 'exchange', (client, market) => setCategoryExchangeKind(client, market, slug, parseExchangeKind(formData.get('exchange_kind'))));
 }

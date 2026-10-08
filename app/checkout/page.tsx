@@ -36,7 +36,9 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { protectionPlanName } from '@/lib/protection';
-import { EMI_MIN_MINOR, emiPlans } from '@/lib/emi';
+import { EMI_MIN_MINOR, emiPlan, emiPlans } from '@/lib/emi';
+import { exchangeQuote } from '@/lib/data/exchange';
+import { exchangeText, type ExchangeCondition } from '@/lib/exchange';
 import { PromoCode } from '@/components/checkout/PromoCode';
 import { checkoutQuote, type CheckoutQuote } from '@/lib/data/promo';
 import { listBankOffers } from '@/lib/data/bank-offers';
@@ -57,6 +59,17 @@ async function promoQuote(client: Awaited<ReturnType<typeof db>>, market: Cart['
   }
 }
 
+/** What Buy Now's device traded in takes off, or why it can't be taken (the order goes without it then). */
+async function trade(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], buy: BuyNow | null): Promise<{ valueMinor: number; device: string; condition: ExchangeCondition } | { problem: string } | null> {
+  if (!buy?.exchange) return null;
+  try {
+    return { ...(await exchangeQuote(client, market, buy.productId, buy.exchange)), condition: buy.exchange.condition };
+  } catch (err) {
+    if (err instanceof DataError) return { problem: err.message };
+    throw err;
+  }
+}
+
 /** Buy Now's one line, priced; null when the product isn't sold here (any more). */
 async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['market'], buy: BuyNow): Promise<Cart | null> {
   try {
@@ -70,12 +83,12 @@ async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['marke
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; size?: string; promo?: string }>;
+  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; size?: string; promo?: string; exchange?: string; condition?: string }>;
 }) {
-  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, size, promo: promoParam } = await searchParams;
+  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, size, promo: promoParam, exchange: exchangeId, condition } = await searchParams;
   const promoCode = readPromoCode(promoParam);
-  // Buy Now: checkout for just this product; the cart is left as it is
-  const buy = readBuyNow(buyId, buyQty, protection, size);
+  // Buy Now: checkout for just this product (with an old device traded in, one); the cart is left as it is
+  const buy = readBuyNow(buyId, buyQty, protection, size, exchangeId, condition);
   const store = await getMarketplace();
   const cur = store.currency.code;
   const money = (minor: number) => formatMoney(minor, cur);
@@ -86,7 +99,7 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers, rewardMinor] = await Promise.all([
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers, rewardMinor, traded] = await Promise.all([
     promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
@@ -97,6 +110,7 @@ export default async function CheckoutPage({
     lastPaymentMethod(client, store.id),
     listBankOffers(client, store.id),
     noRushReward(client, store.id),
+    trade(client, store.id, buy),
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
   const cart = priced?.cart ?? null;
@@ -184,6 +198,10 @@ export default async function CheckoutPage({
   const fastWhen = fast ? byTimeText(fast.eta, store, now) : '';
   const shipText = totals.shipMinor === 0 ? 'FREE' : money(totals.shipMinor);
   const discount = totals.discountMinor ?? 0;
+  // an old device traded in comes off after the other discounts (never more than what's left), as place_order takes it
+  const exchange = traded && 'valueMinor' in traded ? { ...traded, minor: Math.min(traded.valueMinor, totals.subtotalMinor - discount) } : null;
+  const exMinor = exchange?.minor ?? 0;
+  const due = totals.totalMinor - exMinor;
   // coupons, quantity discounts and the promotion code are shown apart; the discount covers all three
   const qtyDiscountMinor = totals.qtyDiscountMinor ?? 0;
   const couponMinor = discount - (totals.promoMinor ?? 0) - qtyDiscountMinor;
@@ -222,9 +240,9 @@ export default async function CheckoutPage({
       </>
     ) : plain;
   const planMinor = totals.protectionMinor ?? 0;
-  const fastTotal = fast ? totals.subtotalMinor - discount + fast.feeMinor + totals.taxMinor + planMinor : 0;
-  // EMI from the store's minimum order (₹3,000), priced on the standard total
-  const emi = emiPlans(store.id, totals.totalMinor).map((p) => ({
+  const fastTotal = fast ? totals.subtotalMinor - discount - exMinor + fast.feeMinor + totals.taxMinor + planMinor : 0;
+  // EMI from the store's minimum order (₹3,000, before an exchange), priced on the standard total
+  const emi = emiPlans(store.id, totals.totalMinor).map((p) => emiPlan(due, p.months)).map((p) => ({
     months: p.months,
     text: `${money(p.monthlyMinor)} a month · ${p.noCost ? 'No Cost EMI' : `${money(p.interestMinor)} interest`}`,
   }));
@@ -236,10 +254,10 @@ export default async function CheckoutPage({
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
     ? {
         text: money(balanceMinor),
-        short: balanceMinor < totals.totalMinor,
+        short: balanceMinor < due,
         redeemHref: sp('/gift-cards#balance'),
         reloadHref: stripeConfigured ? sp('/gift-cards#reload') : undefined,
-        ...(balanceMinor > 0 && balanceMinor < totals.totalMinor && methods.some(isSplitMethod) ? { partial: true } : {}),
+        ...(balanceMinor > 0 && balanceMinor < due && methods.some(isSplitMethod) ? { partial: true } : {}),
       }
     : undefined;
   // each bank's Bank Offer for these items, under net banking and EMI
@@ -259,6 +277,11 @@ export default async function CheckoutPage({
         <Alert tone="error">{problem}</Alert>
       ) : canceled ? (
         <Alert tone="info">Payment canceled — you have not been charged. Your cart is unchanged.</Alert>
+      ) : null}
+      {traded && 'problem' in traded ? (
+        <Alert tone="warning">
+          {traded.problem} This order is priced without it.{productHref ? <> <a href={productHref} className="underline">Back to the product</a> to choose again.</> : null}
+        </Alert>
       ) : null}
       {blocked ? (
         productHref ? (
@@ -301,6 +324,12 @@ export default async function CheckoutPage({
             <input type="hidden" name="qty" value={buy.qty} />
             {buy.protection ? <input type="hidden" name="protection" value="1" /> : null}
             {buy.size ? <input type="hidden" name="size" value={buy.size} /> : null}
+            {exchange && buy.exchange ? (
+              <>
+                <input type="hidden" name="exchange" value={buy.exchange.deviceId} />
+                <input type="hidden" name="condition" value={buy.exchange.condition} />
+              </>
+            ) : null}
           </>
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
@@ -359,7 +388,9 @@ export default async function CheckoutPage({
                 <li key={l.product.id} className="flex justify-between gap-3 text-[15px]">
                   <span className="min-w-0">
                     {l.product.title}
-                    {buy ? (
+                    {exchange ? (
+                      <span className="text-ink-3"> × 1</span>
+                    ) : buy ? (
                       <span className="block">
                         <BuyNowQty checkoutHref={sp('/checkout')} productId={l.product.id} qty={l.qty} stock={Math.min(l.product.stock, leftOf(l) ?? Infinity)} name={l.product.title} protection={buy.protection} size={buy.size} promo={promo?.code ?? promoTried?.code} />
                       </span>
@@ -377,6 +408,12 @@ export default async function CheckoutPage({
                       <span className="block text-[13px] font-semibold text-good-strong">{l.product.qtyDiscount?.percentOff}% quantity discount · −{money(l.qtyDiscountMinor)}</span>
                     ) : null}
                     {l.promoMinor ? <span className="block text-[13px] font-semibold text-good-strong">{promo?.code} · −{money(l.promoMinor)}</span> : null}
+                    {exchange ? (
+                      <span className="block text-[13px]">
+                        <span className="font-semibold text-good-strong">Exchange · −{money(exchange.minor)}</span>
+                        <span className="block text-ink-2">Your {exchangeText(exchange.device, exchange.condition)}: keep it ready, it’s collected when this is delivered.</span>
+                      </span>
+                    ) : null}
                     {l.protection?.added ? (
                       <span className="block text-[13px] text-ink-2">+ {protectionPlanName(store.id)} · {money(l.protection.unitMinor * l.qty)}</span>
                     ) : null}
@@ -414,6 +451,9 @@ export default async function CheckoutPage({
             {promoMinor > 0 ? (
               <div className="flex justify-between gap-3 text-good-strong"><dt>Promotion ({promo?.code})</dt><dd className="m-0 tabular-nums">−{money(promoMinor)}</dd></div>
             ) : null}
+            {exMinor > 0 ? (
+              <div className="flex justify-between gap-3 text-good-strong"><dt>Exchange offer</dt><dd className="m-0 tabular-nums">−{money(exMinor)}</dd></div>
+            ) : null}
             <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
             {noRush ? (
               <div className="hidden justify-between gap-3 text-good-strong group-has-[#ship-no-rush:checked]/co:flex">
@@ -435,8 +475,8 @@ export default async function CheckoutPage({
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-line pt-3">
               <dt className="text-[18px] font-semibold">Total</dt>
               <dd className="m-0 text-[26px] font-bold tracking-[-0.01em] tabular-nums">{byWrap(
-                bySpeed(money(totals.totalMinor), money(fastTotal)),
-                bySpeed(money(totals.totalMinor + wrapMinor), money(fastTotal + wrapMinor)),
+                bySpeed(money(due), money(fastTotal)),
+                bySpeed(money(due + wrapMinor), money(fastTotal + wrapMinor)),
               )}</dd>
             </div>
           </dl>

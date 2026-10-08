@@ -39,7 +39,7 @@ export async function addToCart(formData: FormData): Promise<void> {
 /** Buy Now: checkout for just this product at the picked quantity; the cart is left as it is. */
 export async function buyNow(formData: FormData): Promise<void> {
   const market = await getMarket();
-  const buy = readBuyNow(formData.get('id'), formData.get('qty'), formData.get('protection'), formData.get('size'));
+  const buy = readBuyNow(formData.get('id'), formData.get('qty'), formData.get('protection'), formData.get('size'), formData.get('exchange'), formData.get('condition'));
   redirect(storePath({ id: market }, buy ? `/checkout?${buyNowQuery(buy)}` : '/cart'));
 }
 

@@ -25,7 +25,7 @@ import type { Order, ShipSpeed } from '@/lib/types';
 export async function submitCheckout(formData: FormData): Promise<void> {
   const market = await getMarket();
   const sp = (path: string) => storePath({ id: market }, path);
-  const buyNow = readBuyNow(formData.get('buy'), formData.get('qty'), formData.get('protection'), formData.get('size')) ?? undefined;
+  const buyNow = readBuyNow(formData.get('buy'), formData.get('qty'), formData.get('protection'), formData.get('size'), formData.get('exchange'), formData.get('condition')) ?? undefined;
   // this checkout (Buy Now's keeps its product), with whatever else goes in the query
   const checkout = (extra: Record<string, string> = {}) => {
     const q = [buyNow ? buyNowQuery(buyNow) : '', new URLSearchParams(extra).toString()].filter(Boolean).join('&');

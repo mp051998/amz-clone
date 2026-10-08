@@ -27,6 +27,8 @@ import { scoreRows, Specs, type SpecGroup } from '@/components/product/Specs';
 import { UnavailablePanel } from '@/components/product/UnavailablePanel';
 import { FrequentlyReturned, UsuallyKept } from '@/components/product/FrequentlyReturned';
 import { categoryReturnPolicy, returnPolicyText } from '@/lib/data/return-policy';
+import { exchangeOffer } from '@/lib/data/exchange';
+import { exchangeUpTo, exchangeValue, KIND_LABEL } from '@/lib/exchange';
 import { returnSignal as readReturnSignal, type ReturnSignal } from '@/lib/data/return-signal';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { readUser } from '@/lib/auth';
@@ -185,7 +187,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnPolicy, myPrice] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnPolicy, myPrice, trade] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p), features: featuresFor(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -217,6 +219,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve([]) : listBankOffers(client, store.id),
     categoryReturnPolicy(client, store.id, p.category, store.returns.days),
     user && !p.archived ? myOpenPriceReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
+    p.archived ? Promise.resolve(null) : exchangeOffer(client, store.id, p.category),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -496,6 +499,21 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   limit={p.maxPerCustomer ? { max: p.maxPerCustomer, left: user ? unitsLeft(p, allowance) : null } : undefined}
                   sizes={p.sizes}
                   preOrder={release ? { release: releaseDate(new Date(release), store) } : undefined}
+                  exchange={
+                    trade
+                      ? {
+                          kind: KIND_LABEL[trade.kind],
+                          upTo: formatMoney(exchangeUpTo(trade.devices, priceMinor), cur),
+                          devices: trade.devices.map((d) => ({
+                            id: d.id,
+                            brand: d.brand,
+                            model: d.model,
+                            good: formatMoney(exchangeValue(d.valueMinor, 'good', priceMinor), cur),
+                            damaged: formatMoney(exchangeValue(d.valueMinor, 'screen_damaged', priceMinor), cur),
+                          })),
+                        }
+                      : undefined
+                  }
                 />
               )}
               {p.subscribeSave && !p.archived && (p.stock > 0 || mySub) ? (

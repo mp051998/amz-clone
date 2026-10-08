@@ -9,6 +9,7 @@ import {
   renameCategory,
 } from '@/lib/data/admin-categories';
 import { DataError } from '@/lib/data/errors';
+import { parseExchangeKind, setCategoryExchangeKind } from '@/lib/data/exchange';
 import { parseReplacementOnly, parseReturnDays, setCategoryReturnPolicy } from '@/lib/data/return-policy';
 
 async function load(ctx: ApiContext, slug: string) {
@@ -18,12 +19,12 @@ async function load(ctx: ApiContext, slug: string) {
 }
 
 /**
- * PATCH /api/v1/admin/categories/:slug { name?, listed?, move?, returnDays?, replacementOnly? } — rename; list in
+ * PATCH /api/v1/admin/categories/:slug { name?, listed?, move?, returnDays?, replacementOnly?, exchangeKind? } — rename; list in
  * (`true`) or drop from (`false`) this store's nav (`category_in_use` while the store has products
  * in it); `move` by that many places (negative = earlier); `returnDays` sets its return window in
  * this store (0 = not returnable, null = the store's) and `replacementOnly` whether it goes back
- * for a fault only, replaced, both for orders placed from now on. The slug
- * itself never changes.
+ * for a fault only, replaced, both for orders placed from now on; `exchangeKind` (India: `phone`,
+ * `laptop` or null) what Buy Now takes in exchange for its products. The slug itself never changes.
  */
 export const PATCH = route<{ slug: string }>(async (ctx, { slug }) => {
   await adminOnly(ctx);
@@ -34,11 +35,14 @@ export const PATCH = route<{ slug: string }>(async (ctx, { slug }) => {
   if ('returnDays' in b && b.returnDays !== null && typeof b.returnDays !== 'number') throw new DataError('invalid_input', 'return_days', 'returnDays must be a number of days or null');
   const returnDays = 'returnDays' in b ? parseReturnDays(b.returnDays) : undefined;
   const replacementOnly = 'replacementOnly' in b ? parseReplacementOnly(b.replacementOnly) : undefined;
+  const exchangeKind = 'exchangeKind' in b ? parseExchangeKind(b.exchangeKind) : undefined;
+  if (exchangeKind && ctx.market !== 'IN') throw new DataError('invalid_input', 'exchange_kind', 'Exchange offers are for the India store.');
   if ('name' in b) await renameCategory(ctx.db, slug, b.name);
   if (b.listed === true) await addCategoryToStore(ctx.db, ctx.market, slug);
   if (b.listed === false) await removeCategoryFromStore(ctx.db, ctx.market, slug);
   if (typeof b.move === 'number' && b.move !== 0) await moveCategory(ctx.db, ctx.market, slug, b.move);
   if (returnDays !== undefined || replacementOnly !== undefined) await setCategoryReturnPolicy(ctx.db, ctx.market, slug, { days: returnDays, replacementOnly });
+  if (exchangeKind !== undefined) await setCategoryExchangeKind(ctx.db, ctx.market, slug, exchangeKind);
   return json({ category: await load(ctx, slug) });
 });
 

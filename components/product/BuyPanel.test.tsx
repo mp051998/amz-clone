@@ -126,3 +126,45 @@ it('sells a pre-order: says when it’s released, and Buy Now reads Pre-order no
   expect(screen.queryByRole('button', { name: 'Buy Now' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeInTheDocument();
 });
+
+it('trades an old phone in with Buy Now: brand, model and screen, for one unit', () => {
+  show({}, {
+    market: 'IN',
+    exchange: {
+      kind: 'phone',
+      upTo: '₹26,000',
+      devices: [
+        { id: 'apple-iphone-13', brand: 'Apple', model: 'iPhone 13', good: '₹21,000', damaged: '₹10,500' },
+        { id: 'samsung-s23', brand: 'Samsung', model: 'Galaxy S23', good: '₹24,000', damaged: '₹12,000' },
+      ],
+    },
+  });
+  const form = screen.getByRole('button', { name: 'Buy Now' }).closest('form')!;
+  expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeInTheDocument();
+  expect(new FormData(form).get('exchange')).toBeNull();
+
+  fireEvent.click(screen.getByRole('radio', { name: /With exchange Up to ₹26,000 off/ }));
+  // a Buy Now of one: no quantity, no Add to Cart
+  expect(screen.queryByRole('button', { name: 'Add to Cart' })).toBeNull();
+  expect(new FormData(form).get('qty')).toBe('1');
+  // no model yet: Buy Now asks for one
+  fireEvent.submit(form);
+  expect(screen.getByRole('alert')).toHaveTextContent('Select the phone you’re exchanging.');
+
+  fireEvent.change(screen.getByRole('combobox', { name: 'Brand' }), { target: { value: 'Samsung' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), { target: { value: 'samsung-s23' } });
+  expect(screen.getByText(/Exchange value/)).toHaveTextContent('Exchange value: −₹24,000');
+  fireEvent.click(screen.getByRole('radio', { name: 'Switches on, screen cracked or marked' }));
+  expect(screen.getByText(/Exchange value/)).toHaveTextContent('Exchange value: −₹12,000');
+  const data = new FormData(form);
+  expect([data.get('exchange'), data.get('condition'), data.get('qty')]).toEqual(['samsung-s23', 'screen_damaged', '1']);
+
+  fireEvent.click(screen.getByRole('radio', { name: 'Buy without exchange' }));
+  expect(new FormData(form).get('exchange')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeInTheDocument();
+});
+
+it('offers no exchange without one', () => {
+  show();
+  expect(screen.queryByText(/Exchange your old/)).toBeNull();
+});
