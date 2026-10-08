@@ -730,6 +730,51 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"billers": {
+                  Row: {
+                    "id": string,"market_id": string,"category": string,"name": string,"account_label": string,"account_hint": string,"account_pattern": string,"fetches": boolean,"min_minor": number,"max_minor": number,"active": boolean
+                  }
+                  Insert: {
+                    "id": string,"market_id": string,"category": string,"name": string,"account_label": string,"account_hint": string,"account_pattern": string,"fetches": boolean,"min_minor"?: number,"max_minor"?: number,"active"?: boolean
+                  }
+                  Update: {
+                    "id"?: string,"market_id"?: string,"category"?: string,"name"?: string,"account_label"?: string,"account_hint"?: string,"account_pattern"?: string,"fetches"?: boolean,"min_minor"?: number,"max_minor"?: number,"active"?: boolean
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "billers_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"bill_payments": {
+                  Row: {
+                    "id": string,"user_id": string,"market_id": string,"biller_id": string,"category": string,"biller_name": string,"account": string,"period": string | null,"amount_minor": number,"method": string,"bank": string | null,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"user_id": string,"market_id": string,"biller_id": string,"category": string,"biller_name": string,"account": string,"period"?: string | null,"amount_minor": number,"method": string,"bank"?: string | null,"created_at"?: string
+                  }
+                  Update: {
+                    "id"?: string,"user_id"?: string,"market_id"?: string,"biller_id"?: string,"category"?: string,"biller_name"?: string,"account"?: string,"period"?: string | null,"amount_minor"?: number,"method"?: string,"bank"?: string | null,"created_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bill_payments_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    },
+                    {
+      foreignKeyName: "bill_payments_biller_id_fkey"
+      columns: ["biller_id"]
+isOneToOne: false
+      referencedRelation: "billers"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"plus_members": {
                   Row: {
                     "joined_at": string,"user_id": string,"delivery_day": number | null,"market_id": string,"plan": string,"next_plan": string | null,"renews_at": string,"auto_renew": boolean
@@ -1298,6 +1343,12 @@ isOneToOne: false
                            },
 "recharge_mobile":
 { Args: { "p_number": string,"p_circle": string,"p_plan": string,"p_method": string,"p_bank"?: string }; Returns: Json
+                           },
+"fetch_bill":
+{ Args: { "p_biller": string,"p_account": string }; Returns: Json
+                           },
+"pay_bill":
+{ Args: { "p_biller": string,"p_account": string,"p_amount": number,"p_method": string,"p_bank"?: string }; Returns: Json
                            },
 "join_plus":
 { Args: { "p_market"?: string,"p_plan"?: string }; Returns: Json

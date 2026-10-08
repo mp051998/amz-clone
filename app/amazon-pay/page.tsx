@@ -19,11 +19,13 @@ const IN_ACTIONS: { label: string; href?: string }[] = [
   { label: 'Scan any QR' }, { label: 'Send money' }, { label: 'To bank / UPI ID' }, { label: 'Pay balance', href: '/gift-cards#balance' },
 ];
 
-/** IN — recharges & bill payments; mobile recharge is real. */
+/** IN — recharges & bill payments; mobile recharge and the billers with a page (`BILL_CATEGORIES`) are real. */
 const IN_BILLS: { label: string; href?: string }[] = [
-  { label: 'Mobile recharge', href: '/amazon-pay/recharge' }, { label: 'Electricity' }, { label: 'DTH' }, { label: 'Broadband' },
-  { label: 'Credit card bill' }, { label: 'Gas cylinder' }, { label: 'Water' }, { label: 'FASTag recharge' },
-  { label: 'Municipal tax' }, { label: 'App store credit' }, { label: 'Rent' }, { label: 'Loan repayment' },
+  { label: 'Mobile recharge', href: '/amazon-pay/recharge' }, { label: 'Electricity', href: '/amazon-pay/bills/electricity' },
+  { label: 'DTH', href: '/amazon-pay/bills/dth' }, { label: 'Broadband', href: '/amazon-pay/bills/broadband' },
+  { label: 'Piped gas', href: '/amazon-pay/bills/gas' }, { label: 'Water', href: '/amazon-pay/bills/water' },
+  { label: 'FASTag recharge', href: '/amazon-pay/bills/fastag' }, { label: 'Credit card bill' }, { label: 'Gas cylinder' },
+  { label: 'Municipal tax' }, { label: 'Rent' }, { label: 'Loan repayment' },
 ];
 
 /** IN — financial services; Pay Later is real. */

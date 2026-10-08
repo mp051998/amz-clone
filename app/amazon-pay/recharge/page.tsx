@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { PayMethods, payChoice, payRadio } from '@/components/amazon-pay/PayMethods';
 import { Page, PageHead, Section, Card, DemoNote, TextLink } from '@/components/brand/Page';
 import { Kicker } from '@/components/decision/Badges';
 import { Alert } from '@/components/primitives/Alert';
@@ -10,7 +11,6 @@ import { cn } from '@/components/lib/cn';
 import { shortDate } from '@/components/orders/format';
 import { rechargeAction } from '@/app/actions/recharge';
 import { readUser } from '@/lib/auth';
-import { CHECKOUT_BANKS } from '@/lib/bank-offers';
 import { storeBalance } from '@/lib/data/balance';
 import { listRechargePlans, listRecharges, recentNumbers, type RechargePlan } from '@/lib/data/recharges';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -32,8 +32,6 @@ const ERROR: Record<string, string> = {
   balance: 'Your balance doesn’t cover this plan. Add to it, or pay by UPI or net banking.',
 };
 
-const radio = 'mt-0.5 size-4 flex-none accent-ink';
-const choice = 'flex cursor-pointer items-start gap-2.5 rounded-input border border-line bg-surface p-3 text-[14px] has-[:checked]:border-ink';
 
 /** "28 days · 1.5 GB/day · Unlimited calls · 100 SMS/day" */
 function benefits(p: RechargePlan): string {
@@ -80,8 +78,8 @@ export default async function RechargePage({ searchParams }: { searchParams: Pro
     path(`/amazon-pay/recharge?${new URLSearchParams({ number: r.number, operator: r.operator, circle: r.circle }).toString()}#pay`);
 
   const planChoice = (p: RechargePlan, first: boolean) => (
-    <label key={p.id} className={choice}>
-      <input type="radio" name="plan" value={p.id} defaultChecked={first} className={radio} />
+    <label key={p.id} className={payChoice}>
+      <input type="radio" name="plan" value={p.id} defaultChecked={first} className={payRadio} />
       <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="text-[17px] font-bold tabular-nums">{money(p.amountMinor)}</span>
@@ -163,29 +161,7 @@ export default async function RechargePage({ searchParams }: { searchParams: Pro
                     {packs.map((p) => planChoice(p, !unlimited.length && p === packs[0]))}
                   </fieldset>
                 ) : null}
-                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                  <legend className="mb-2 text-[15px] font-semibold">Pay with</legend>
-                  <label className={choice}>
-                    <input type="radio" name="method" value="amazonpay" defaultChecked={(balance ?? 0) > 0} className={radio} />
-                    <span>
-                      <span className="font-semibold">Wallet balance</span>
-                      {balance != null ? <span className="text-ink-2"> · {money(balance)} available</span> : null}
-                    </span>
-                  </label>
-                  <label className={choice}>
-                    <input type="radio" name="method" value="upi" defaultChecked={!((balance ?? 0) > 0)} className={radio} />
-                    <span className="font-semibold">UPI</span>
-                  </label>
-                  <label className={choice}>
-                    <input type="radio" name="method" value="netbanking" className={radio} />
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">Net banking</span>
-                      <select name="bank" aria-label="Bank" defaultValue={CHECKOUT_BANKS[0]} className={selectClass}>
-                        {CHECKOUT_BANKS.map((b) => (<option key={b} value={b}>{b}</option>))}
-                      </select>
-                    </span>
-                  </label>
-                </fieldset>
+                <PayMethods balance={balance} money={money} />
                 <div>
                   {user ? (
                     <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Recharge</button>
