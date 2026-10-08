@@ -13,7 +13,7 @@ const tag = crypto.randomUUID().slice(0, 6);
 const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   title: `Offers${tag} desk lamp`,
   brand: 'Lumen',
-  category: 'home',
+  category: 'home-kitchen',
   image: '/products/placeholder.jpg',
   priceMinor: 3000,
   listMinor: null,
@@ -55,7 +55,7 @@ const addOffer = (id: string, over: Record<string, unknown> = {}) =>
       market_id: 'US',
       offer_of: lamp,
       position: 0,
-      category_slug: 'home',
+      category_slug: 'home-kitchen',
       title: 'copied from the product',
       image: 'copied',
       price_minor: 1800,
