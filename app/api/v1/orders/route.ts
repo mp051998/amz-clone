@@ -14,7 +14,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day', buyNow?: { productId, qty? }, promoCode?, bank?, gst?: { gstin, name } }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day' | 'no_rush', buyNow?: { productId, qty? }, promoCode?, bank?, gst?: { gstin, name } }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to. India only: `gst`

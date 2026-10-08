@@ -115,15 +115,23 @@ describe('fast delivery', () => {
       fast: '2026-10-07T14:00:00.000Z',
       fastBy: '2026-10-07T06:30:00.000Z', // order by noon IST
       day: null,
+      noRush: '2026-10-12T06:00:00.000Z',
     });
     // 15:00 IST: tomorrow 19:30 would be later than tomorrow 11:30
-    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({ standard: '2026-10-08T06:00:00.000Z', fast: null, fastBy: null, day: null });
+    expect(deliveryOptions(new Date('2026-10-07T09:30:00.000Z'), IST)).toEqual({
+      standard: '2026-10-08T06:00:00.000Z',
+      fast: null,
+      fastBy: null,
+      day: null,
+      noRush: '2026-10-12T06:00:00.000Z',
+    });
     // 21:00 IST: tomorrow 19:30 vs the day after, 11:30
     expect(deliveryOptions(new Date('2026-10-07T15:30:00.000Z'), IST)).toEqual({
       standard: '2026-10-09T06:00:00.000Z',
       fast: '2026-10-08T14:00:00.000Z',
       fastBy: '2026-10-08T06:30:00.000Z', // tomorrow's noon still gets tomorrow's run
       day: null,
+      noRush: '2026-10-13T06:00:00.000Z',
     });
   });
 
@@ -174,6 +182,7 @@ describe('Delivery Day', () => {
       fast: '2026-10-07T23:30:00.000Z',
       fastBy: '2026-10-07T16:00:00.000Z',
       day: '2026-10-09T15:30:00.000Z',
+      noRush: '2026-10-12T15:30:00.000Z',
     });
     expect(deliveryOptions(new Date(wed), NY, null).day).toBeNull();
   });
@@ -184,6 +193,41 @@ describe('Delivery Day', () => {
   });
 });
 
+describe('No-Rush Shipping', () => {
+  const NY = 'America/New_York';
+  const wed = '2026-10-07T14:00:00.000Z';
+
+  it('ships 4 days after standard would, on the same morning run after', () => {
+    const standard = plannedSchedule(wed, NY);
+    expect(plannedSchedule(wed, NY, 'no_rush')).toEqual({
+      shippedAt: '2026-10-12T00:00:00.000Z', // 20:00 EDT Sunday
+      outForDeliveryAt: '2026-10-12T13:00:00.000Z',
+      deliveredAt: '2026-10-12T15:30:00.000Z',
+    });
+    expect(Date.parse(plannedSchedule(wed, NY, 'no_rush').shippedAt) - Date.parse(standard.shippedAt)).toBe(96 * 3_600_000);
+  });
+
+  it('counts hours, as the database does, across a clock change', () => {
+    // Friday Oct 30, 10:00 EDT: 106 h later is 19:00 EST Tuesday
+    expect(plannedSchedule('2026-10-30T14:00:00.000Z', NY, 'no_rush')).toEqual({
+      shippedAt: '2026-11-04T00:00:00.000Z',
+      outForDeliveryAt: '2026-11-04T14:00:00.000Z',
+      deliveredAt: '2026-11-04T16:30:00.000Z',
+    });
+  });
+
+  it('an unpaid No-Rush order shows that plan, preparing until it ships', () => {
+    const steps = trackingSteps({ status: 'awaiting_payment', createdAt: wed, shipSpeed: 'no_rush' }, new Date(wed), NY);
+    expect(steps.map((x) => x.at)).toEqual([
+      wed,
+      '2026-10-07T16:00:00.000Z',
+      '2026-10-12T00:00:00.000Z',
+      '2026-10-12T13:00:00.000Z',
+      '2026-10-12T15:30:00.000Z',
+    ]);
+  });
+});
+
 describe('pre-orders', () => {
   const IST = 'Asia/Kolkata';
   const now = new Date('2026-10-07T04:30:00.000Z');
@@ -191,7 +235,7 @@ describe('pre-orders', () => {
   const release = '2026-11-19T18:30:00.000Z';
 
   it('runs from the release, with no faster option', () => {
-    expect(deliveryOptions(now, IST, null, release)).toEqual({ standard: '2026-11-21T06:00:00.000Z', fast: null, fastBy: null, day: null });
+    expect(deliveryOptions(now, IST, null, release)).toEqual({ standard: '2026-11-21T06:00:00.000Z', fast: null, fastBy: null, day: null, noRush: null });
     // a release already past changes nothing
     expect(deliveryOptions(now, IST, null, '2026-10-01T00:00:00.000Z')).toEqual(deliveryOptions(now, IST));
   });

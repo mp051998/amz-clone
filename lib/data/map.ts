@@ -274,7 +274,11 @@ export function toOrder(row: OrderWithItems): Order {
       : undefined,
     // absent on rows read before the gift migration lands
     ...(row.gift ? { gift: { ...(row.gift_message ? { message: row.gift_message } : {}), ...(row.gift_wrap ? { wrapped: true } : {}) } } : {}),
-    ...(row.ship_speed === 'fast' || row.ship_speed === 'day' ? { shipSpeed: row.ship_speed } : {}),
+    ...(row.ship_speed === 'fast' || row.ship_speed === 'day' || row.ship_speed === 'no_rush' ? { shipSpeed: row.ship_speed } : {}),
+    // absent on rows read before the No-Rush migration lands
+    ...(row.no_rush_reward_minor
+      ? { noRushReward: { amountMinor: row.no_rush_reward_minor, ...(row.reward_credited_at ? { creditedAt: row.reward_credited_at } : {}) } }
+      : {}),
     // absent on rows read before the Delivery Day migration lands
     ...(row.delivery_day ? { deliveryDay: row.delivery_day } : {}),
     // absent on rows read before the pickup migration lands

@@ -21,7 +21,7 @@ import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
-import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX, lastPaymentMethod } from '@/lib/data/orders';
+import { fastShipFee, giftWrapFee, GIFT_NOTE_MAX, lastPaymentMethod, noRushReward } from '@/lib/data/orders';
 import { plusMembership } from '@/lib/data/plus';
 import { listPickupPoints } from '@/lib/data/pickup';
 import { weekdayName } from '@/lib/delivery-day';
@@ -86,7 +86,7 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers] = await Promise.all([
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers, rewardMinor] = await Promise.all([
     promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
@@ -96,6 +96,7 @@ export default async function CheckoutPage({
     listPickupPoints(client, store.id),
     lastPaymentMethod(client, store.id),
     listBankOffers(client, store.id),
+    noRushReward(client, store.id),
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
   const cart = priced?.cart ?? null;
@@ -174,6 +175,8 @@ export default async function CheckoutPage({
   const options = deliveryOptions(now, store.dates.timeZone, dayStore ? plus?.deliveryDay : null, release);
   const eta = new Date(options.standard);
   const onDay = options.day ? new Date(options.day) : null;
+  // No-Rush Shipping: later, priced like standard, for a reward to the balance once it ships
+  const noRush = options.noRush && rewardMinor !== null ? { eta: new Date(options.noRush), rewardMinor } : null;
   // faster delivery is offered only while it beats standard (and once the store has a fee for it);
   // Plus members get it free, as place_order charges them
   const fast = options.fast && fastFee !== null ? { eta: new Date(options.fast), feeMinor: plus ? 0 : fastFee } : null;
@@ -194,13 +197,21 @@ export default async function CheckoutPage({
         <span className="hidden group-has-[#ship-fast:checked]/co:inline">{faster}</span>
       </>
     ) : standard;
-  const byArrival = (standard: ReactNode, faster: ReactNode, day: ReactNode) =>
+  // ... and No-Rush (#ship-no-rush) too
+  const byDay = (standard: ReactNode, faster: ReactNode, day: ReactNode) =>
     onDay ? (
       <>
         <span className="group-has-[#ship-day:checked]/co:hidden">{bySpeed(standard, faster)}</span>
         <span className="hidden group-has-[#ship-day:checked]/co:inline">{day}</span>
       </>
     ) : bySpeed(standard, faster);
+  const byArrival = (standard: ReactNode, faster: ReactNode, day: ReactNode, later: ReactNode) =>
+    noRush ? (
+      <>
+        <span className="group-has-[#ship-no-rush:checked]/co:hidden">{byDay(standard, faster, day)}</span>
+        <span className="hidden group-has-[#ship-no-rush:checked]/co:inline">{later}</span>
+      </>
+    ) : byDay(standard, faster, day);
   // gift wrap is priced per unit; the summary follows its box (#gift-wrap) like the speed
   const wrapMinor = wrapFee === null ? 0 : wrapFee * lines.reduce((n, l) => n + l.qty, 0);
   const byWrap = (plain: ReactNode, wrapped: ReactNode) =>
@@ -291,10 +302,15 @@ export default async function CheckoutPage({
           <StepCard
             n={3}
             title="Delivery"
-            value={byArrival(arrivingText(eta, store, now), `Arriving ${lcFirst(fastWhen)}`, onDay ? arrivingText(onDay, store, now) : null)}
-            sub={fast || onDay ? undefined : totals.shipMinor === 0 ? (plus ? 'FREE delivery with Plus' : 'FREE delivery') : `Delivery ${money(totals.shipMinor)}${freeOver}`}
+            value={byArrival(
+              arrivingText(eta, store, now),
+              `Arriving ${lcFirst(fastWhen)}`,
+              onDay ? arrivingText(onDay, store, now) : null,
+              noRush ? arrivingText(noRush.eta, store, now) : null,
+            )}
+            sub={fast || onDay || noRush ? undefined : totals.shipMinor === 0 ? (plus ? 'FREE delivery with Plus' : 'FREE delivery') : `Delivery ${money(totals.shipMinor)}${freeOver}`}
           >
-            {fast || onDay ? (
+            {fast || onDay || noRush ? (
               <DeliverySpeed
                 standard={{ label: 'Standard delivery', sub: `${arrivingText(eta, store, now)} · ${shipText}${freeOver}` }}
                 fast={
@@ -306,6 +322,11 @@ export default async function CheckoutPage({
                     : undefined
                 }
                 day={onDay ? { label: `Your Delivery Day · ${weekdayName(plus?.deliveryDay ?? 0)}`, sub: `${arrivingText(onDay, store, now)} · ${shipText} · fewer boxes, fewer trips` } : undefined}
+                noRush={
+                  noRush
+                    ? { label: 'No-Rush Shipping', sub: `${arrivingText(noRush.eta, store, now)} · ${shipText} · get a ${money(noRush.rewardMinor)} reward on your gift card balance when it ships` }
+                    : undefined
+                }
               />
             ) : null}
             {dayStore && plus && !plus.deliveryDay ? (
@@ -387,6 +408,12 @@ export default async function CheckoutPage({
               <div className="flex justify-between gap-3 text-good-strong"><dt>Promotion ({promo?.code})</dt><dd className="m-0 tabular-nums">−{money(promoMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between gap-3"><dt>Delivery</dt><dd className="m-0 tabular-nums">{bySpeed(shipText, fastFeeText)}</dd></div>
+            {noRush ? (
+              <div className="hidden justify-between gap-3 text-good-strong group-has-[#ship-no-rush:checked]/co:flex">
+                <dt>No-Rush reward</dt>
+                <dd className="m-0 text-right">{money(noRush.rewardMinor)} once it ships</dd>
+              </div>
+            ) : null}
             {planMinor > 0 ? (
               <div className="flex justify-between gap-3"><dt>Protection plans</dt><dd className="m-0 tabular-nums">{money(planMinor)}</dd></div>
             ) : null}

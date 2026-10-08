@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
-import { byTimeText, cartEta, orderView, orderWithinText, releaseDate, returnUntilText } from './format';
+import { byTimeText, cartEta, noRushText, orderView, orderWithinText, releaseDate, returnUntilText } from './format';
 import type { Order } from '@/lib/types';
 
 it('counts down to the order-by time', () => {
@@ -63,4 +63,19 @@ it('a pre-order says when it is released, and arrives from then', () => {
   expect(waiting.cancelUntil?.toISOString()).toBe('2026-11-20T18:00:00.000Z');
   // once it's out it's any other order
   expect(orderView(order, amazon, new Date('2026-11-20T20:00:00.000Z')).kicker).toBe('ON TIME');
+});
+
+it('tells a No-Rush order’s reward: to come, on its way, credited, or lost to a cancellation', () => {
+  const money = (minor: number) => `$${(minor / 100).toFixed(2)}`;
+  const now = new Date('2026-10-10T12:00:00.000Z');
+  const base = { status: 'placed', shipSpeed: 'no_rush', noRushReward: { amountMinor: 100 } } as unknown as Order;
+  expect(noRushText({ ...base, shippedAt: '2026-10-12T00:00:00.000Z' }, now, money, amazon)).toBe(
+    'No-Rush Shipping · $1.00 reward to your gift card balance when it ships',
+  );
+  expect(noRushText({ ...base, shippedAt: '2026-10-10T00:00:00.000Z' }, now, money, amazon)).toBe('No-Rush Shipping · $1.00 reward added to your gift card balance');
+  expect(noRushText({ ...base, noRushReward: { amountMinor: 100, creditedAt: '2026-10-10T08:00:00.000Z' } }, now, money, amazon)).toBe(
+    'No-Rush Shipping · $1.00 reward added to your gift card balance on October 10, 2026',
+  );
+  expect(noRushText({ ...base, status: 'cancelled' }, now, money, amazon)).toBe('No-Rush Shipping · no reward, as the order was cancelled');
+  expect(noRushText({ ...base, shipSpeed: 'standard', noRushReward: undefined }, now, money, amazon)).toBeNull();
 });

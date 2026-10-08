@@ -147,6 +147,23 @@ function refundLine(order: Order, r: NonNullable<Order['refund']>, store: StoreD
   return `Your refund of ${to} is delayed. We’re retrying it — no need to do anything.`;
 }
 
+/**
+ * A No-Rush order's reward for the facts card: credited (and when), on its way to the balance once
+ * the order has shipped (it's credited the next time the balance is read), still to come, or lost
+ * to a cancellation. Null for any other order.
+ */
+export function noRushText(order: Order, now: Date, money: (minor: number) => string, store: StoreDates): string | null {
+  const reward = order.noRushReward;
+  if (order.shipSpeed !== 'no_rush' || !reward) return null;
+  const amount = money(reward.amountMinor);
+  if (reward.creditedAt) return `No-Rush Shipping · ${amount} reward added to your gift card balance on ${releaseDate(new Date(reward.creditedAt), store)}`;
+  if (order.status === 'cancelled') return 'No-Rush Shipping · no reward, as the order was cancelled';
+  if (order.status === 'placed' && order.shippedAt && Date.parse(order.shippedAt) <= now.getTime()) {
+    return `No-Rush Shipping · ${amount} reward added to your gift card balance`;
+  }
+  return `No-Rush Shipping · ${amount} reward to your gift card balance when it ships`;
+}
+
 /** Short payment state for the facts card: "Visa ending 4242 · refunded". */
 export function paidWithText(order: Order): string {
   const label = paymentText(order.paymentMethod, order.paymentLabel);
