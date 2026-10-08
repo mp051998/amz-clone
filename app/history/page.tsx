@@ -6,12 +6,13 @@ import { EmptyState, ProductFrame } from '@/components/decision';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
+import { UseForRecs } from '@/components/recommendations/UseForRecs';
 import { getProducts } from '@/lib/data/catalog';
 import { toStoreMinor } from '@/lib/fx';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
-import { historyPaused, readRecentIds, RECENT_MAX } from '@/lib/recent';
+import { historyPaused, readRecentIds, readRecsSkipped, RECENT_MAX } from '@/lib/recent';
 import { db } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Browsing history · Store' };
@@ -21,7 +22,7 @@ export default async function HistoryPage() {
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
   const cur = store.currency.code;
-  const [client, ids, paused] = await Promise.all([db(), readRecentIds(), historyPaused()]);
+  const [client, ids, paused, skip] = await Promise.all([db(), readRecentIds(), historyPaused(), readRecsSkipped()]);
   const products = (await getProducts(client, ids)).filter((p) => p.market === store.id);
 
   return (
@@ -30,7 +31,10 @@ export default async function HistoryPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1.5">
             <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Browsing history</h1>
-            <span className="text-[15px] text-ink-2">The last {RECENT_MAX} products you looked at, kept on this device for 30 days.</span>
+            <span className="text-[15px] text-ink-2">
+              The last {RECENT_MAX} products you looked at, kept on this device for 30 days. They&rsquo;re what{' '}
+              <a href={sp('/recommendations')} className="text-ink underline underline-offset-2">your recommendations</a> start from.
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <form action={setHistoryPaused}>
@@ -84,12 +88,15 @@ export default async function HistoryPage() {
                     ) : (
                       <span className="text-[13px] font-medium text-ink-2">Currently unavailable</span>
                     )}
-                    <form action={removeFromHistory} className="flex justify-center">
-                      <input type="hidden" name="id" value={p.id} />
-                      <button type="submit" className="border-0 bg-transparent p-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink" aria-label={`Remove ${p.title} from history`}>
-                        Remove
-                      </button>
-                    </form>
+                    <div className="flex flex-col items-center">
+                      <form action={removeFromHistory}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <button type="submit" className="border-0 bg-transparent p-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink" aria-label={`Remove ${p.title} from history`}>
+                          Remove
+                        </button>
+                      </form>
+                      <UseForRecs product={p} skipped={skip.has(p.id)} />
+                    </div>
                   </div>
                 </li>
               );

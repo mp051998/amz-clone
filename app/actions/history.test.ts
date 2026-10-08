@@ -10,7 +10,7 @@ vi.mock('next/headers', () => ({
 }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
-const { clearHistory, removeFromHistory, setHistoryPaused } = await import('./history');
+const { clearHistory, removeFromHistory, setHistoryPaused, setUseForRecommendations } = await import('./history');
 const form = (fields: Record<string, string>) => {
   const f = new FormData();
   for (const [k, v] of Object.entries(fields)) f.set(k, v);
@@ -43,5 +43,24 @@ it('pauses and resumes without touching the list', async () => {
   expect(jar.get('recent:off')?.value).toBe('1');
   await setHistoryPaused(form({ paused: '0' }));
   expect(jar.has('recent:off')).toBe(false);
+  expect(jar.get('recent:v1')?.value).toBe('a,b');
+});
+
+it('leaves a product out of recommendations, newest first, and uses it again', async () => {
+  await setUseForRecommendations(form({ id: 'a', use: '0' }));
+  await setUseForRecommendations(form({ id: 'b', use: '0' }));
+  await setUseForRecommendations(form({ id: 'a', use: '0' }));
+  expect(jar.get('recs:skip')).toMatchObject({ value: 'a,b', opts: { path: '/', httpOnly: true, sameSite: 'lax' } });
+  await setUseForRecommendations(form({ id: 'a', use: '1' }));
+  expect(jar.get('recs:skip')?.value).toBe('b');
+  await setUseForRecommendations(form({ id: 'b', use: '1' }));
+  expect(jar.has('recs:skip')).toBe(false);
+});
+
+it('ignores an id that isn’t one, and keeps the browsing history as it is', async () => {
+  jar.set('recent:v1', { value: 'a,b' });
+  await setUseForRecommendations(form({ id: 'not an id', use: '0' }));
+  expect(jar.has('recs:skip')).toBe(false);
+  await setUseForRecommendations(form({ id: 'a', use: '0' }));
   expect(jar.get('recent:v1')?.value).toBe('a,b');
 });

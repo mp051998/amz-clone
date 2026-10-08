@@ -42,11 +42,12 @@ export const INSPIRED_ANCHORS = 3;
 /**
  * "Inspired by your browsing history": this store's products in stock that shoppers viewed with
  * the latest few products in `recentIds` (newest first), most views across them first, one option
- * per variant group, leaving out what's in the history and other options of it. Empty without a
- * history, and on an error (the page goes on without it).
+ * per variant group, leaving out what's in the history and other options of it. Products in `skip`
+ * ("Don't use for recommendations") aren't started from. Empty without a history, and on an error
+ * (the page goes on without it).
  */
-export async function inspiredBy(db: Db, market: Market, recentIds: readonly string[], n = 8): Promise<Product[]> {
-  const anchors = recentIds.slice(0, INSPIRED_ANCHORS);
+export async function inspiredBy(db: Db, market: Market, recentIds: readonly string[], n = 8, skip: ReadonlySet<string> = new Set()): Promise<Product[]> {
+  const anchors = recentIds.filter((id) => !skip.has(id)).slice(0, INSPIRED_ANCHORS);
   if (!anchors.length) return [];
   const lists = await Promise.all(anchors.map((id) => db.rpc('also_viewed', { p_product_id: id, p_limit: 12 })));
   const views = new Map<string, number>();

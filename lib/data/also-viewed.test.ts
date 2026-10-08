@@ -101,3 +101,11 @@ it('has nothing to go on without a history, or when nothing was viewed with it',
   expect(await inspiredBy(db, 'US', ['a'])).toEqual([]);
   expect(getProducts).not.toHaveBeenCalled();
 });
+
+it('doesn’t start from a product left out of recommendations, but still leaves it out of what it shows', async () => {
+  const { db, calls } = perAnchorDb({ b: [{ id: 'a', views: 5 }, { id: 'y', views: 2 }] });
+  getProducts.mockResolvedValue([product('b'), product('a', { stock: 2 }), product('y', { stock: 2 })]);
+  const got = await inspiredBy(db, 'US', ['a', 'b'], 8, new Set(['a']));
+  expect(calls.map(([, args]) => args)).toEqual([{ p_product_id: 'b', p_limit: 12 }]);
+  expect(got.map((p) => p.id)).toEqual(['y']);
+});
