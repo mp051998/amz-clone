@@ -24,6 +24,7 @@ export const REASON_LABEL: Record<ReturnReason, string> = {
   not_as_described: 'Not as described',
   not_received: 'Package didn’t arrive',
   atoz_claim: 'A-to-z Guarantee claim',
+  missing_item: 'Item missing from the package',
 };
 
 /** Where a refund goes, mid-sentence: the card, the balance paid with, or (pay on delivery) the bank. */
@@ -153,7 +154,7 @@ export function ReturnCard({
   const toBalance = refundTo(balanceMethod(market), '');
   const cardMoney = formatMoney(r.refundMinor - bal, currency);
   const balMoney = formatMoney(bal, currency);
-  // a missing package or a granted claim has nothing to send back, so nothing to receive
+  // a missing package, missing items or a granted claim have nothing to send back, so nothing to receive
   const got = nothingSentBack(r.reason) ? '' : 'We received your return. ';
   // a replacement in another size is an exchange
   const kind = isExchange(r) ? 'exchange' : 'replacement';
@@ -165,7 +166,7 @@ export function ReturnCard({
         ? <>Your {kind} was delivered on {shortDate(arrives, store)}.</>
         : <>Your {kind} {Date.parse(r.replacement.shippedAt) <= now.getTime() ? 'has shipped and ' : ''}arrives by <strong>{longDate(arrives, store)}</strong>, at no charge.</>;
     lead =
-      r.reason === 'not_received' ? (
+      nothingSentBack(r.reason) ? (
         <>{swap} There’s nothing to send back.</>
       ) : r.status === 'requested' ? (
         <>
@@ -225,7 +226,7 @@ export function ReturnCard({
     <article aria-label="Return" className="flex flex-col gap-2.5 rounded-panel border border-line bg-surface p-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusChip {...returnChip(r, now)} />
-        <span className="text-[13px] text-ink-3">{r.reason === 'atoz_claim' ? 'Granted' : r.reason === 'not_received' ? 'Reported' : 'Started'} {shortDate(new Date(r.createdAt), store)} · {REASON_LABEL[r.reason]}</span>
+        <span className="text-[13px] text-ink-3">{r.reason === 'atoz_claim' ? 'Granted' : nothingSentBack(r.reason) ? 'Reported' : 'Started'} {shortDate(new Date(r.createdAt), store)} · {REASON_LABEL[r.reason]}</span>
       </div>
       <p className="m-0 text-[15px] font-semibold">{itemsText(r)}</p>
       <p className="m-0 text-[14px] leading-[1.5] text-ink-2">{lead}</p>

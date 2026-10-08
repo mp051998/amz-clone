@@ -24,7 +24,7 @@ export const RETURN_REASONS: readonly ReturnReason[] = [
 ];
 
 /** Reasons where the store got it wrong: the delivery charge share is refunded too. */
-export const STORE_FAULT_REASONS: readonly ReturnReason[] = ['damaged', 'defective', 'wrong_item', 'missing_parts', 'not_as_described'];
+export const STORE_FAULT_REASONS: readonly ReturnReason[] = ['damaged', 'defective', 'wrong_item', 'missing_parts', 'not_as_described', 'missing_item'];
 
 /** Reasons a size didn't fit: the item can go back for another size instead (an exchange). */
 export const SIZE_REASONS: readonly ReturnReason[] = ['too_small', 'too_large'];
@@ -46,9 +46,12 @@ export function isStoreFault(reason: ReturnReason): boolean {
   return STORE_FAULT_REASONS.includes(reason);
 }
 
-/** Refunded on the spot with nothing to send back: a package that didn't arrive, or a granted A-to-z Guarantee claim. */
+/**
+ * Refunded (or sent again) on the spot with nothing to send back: a package that didn't arrive,
+ * items missing from one that did, or a granted A-to-z Guarantee claim.
+ */
 export function nothingSentBack(reason: ReturnReason): boolean {
-  return reason === 'not_received' || reason === 'atoz_claim';
+  return reason === 'not_received' || reason === 'atoz_claim' || reason === 'missing_item';
 }
 
 type Row = Record<string, unknown>;
@@ -219,9 +222,25 @@ export interface ReturnInput {
  */
 export async function requestReturn(db: Db, orderId: string, input: ReturnInput): Promise<OrderReturn> {
   if (!isReturnReason(input.reason)) throw new DataError('invalid_input', 'reason', 'Choose why you’re returning it.');
+  return createReturn(db, orderId, input.reason, input);
+}
+
+/**
+ * Items missing from a delivered package (Amazon's "Item missing from package"): `items` as for a
+ * return, refunded or (`resolution: 'replacement'`) sent again, with the rules of a return, except
+ * that there's nothing to send back: the return is received as it's made (see
+ * lib/data/missing-items.ts, which sends a card refund to Stripe).
+ */
+export async function requestMissingItems(db: Db, orderId: string, input: Omit<ReturnInput, 'reason'>): Promise<OrderReturn> {
+  return createReturn(db, orderId, 'missing_item', input);
+}
+
+async function createReturn(db: Db, orderId: string, reason: ReturnReason, input: Omit<ReturnInput, 'reason'>): Promise<OrderReturn> {
+  const missing = reason === 'missing_item';
   const resolution: ReturnResolution | null =
     input.resolution == null || input.resolution === '' || input.resolution === 'refund' ? 'refund' : input.resolution === 'replacement' ? 'replacement' : null;
-  if (!resolution || (resolution === 'replacement' && !isStoreFault(input.reason) && !isSizeReason(input.reason))) {
+  if (missing && !resolution) throw new DataError('invalid_input', 'resolution', 'Choose a refund or a replacement.');
+  if (!resolution || (resolution === 'replacement' && !isStoreFault(reason) && !isSizeReason(reason))) {
     throw new DataError(
       'invalid_input',
       'resolution',
@@ -240,14 +259,14 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
     .filter((it) => it.product_id && Number.isInteger(it.qty) && it.qty > 0)
     // a size goes with a replacement only (an exchange's)
     .map(({ size, ...it }) => (resolution === 'replacement' && size ? { ...it, size } : it));
-  if (!items.length) throw new DataError('invalid_input', 'items', 'Choose at least one item to return.');
-  if (resolution === 'replacement' && isSizeReason(input.reason) && items.some((it) => !('size' in it))) {
+  if (!items.length) throw new DataError('invalid_input', 'items', missing ? 'Choose at least one missing item.' : 'Choose at least one item to return.');
+  if (resolution === 'replacement' && isSizeReason(reason) && items.some((it) => !('size' in it))) {
     throw new DataError('invalid_input', 'size', SIZE_MESSAGE);
   }
   const res = await db.rpc('request_return', {
     p_order_id: orderId,
     p_items: items,
-    p_reason: input.reason,
+    p_reason: reason,
     p_comment: comment || undefined,
     // left out for a refund, so a refund still works on a database without replacements
     ...(resolution === 'replacement' ? { p_resolution: resolution } : {}),
@@ -256,11 +275,18 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
   });
   if (res.error?.message === 'invalid_input' && res.error.details === 'size') throw new DataError('invalid_input', 'size', SIZE_MESSAGE);
   if (res.error?.message === 'invalid_input' && res.error.details === 'items') {
-    throw new DataError('invalid_input', 'items', 'Those items or quantities can’t be returned. Check what’s left to return.');
+    throw new DataError(
+      'invalid_input',
+      'items',
+      missing ? 'Those items or quantities can’t be reported missing. Check what’s left in the order.' : 'Those items or quantities can’t be returned. Check what’s left to return.',
+    );
   }
   // the values were checked above: this is a Pay Later order, whose refunds only go back to Pay Later
   if (res.error?.message === 'invalid_input' && res.error.details === 'refund_to') {
     throw new DataError('invalid_input', 'refundTo', 'A Pay Later order’s refund goes back to Pay Later.');
+  }
+  if (res.error?.message === 'return_not_allowed' && res.error.details === 'replacement_only' && missing) {
+    throw new DataError('return_not_allowed', 'replacement_only', 'That item can only be replaced: choose a replacement. It’s refunded only when it can’t be replaced.');
   }
   if (res.error?.message === 'return_not_allowed' && res.error.details === 'replacement_only') {
     throw new DataError(

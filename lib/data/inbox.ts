@@ -96,7 +96,7 @@ export interface InboxReturn {
   rejectNote: string | null;
   /** a replacement: the products being sent again, and when they ship and arrive */
   replacement?: { productIds: string[]; shippedAt: string; deliveredAt: string };
-  /** a "Package didn't arrive" claim: nothing came back, so only its refund is news */
+  /** a "Package didn't arrive" claim or missing items: nothing came back, so only its refund is news */
   missing?: true;
   /** refunded to the store balance, as the shopper asked */
   toBalance?: true;
@@ -375,7 +375,8 @@ async function inboxReturns(db: Db, market: Market, userId: string): Promise<Inb
     refundMinor: r.refund_minor,
     rejectedAt: r.rejected_at,
     rejectNote: r.reject_note,
-    ...(r.reason === 'not_received' ? { missing: true as const } : {}),
+    // nothing came back, so there's no "return received" to tell
+    ...(r.reason === 'not_received' || r.reason === 'missing_item' ? { missing: true as const } : {}),
     ...(r.refund_to === 'balance' ? { toBalance: true as const } : {}),
     ...(r.resolution === 'replacement' && r.replacement_shipped_at && r.replacement_delivered_at
       ? { replacement: { productIds: r.return_items.map((i) => i.product_id), shippedAt: r.replacement_shipped_at, deliveredAt: r.replacement_delivered_at } }
