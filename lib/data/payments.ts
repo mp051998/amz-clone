@@ -8,7 +8,7 @@ import type { Order } from '../types';
 import { DataError, unwrap } from './errors';
 import { toPurchase, type GiftCardPurchase, type PurchaseRow } from './gift-card-purchases';
 import { toOrder } from './map';
-import { refundOrder } from './refunds';
+import { refundOrder, type RefundStripe } from './refunds';
 import { brandLabel, savedCardsCheckout, type Payer } from './wallet';
 
 /**
@@ -215,6 +215,113 @@ export async function confirmCheckoutSession(sessionId: string): Promise<Order> 
 /** Webhook: an unpaid session lapsed — release the order's reserved stock. */
 export async function releaseSession(sessionId: string): Promise<string | null> {
   return unwrap(await createAdminClient().rpc('release_checkout_session', { p_session_id: sessionId }));
+}
+
+/** Pay now sessions (a Pay on Delivery order paid by card before it arrives) are told apart by their metadata. */
+export function isPayNowSession(session: Pick<Stripe.Checkout.Session, 'metadata'>): boolean {
+  return session.metadata?.kind === 'pay_now';
+}
+
+/**
+ * "Pay now" by card on a Pay on Delivery order (amazon.in): its Stripe page for the order's total,
+ * the same one while it's open (so there's never a second payable page), else a new one. Returns
+ * where to send the shopper, or null when Stripe says the open one was paid after all (the order is
+ * confirmed here). `order_not_payable` when it isn't an open Pay on Delivery order.
+ */
+export async function startPayNowCheckout(order: Order, urls: CheckoutUrls, payer?: Payer | null): Promise<string | null> {
+  const s = requireStripe();
+  if (order.paymentMethod !== 'cod' || order.status !== 'placed') throw new DataError('order_not_payable', 'not_cod');
+  if (order.deliveredAt && Date.parse(order.deliveredAt) <= Date.now()) throw new DataError('order_not_payable', 'delivered');
+  const id = await sessionIdOf(order.id);
+  if (id) {
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await s.checkout.sessions.retrieve(id, { expand: ['payment_intent.latest_charge'] });
+    } catch (err) {
+      console.error('[stripe] session retrieve failed', err instanceof Error ? err.message : err);
+      throw new DataError('payments_unavailable');
+    }
+    if (isPayNowSession(session) && session.payment_status === 'paid') {
+      await confirmPayNowSession(session);
+      return null;
+    }
+    if (session.status === 'open') {
+      if (isPayNowSession(session) && session.amount_total === order.totals.totalMinor && session.url) return session.url;
+      // for a total the order no longer has (items cancelled since): close it, so it can't be paid
+      await s.checkout.sessions.expire(id).catch(() => undefined);
+    }
+  }
+
+  const saved = await savedCardsCheckout(payer);
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await s.checkout.sessions.create({
+      mode: 'payment',
+      ...saved,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: { currency: order.currency.toLowerCase(), unit_amount: order.totals.totalMinor, product_data: { name: `Order ${order.id}` } },
+        },
+      ],
+      // the other ways to pay now (UPI, net banking, the balance) are on the order page
+      payment_method_types: ['card'],
+      client_reference_id: order.id,
+      metadata: { kind: 'pay_now', orderId: order.id, market: order.market },
+      payment_intent_data: { metadata: { orderId: order.id, kind: 'pay_now' } },
+      success_url: `${urls.successUrl}${urls.successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: urls.cancelUrl,
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+    });
+  } catch (err) {
+    console.error('[stripe] pay now session create failed', err instanceof Error ? err.message : err);
+    throw new DataError('payments_unavailable');
+  }
+  if (!session.url) throw new DataError('payments_unavailable');
+  unwrap(await createAdminClient().rpc('attach_pay_now_session', { p_order_id: order.id, p_session_id: session.id }));
+  return session.url;
+}
+
+/**
+ * Make a Pay on Delivery order a card order paid now, from a Pay now session Stripe reports as
+ * paid. Idempotent. Paid for an order that can't take it any more (cancelled or delivered
+ * meanwhile, paid another way already, or its total changed since), the payment is refunded in
+ * full and the error (`order_not_payable`, `amount_mismatch`) passed on.
+ */
+export async function confirmPayNowSession(session: Stripe.Checkout.Session, refunds: Pick<RefundStripe, 'refunds'> | null = stripe): Promise<Order> {
+  const orderId = session.metadata?.orderId ?? session.client_reference_id;
+  if (!orderId || !isPayNowSession(session)) throw new DataError('order_not_found');
+  if (session.payment_status !== 'paid') throw new DataError('payment_incomplete');
+  const pi = paymentIntentId(session);
+  const res = await createAdminClient().rpc('confirm_pay_now_payment', {
+    p_order_id: orderId,
+    p_session_id: session.id,
+    p_amount_minor: session.amount_total ?? -1,
+    p_currency: session.currency ?? '',
+    p_payment_label: paymentLabel(session),
+    ...(pi ? { p_payment_intent: pi } : {}),
+  });
+  if ((res.error?.message === 'order_not_payable' || res.error?.message === 'amount_mismatch') && pi && refunds) {
+    try {
+      await refunds.refunds.create({ payment_intent: pi }, { idempotencyKey: `pay-now-refund-${session.id}` });
+    } catch (err) {
+      console.error('[stripe] pay now refund failed', orderId, err instanceof Error ? err.message : err);
+    }
+  }
+  return toOrder(unwrap(res) as unknown as OrderRowJson);
+}
+
+/** Return trip from Stripe for Pay now: fetch the session server-side and confirm it. */
+export async function confirmPayNowCheckout(sessionId: string): Promise<Order> {
+  const s = requireStripe();
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await s.checkout.sessions.retrieve(sessionId, { expand: ['payment_intent.latest_charge'] });
+  } catch (err) {
+    console.error('[stripe] session retrieve failed', err instanceof Error ? err.message : err);
+    throw new DataError('order_not_found');
+  }
+  return confirmPayNowSession(session);
 }
 
 /** Gift card sessions are told apart from order sessions by their metadata. */

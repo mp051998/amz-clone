@@ -50,6 +50,7 @@ import { weekdayName } from '@/lib/delivery-day';
 import { exchangeText } from '@/lib/exchange';
 import { CHECKOUT_BANKS } from '@/lib/bank-offers';
 import { selectClass } from '@/components/lib/controls';
+import { stripeConfigured } from '@/lib/stripe';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -126,10 +127,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string; claim?: string; paid?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string; claim?: string; paid?: string; refunded?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery, claim, paid } = await searchParams;
+  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery, claim, paid, refunded } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -271,6 +272,10 @@ export default async function OrderPage({
           <Alert tone="error">{methodErrorText}</Alert>
         ) : error === 'insufficient_balance' && payNowOpen ? (
           <Alert tone="error">Your {lcFirst(walletName)} doesn’t cover this order. Add money to it, or pay another way.</Alert>
+        ) : error && refunded === '1' ? (
+          <Alert tone="error">
+            {error === 'amount_mismatch' ? 'Your order’s total changed while you were paying.' : 'This order can’t be paid now.'} We’ve refunded your card payment in full.
+          </Alert>
         ) : error ? (
           <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
         ) : paid === '1' && order.prepaidAt ? (
@@ -460,6 +465,12 @@ export default async function OrderPage({
             <form action={payCodNow.bind(null, order.id)} className="flex flex-col gap-3">
               <fieldset className="m-0 flex max-w-[520px] flex-col gap-2 border-0 p-0">
                 <legend className="sr-only">Pay with</legend>
+                {stripeConfigured ? (
+                  <label className="flex cursor-pointer items-start gap-2.5 rounded-input border border-line px-3 py-2.5 text-[14px] has-[:checked]:border-ink has-[:disabled]:cursor-not-allowed has-[:disabled]:text-ink-3">
+                    <input type="radio" name="method" value="card" required className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink" />
+                    <span>Credit or debit card<span className="block text-[13px] text-ink-3">On Stripe’s secure page</span></span>
+                  </label>
+                ) : null}
                 <label className="flex cursor-pointer items-start gap-2.5 rounded-input border border-line px-3 py-2.5 text-[14px] has-[:checked]:border-ink has-[:disabled]:cursor-not-allowed has-[:disabled]:text-ink-3">
                   <input type="radio" name="method" value="upi" defaultChecked required className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink" />
                   <span>UPI<span className="block text-[13px] text-ink-3">Pay from any UPI app</span></span>

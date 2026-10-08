@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type Stripe from 'stripe';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createProduct, type ProductInput } from '@/lib/data/admin-catalog';
 import { createCategory } from '@/lib/data/admin-categories';
@@ -6,9 +7,17 @@ import { storeBalance } from '@/lib/data/balance';
 import { setCartQty } from '@/lib/data/cart';
 import { DataError } from '@/lib/data/errors';
 import { cancelOrder, cancelOrderItems, getOrder, payCodOrder, placeOrder } from '@/lib/data/orders';
+import { confirmPayNowSession, startPayNowCheckout } from '@/lib/data/payments';
+import { stripe } from '@/lib/stripe';
 import { admin, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, type TestUser } from './helpers';
 
 /** What a call failed with, as `code:detail` (or 'no error'). */
+/** An RPC's data, or its error thrown. */
+const unwrapRpc = <T>(res: { data: T; error: unknown }) => {
+  if (res.error) throw res.error;
+  return res.data;
+};
+
 const failure = async (p: Promise<unknown>) => {
   try {
     await p;
@@ -174,5 +183,100 @@ describe('Pay now on Pay on Delivery orders', () => {
     expect(order.prepaidAt).toBeTruthy();
     expect((await post(o.id, { method: 'upi' })).status).toBe(409);
     await cancelOrder(shopper.db, o.id);
+  });
+});
+
+/** A Pay now session as Stripe reports it once paid (never sent to Stripe). */
+const paidSession = (orderId: string, amountMinor: number, id = `cs_test_paynow_${crypto.randomUUID().slice(0, 8)}`) =>
+  ({
+    id,
+    object: 'checkout.session',
+    metadata: { kind: 'pay_now', orderId, market: 'IN' },
+    client_reference_id: orderId,
+    payment_status: 'paid',
+    status: 'complete',
+    amount_total: amountMinor,
+    currency: 'inr',
+    payment_intent: { id: `pi_${id}`, latest_charge: { payment_method_details: { card: { brand: 'visa', last4: '4242' } } } },
+  }) as unknown as Stripe.Checkout.Session;
+
+/** Records the refunds asked for instead of sending them to Stripe. */
+const refundsSpy = () => {
+  const asked: { params: Stripe.RefundCreateParams; key?: string }[] = [];
+  return {
+    asked,
+    refunds: {
+      list: async () => ({ data: [] }),
+      create: async (params: Stripe.RefundCreateParams, options: Stripe.RequestOptions) => {
+        asked.push({ params, key: options.idempotencyKey });
+        return { id: 're_test', status: 'succeeded' } as Stripe.Refund;
+      },
+    },
+  };
+};
+
+describe('Pay now by card', () => {
+  it('only the server opens and confirms one', async () => {
+    const o = await cod(shopper);
+    expect((await shopper.db.rpc('attach_pay_now_session', { p_order_id: o.id, p_session_id: 'cs_x' })).error).not.toBeNull();
+    const forged = await shopper.db.rpc('confirm_pay_now_payment', {
+      p_order_id: o.id, p_session_id: 'cs_x', p_amount_minor: o.totals.totalMinor, p_currency: 'inr', p_payment_label: 'Visa ending 4242',
+    });
+    expect(forged.error).not.toBeNull();
+    expect((await getOrder(shopper.db, o.id))?.paymentMethod).toBe('cod');
+    await cancelOrder(shopper.db, o.id);
+  });
+
+  it('makes the order a card order paid now, once, and refunds a payment it can no longer take', async () => {
+    const o = await cod(shopper);
+    const spy = refundsSpy();
+    const session = paidSession(o.id, o.totals.totalMinor);
+    const paid = await confirmPayNowSession(session, spy);
+    expect(paid).toMatchObject({ status: 'placed', paymentMethod: 'card', paymentLabel: 'Visa ending 4242' });
+    expect(paid.prepaidAt).toBeTruthy();
+    const { data } = await admin().from('orders').select('stripe_session_id, stripe_payment_intent').eq('id', o.id).single();
+    expect(data).toEqual({ stripe_session_id: session.id, stripe_payment_intent: `pi_${session.id}` });
+    // the same session again (the webhook after the return trip) changes nothing and refunds nothing
+    expect((await confirmPayNowSession(session, spy)).prepaidAt).toBe(paid.prepaidAt);
+    expect(spy.asked).toEqual([]);
+
+    // a second session paid for the same order is given back
+    const second = paidSession(o.id, o.totals.totalMinor);
+    expect(await failure(confirmPayNowSession(second, spy))).toBe('order_not_payable:not_cod');
+    expect(spy.asked).toEqual([{ params: { payment_intent: `pi_${second.id}` }, key: `pay-now-refund-${second.id}` }]);
+
+    // cancelling it now refunds the card (the refund itself is Stripe's: not asked here)
+    const cancelled = unwrapRpc(await shopper.db.rpc('cancel_my_order', { p_order_id: o.id }));
+    expect(cancelled).toMatchObject({ status: 'cancelled', payment_method: 'card', refund_status: 'pending', refund_minor: o.totals.totalMinor });
+  });
+
+  it('refunds a payment for an order cancelled, delivered, or repriced meanwhile', async () => {
+    const spy = refundsSpy();
+    const gone = await cod(shopper);
+    await cancelOrder(shopper.db, gone.id);
+    expect(await failure(confirmPayNowSession(paidSession(gone.id, gone.totals.totalMinor), spy))).toBe('order_not_payable:cancelled');
+
+    const arrived = await cod(shopper);
+    await deliveredDaysAgo(arrived.id);
+    expect(await failure(confirmPayNowSession(paidSession(arrived.id, arrived.totals.totalMinor), spy))).toBe('order_not_payable:delivered');
+
+    const repriced = await cod(shopper);
+    expect(await failure(confirmPayNowSession(paidSession(repriced.id, repriced.totals.totalMinor + 100), spy))).toBe('amount_mismatch:');
+    expect((await getOrder(shopper.db, repriced.id))?.paymentMethod).toBe('cod');
+    await cancelOrder(shopper.db, repriced.id);
+
+    expect(spy.asked).toHaveLength(3);
+  });
+
+  it.runIf(stripe)('opens one Stripe page per order and closes it when the order is cancelled', async () => {
+    const o = await cod(shopper);
+    const urls = { successUrl: `http://localhost:3100/orders/${o.id}/paid`, cancelUrl: `http://localhost:3100/orders/${o.id}` };
+    const url = await startPayNowCheckout(o, urls);
+    expect(url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
+    expect(await startPayNowCheckout(o, urls)).toBe(url);
+    const { data } = await admin().from('orders').select('stripe_session_id').eq('id', o.id).single();
+    await cancelOrder(shopper.db, o.id);
+    expect((await stripe!.checkout.sessions.retrieve(data!.stripe_session_id!)).status).toBe('expired');
+    expect(await failure(startPayNowCheckout({ ...o, status: 'cancelled' }, urls))).toBe('order_not_payable:not_cod');
   });
 });

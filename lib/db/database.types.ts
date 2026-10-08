@@ -1304,6 +1304,12 @@ isOneToOne: false
 "pay_my_cod_order":
 { Args: { "p_order_id": string,"p_method": string,"p_bank"?: string }; Returns: Json
                            },
+"attach_pay_now_session":
+{ Args: { "p_order_id": string,"p_session_id": string }; Returns: undefined
+                           },
+"confirm_pay_now_payment":
+{ Args: { "p_amount_minor": number,"p_currency": string,"p_order_id": string,"p_payment_label": string,"p_session_id": string,"p_payment_intent"?: string }; Returns: Json
+                           },
 "leave_delivery_feedback":
 { Args: { "p_comment"?: string,"p_order_id": string,"p_positive": boolean,"p_reasons"?: string[] }; Returns: Json
                            },

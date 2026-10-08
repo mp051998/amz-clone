@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
-import { confirmCheckoutSession, confirmGiftCardCheckout, isGiftCardSession, releaseSession } from '@/lib/data/payments';
+import { confirmCheckoutSession, confirmGiftCardCheckout, confirmPayNowCheckout, isGiftCardSession, isPayNowSession, releaseSession } from '@/lib/data/payments';
 import { recordRefundEvent } from '@/lib/data/refunds';
 import { DataError } from '@/lib/data/errors';
 
@@ -10,7 +10,9 @@ import { DataError } from '@/lib/data/errors';
  * order is confirmed even if the shopper never makes it back to the success
  * page, reserved stock is released when a Checkout Session expires unpaid, and
  * refunds of cancelled orders are tracked until they settle. A gift card
- * purchase's session issues its code once paid; expiring, it leaves nothing to release.
+ * purchase's session issues its code once paid; expiring, it leaves nothing to release. A Pay now
+ * session (a Pay on Delivery order paid by card before it arrives) makes it a card order once
+ * paid; expiring, the order is still on Pay on Delivery.
  * Requests are authenticated by Stripe's signature (STRIPE_WEBHOOK_SECRET).
  */
 export async function POST(req: NextRequest): Promise<Response> {
@@ -36,13 +38,16 @@ export async function POST(req: NextRequest): Promise<Response> {
         if (session.mode === 'setup' || session.payment_status !== 'paid') break;
         // both re-read the session from Stripe rather than trusting the event body
         if (isGiftCardSession(session)) await confirmGiftCardCheckout(session.id);
+        else if (isPayNowSession(session)) await confirmPayNowCheckout(session.id);
         else await confirmCheckoutSession(session.id);
         break;
       }
       case 'checkout.session.expired':
       case 'checkout.session.async_payment_failed':
-        // a gift card or an added card holds no stock to release
-        if (!isGiftCardSession(event.data.object) && event.data.object.mode !== 'setup') await releaseSession(event.data.object.id);
+        // a gift card, an added card or a Pay now holds no stock to release
+        if (!isGiftCardSession(event.data.object) && !isPayNowSession(event.data.object) && event.data.object.mode !== 'setup') {
+          await releaseSession(event.data.object.id);
+        }
         break;
       case 'refund.created':
       case 'refund.updated':

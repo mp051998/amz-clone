@@ -318,6 +318,8 @@ export async function cancelOrderItems(db: Db, id: string, productIds: unknown):
   const json = unwrap(await db.rpc('cancel_my_items', { p_order_id: id, p_product_ids: [...new Set(productIds as string[])] }));
   if (!json) throw new DataError('order_not_found');
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  // a Pay on Delivery order's open Pay now page is for the old total: close it
+  if (order.paymentMethod === 'cod') await expireCardCheckout(id);
   if (order.paymentMethod !== 'card') return order;
   const pending = order.status === 'cancelled'
     ? order.refund?.status === 'pending'
@@ -339,8 +341,9 @@ export async function cancelOrder(db: Db, id: string): Promise<Order> {
   const json = unwrap(res);
   if (!json) throw new DataError('order_not_found');
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
-  // an unpaid card order: close its Stripe page so it can't be paid now it's cancelled
-  if (order.paymentMethod === 'card' && !order.refund) await expireCardCheckout(id);
+  // an unpaid card order, or a Pay on Delivery one being paid now by card: close its Stripe page
+  // so it can't be paid now it's cancelled
+  if ((order.paymentMethod === 'card' && !order.refund) || order.paymentMethod === 'cod') await expireCardCheckout(id);
   if (order.paymentMethod !== 'card' || order.refund?.status !== 'pending') return order;
   try {
     await refundOrder(id);
