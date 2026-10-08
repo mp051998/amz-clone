@@ -36,6 +36,8 @@ export const IconMenu = (p: IconProps) => (<Line {...p}><path d="M4 6h16M4 12h16
 export const IconUser = (p: IconProps) => (<Line {...p}><circle cx="12" cy="8" r="3.4" /><path d="M5 20a7 7 0 0 1 14 0" /></Line>);
 export const IconLock = (p: IconProps) => (<Line {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></Line>);
 export const IconTruck = (p: IconProps) => (<Line {...p}><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z" /><circle cx="7" cy="18" r="1.4" /><circle cx="17" cy="18" r="1.4" /></Line>);
+export const IconCash = (p: IconProps) => (<Line {...p}><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.6" /><path d="M6.5 9.5v.01M17.5 14.5v.01" /></Line>);
+export const IconReturn = (p: IconProps) => (<Line {...p}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></Line>);
 
 /** Filled star for ratings (design.md §2.5, §5 Stars). */
 export const IconStar = (props: IconProps) => {
