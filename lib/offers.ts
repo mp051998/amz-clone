@@ -62,3 +62,19 @@ export function kindsLabel(s: OfferSummary): string {
   const names = s.kinds.map((k) => KIND_NAMES[k.kind]);
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}` : names[0];
 }
+
+/** "(3 used & new offers)", "(1 new offer)" or "(2 used offers)": what "More Buying Choices" counts (renewed is used). */
+export function buyingChoicesText(s: OfferSummary): string {
+  const kinds = new Set(s.kinds.map((k) => (k.kind === 'new' ? 'new' : 'used')));
+  const what = kinds.size > 1 ? 'used & new' : kinds.has('new') ? 'new' : 'used';
+  return `(${s.count} ${what} offer${s.count === 1 ? '' : 's'})`;
+}
+
+/**
+ * Whether a product can be bought in a condition, as search's "Condition" filter has it: new when
+ * it's in stock itself or another seller offers it new, renewed or used when another seller does.
+ */
+export function buyableAs(p: Pick<Product, 'stock'>, offers: OfferSummary | null | undefined, kind: OfferKind): boolean {
+  if (kind === 'new' && p.stock > 0) return true;
+  return !!offers?.kinds.some((k) => k.kind === kind);
+}

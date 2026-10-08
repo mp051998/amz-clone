@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { conditionLabel, isOfferKind, isUsedCondition, kindsLabel, offerKind, offerSummary } from './offers';
+import { buyableAs, buyingChoicesText, conditionLabel, isOfferKind, isUsedCondition, kindsLabel, offerKind, offerSummary } from './offers';
 
 describe('conditions', () => {
   it('labels each condition as Amazon does, new when there is none', () => {
@@ -40,5 +40,23 @@ describe('offerSummary', () => {
 
   it('is null with nothing to buy', () => {
     expect(offerSummary([])).toBeNull();
+  });
+});
+
+describe('buying choices', () => {
+  it('counts other sellers’ offers as Amazon’s results do, renewed as used', () => {
+    expect(buyingChoicesText(offerSummary([{ priceMinor: 100 }])!)).toBe('(1 new offer)');
+    expect(buyingChoicesText(offerSummary([{ priceMinor: 100, condition: 'renewed' }, { priceMinor: 90, condition: 'used_good' }])!)).toBe('(2 used offers)');
+    expect(buyingChoicesText(offerSummary([{ priceMinor: 100 }, { priceMinor: 90, condition: 'renewed' }, { priceMinor: 80 }])!)).toBe('(3 used & new offers)');
+  });
+
+  it('can buy it new when it’s in stock or offered new, otherwise only as offered', () => {
+    const used = offerSummary([{ priceMinor: 90, condition: 'used_good' }]);
+    expect(buyableAs({ stock: 2 }, null, 'new')).toBe(true);
+    expect(buyableAs({ stock: 0 }, used, 'new')).toBe(false);
+    expect(buyableAs({ stock: 0 }, offerSummary([{ priceMinor: 90 }]), 'new')).toBe(true);
+    expect(buyableAs({ stock: 2 }, used, 'used')).toBe(true);
+    expect(buyableAs({ stock: 2 }, used, 'renewed')).toBe(false);
+    expect(buyableAs({ stock: 2 }, undefined, 'used')).toBe(false);
   });
 });

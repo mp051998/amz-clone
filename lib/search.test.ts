@@ -55,6 +55,15 @@ describe('pricePresets', () => {
   });
 });
 
+describe('parseQuery condition', () => {
+  it('reads new, renewed or used, and ignores anything else', () => {
+    expect(parseQuery({ condition: 'renewed' }).condition).toBe('renewed');
+    expect(parseQuery({ condition: ['used', 'new'] }).condition).toBe('used');
+    expect(parseQuery({ condition: 'refurbished' }).condition).toBeUndefined();
+    expect(parseQuery({}).condition).toBeUndefined();
+  });
+});
+
 describe('parseQuery sort', () => {
   it('reads Best Sellers, and falls back to Featured for anything unknown', () => {
     expect(parseQuery({ sort: 'bestsellers' }).sort).toBe('bestsellers');

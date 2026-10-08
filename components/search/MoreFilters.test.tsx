@@ -181,3 +181,26 @@ describe('MoreFilters Small Business', () => {
     expect(screen.queryByRole('heading', { name: 'Small Business' })).toBeNull();
   });
 });
+
+describe('MoreFilters Condition', () => {
+  const list = () => within(screen.getByRole('heading', { name: 'Condition' }).parentElement!);
+
+  it('lists the conditions found, with counts, each picking just that one', () => {
+    renderFilters({ conditionCounts: { new: 12, renewed: 0, used: 3 } });
+    expect(list().getAllByRole('checkbox').map((c) => c.getAttribute('aria-label'))).toEqual(['New (12)', 'Used (3)']);
+    expect(list().getByRole('checkbox', { name: 'Used (3)' }).getAttribute('href')).toBe(hrefWith({ condition: 'used' }));
+    expect(list().getAllByRole('checkbox').every((c) => c.getAttribute('aria-checked') === 'false')).toBe(true);
+  });
+
+  it('unpicks the one picked, even with none left in scope', () => {
+    renderFilters({ condition: 'renewed', conditionCounts: { new: 4, renewed: 0, used: 0 } });
+    const on = list().getByRole('checkbox', { name: 'Renewed' });
+    expect(on).toHaveAttribute('aria-checked', 'true');
+    expect(on.getAttribute('href')).toBe(hrefWith({ condition: null }));
+  });
+
+  it('has no section when everything is only sold new', () => {
+    renderFilters({ conditionCounts: { new: 9, renewed: 0, used: 0 } });
+    expect(screen.queryByRole('heading', { name: 'Condition' })).toBeNull();
+  });
+});

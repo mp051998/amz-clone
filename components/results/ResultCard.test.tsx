@@ -99,3 +99,12 @@ it('marks a small business’s product', () => {
   cleanup();
   expect(show()).not.toHaveTextContent('Small Business');
 });
+
+it('shows other sellers’ offers as More Buying Choices, linking to them', () => {
+  const choices = { count: 3, fromMinor: 18999, kinds: [{ kind: 'new' as const, count: 1, fromMinor: 27999 }, { kind: 'used' as const, count: 2, fromMinor: 18999 }] };
+  render(<ResultCard ranked={{ product: base, insight: null, match: 90, why: [], warn: null }} store={amazon} saved={false} choices={choices} condition="used" />);
+  expect(screen.getByRole('article')).toHaveTextContent('More Buying Choices$189.99 (3 used & new offers)');
+  expect(screen.getByRole('link', { name: '$189.99 (3 used & new offers)' }).getAttribute('href')).toMatch(/\/product\/p1\/offers\?condition=used$/);
+  cleanup();
+  expect(show()).not.toHaveTextContent('More Buying Choices');
+});
