@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
-import { CollectionMenu, CollectionNote, ItemActions, NewCollection } from '@/components/collections/CollectionControls';
+import { CollectionMenu, CollectionNote, ItemActions, ItemDetails, NewCollection } from '@/components/collections/CollectionControls';
+import { ItemNotes } from '@/components/collections/ItemNotes';
 import { ShareList } from '@/components/collections/ShareList';
 import { cn } from '@/components/lib/cn';
 import { readUser } from '@/lib/auth';
@@ -144,6 +145,17 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                                 ) : null}
                               </>
                             )}
+                            <ItemNotes comment={it.comment} quantity={it.quantity} priority={it.priority} />
+                            <ItemDetails
+                              key={`${selected.id}-${p.id}`}
+                              collectionId={selected.id}
+                              productId={p.id}
+                              productName={p.title}
+                              comment={it.comment}
+                              quantity={it.quantity}
+                              priority={it.priority}
+                              market={store.id}
+                            />
                           </div>
                           <ItemActions
                             collectionId={selected.id}

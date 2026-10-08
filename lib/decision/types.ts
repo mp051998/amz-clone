@@ -140,7 +140,15 @@ export interface CollectionItem {
   /** Whether it was in stock when saved: one saved sold out that's buyable again is back in stock. */
   savedInStock: boolean;
   addedAt: string;
+  /** "Add comment, quantity & priority": absent means none, 1 and medium */
+  comment?: string;
+  quantity?: number;
+  priority?: ListPriority;
 }
+
+/** A list item's priority, lowest to highest (stored as -2 to 2). */
+export const LIST_PRIORITIES = ['lowest', 'low', 'medium', 'high', 'highest'] as const;
+export type ListPriority = (typeof LIST_PRIORITIES)[number];
 
 /** Order-tracking step, derived from the order (lib/decision/tracking.ts). */
 export interface TrackingStep {

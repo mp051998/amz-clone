@@ -33,7 +33,10 @@ describe('shaping the export', () => {
         note: 'for the new flat',
         createdAt: '2026-09-01T00:00:00Z',
         shareToken: 'tok',
-        items: [{ product: kettle, savedPriceMinor: 2999, savedInStock: true, addedAt: '2026-09-02T00:00:00Z' }],
+        items: [
+          { product: kettle, savedPriceMinor: 2999, savedInStock: true, addedAt: '2026-09-02T00:00:00Z', comment: 'Matte black', quantity: 2, priority: 'high' },
+          { product: kettle, savedPriceMinor: 2999, savedInStock: true, addedAt: '2026-09-01T00:00:00Z' },
+        ],
       }),
     ).toEqual({
       id: 'c1',
@@ -42,7 +45,10 @@ describe('shaping the export', () => {
       kind: 'custom',
       shared: true,
       createdAt: '2026-09-01T00:00:00Z',
-      items: [{ productId: 'kettle', title: 'Electric Kettle 1.7L', savedPriceMinor: 2999, savedInStock: true, addedAt: '2026-09-02T00:00:00Z' }],
+      items: [
+        { productId: 'kettle', title: 'Electric Kettle 1.7L', savedPriceMinor: 2999, savedInStock: true, addedAt: '2026-09-02T00:00:00Z', comment: 'Matte black', quantity: 2, priority: 'high' },
+        { productId: 'kettle', title: 'Electric Kettle 1.7L', savedPriceMinor: 2999, savedInStock: true, addedAt: '2026-09-01T00:00:00Z', comment: '', quantity: 1, priority: 'medium' },
+      ],
     });
   });
 
