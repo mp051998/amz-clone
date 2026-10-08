@@ -134,6 +134,15 @@ it('asks for a review of what arrived, linking to the review form', async () => 
   expect(row).toHaveTextContent('Rate it and tell other shoppers what you think.');
 });
 
+it('warns about a recall of something the shopper bought, linking to what to do', async () => {
+  state.list = [msg({ key: 'recall:k', kind: 'recall', at: '2026-10-06T06:00:00Z', subject: 'Electric Kettle', href: '/recalls#recall-k', orderId: 'A-1', detail: 'The handle can overheat' })];
+  render(await MessagesPage());
+  const [row] = screen.getAllByRole('listitem');
+  expect(within(row).getByText('Product recall')).toBeInTheDocument();
+  expect(within(row).getByRole('link', { name: 'Electric Kettle' })).toHaveAttribute('href', '/recalls#recall-k');
+  expect(row).toHaveTextContent('Something you bought has been recalled. The handle can overheat. See what to do.');
+});
+
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {
   state.store = amazonIn;
   state.seenAt = '2026-10-05T10:00:00Z';

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number> }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -23,6 +23,10 @@ vi.mock('@/lib/data/addresses', () => ({
   },
 }));
 vi.mock('@/lib/data/reviews', () => ({ reviewedProductIds: async () => new Set(state.reviewed) }));
+vi.mock('@/lib/data/recalls', () => ({
+  recallsFor: async (_db: unknown, ids: string[]) =>
+    new Map(state.recalled.filter((id) => ids.includes(id)).map((id) => [id, { productId: id, title: id === 'm' ? 'Mug' : 'Kettle' }])),
+}));
 vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US', stock: state.stock[id] })) }));
 vi.mock('@/lib/decision/server', () => ({
   accessoriesFor: async (bought: { id: string }[]) => {
@@ -95,6 +99,18 @@ beforeEach(() => {
   state.addresses = [];
   state.addressReads = 0;
   state.returns = [];
+  state.recalled = [];
+});
+
+it('warns about a recalled item and marks it, linking to what to do', async () => {
+  state.recalled = ['m'];
+  await show();
+  expect(screen.getByRole('alert')).toHaveTextContent('An item in this order has been recalled for safety: Mug. See what to do');
+  expect(screen.getByRole('link', { name: 'Recalled · See what to do' })).toHaveAttribute('href', '/recalls#recall-m');
+  cleanup();
+  state.recalled = [];
+  await show();
+  expect(screen.queryByText(/recalled/)).toBeNull();
 });
 
 it('offers a review for each item once the order is delivered', async () => {

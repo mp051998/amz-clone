@@ -31,7 +31,13 @@ const HEAD: Record<InboxKind, string> = {
   support_reply: 'Customer service replied',
   answer: 'New answer to your question',
   review_request: 'How was it?',
+  recall: 'Product recall',
 };
+
+/** "It overheats" → "It overheats."; a sentence that already ends stays as it is. */
+function sentence(text: string): string {
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
 
 /** One line under the heading saying what it means for the shopper. */
 function note(m: InboxMessage, money: (minor: number) => string, balance: string): string {
@@ -66,6 +72,8 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
       return `${m.from ?? 'A shopper'} answered: “${m.detail ?? ''}”`;
     case 'review_request':
       return 'It arrived a couple of days ago. Rate it and tell other shoppers what you think.';
+    case 'recall':
+      return `Something you bought has been recalled. ${m.detail ? `${sentence(m.detail)} ` : ''}See what to do.`;
   }
 }
 
@@ -103,7 +111,7 @@ export default async function MessagesPage() {
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your messages</h1>
           <span className="text-[15px] text-ink-2">
-            Updates on your orders, returns, reviews, support cases and questions in this store from the last {INBOX_DAYS} days.
+            Updates on your orders, returns, reviews, recalls, support cases and questions in this store from the last {INBOX_DAYS} days.
             {fresh ? ` ${fresh} new since you last looked.` : ''}
           </span>
         </div>
@@ -122,7 +130,7 @@ export default async function MessagesPage() {
                 <li key={m.key} className="flex flex-col gap-0.5 border-t border-line-2 px-4 py-3.5 first:border-t-0">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' ? 'text-bad' : ''}`}>
+                      <span className={`text-[15px] font-semibold ${m.kind === 'return_rejected' || m.kind === 'recall' ? 'text-bad' : ''}`}>
                         {m.kind === 'support_reply' && m.from ? 'Seller replied' : HEAD[m.kind]}
                         {isNewMessage(m, seenAt) ? <span className="sr-only"> (new)</span> : null}
                       </span>

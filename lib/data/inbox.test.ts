@@ -168,6 +168,18 @@ it('asks for a review two days after something arrives, until it is reviewed', (
   ]);
 });
 
+it('tells the shopper when something they bought is recalled', () => {
+  const recalls = [
+    { productId: 'k', title: 'Electric Kettle 1.7L', hazard: 'The handle can overheat.', issuedAt: '2026-10-04T08:00:00Z', orderId: 'D' },
+    // recalled too long ago to be news
+    { productId: 'o', title: 'Old', hazard: 'Sharp edges.', issuedAt: '2026-05-01T08:00:00Z', orderId: 'F' },
+  ];
+  const inbox = buildInbox({ orders: [], returns: [], replies: [], answers: [], recalls }, NOW);
+  expect(inbox).toEqual([
+    { key: 'recall:k', kind: 'recall', at: '2026-10-04T08:00:00Z', subject: 'Electric Kettle 1.7L', href: '/recalls#recall-k', orderId: 'D', detail: 'The handle can overheat.' },
+  ]);
+});
+
 it('keeps the latest ones when there are too many', () => {
   const replies: InboxReply[] = Array.from({ length: INBOX_LIMIT + 5 }, (_, i) => ({
     id: `m${i}`,
