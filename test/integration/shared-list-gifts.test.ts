@@ -1,5 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addItem, createCollection, getSharedList, markSharedGift, moveItem, removeItem, shareCollection } from '@/lib/data/collections';
+import {
+  addItem,
+  createCollection,
+  getSharedList,
+  giftsLeft,
+  markSharedGift,
+  moveItem,
+  removeItem,
+  setItemDetails,
+  setSharedGift,
+  shareCollection,
+} from '@/lib/data/collections';
 import { DataError } from '@/lib/data/errors';
 import { anon, deleteUser, newUser, pickProduct, type TestUser } from './helpers';
 
@@ -75,5 +86,32 @@ describe('marking shared list items bought', () => {
     await moveItem(owner.db, list, elsewhere, p);
     await addItem(owner.db, list, p);
     expect((await getSharedList(giver.db, token))!.bought).toEqual({});
+  });
+
+  it('givers split an item’s quantity until their marks cover it', async () => {
+    await setItemDetails(owner.db, list, q, { quantity: 3 });
+    await setSharedGift(giver.db, token, q, 1);
+    await expect(setSharedGift(other.db, token, q, 3)).rejects.toMatchObject({ code: 'gift_too_many', message: 'Only 2 more are needed.' });
+    const part = (await getSharedList(other.db, token))!;
+    expect(part.gifts[q]).toEqual({ has: 1, yours: 0 });
+    expect(part.bought[q]).toBeUndefined();
+    expect(giftsLeft(part, q)).toBe(2);
+
+    await setSharedGift(other.db, token, q, 2);
+    const full = (await getSharedList(giver.db, token))!;
+    expect(full.gifts[q]).toEqual({ has: 3, yours: 1 });
+    expect(full.bought[q]).toBe('you');
+    expect(full.products.at(-1)!.id).toBe(q);
+    expect((await getSharedList(anon(), token))!.bought[q]).toBe('someone');
+    expect((await getSharedList(owner.db, token))!.gifts).toEqual({});
+
+    // nothing left: marking again keeps the giver's share
+    expect(await code(markSharedGift(giver.db, token, q, true))).toBe('no error');
+    await markSharedGift(other.db, token, q, false);
+    expect((await getSharedList(giver.db, token))!.gifts[q]).toEqual({ has: 1, yours: 1 });
+    // a plain mark takes all that's still needed
+    await markSharedGift(giver.db, token, q, true);
+    expect((await getSharedList(giver.db, token))!.gifts[q]).toEqual({ has: 3, yours: 3 });
+    expect(await code(setSharedGift(other.db, token, q, 1))).toBe('gift_already_bought');
   });
 });

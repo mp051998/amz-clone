@@ -1233,6 +1233,9 @@ isOneToOne: false
                            },
 "mark_shared_gift":
 { Args: { "p_token": string; "p_product": string; "p_bought": boolean }; Returns: undefined
+                           },
+"set_shared_gift":
+{ Args: { "p_token": string; "p_product": string; "p_quantity"?: number }; Returns: undefined
                            }
           }
           Enums: {

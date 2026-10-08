@@ -11,7 +11,7 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Stars } from '@/components/primitives/Stars';
 import { readUser } from '@/lib/auth';
-import { getSharedList } from '@/lib/data/collections';
+import { getSharedList, giftsLeft } from '@/lib/data/collections';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -41,11 +41,12 @@ export default async function SharedListPage({ params, searchParams }: { params:
 
   const sp = (path: string) => storePath(store, path);
   const n = list.products.length;
-  // still to buy first, then bought, each group in the order picked
+  // still to buy first, then bought (givers' marks cover it), each group in the order picked
+  const done = (id: string) => !list.mine && giftsLeft(list, id) === 0;
   const sorted = sortList(list.products.map((product) => ({ product, priority: list.details[product.id]?.priority })), sort);
-  const products = [...sorted.filter((i) => !list.bought[i.product.id]), ...sorted.filter((i) => list.bought[i.product.id])].map((i) => i.product);
+  const products = [...sorted.filter((i) => !done(i.product.id)), ...sorted.filter((i) => done(i.product.id))].map((i) => i.product);
   const sortHref = (s: Sort) => sp(`/lists/${token}${s === 'added' ? '' : `?sort=${s}`}`);
-  const boughtCount = list.products.filter((p) => list.bought[p.id]).length;
+  const boughtCount = list.products.filter((p) => done(p.id)).length;
   const signInHref = user ? undefined : sp(`/signin?next=${encodeURIComponent(`/lists/${token}`)}`);
 
   return (
@@ -92,14 +93,25 @@ export default async function SharedListPage({ params, searchParams }: { params:
                     <strong className="text-[18px] tabular-nums">{formatMoney(p.priceMinor, p.curBase)}</strong>
                     {cut ? <s className="text-[13px] text-ink-3 tabular-nums">{formatMoney(cut, p.curBase)}</s> : null}
                   </span>
-                  <ItemNotes {...list.details[p.id]} />
+                  <ItemNotes {...list.details[p.id]} has={list.mine ? undefined : list.gifts[p.id]?.has ?? 0} />
                   <div className="mt-auto flex flex-col gap-2">
                     {p.sizes && p.stock > 0 ? (
                       <SeeOptions href={href} name={p.title} variant="primary" size="md" />
                     ) : (
                       <AddFromList productId={p.id} productName={p.title} inStock={p.stock > 0} />
                     )}
-                    {list.mine ? null : <GiftMark token={token} productId={p.id} productName={p.title} mark={list.bought[p.id]} signInHref={signInHref} />}
+                    {list.mine ? null : (
+                      <GiftMark
+                        token={token}
+                        productId={p.id}
+                        productName={p.title}
+                        mark={list.bought[p.id]}
+                        needed={list.details[p.id]?.quantity}
+                        has={list.gifts[p.id]?.has}
+                        yours={list.gifts[p.id]?.yours}
+                        signInHref={signInHref}
+                      />
+                    )}
                   </div>
                 </li>
               );
