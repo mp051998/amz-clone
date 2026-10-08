@@ -109,8 +109,8 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       },
       // sent only for gifts, so ordinary checkouts don't depend on the gift migration
       ...(input.gift ? { p_gift: true, ...(note ? { p_gift_message: note } : {}), ...(input.gift.wrap ? { p_gift_wrap: true } : {}) } : {}),
-      // likewise only for fast delivery
-      ...(input.speed === 'fast' || input.speed === 'day' ? { p_speed: input.speed } : {}),
+      // likewise only for a speed other than standard
+      ...(input.speed && input.speed !== 'standard' ? { p_speed: input.speed } : {}),
       ...(input.buyNow
         ? { p_buy: { product_id: input.buyNow.productId, qty: input.buyNow.qty, ...(input.buyNow.protection ? { protection: true } : {}), ...(input.buyNow.size ? { size: input.buyNow.size } : {}) } }
         : {}),
