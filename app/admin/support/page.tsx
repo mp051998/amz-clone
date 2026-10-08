@@ -73,6 +73,12 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
                       <span>{c.customer || 'Customer'}</span>
                       <span aria-hidden>·</span>
                       <span>{TOPIC_LABELS[c.topic]}</span>
+                      {c.seller ? (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span>For seller <span className="font-semibold text-ink">{c.seller}</span></span>
+                        </>
+                      ) : null}
                       {c.orderId ? (
                         <>
                           <span aria-hidden>·</span>

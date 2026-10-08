@@ -660,13 +660,13 @@ isOneToOne: false
                   ]
                 },"support_cases": {
                   Row: {
-                    "closed_at": string | null,"created_at": string,"customer_name": string,"customer_seen_at": string | null,"id": string,"market_id": string,"order_id": string | null,"status": string,"subject": string,"topic": string,"updated_at": string,"user_id": string | null
+                    "closed_at": string | null,"created_at": string,"customer_name": string,"customer_seen_at": string | null,"id": string,"market_id": string,"order_id": string | null,"seller": string | null,"status": string,"subject": string,"topic": string,"updated_at": string,"user_id": string | null
                   }
                   Insert: {
-                    "closed_at"?: string | null,"created_at"?: string,"customer_name": string,"customer_seen_at"?: string | null,"id"?: string,"market_id": string,"order_id"?: string | null,"status"?: string,"subject": string,"topic": string,"updated_at"?: string,"user_id"?: string | null
+                    "closed_at"?: string | null,"created_at"?: string,"customer_name": string,"customer_seen_at"?: string | null,"id"?: string,"market_id": string,"order_id"?: string | null,"seller"?: string | null,"status"?: string,"subject": string,"topic": string,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "closed_at"?: string | null,"created_at"?: string,"customer_name"?: string,"customer_seen_at"?: string | null,"id"?: string,"market_id"?: string,"order_id"?: string | null,"status"?: string,"subject"?: string,"topic"?: string,"updated_at"?: string,"user_id"?: string | null
+                    "closed_at"?: string | null,"created_at"?: string,"customer_name"?: string,"customer_seen_at"?: string | null,"id"?: string,"market_id"?: string,"order_id"?: string | null,"seller"?: string | null,"status"?: string,"subject"?: string,"topic"?: string,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -711,6 +711,25 @@ isOneToOne: false
       foreignKeyName: "product_reports_product_id_fkey"
       columns: ["product_id"]
       isOneToOne: false
+      referencedRelation: "products"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"product_recalls": {
+                  Row: {
+                    "hazard": string,"issued_at": string,"issued_by": string | null,"product_id": string,"remedy": string,"updated_at": string
+                  }
+                  Insert: {
+                    "hazard": string,"issued_at"?: string,"issued_by"?: string | null,"product_id": string,"remedy": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "hazard"?: string,"issued_at"?: string,"issued_by"?: string | null,"product_id"?: string,"remedy"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "product_recalls_product_id_fkey"
+      columns: ["product_id"]
+      isOneToOne: true
       referencedRelation: "products"
       referencedColumns: ["id"]
     }
@@ -1149,8 +1168,14 @@ isOneToOne: false
 "reply_support_case":
 { Args: { "p_body": string,"p_case": string }; Returns: Json
                            },
+"contact_seller":
+{ Args: { "p_body": string,"p_market": string,"p_order"?: string,"p_seller": string,"p_subject": string,"p_topic": string }; Returns: Json
+                           },
 "close_support_case":
 { Args: { "p_case": string }; Returns: Json
+                           },
+"recall_product":
+{ Args: { "p_hazard": string,"p_product": string,"p_remedy": string }; Returns: Json
                            },
 "report_product":
 { Args: { "p_details"?: string,"p_product": string,"p_reason": string }; Returns: Json

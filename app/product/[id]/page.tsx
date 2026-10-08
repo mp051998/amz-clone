@@ -5,6 +5,7 @@ import { AppShell } from '@/components/AppShell';
 import { Breadcrumbs } from '@/components/commerce/Breadcrumbs';
 import { MatchBadge } from '@/components/decision/Badges';
 import { CheckList } from '@/components/decision/CheckList';
+import { Alert } from '@/components/primitives/Alert';
 import { Price } from '@/components/primitives/Price';
 import { Stars } from '@/components/primitives/Stars';
 import { Alternatives, type AlternativeCard } from '@/components/product/Alternatives';
@@ -58,6 +59,7 @@ import { couponFor, couponUnitSavings } from '@/lib/data/coupons';
 import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/data/questions';
 import { myOpenReport } from '@/lib/data/product-reports';
+import { getRecall, type Recall } from '@/lib/data/recalls';
 import type { Product } from '@/lib/types';
 import { protectionOffer } from '@/lib/data/cart';
 import { alsoViewed } from '@/lib/data/also-viewed';
@@ -154,7 +156,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const weights = effectiveWeights(decision, p.category);
   const cfg = decisionConfig(p.category);
 
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -175,6 +177,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve([]) : activePromoCodes(client, store.id),
     user && p.maxPerCustomer ? purchaseAllowance(client, store.id, [p.id]) : Promise.resolve(new Map()),
     p.archived ? Promise.resolve([]) : alsoViewed(client, p).catch(() => []),
+    // a recall takes a product off sale, so only an archived one can have one
+    p.archived ? getRecall(client, p.id).catch((): Recall | null => null) : Promise.resolve(null),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -299,6 +303,15 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               {p.archived ? null : <ShareButton title={p.title} path={productUrl(p)} image={p.image ? zoomImage(p.image) : undefined} />}
             </div>
           </div>
+
+          {recall ? (
+            <Alert tone="error">
+              <p className="m-0 font-semibold">This product has been recalled</p>
+              <p className="m-0"><span className="font-semibold">Hazard:</span> {recall.hazard}</p>
+              <p className="m-0"><span className="font-semibold">What to do:</span> {recall.remedy}</p>
+              <a href={storePath(store, `/recalls#recall-${encodeURIComponent(p.id)}`)} className="text-ink underline underline-offset-2">Recalls and Product Safety Alerts</a>
+            </Alert>
+          ) : null}
 
           <div className="flex flex-wrap items-start gap-7">
             <div className="min-w-0 flex-[1_1_400px] max-sm:basis-full">

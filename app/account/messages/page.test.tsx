@@ -88,6 +88,15 @@ it('groups messages by day, each saying what happened and linking to it', async 
   expect(before[1]).toHaveTextContent('Ravi answered: “No, it clicks off.”');
 });
 
+it('says when it was a seller who replied', async () => {
+  state.list = [msg({ key: 'support_reply:m3', kind: 'support_reply', at: '2026-10-06T06:00:00Z', subject: 'Missing lid', href: '/customer-service/cases/c2', from: 'Acme Goods', orderId: undefined })];
+  render(await MessagesPage());
+  const [row] = screen.getAllByRole('listitem');
+  expect(within(row).getByText('Seller replied')).toBeInTheDocument();
+  expect(row).toHaveTextContent('Acme Goods replied to your message. Read it and answer on your case.');
+  expect(within(row).queryByText('Customer service replied')).toBeNull();
+});
+
 it('says which items were cancelled and what came back for them', async () => {
   state.list = [
     msg({ key: 'items_refunded:c1', kind: 'items_refunded', at: '2026-10-06T06:05:00Z', subject: 'Mug and 1 more', amountMinor: 5400 }),
@@ -123,6 +132,15 @@ it('asks for a review of what arrived, linking to the review form', async () => 
   expect(within(row).getByText('How was it?')).toBeInTheDocument();
   expect(within(row).getByRole('link', { name: 'Electric Kettle' })).toHaveAttribute('href', '/product/k#write-review');
   expect(row).toHaveTextContent('Rate it and tell other shoppers what you think.');
+});
+
+it('warns about a recall of something the shopper bought, linking to what to do', async () => {
+  state.list = [msg({ key: 'recall:k', kind: 'recall', at: '2026-10-06T06:00:00Z', subject: 'Electric Kettle', href: '/recalls#recall-k', orderId: 'A-1', detail: 'The handle can overheat' })];
+  render(await MessagesPage());
+  const [row] = screen.getAllByRole('listitem');
+  expect(within(row).getByText('Product recall')).toBeInTheDocument();
+  expect(within(row).getByRole('link', { name: 'Electric Kettle' })).toHaveAttribute('href', '/recalls#recall-k');
+  expect(row).toHaveTextContent('Something you bought has been recalled. The handle can overheat. See what to do.');
 });
 
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {

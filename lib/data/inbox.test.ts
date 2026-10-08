@@ -74,6 +74,7 @@ it('collects what has happened, newest first, linking to where each is dealt wit
   const replies: InboxReply[] = [
     { id: 'm1', caseId: 'c1', subject: 'Parcel never came', at: '2026-10-06T09:00:00Z' },
     { id: 'm2', caseId: 'c1', subject: 'Parcel never came', at: '2026-10-07T09:00:00Z' }, // not yet (clock skew)
+    { id: 'm3', caseId: 'c2', subject: 'Missing lid', at: '2026-10-03T09:00:00Z', seller: 'Acme Goods' },
   ];
   const answers: InboxAnswer[] = [{ id: 'a1', productId: 'k', question: 'Does it whistle?', author: 'Ravi', body: 'No, it clicks off.', at: '2026-10-04T08:00:00Z' }];
 
@@ -90,11 +91,15 @@ it('collects what has happened, newest first, linking to where each is dealt wit
     'out_for_delivery:D',
     'refunded:B',
     'cancelled:B',
+    'support_reply:m3',
     'shipped:A',
     'shipped:D',
   ]);
   const by = (key: string) => inbox.find((m) => m.key === key)!;
   expect(by('support_reply:m1')).toMatchObject({ subject: 'Parcel never came', href: '/customer-service/cases/c1' });
+  expect(by('support_reply:m1').from).toBeUndefined();
+  // a seller's reply, on a "Contact seller" case, says who
+  expect(by('support_reply:m3')).toMatchObject({ subject: 'Missing lid', href: '/customer-service/cases/c2', from: 'Acme Goods' });
   expect(by('out_for_delivery:A')).toMatchObject({ subject: 'Electric Kettle 1.7L', href: '/orders/A?placed=0', orderId: 'A' });
   expect(by('refunded:B')).toMatchObject({ subject: 'Electric Kettle 1.7L and 2 more', amountMinor: 2500 });
   expect(by('return_refunded:r1')).toMatchObject({ subject: 'Electric Kettle 1.7L', amountMinor: 1200, href: '/orders/D?placed=0' });
@@ -160,6 +165,18 @@ it('asks for a review two days after something arrives, until it is reviewed', (
   const inbox = buildInbox({ orders: [], returns: [], replies: [], answers: [], toReview }, NOW);
   expect(inbox).toEqual([
     { key: 'review_request:k', kind: 'review_request', at: '2026-10-05T09:00:00.000Z', subject: 'Electric Kettle 1.7L', href: '/product/k#write-review', orderId: 'D' },
+  ]);
+});
+
+it('tells the shopper when something they bought is recalled', () => {
+  const recalls = [
+    { productId: 'k', title: 'Electric Kettle 1.7L', hazard: 'The handle can overheat.', issuedAt: '2026-10-04T08:00:00Z', orderId: 'D' },
+    // recalled too long ago to be news
+    { productId: 'o', title: 'Old', hazard: 'Sharp edges.', issuedAt: '2026-05-01T08:00:00Z', orderId: 'F' },
+  ];
+  const inbox = buildInbox({ orders: [], returns: [], replies: [], answers: [], recalls }, NOW);
+  expect(inbox).toEqual([
+    { key: 'recall:k', kind: 'recall', at: '2026-10-04T08:00:00Z', subject: 'Electric Kettle 1.7L', href: '/recalls#recall-k', orderId: 'D', detail: 'The handle can overheat.' },
   ]);
 });
 

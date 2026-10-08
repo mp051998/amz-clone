@@ -5,6 +5,7 @@ import {
   caseView,
   closeCase,
   getCase,
+  isStoreSeller,
   listCaseOrders,
   listCaseQueue,
   listMyCases,
@@ -80,6 +81,34 @@ it('leaves the order out of a case that isn’t about one', async () => {
 it('passes the RPC’s errors through', async () => {
   const { db } = fakeDb({ 'rpc:open_support_case': [{ data: null, error: { message: 'too_many_cases', code: 'P0001' } }] });
   await expect(openCase(db, 'US', { topic: 'other', subject: 'Sixth one', body: 'Yet another question' })).rejects.toMatchObject({ code: 'too_many_cases' });
+});
+
+it('sends a case with a seller to contact_seller, and reads the seller back', async () => {
+  const { db, calls } = fakeDb({ 'rpc:contact_seller': [{ data: row(ID, { order_id: 'ORD-1', seller: 'Acme Goods' }), error: null }] });
+  const opened = await openCase(db, 'IN', { topic: 'return', subject: 'Missing part', body: 'The lid was not in the box.', orderId: 'ORD-1', seller: '  Acme Goods ' });
+  expect(opened).toMatchObject({ id: ID, orderId: 'ORD-1', seller: 'Acme Goods' });
+  expect(calls).toEqual([
+    { table: 'rpc:contact_seller', ops: [['args', [{ p_market: 'IN', p_seller: 'Acme Goods', p_topic: 'return', p_subject: 'Missing part', p_body: 'The lid was not in the box.', p_order: 'ORD-1' }]]] },
+  ]);
+});
+
+it('opens a store case when the seller is blank, and has no seller on it', async () => {
+  const { db, calls } = fakeDb({ 'rpc:open_support_case': [{ data: row(ID, { seller: null }), error: null }] });
+  const opened = await openCase(db, 'US', { topic: 'other', subject: 'A question', body: 'Asking the store a question.', seller: '   ' });
+  expect(opened.seller).toBeUndefined();
+  expect(calls[0].table).toBe('rpc:open_support_case');
+});
+
+it('passes contact_seller’s errors through', async () => {
+  const { db } = fakeDb({
+    'rpc:contact_seller': [
+      { data: null, error: { message: 'seller_not_found', code: 'P0002' } },
+      { data: null, error: { message: 'order_not_found', details: 'seller', code: 'P0002' } },
+    ],
+  });
+  const ask = { topic: 'order', subject: 'A question', body: 'Asking the seller a question.', seller: 'Nobody' };
+  await expect(openCase(db, 'US', ask)).rejects.toMatchObject({ code: 'seller_not_found' });
+  await expect(openCase(db, 'US', { ...ask, orderId: 'ORD-9' })).rejects.toMatchObject({ code: 'order_not_found', detail: 'seller' });
 });
 
 it('checks replies and closes before calling the RPC', async () => {
@@ -202,6 +231,25 @@ it('summarises the shopper’s orders to pick from', async () => {
   // admins can read every order: the list names the shopper rather than leaning on RLS
   expect(calls[0].ops).toContainEqual(['eq', ['user_id', 'u1']]);
   expect(calls[0].ops).toContainEqual(['not', ['placed_at', 'is', null]]);
+});
+
+it('lists only the orders with a seller’s items, summed up by those items', async () => {
+  const { db, calls } = fakeDb({
+    orders: [{ data: [{ id: 'ORD-2', placed_at: '2026-10-02T00:00:00Z', created_at: '2026-10-02T00:00:00Z', order_items: [{ title: 'Desk Lamp' }] }], error: null }],
+  });
+  expect(await listCaseOrders(db, 'US', 'u1', 20, 'Acme Goods')).toEqual([{ id: 'ORD-2', placedAt: '2026-10-02T00:00:00Z', summary: 'Desk Lamp' }]);
+  expect(calls[0].ops).toContainEqual(['select', ['id, placed_at, created_at, order_items!inner(title)']]);
+  expect(calls[0].ops).toContainEqual(['eq', ['order_items.seller', 'Acme Goods']]);
+});
+
+it('knows who sells in a store, and no one for a blank name or a failed read', async () => {
+  const { db, calls } = fakeDb({ products: [{ data: [{ id: 'p1' }], error: null }, { data: [], error: null }, { data: null, error: { message: 'boom' } }] });
+  expect(await isStoreSeller(db, 'IN', 'Acme Goods')).toBe(true);
+  expect(calls[0].ops).toEqual([['select', ['id']], ['eq', ['market_id', 'IN']], ['eq', ['seller', 'Acme Goods']], ['limit', [1]]]);
+  expect(await isStoreSeller(db, 'IN', 'Nobody')).toBe(false);
+  expect(await isStoreSeller(db, 'IN', 'Acme Goods')).toBe(false);
+  expect(await isStoreSeller(db, 'IN', '  ')).toBe(false);
+  expect(calls).toHaveLength(3);
 });
 
 it('reads which cases have a new reply, and none when that fails', async () => {

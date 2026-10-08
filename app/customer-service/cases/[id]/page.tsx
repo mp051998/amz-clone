@@ -10,7 +10,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { CaseStatus, CaseThread } from '@/components/support/CaseThread';
 import { readUser } from '@/lib/auth';
 import { messageFor } from '@/lib/data/errors';
-import { getCase, markCaseSeen, MESSAGE_MAX, TOPIC_LABELS } from '@/lib/data/support';
+import { getCase, markCaseSeen, MESSAGE_MAX, TOPIC_LABELS, type SupportCase } from '@/lib/data/support';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
@@ -28,6 +28,14 @@ const DONE: Record<string, string> = {
 };
 
 const ERROR: Record<string, string> = { invalid_reply: 'Write a reply of 2 to 2,000 characters.' };
+
+/** "?seller=…&order=…": a new case like this closed one, with the same seller and order. */
+function againQuery(c: Pick<SupportCase, 'seller' | 'orderId'>): string {
+  const q = new URLSearchParams();
+  if (c.seller) q.set('seller', c.seller);
+  if (c.orderId) q.set('order', c.orderId);
+  return q.size ? `?${q}` : '';
+}
 
 /** /customer-service/cases/:id: one of the shopper's support cases, its messages, and Reply / Close. Opening it marks its replies seen. */
 export default async function SupportCasePage({ params, searchParams }: { params: Params; searchParams: SP }) {
@@ -51,9 +59,10 @@ export default async function SupportCasePage({ params, searchParams }: { params
         <header className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="m-0 text-[clamp(24px,3vw,30px)] font-semibold leading-tight tracking-[-0.01em]">{thread.subject}</h1>
-            <CaseStatus status={thread.status} viewer="customer" />
+            <CaseStatus status={thread.status} viewer="customer" seller={thread.seller} />
           </div>
           <p className="m-0 text-[14px] text-ink-2">
+            {thread.seller ? <>With seller <span className="font-semibold text-ink">{thread.seller}</span> · </> : null}
             {TOPIC_LABELS[thread.topic]} · Opened {shortDate(new Date(thread.createdAt), store)}
             {thread.orderId ? (
               <>
@@ -66,17 +75,21 @@ export default async function SupportCasePage({ params, searchParams }: { params
           </p>
         </header>
 
-        {done && DONE[done] ? <Alert tone="success">{DONE[done]}</Alert> : null}
+        {done === 'opened' && thread.seller ? (
+          <Alert tone="success">Message sent to {thread.seller}. They’ll reply here, and you can add to it any time.</Alert>
+        ) : done && DONE[done] ? (
+          <Alert tone="success">{DONE[done]}</Alert>
+        ) : null}
         {error ? <Alert tone="error">{ERROR[error] ?? messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert> : null}
 
         <div className="flex max-w-[760px] flex-col gap-5">
-          <CaseThread messages={thread.messages} viewer="customer" customer={thread.customer} time={when} />
+          <CaseThread messages={thread.messages} viewer="customer" customer={thread.customer} seller={thread.seller} time={when} />
 
           {closed ? (
             <p className="m-0 text-[15px] text-ink-2">
               This case was closed{thread.closedAt ? ` on ${shortDate(new Date(thread.closedAt), store)}` : ''}.{' '}
-              <a href={sp(`/customer-service/contact${thread.orderId ? `?order=${encodeURIComponent(thread.orderId)}` : ''}`)} className="text-ink underline underline-offset-2">
-                Contact us again
+              <a href={sp(`/customer-service/contact${againQuery(thread)}`)} className="text-ink underline underline-offset-2">
+                {thread.seller ? 'Contact the seller again' : 'Contact us again'}
               </a>{' '}
               if you still need help.
             </p>

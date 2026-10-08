@@ -7,7 +7,7 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
 import { messageFor } from '@/lib/data/errors';
-import { listCaseOrders, listMyCases, MESSAGE_MAX, OPEN_CASE_LIMIT, SUBJECT_MAX, SUPPORT_TOPICS, supportTopic, TOPIC_LABELS } from '@/lib/data/support';
+import { isStoreSeller, listCaseOrders, listMyCases, MESSAGE_MAX, OPEN_CASE_LIMIT, SUBJECT_MAX, SUPPORT_TOPICS, supportTopic, TOPIC_LABELS } from '@/lib/data/support';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
@@ -16,12 +16,13 @@ import { openCaseAction } from '../actions';
 
 export const metadata: Metadata = { title: 'Contact us · Store' };
 
-type SP = Promise<{ order?: string; topic?: string; error?: string }>;
+type SP = Promise<{ order?: string; topic?: string; seller?: string; error?: string }>;
 
 const FIELD_ERROR: Record<string, string> = {
   invalid_topic: 'Choose what your question is about.',
   invalid_subject: `Add a subject of 3 to ${SUBJECT_MAX} characters, on one line.`,
   invalid_body: 'Tell us a little more: at least 10 characters, up to 2,000.',
+  seller_order: 'That order has nothing from this seller in it. Choose another, or none.',
 };
 
 const label = 'text-[14px] font-semibold text-ink';
@@ -29,6 +30,8 @@ const label = 'text-[14px] font-semibold text-ink';
 /**
  * /customer-service/contact ("Contact us"): open a support case with a first message, optionally
  * about one of the shopper's orders (`?order=` preselects it, from the order page's "Get help").
+ * With `?seller=` it's "Contact seller": the case goes to that seller (one selling in this store),
+ * and the orders to pick from are the ones with their items.
  */
 export default async function ContactPage({ searchParams }: { searchParams: SP }) {
   const store = await getMarketplace();
@@ -36,11 +39,15 @@ export default async function ContactPage({ searchParams }: { searchParams: SP }
   const q = await searchParams;
   const user = await readUser();
   if (!user) {
-    const next = `/customer-service/contact${q.order ? `?order=${encodeURIComponent(q.order)}` : ''}`;
+    const keep = new URLSearchParams();
+    if (q.seller) keep.set('seller', q.seller);
+    if (q.order) keep.set('order', q.order);
+    const next = `/customer-service/contact${keep.size ? `?${keep}` : ''}`;
     redirect(sp(`/signin?next=${encodeURIComponent(next)}`));
   }
   const client = await db();
-  const [orders, cases] = await Promise.all([listCaseOrders(client, store.id, user.id), listMyCases(client, store.id, user.id)]);
+  const seller = q.seller && (await isStoreSeller(client, store.id, q.seller)) ? q.seller : null;
+  const [orders, cases] = await Promise.all([listCaseOrders(client, store.id, user.id, 20, seller ?? undefined), listMyCases(client, store.id, user.id)]);
   const open = cases.filter((c) => c.status !== 'closed').length;
   const order = orders.find((o) => o.id === q.order)?.id ?? '';
   const topic = supportTopic(q.topic) ?? (order ? 'order' : '');
@@ -50,10 +57,17 @@ export default async function ContactPage({ searchParams }: { searchParams: SP }
     <AppShell>
       <Page>
         <a href={sp('/customer-service')} className="self-start text-[14px] text-ink underline underline-offset-2">← Help</a>
-        <PageHead kicker="Help" title="Contact us">
-          Tell us what’s wrong. Someone from the store replies on your case, and you can follow up there until it’s sorted.
-        </PageHead>
+        {seller ? (
+          <PageHead kicker="Contact seller" title={`Contact ${seller}`}>
+            Ask the seller about an item, its delivery or a return. They reply on your case, and you can follow up there until it’s sorted.
+          </PageHead>
+        ) : (
+          <PageHead kicker="Help" title="Contact us">
+            Tell us what’s wrong. Someone from the store replies on your case, and you can follow up there until it’s sorted.
+          </PageHead>
+        )}
 
+        {q.seller && !seller ? <Alert tone="warning">That seller isn’t selling in this store, so this goes to the store instead.</Alert> : null}
         {error ? <Alert tone="error">{error}</Alert> : null}
 
         {open >= OPEN_CASE_LIMIT ? (
@@ -63,6 +77,7 @@ export default async function ContactPage({ searchParams }: { searchParams: SP }
           </Alert>
         ) : (
           <form action={openCaseAction} className="flex max-w-[680px] flex-col gap-4 rounded-panel border border-line bg-surface p-5 sm:p-6">
+            {seller ? <input type="hidden" name="seller" value={seller} /> : null}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="cs-topic" className={label}>What’s it about?</label>
               <select id="cs-topic" name="topic" required defaultValue={topic} className={`${selectClass} w-full`}>

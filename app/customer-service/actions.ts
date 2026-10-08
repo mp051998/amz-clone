@@ -9,22 +9,34 @@ import { db } from '@/lib/supabase/server';
 
 const text = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
 
-/** "Contact us" → a new case, then its page; on an error, back to the form saying what was wrong. */
+/** What the contact form says went wrong: the field, an order without the seller's items, or the code. */
+function formError(err: DataError): string {
+  if (err.code === 'invalid_input' && err.detail) return `invalid_${err.detail}`;
+  if (err.code === 'order_not_found' && err.detail === 'seller') return 'seller_order';
+  return err.code;
+}
+
+/**
+ * "Contact us" (or "Contact seller", with `seller`) → a new case, then its page; on an error, back
+ * to the form saying what was wrong.
+ */
 export async function openCaseAction(formData: FormData): Promise<void> {
   const store = await getMarketplace();
   const order = text(formData.get('order'));
   const topic = text(formData.get('topic'));
+  const seller = text(formData.get('seller'));
   if (!(await readUser())) redirect(storePath(store, '/signin?next=/customer-service/contact'));
   let created: SupportCase | null = null;
   let error = '';
   try {
-    created = await openCase(await db(), store.id, { topic, subject: formData.get('subject'), body: formData.get('body'), orderId: order });
+    created = await openCase(await db(), store.id, { topic, subject: formData.get('subject'), body: formData.get('body'), orderId: order, seller });
   } catch (err) {
     if (!(err instanceof DataError)) throw err;
-    error = err.code === 'invalid_input' && err.detail ? `invalid_${err.detail}` : err.code;
+    error = formError(err);
   }
   if (!created) {
     const back = new URLSearchParams({ error });
+    if (seller) back.set('seller', seller);
     if (order) back.set('order', order);
     if (topic) back.set('topic', topic);
     redirect(storePath(store, `/customer-service/contact?${back}`));
