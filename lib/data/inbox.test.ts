@@ -220,6 +220,8 @@ it('reminds a Plus member a week before an annual or 3-month plan renews, or any
   ]);
   expect(at(null)).toEqual([]);
   expect(at({ plan: 'annual', autoRenew: true })).toEqual([]);
+  // the adult a membership is shared with isn't reminded: it isn't theirs to renew
+  expect(at({ plan: 'annual', renewsAt, autoRenew: false, shared: { ownerName: 'Asha' } })).toEqual([]);
 });
 
 it('tells the shopper what the store decided on their A-to-z claims', () => {

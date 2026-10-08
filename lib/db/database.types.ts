@@ -749,6 +749,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"plus_household": {
+                  Row: {
+                    "owner_id": string,"email": string,"member_id": string | null,"invited_at": string,"joined_at": string | null
+                  }
+                  Insert: {
+                    "owner_id": string,"email": string,"member_id"?: string | null,"invited_at"?: string,"joined_at"?: string | null
+                  }
+                  Update: {
+                    "owner_id"?: string,"email"?: string,"member_id"?: string | null,"invited_at"?: string,"joined_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "plus_household_owner_id_fkey"
+      columns: ["owner_id"]
+isOneToOne: true
+      referencedRelation: "plus_members"
+      referencedColumns: ["user_id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "created_at": string,"display_name": string,"id": string,"updated_at": string
@@ -1294,6 +1313,21 @@ isOneToOne: false
                            },
 "set_delivery_day":
 { Args: { "p_day": number | null }; Returns: Json
+                           },
+"plus_household":
+{ Args: never; Returns: Json
+                           },
+"invite_plus_household":
+{ Args: { "p_email": string }; Returns: Json
+                           },
+"accept_plus_household":
+{ Args: { "p_owner": string }; Returns: Json
+                           },
+"decline_plus_household":
+{ Args: { "p_owner": string }; Returns: Json
+                           },
+"end_plus_household":
+{ Args: never; Returns: Json
                            },
 "mark_sold_out":
 { Args: { "p_order_id": string }; Returns: undefined

@@ -147,7 +147,7 @@ export interface InboxSources {
   /** their A-to-z Guarantee claims that have been decided */
   claims?: InboxClaim[];
   /** their Plus membership */
-  plus?: Pick<PlusMembership, 'plan' | 'nextPlan' | 'renewsAt' | 'autoRenew'> | null;
+  plus?: Pick<PlusMembership, 'plan' | 'nextPlan' | 'renewsAt' | 'autoRenew' | 'shared'> | null;
 }
 
 /** A Lightning Deal the shopper watched, since it went live. */
@@ -169,7 +169,8 @@ export const PLUS_REMINDER_MS = 7 * 86_400_000;
  * renews without one, as on Amazon), or before any plan ends with renewal off.
  */
 function plusMessages(plus: InboxSources['plus']): InboxMessage[] {
-  if (!plus?.renewsAt) return [];
+  // the member a membership is shared with doesn't manage it
+  if (!plus?.renewsAt || plus.shared) return [];
   const plan = plus.nextPlan ?? plus.plan;
   if (plus.autoRenew && plan === 'monthly' && plus.plan === 'monthly') return [];
   const kind: InboxKind = plus.autoRenew ? 'plus_renewal' : 'plus_ending';

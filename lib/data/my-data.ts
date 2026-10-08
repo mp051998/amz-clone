@@ -9,6 +9,7 @@ import { listCollections } from './collections';
 import { unwrap } from './errors';
 import { listOrders } from './orders';
 import { plusMembership, type PlusMembership } from './plus';
+import { plusHousehold, type PlusHousehold } from './plus-household';
 import { listMyReviews, type MyReview } from './reviews';
 import { myFeedback, type SellerFeedback } from './seller-feedback';
 
@@ -21,6 +22,8 @@ export interface MyData {
   exportedAt: string;
   account: { id: string; email: string | null; name: string | null; createdAt: string | null };
   plus: PlusMembership | null;
+  /** who the shopper shares their Plus with, whose they share, and the invites waiting for them */
+  plusHousehold: PlusHousehold | null;
   stores: Record<Market, StoreData>;
   returns: ReturnRecord[];
   questions: { id: string; productId: string; body: string; createdAt: string }[];
@@ -169,9 +172,10 @@ async function storeData(db: Db, market: Market, userId: string): Promise<StoreD
 /** Everything about the signed-in shopper. `user` is the session's user. */
 export async function exportMyData(db: Db, user: { id: string; email: string | null; name?: string }, now = new Date()): Promise<MyData> {
   // admins can read every return, so each query names the shopper rather than leaning on RLS
-  const [profile, plus, US, IN, returns, questions, answers, sellerFeedback, cases] = await Promise.all([
+  const [profile, plus, household, US, IN, returns, questions, answers, sellerFeedback, cases] = await Promise.all([
     db.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle().then(unwrap),
     plusMembership(db),
+    plusHousehold(db).catch(() => null),
     storeData(db, 'US', user.id),
     storeData(db, 'IN', user.id),
     db
@@ -194,6 +198,7 @@ export async function exportMyData(db: Db, user: { id: string; email: string | n
     exportedAt: now.toISOString(),
     account: { id: user.id, email: user.email, name: profile?.display_name || user.name || null, createdAt: profile?.created_at ?? null },
     plus,
+    plusHousehold: household,
     stores: { US, IN },
     returns: returns.map((r) => ({
       id: r.id,

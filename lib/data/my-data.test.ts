@@ -10,6 +10,7 @@ const parts = vi.hoisted(() => ({
   storeBalance: vi.fn(),
   balanceHistory: vi.fn(),
   plusMembership: vi.fn(),
+  plusHousehold: vi.fn(),
   followedBrands: vi.fn(),
 }));
 vi.mock('./orders', () => ({ listOrders: parts.listOrders }));
@@ -18,6 +19,7 @@ vi.mock('./collections', () => ({ listCollections: parts.listCollections }));
 vi.mock('./reviews', () => ({ listMyReviews: parts.listMyReviews }));
 vi.mock('./balance', () => ({ storeBalance: parts.storeBalance, balanceHistory: parts.balanceHistory }));
 vi.mock('./plus', () => ({ plusMembership: parts.plusMembership }));
+vi.mock('./plus-household', () => ({ plusHousehold: parts.plusHousehold }));
 vi.mock('./brand-follows', () => ({ followedBrands: parts.followedBrands }));
 
 import { dataFileName, exportMyData, listRecord, reviewRecord } from './my-data';
@@ -120,6 +122,7 @@ describe('exportMyData', () => {
     parts.storeBalance.mockImplementation(async (_db, m) => (m === 'US' ? 2500 : null));
     parts.balanceHistory.mockResolvedValue([]);
     parts.plusMembership.mockResolvedValue({ since: '2026-05-01T00:00:00Z' });
+    parts.plusHousehold.mockResolvedValue({ owned: { email: 'ravi@example.test', invitedAt: '2026-05-02T00:00:00Z' }, shared: null, invites: [] });
     parts.followedBrands.mockImplementation(async (_db, m) => (m === 'US' ? [{ brand: 'Acme', followedAt: '2026-09-30T00:00:00Z' }] : []));
   });
 
@@ -128,6 +131,7 @@ describe('exportMyData', () => {
     expect(data.exportedAt).toBe('2026-10-06T12:00:00.000Z');
     expect(data.account).toEqual({ id: 'u1', email: 'asha@example.test', name: 'Asha Rao', createdAt: '2026-01-01T00:00:00Z' });
     expect(data.plus).toEqual({ since: '2026-05-01T00:00:00Z' });
+    expect(data.plusHousehold).toEqual({ owned: { email: 'ravi@example.test', invitedAt: '2026-05-02T00:00:00Z' }, shared: null, invites: [] });
     expect(data.stores.US).toMatchObject({ currency: 'USD', orders: [], giftCardBalanceMinor: 2500, followedBrands: [{ brand: 'Acme', followedAt: '2026-09-30T00:00:00Z' }] });
     // a balance that can't be read exports as none
     expect(data.stores.IN).toMatchObject({ currency: 'INR', orders: [{ id: 'ORD-1' }], giftCardBalanceMinor: 0 });

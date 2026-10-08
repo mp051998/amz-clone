@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { joinPlus, leavePlus, setDeliveryDay, setPlusPlan, setPlusRenewal } from '@/lib/data/plus';
+import { isUuid } from '@/lib/data/collections';
+import { acceptPlusHousehold, declinePlusHousehold, endPlusHousehold, invitePlusHousehold } from '@/lib/data/plus-household';
 import { isPlusPlanId } from '@/lib/plus-plans';
 import { DataError } from '@/lib/data/errors';
 import { getMarket } from '@/lib/session';
@@ -80,4 +82,69 @@ export async function leavePlusAction(): Promise<void> {
   await leavePlus(await db());
   revalidatePath('/', 'layout');
   redirect(sp(`${PAGE}?left=1`));
+}
+
+/** The household errors the page explains (`?household=<code>`); an `invalid_input` is the email. */
+const HOUSEHOLD_ERRORS = ['plus_required', 'household_full', 'plus_owned', 'household_member', 'invite_not_found'];
+
+function householdError(sp: (path: string) => string, err: unknown, hash = ''): never {
+  if (err instanceof DataError) {
+    const code = err.code === 'invalid_input' ? 'email' : err.code;
+    if (code === 'email' || HOUSEHOLD_ERRORS.includes(code)) redirect(sp(`${PAGE}?household=${code}${hash}`));
+  }
+  throw err;
+}
+
+/** Invite an adult (`email`) to share the member's Plus. */
+export async function invitePlusHouseholdAction(formData: FormData): Promise<void> {
+  const sp = await signedIn();
+  try {
+    await invitePlusHousehold(await db(), String(formData.get('email') ?? ''));
+  } catch (err) {
+    householdError(sp, err, '#household');
+  }
+  redirect(sp(`${PAGE}?household=invited#household`));
+}
+
+/** Stop sharing the member's Plus, or cancel the invite that's waiting. */
+export async function stopSharingPlusAction(): Promise<void> {
+  const sp = await signedIn();
+  await endPlusHousehold(await db());
+  redirect(sp(`${PAGE}?household=stopped#household`));
+}
+
+/** The invite's `owner`, or the page saying it isn't open any more. */
+function inviteOwner(sp: (path: string) => string, formData: FormData): string {
+  const owner = String(formData.get('owner') ?? '');
+  if (!isUuid(owner)) redirect(sp(`${PAGE}?household=invite_not_found`));
+  return owner;
+}
+
+/** Accept the invite from `owner`, sharing their Plus from now on. */
+export async function acceptPlusInviteAction(formData: FormData): Promise<void> {
+  const sp = await signedIn();
+  const owner = inviteOwner(sp, formData);
+  try {
+    await acceptPlusHousehold(await db(), owner);
+  } catch (err) {
+    householdError(sp, err);
+  }
+  // prices in the header cart, cart and checkout change with membership
+  revalidatePath('/', 'layout');
+  redirect(sp(`${PAGE}?household=joined`));
+}
+
+/** Decline the invite from `owner`. */
+export async function declinePlusInviteAction(formData: FormData): Promise<void> {
+  const sp = await signedIn();
+  await declinePlusHousehold(await db(), inviteOwner(sp, formData));
+  redirect(sp(`${PAGE}?household=declined`));
+}
+
+/** Leave the household whose Plus the shopper shares. */
+export async function leavePlusHouseholdAction(): Promise<void> {
+  const sp = await signedIn();
+  await endPlusHousehold(await db());
+  revalidatePath('/', 'layout');
+  redirect(sp(`${PAGE}?household=left`));
 }
