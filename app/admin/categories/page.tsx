@@ -88,9 +88,9 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
       </span>
     );
 
-  // its own return window in this store, or the store's
+  // its own return window in this store, or the store's, and whether it's replacement only
   const returnsCell = (c: AdminCategory) => {
-    const days = c.stores[store.id].returnDays;
+    const { returnDays: days, replacementOnly } = c.stores[store.id];
     return (
       <form action={setReturnDaysAction.bind(null, c.slug)} className="flex flex-col gap-1">
         <span className="flex items-center gap-1.5">
@@ -108,7 +108,14 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
           />
           <button type="submit" className={small}>Save</button>
         </span>
-        <span className="text-[12px] text-ink-3">{days == null ? `Store’s ${store.returns.days} days` : days === 0 ? 'Not returnable' : `${days} days`}</span>
+        <label className="flex items-center gap-1.5 text-[12px] text-ink-2">
+          <input type="checkbox" name="replacement_only" defaultChecked={replacementOnly} aria-label={`Replacement only for ${c.name}`} className="size-3.5 accent-ink" />
+          Replacement only
+        </label>
+        <span className="text-[12px] text-ink-3">
+          {days == null ? `Store’s ${store.returns.days} days` : days === 0 ? 'Not returnable' : `${days} days`}
+          {replacementOnly && days !== 0 ? ', replacement only' : ''}
+        </span>
       </form>
     );
   };
@@ -153,7 +160,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
       store={store}
       path="/admin/categories"
       title="Categories"
-      lede={<>Categories are shared by both stores; each store picks which ones its nav shows and in what order, and can give one its own return window (0 days: not returnable; blank: the store’s {store.returns.days}). A new window applies to orders placed after it. A slug can’t change once it’s created.</>}
+      lede={<>Categories are shared by both stores; each store picks which ones its nav shows and in what order, and can give one its own return window (0 days: not returnable; blank: the store’s {store.returns.days}) or make it replacement only (back only when faulty, and replaced; refunded when it can’t be). A change applies to orders placed after it. A slug can’t change once it’s created.</>}
     >
       {problem ? <Alert tone="error">{problem}</Alert> : notice ? <Alert tone="success">{notice}</Alert> : null}
 

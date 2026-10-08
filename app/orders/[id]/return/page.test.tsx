@@ -155,3 +155,26 @@ it('lists the items that can’t be returned beside the ones that can', async ()
   expect(screen.getByRole('combobox', { name: 'Lamp' })).toBeTruthy();
   expect(screen.queryByRole('combobox', { name: 'Lipstick' })).toBeNull();
 });
+
+it('says a replacement-only item goes back only when faulty, and picks a replacement for it', async () => {
+  state.returns = { ...ONE, replaceable: { p1: 1 } };
+  await show(order({ items: [{ ...order().items[0], title: 'Phone', replacementOnly: true, returnDays: 7 }] }));
+  expect(screen.getByText(/^Replacement only: Phone\. It can go back only if it arrived damaged, .* we refund it\.$/)).toBeTruthy();
+  expect(screen.getByText(/1 ordered · Replacement only/)).toBeTruthy();
+  expect((screen.getByRole('radio', { name: /^A replacement/ }) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByRole('radio', { name: /^A refund/ }) as HTMLInputElement).checked).toBe(false);
+});
+
+it('keeps a refund first when an item that isn’t replacement only can go back too', async () => {
+  state.returns = { ...ONE, returnable: { p1: 1, p2: 1 }, replaceable: { p1: 1, p2: 1 } };
+  await show(order({ items: [...order().items, { productId: 'p2', title: 'Phone', image: '', seller: 'Store', unitPriceMinor: 900, qty: 1, replacementOnly: true }] }));
+  expect(screen.getByText(/^Replacement only: Phone\./)).toBeTruthy();
+  expect((screen.getByRole('radio', { name: /^A refund/ }) as HTMLInputElement).checked).toBe(true);
+});
+
+it('explains a refused return of a replacement-only item', async () => {
+  state.returns = { ...ONE, replaceable: { p1: 1 } };
+  state.order = order({ items: [{ ...order().items[0], title: 'Phone', replacementOnly: true }] });
+  render(await ReturnPage({ params: Promise.resolve({ id: '114-0000000-0000000' }), searchParams: Promise.resolve({ error: 'return_not_allowed', field: 'replacement_only' }) }));
+  expect(screen.getByText(/^Phone can only be replaced, if it arrived damaged, .*we refund it only when it can’t be replaced\.$/)).toBeTruthy();
+});

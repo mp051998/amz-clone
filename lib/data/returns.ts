@@ -225,6 +225,13 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
   if (res.error?.message === 'invalid_input' && res.error.details === 'items') {
     throw new DataError('invalid_input', 'items', 'Those items or quantities can’t be returned. Check what’s left to return.');
   }
+  if (res.error?.message === 'return_not_allowed' && res.error.details === 'replacement_only') {
+    throw new DataError(
+      'return_not_allowed',
+      'replacement_only',
+      'That item can only be replaced, if it arrived damaged, doesn’t work, is the wrong item, has parts missing or isn’t as described. It’s refunded only when it can’t be replaced.',
+    );
+  }
   return toReturn(unwrap(res));
 }
 

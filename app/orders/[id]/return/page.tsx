@@ -31,6 +31,8 @@ const FIELD_ERROR: Record<string, string> = {
   refundTo: 'Choose where the refund goes: back to how you paid, or your balance.',
 };
 
+const FAULTS = 'arrived damaged, doesn’t work, is the wrong item, has parts missing or isn’t as described';
+
 /** /orders/:id/return: pick items and quantities, say why, start the return. */
 export default async function ReturnPage({
   params,
@@ -60,12 +62,24 @@ export default async function ReturnPage({
   const replaceable = lines.filter((it) => (returns.replaceable[it.productId] ?? 0) > 0);
   // in a category that can't be returned in this store
   const keep = order.items.filter((it) => !isReturnable(it));
+  // in a category that only goes back for a fault, as a replacement (a refund when it can't be)
+  const replaceOnly = lines.filter((it) => it.replacementOnly);
+  const names = (items: typeof lines) => items.map((it) => it.title).join(', ');
+  // when everything left to return is replacement only and can be replaced, that's the choice
+  const replaceFirst = replaceOnly.length === lines.length && replaceable.length === lines.length;
   const original = refundTo(order.paymentMethod, order.paymentLabel);
   // an order paid from the balance is refunded to it anyway
   const balance = isBalanceMethod(order.paymentMethod) ? null : refundTo(balanceMethod(order.market), '');
   // a courier collects from the delivery address, which an order collected from a pickup point doesn't have
   const collectFrom = order.pickup ? undefined : [order.shipTo.line1, order.shipTo.line2, `${order.shipTo.city} ${order.shipTo.postcode}`].filter(Boolean).join(', ');
-  const errorText = error ? (error === 'invalid_input' && field && FIELD_ERROR[field]) || messageFor(error) || 'Something went wrong. Please try again.' : null;
+  const errorText = error
+    ? (error === 'invalid_input' && field && FIELD_ERROR[field]) ||
+      (error === 'return_not_allowed' && field === 'replacement_only'
+        ? `${replaceOnly.length ? names(replaceOnly) : 'That item'} can only be replaced, if it ${FAULTS}. Choose one of those reasons and a replacement; we refund it only when it can’t be replaced.`
+        : null) ||
+      messageFor(error) ||
+      'Something went wrong. Please try again.'
+    : null;
 
   return (
     <AppShell>
@@ -115,7 +129,7 @@ export default async function ReturnPage({
                       <label htmlFor={fieldId} className="line-clamp-2 text-[15px] font-semibold">{it.title}</label>
                       {it.size ? <span className="text-[13px] text-ink-2">Size: {it.size}</span> : null}
                       <span className="text-[13px] text-ink-3">
-                        {money(it.unitPriceMinor - (it.unitDiscountMinor ?? 0))} each{it.unitDiscountMinor ? ' after coupon' : ''} · {left === it.qty ? `${it.qty} ordered` : `${left} of ${it.qty} left to return`}{by ? ` · return by ${shortDate(by, store)}` : ''}
+                        {money(it.unitPriceMinor - (it.unitDiscountMinor ?? 0))} each{it.unitDiscountMinor ? ' after coupon' : ''} · {left === it.qty ? `${it.qty} ordered` : `${left} of ${it.qty} left to return`}{by ? ` · return by ${shortDate(by, store)}` : ''}{it.replacementOnly ? ' · Replacement only' : ''}
                       </span>
                     </div>
                     <select id={fieldId} name={`qty:${it.productId}`} defaultValue={lines.length === 1 ? String(left) : '0'} className={selectClass}>
@@ -129,6 +143,11 @@ export default async function ReturnPage({
             </fieldset>
             {keep.length ? (
               <p className="m-0 -mt-2 text-[13px] text-ink-3">Can’t be returned: {keep.map((it) => it.title).join(', ')}.</p>
+            ) : null}
+            {replaceOnly.length ? (
+              <p className="m-0 -mt-2 text-[13px] text-ink-3">
+                Replacement only: {names(replaceOnly)}. {replaceOnly.length === 1 ? 'It' : 'Each'} can go back only if it {FAULTS}, and we send another; if we can’t (it’s been replaced once already, or it’s out of stock), we refund it.
+              </p>
             ) : null}
 
             <div className="flex flex-col gap-1.5">
@@ -147,14 +166,14 @@ export default async function ReturnPage({
               <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                 <legend className="mb-1.5 p-0 text-[14px] font-semibold">What would you like?</legend>
                 <label className="flex items-start gap-2.5 text-[14px]">
-                  <input type="radio" name="resolution" value="refund" defaultChecked className="mt-0.5 size-4 flex-none accent-ink" />
+                  <input type="radio" name="resolution" value="refund" defaultChecked={!replaceFirst} className="mt-0.5 size-4 flex-none accent-ink" />
                   <span>
                     <span className="font-semibold">A refund</span>
                     <span className="block text-[13px] text-ink-3">{balance ? 'Once the items reach us, to where you choose below.' : `To ${original}, once the items reach us.`}</span>
                   </span>
                 </label>
                 <label className="flex items-start gap-2.5 text-[14px]">
-                  <input type="radio" name="resolution" value="replacement" className="mt-0.5 size-4 flex-none accent-ink" />
+                  <input type="radio" name="resolution" value="replacement" defaultChecked={replaceFirst} className="mt-0.5 size-4 flex-none accent-ink" />
                   <span>
                     <span className="font-semibold">A replacement</span>
                     <span className="block text-[13px] text-ink-3">

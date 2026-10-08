@@ -9,7 +9,7 @@ import {
   renameCategory,
 } from '@/lib/data/admin-categories';
 import { DataError } from '@/lib/data/errors';
-import { parseReturnDays, setCategoryReturnDays } from '@/lib/data/return-policy';
+import { parseReplacementOnly, parseReturnDays, setCategoryReturnPolicy } from '@/lib/data/return-policy';
 
 async function load(ctx: ApiContext, slug: string) {
   const category = (await listAdminCategories(ctx.db)).find((c) => c.slug === slug);
@@ -18,10 +18,11 @@ async function load(ctx: ApiContext, slug: string) {
 }
 
 /**
- * PATCH /api/v1/admin/categories/:slug { name?, listed?, move?, returnDays? } — rename; list in
+ * PATCH /api/v1/admin/categories/:slug { name?, listed?, move?, returnDays?, replacementOnly? } — rename; list in
  * (`true`) or drop from (`false`) this store's nav (`category_in_use` while the store has products
  * in it); `move` by that many places (negative = earlier); `returnDays` sets its return window in
- * this store (0 = not returnable, null = the store's), for orders placed from now on. The slug
+ * this store (0 = not returnable, null = the store's) and `replacementOnly` whether it goes back
+ * for a fault only, replaced, both for orders placed from now on. The slug
  * itself never changes.
  */
 export const PATCH = route<{ slug: string }>(async (ctx, { slug }) => {
@@ -32,11 +33,12 @@ export const PATCH = route<{ slug: string }>(async (ctx, { slug }) => {
   if ('move' in b && !Number.isInteger(b.move)) throw new DataError('invalid_input', 'move', 'move must be a whole number');
   if ('returnDays' in b && b.returnDays !== null && typeof b.returnDays !== 'number') throw new DataError('invalid_input', 'return_days', 'returnDays must be a number of days or null');
   const returnDays = 'returnDays' in b ? parseReturnDays(b.returnDays) : undefined;
+  const replacementOnly = 'replacementOnly' in b ? parseReplacementOnly(b.replacementOnly) : undefined;
   if ('name' in b) await renameCategory(ctx.db, slug, b.name);
   if (b.listed === true) await addCategoryToStore(ctx.db, ctx.market, slug);
   if (b.listed === false) await removeCategoryFromStore(ctx.db, ctx.market, slug);
   if (typeof b.move === 'number' && b.move !== 0) await moveCategory(ctx.db, ctx.market, slug, b.move);
-  if (returnDays !== undefined) await setCategoryReturnDays(ctx.db, ctx.market, slug, returnDays);
+  if (returnDays !== undefined || replacementOnly !== undefined) await setCategoryReturnPolicy(ctx.db, ctx.market, slug, { days: returnDays, replacementOnly });
   return json({ category: await load(ctx, slug) });
 });
 

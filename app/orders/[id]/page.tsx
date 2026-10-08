@@ -573,6 +573,8 @@ export default async function OrderPage({
                 </span>
                 {!isReturnable(it) ? (
                   <span className="text-[13px] text-ink-2">Not returnable</span>
+                ) : it.replacementOnly ? (
+                  <span className="text-[13px] text-ink-2">Replacement only{it.returnDays ? `, within ${it.returnDays} days of delivery` : ''}</span>
                 ) : it.returnDays ? (
                   <span className="text-[13px] text-ink-2">Returnable within {it.returnDays} days of delivery</span>
                 ) : null}

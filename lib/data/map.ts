@@ -196,6 +196,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       ...(it.unit_bank_minor ? { unitBankMinor: it.unit_bank_minor } : {}),
       // absent on rows read before the category return windows migration lands, and for the store's window
       ...(typeof it.return_days === 'number' ? { returnDays: it.return_days } : {}),
+      // absent on rows read before the replacement-only migration lands, and for refundable lines
+      ...(it.replacement_only ? { replacementOnly: true } : {}),
     }));
 }
 
