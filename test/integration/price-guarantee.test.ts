@@ -63,7 +63,7 @@ const reprice = async (priceMinor: number) => {
   await refundPriceGuarantees(game, { db: admin(), stripe: fake() });
 };
 
-const guarantees = async (id: string) => (await getOrder(shopper.db, id))!.cancellations!.filter((c) => c.priceGuarantee);
+const guarantees = async (id: string) => ((await getOrder(shopper.db, id))!.cancellations ?? []).filter((c) => c.priceGuarantee);
 
 beforeAll(async () => {
   boss = await newUser('Guarantee Admin');
