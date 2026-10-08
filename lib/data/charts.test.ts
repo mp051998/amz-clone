@@ -13,6 +13,7 @@ function fakeDb(ranking: { data: string[] | null; error: { code: string; message
       eq: () => q,
       neq: () => q,
       not: () => q,
+      is: () => q,
       order: () => q,
       limit: () => q,
       in: (_col: string, v: string[]) => ((ids = v), q),

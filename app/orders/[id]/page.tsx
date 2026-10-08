@@ -81,7 +81,7 @@ function giftText(gift: NonNullable<Order['gift']>) {
 /** Add-ons for what was just ordered (the thank-you page's "goes with your order" row); never an error. */
 async function pairsFor(client: Db, o: Order): Promise<Accessory[]> {
   try {
-    const bought = await getProducts(client, o.items.map((i) => i.productId));
+    const bought = await getProducts(client, [...new Set(o.items.map((i) => i.offerOf ?? i.productId))]);
     return await accessoriesFor(bought.filter((p) => p.market === o.market), 4, client);
   } catch {
     return [];

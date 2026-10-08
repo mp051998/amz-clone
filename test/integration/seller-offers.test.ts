@@ -5,7 +5,7 @@ import { setCartQty } from '@/lib/data/cart';
 import { getProduct, searchCatalog } from '@/lib/data/catalog';
 import { listOffers } from '@/lib/data/offers';
 import { getOrder, placeOrder } from '@/lib/data/orders';
-import { listReviews, upsertReview } from '@/lib/data/reviews';
+import { awaitingReview, listReviews, upsertReview } from '@/lib/data/reviews';
 import { parseQuery } from '@/lib/search';
 import { admin, anon, deleteUser, deliveredDaysAgo, newUser, US_SHIPPING, type TestUser } from './helpers';
 
@@ -150,6 +150,7 @@ describe('other sellers’ offers', () => {
 
     // once it arrives, its review is a verified purchase's, on the product
     await deliveredDaysAgo(placed.id);
+    expect((await awaitingReview(shopper.db, 'US', shopper.id)).map((x) => x.product.id)).toEqual([lamp]);
     await upsertReview(shopper.db, lamp, shopper.id, { rating: 4, title: 'Works fine', body: 'Bought it used, it works.' });
     const { items } = await listReviews(anon(), lamp, null, { limit: 10, sort: 'recent' });
     expect(items.find((r) => r.title === 'Works fine')).toMatchObject({ verified: true });
