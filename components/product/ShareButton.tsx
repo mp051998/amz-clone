@@ -8,6 +8,8 @@ export interface ShareButtonProps {
   path: string;
   /** the product photo, for Pinterest */
   image?: string;
+  /** `link`: a plain underlined "Share", as on a cart line (the panel opens to its right) */
+  variant?: 'pill' | 'link';
 }
 
 function ShareIcon() {
@@ -34,10 +36,10 @@ export function shareTargets(title: string, url: string, image?: string): { labe
 const touch = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
 
 /**
- * "Share" on a product page: the phone's own share sheet on touch devices, otherwise a small panel
- * with the link to copy and the usual places to send it.
+ * "Share" on a product page or a cart line: the phone's own share sheet on touch devices, otherwise
+ * a small panel with the link to copy and the usual places to send it.
  */
-export function ShareButton({ title, path, image }: ShareButtonProps) {
+export function ShareButton({ title, path, image, variant = 'pill' }: ShareButtonProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -111,9 +113,14 @@ export function ShareButton({ title, path, image }: ShareButtonProps) {
         onClick={onShare}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-pill border border-line-3 bg-surface px-3 text-[13px] font-semibold text-ink hover:border-ink"
+        aria-label={variant === 'link' ? `Share ${title}` : undefined}
+        className={
+          variant === 'link'
+            ? 'min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink'
+            : 'inline-flex min-h-9 items-center gap-1.5 rounded-pill border border-line-3 bg-surface px-3 text-[13px] font-semibold text-ink hover:border-ink'
+        }
       >
-        <ShareIcon />
+        {variant === 'link' ? null : <ShareIcon />}
         Share
       </button>
       {open ? (
@@ -122,7 +129,7 @@ export function ShareButton({ title, path, image }: ShareButtonProps) {
           id={id}
           role="group"
           aria-label="Share this product"
-          className="absolute right-0 top-[calc(100%+6px)] z-40 flex w-[min(320px,calc(100vw-32px))] flex-col gap-3 rounded-card border border-line bg-surface p-3.5 text-ink shadow-hero"
+          className={`absolute ${variant === 'link' ? 'left-0' : 'right-0'} top-[calc(100%+6px)] z-40 flex w-[min(320px,calc(100vw-32px))] flex-col gap-3 rounded-card border border-line bg-surface p-3.5 text-ink shadow-hero`}
         >
           <div className="flex items-stretch gap-2">
             <input

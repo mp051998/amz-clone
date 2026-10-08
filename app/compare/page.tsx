@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState, Kicker, MatchBadge, TopPickBadge } from '@/components/decision/Badges';
 import { Alert } from '@/components/primitives/Alert';
@@ -10,6 +11,7 @@ import { compareVerdictAI } from '@/lib/ai/features/compare';
 import { decisionConfig } from '@/lib/decision/attributes';
 import { effectiveWeights, readDecisionParams } from '@/lib/decision/params';
 import { rankProducts } from '@/lib/decision/rank';
+import { alternativesFor } from '@/lib/decision/server';
 import { categoryGroups, compareTable, mixedCompareTable, shortTitle, type CategoryGroup, type CompareTable } from '@/lib/decision/verdict';
 import { getProducts } from '@/lib/data/catalog';
 import { getInsights } from '@/lib/data/insights';
@@ -37,7 +39,8 @@ function one(sp: SP, key: string): string | undefined {
 
 /**
  * Compare 2–4 products (prototype Compare screen): /compare?ids=a,b,c (and /in/compare).
- * Unknown ids and products from the other store are ignored. Weights come from the URL
+ * `similar=a` ("Compare with similar items" on a cart line) compares a with the products most like
+ * it. Unknown ids and products from the other store are ignored. Weights come from the URL
  * (`w` / `preset` / `use`, lib/decision/params.ts) or the category defaults.
  * Products from more than one category can't be ranked on a shared basis, so a mixed compare
  * drops the verdict, match and category scores and keeps only the facts every product has.
@@ -47,6 +50,12 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const store = await getMarketplace();
   const ids = [...new Set((one(sp, 'ids') ?? '').split(',').map((s) => s.trim()).filter((s) => ID.test(s)))].slice(0, MAX);
   const client = await db();
+  const similar = one(sp, 'similar');
+  if (similar && ID.test(similar) && !ids.length) {
+    const [base] = (await getProducts(client, [similar])).filter((p) => p.market === store.id);
+    const alts = base ? await alternativesFor(base, MAX - 1, undefined, client).catch(() => []) : [];
+    redirect(storePath(store, base ? `/compare?ids=${[base.id, ...alts.map((a) => a.product.id)].join(',')}` : '/compare'));
+  }
   const products = (await getProducts(client, ids)).filter((p) => p.market === store.id);
 
   const groups = categoryGroups(products);
