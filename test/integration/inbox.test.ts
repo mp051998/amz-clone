@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { receiveReturn } from '@/lib/data/admin-returns';
 import { inboxSeenAt, listInbox, markInboxSeen } from '@/lib/data/inbox';
 import { cancelOrder, placeOrder } from '@/lib/data/orders';
+import { joinPlus, setPlusPlan, setPlusRenewal } from '@/lib/data/plus';
 import { answerQuestion, askQuestion } from '@/lib/data/questions';
 import { requestReturn } from '@/lib/data/returns';
 import { upsertReview } from '@/lib/data/reviews';
@@ -159,5 +160,42 @@ describe('your messages', () => {
     } finally {
       await deleteUser(reviewer);
     }
+  });
+});
+
+describe('Plus reminders in your messages', () => {
+  let member: TestUser;
+  beforeAll(async () => {
+    member = await newUser('Inbox Plus Member');
+  });
+  afterAll(async () => {
+    await deleteUser(member);
+  });
+
+  const plusMessages = async (market: 'US' | 'IN') => (await listInbox(member.db, market, member.id)).filter((m) => m.kind.startsWith('plus_'));
+  /** Bring the member's period end to `days` from now. */
+  const endsIn = async (days: number) => {
+    const at = new Date(Date.now() + days * 86_400_000).toISOString();
+    const { error } = await admin().from('plus_members').update({ renews_at: at }).eq('user_id', member.id);
+    if (error) throw error;
+    return at;
+  };
+
+  it('a week before an annual plan renews, in both stores; nothing for a monthly one', async () => {
+    await joinPlus(member.db, 'IN', 'annual');
+    expect(await plusMessages('IN')).toEqual([]);
+    const at = Date.parse(await endsIn(3));
+    const [m] = await plusMessages('IN');
+    expect(m).toMatchObject({ kind: 'plus_renewal', subject: 'Plus membership', href: '/prime#membership', plan: 'annual' });
+    expect(Date.parse(m.periodEnd!)).toBe(at);
+    expect(await plusMessages('US')).toMatchObject([{ kind: 'plus_renewal' }]);
+
+    await setPlusPlan(member.db, 'monthly');
+    expect(await plusMessages('IN')).toMatchObject([{ kind: 'plus_renewal', plan: 'monthly' }]);
+  });
+
+  it('says when a membership with renewal off is ending', async () => {
+    await setPlusRenewal(member.db, false);
+    expect(await plusMessages('IN')).toMatchObject([{ kind: 'plus_ending' }]);
   });
 });

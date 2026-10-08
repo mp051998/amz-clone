@@ -171,6 +171,20 @@ it('says what the store decided on an A-to-z claim', async () => {
   expect(denied).toHaveTextContent('Your claim about Zed’s items wasn’t granted: Tracking shows it was signed for.');
 });
 
+it('reminds a Plus member of the renewal or the end coming up', async () => {
+  state.list = [
+    msg({ key: 'plus_renewal:2026-10-12T18:00:00Z', kind: 'plus_renewal', at: '2026-10-05T18:00:00Z', subject: 'Plus membership', href: '/prime#membership', periodEnd: '2026-10-12T18:00:00Z', plan: 'annual', orderId: undefined }),
+    msg({ key: 'plus_ending:2026-10-12T18:00:00Z', kind: 'plus_ending', at: '2026-10-05T17:00:00Z', subject: 'Plus membership', href: '/prime#membership', periodEnd: '2026-10-12T18:00:00Z', orderId: undefined }),
+  ];
+  render(await MessagesPage());
+  const [renews, ends] = screen.getAllByRole('listitem');
+  expect(within(renews).getByText('Your Plus membership renews soon')).toBeInTheDocument();
+  expect(within(renews).getByRole('link', { name: 'Plus membership' })).toHaveAttribute('href', '/prime#membership');
+  expect(renews).toHaveTextContent('It renews on the annual plan on October 12, 2026. To switch plans or end it then, manage it before that day.');
+  expect(within(ends).getByText('Your Plus membership is ending')).toBeInTheDocument();
+  expect(ends).toHaveTextContent('It ends on October 12, 2026, and FREE delivery with it. Keep your membership to carry on.');
+});
+
 it('marks what came in since the shopper last looked, then counts it as seen', async () => {
   state.store = amazonIn;
   state.seenAt = '2026-10-05T10:00:00Z';

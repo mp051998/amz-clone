@@ -1,9 +1,11 @@
 import type { Db } from '../db/client';
 import { trackingSteps } from '../decision/tracking';
+import type { PlusPlanId } from '../plus-plans';
 import type { Market, Order } from '../types';
 import { unwrap } from './errors';
 import { isMuted, mutedTopics, type MessageTopic } from './message-preferences';
 import { listOrders } from './orders';
+import { plusMembership, type PlusMembership } from './plus';
 import { myRecalls, type MyRecall } from './recalls';
 import { awaitingReview, type ToReview } from './reviews';
 
@@ -21,6 +23,8 @@ import { awaitingReview, type ToReview } from './reviews';
  * - safety recalls of products the shopper bought
  * - Lightning Deals they watched going live
  * - the store's decisions on their A-to-z Guarantee claims
+ * - a Plus membership's renewal coming up (annual and 3-month plans), or its end (renewal off),
+ *   a week before
  *
  * Only things that have happened, from the last 90 days, less the topics the shopper turned off
  * (message-preferences). What came in since the shopper last opened the page in that store is new
@@ -49,7 +53,9 @@ export type InboxKind =
   | 'recall'
   | 'deal_live'
   | 'claim_granted'
-  | 'claim_denied';
+  | 'claim_denied'
+  | 'plus_renewal'
+  | 'plus_ending';
 
 export interface InboxMessage {
   /** stable and unique: `<kind>:<id>` */
@@ -71,6 +77,10 @@ export interface InboxMessage {
   from?: string;
   /** a watched deal that has ended since it went live */
   over?: true;
+  /** a Plus membership's period end (ISO timestamp), when it renews or ends */
+  periodEnd?: string;
+  /** a Plus renewal: the plan it renews on */
+  plan?: PlusPlanId;
 }
 
 /** A return that has got somewhere (received or not accepted), or a replacement's (sent on request). */
@@ -136,6 +146,8 @@ export interface InboxSources {
   dealsLive?: InboxDealLive[];
   /** their A-to-z Guarantee claims that have been decided */
   claims?: InboxClaim[];
+  /** their Plus membership */
+  plus?: Pick<PlusMembership, 'plan' | 'nextPlan' | 'renewsAt' | 'autoRenew'> | null;
 }
 
 /** A Lightning Deal the shopper watched, since it went live. */
@@ -147,6 +159,31 @@ export interface InboxDealLive {
   startedAt: string;
   /** when it ended, if it has */
   endedAt: string | null;
+}
+
+/** How long before a Plus membership renews (or ends) the store says so. */
+export const PLUS_REMINDER_MS = 7 * 86_400_000;
+
+/**
+ * A Plus membership's reminder: a week before an annual or 3-month plan renews (a monthly one
+ * renews without one, as on Amazon), or before any plan ends with renewal off.
+ */
+function plusMessages(plus: InboxSources['plus']): InboxMessage[] {
+  if (!plus?.renewsAt) return [];
+  const plan = plus.nextPlan ?? plus.plan;
+  if (plus.autoRenew && plan === 'monthly' && plus.plan === 'monthly') return [];
+  const kind: InboxKind = plus.autoRenew ? 'plus_renewal' : 'plus_ending';
+  return [
+    {
+      key: `${kind}:${plus.renewsAt}`,
+      kind,
+      at: new Date(Date.parse(plus.renewsAt) - PLUS_REMINDER_MS).toISOString(),
+      subject: 'Plus membership',
+      href: '/prime#membership',
+      periodEnd: plus.renewsAt,
+      ...(plus.autoRenew ? { plan } : {}),
+    },
+  ];
 }
 
 /** How long after delivery the store asks for a review, as Amazon's "How was it?" does. */
@@ -271,6 +308,7 @@ export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone =
         ...(c.note ? { detail: c.note } : {}),
       };
     }),
+    ...plusMessages(src.plus),
     ...src.answers.map((a): InboxMessage => ({
       key: `answer:${a.id}`,
       kind: 'answer',
@@ -466,7 +504,7 @@ export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null)
 /** The caller's messages in a store, newest first, less the topics they've turned off. */
 export async function listInbox(db: Db, market: Market, userId: string, now: Date = new Date(), timeZone = 'UTC'): Promise<InboxMessage[]> {
   const since = new Date(now.getTime() - INBOX_DAYS * 86_400_000).toISOString();
-  const [muted, orders, returns, replies, answers, toReview, recalls, dealsLive, claims] = await Promise.all([
+  const [muted, orders, returns, replies, answers, toReview, recalls, dealsLive, claims, plus] = await Promise.all([
     mutedTopics(db, userId).catch((): Set<MessageTopic> => new Set()),
     listOrders(db, market, { limit: INBOX_LIMIT }),
     inboxReturns(db, market, userId),
@@ -476,6 +514,7 @@ export async function listInbox(db: Db, market: Market, userId: string, now: Dat
     myRecalls(db, market, userId).catch((): MyRecall[] => []),
     inboxDealsLive(db, market, userId, since).catch((): InboxDealLive[] => []),
     inboxClaims(db, market, userId, since).catch((): InboxClaim[] => []),
+    plusMembership(db),
   ]);
-  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive, claims }, now, timeZone).filter((m) => !isMuted(m.kind, muted));
+  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive, claims, plus }, now, timeZone).filter((m) => !isMuted(m.kind, muted));
 }

@@ -192,6 +192,36 @@ it('tells the shopper when a deal they watch goes live', () => {
   ]);
 });
 
+it('reminds a Plus member a week before an annual or 3-month plan renews, or any plan ends', () => {
+  const at = (plus: Parameters<typeof buildInbox>[0]['plus'], now = NOW) => buildInbox({ orders: [], returns: [], replies: [], answers: [], plus }, now);
+  const renewsAt = '2026-10-12T18:00:00Z';
+  expect(at({ plan: 'annual', renewsAt, autoRenew: true })).toEqual([
+    {
+      key: `plus_renewal:${renewsAt}`,
+      kind: 'plus_renewal',
+      at: '2026-10-05T18:00:00.000Z',
+      subject: 'Plus membership',
+      href: '/prime#membership',
+      periodEnd: renewsAt,
+      plan: 'annual',
+    },
+  ]);
+  // not until a week before
+  expect(at({ plan: 'annual', renewsAt: '2026-10-14T18:00:00Z', autoRenew: true })).toEqual([]);
+  // a monthly plan renews quietly, unless it's switching to a longer one
+  expect(at({ plan: 'monthly', renewsAt, autoRenew: true })).toEqual([]);
+  expect(at({ plan: 'monthly', nextPlan: 'quarterly', renewsAt, autoRenew: true })).toMatchObject([{ kind: 'plus_renewal', plan: 'quarterly' }]);
+  // a switch to monthly is still news
+  expect(at({ plan: 'annual', nextPlan: 'monthly', renewsAt, autoRenew: true })).toMatchObject([{ kind: 'plus_renewal', plan: 'monthly' }]);
+  // with renewal off, any plan's end
+  const ending = at({ plan: 'monthly', renewsAt, autoRenew: false });
+  expect(ending).toEqual([
+    { key: `plus_ending:${renewsAt}`, kind: 'plus_ending', at: '2026-10-05T18:00:00.000Z', subject: 'Plus membership', href: '/prime#membership', periodEnd: renewsAt },
+  ]);
+  expect(at(null)).toEqual([]);
+  expect(at({ plan: 'annual', autoRenew: true })).toEqual([]);
+});
+
 it('tells the shopper what the store decided on their A-to-z claims', () => {
   const acme = { ...ITEM, productId: 'b', title: 'Bluetooth Speaker', seller: 'Acme' };
   const o = order('111-0000001-0000001', '2026-09-01T10:00:00Z', { items: [ITEM, acme, { ...acme, productId: 'c', title: 'Speaker Stand' }] });
