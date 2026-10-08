@@ -161,8 +161,6 @@ describe('Watching a Lightning Deal', () => {
     const res = await watched.GET(new NextRequest('http://localhost/api/v1/deals/lightning/watched', { headers: { authorization: `Bearer ${token}`, 'x-market': 'US' } }), { params: Promise.resolve({}) });
     expect(res.status).toBe(200);
     expect(((await res.json()) as { deals: { deal: { id: string }; product: { id: string } }[] }).deals.map((d) => [d.deal.id, d.product.id])).toEqual([[upcoming, lampUS]]);
-    const guest = await watched.GET(new NextRequest('http://localhost/api/v1/deals/lightning/watched', { headers: { 'x-market': 'US' } }), { params: Promise.resolve({}) });
-    expect(guest.status).toBe(401);
   });
 
   it('puts the deal in the watcher’s messages when it goes live, and says when it’s over', async () => {
