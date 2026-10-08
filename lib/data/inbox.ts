@@ -3,6 +3,7 @@ import { trackingSteps } from '../decision/tracking';
 import type { Market, Order } from '../types';
 import { unwrap } from './errors';
 import { listOrders } from './orders';
+import { myRecalls, type MyRecall } from './recalls';
 import { awaitingReview, type ToReview } from './reviews';
 
 /**
@@ -16,6 +17,7 @@ import { awaitingReview, type ToReview } from './reviews';
  * - the store's replies on support cases
  * - other shoppers' answers to the shopper's questions
  * - asking for a review of what arrived and hasn't been reviewed, a couple of days after delivery
+ * - safety recalls of products the shopper bought
  *
  * Only things that have happened, from the last 90 days. What came in since the shopper last opened
  * the page in that store is new (`inbox_reads`).
@@ -39,7 +41,8 @@ export type InboxKind =
   | 'replacement_delivered'
   | 'support_reply'
   | 'answer'
-  | 'review_request';
+  | 'review_request'
+  | 'recall';
 
 export interface InboxMessage {
   /** stable and unique: `<kind>:<id>` */
@@ -55,7 +58,7 @@ export interface InboxMessage {
   amountMinor?: number;
   /** a return's refund paid onto the store balance, as the shopper asked, not back to how they paid */
   toBalance?: true;
-  /** why a return wasn't accepted, or the answer's text */
+  /** why a return wasn't accepted, the answer's text, or a recall's hazard */
   detail?: string;
   /** answers: who wrote it */
   from?: string;
@@ -105,6 +108,8 @@ export interface InboxSources {
   answers: InboxAnswer[];
   /** delivered products not reviewed yet */
   toReview?: (Pick<ToReview, 'orderId' | 'deliveredAt'> & { product: Pick<ToReview['product'], 'id' | 'title'> })[];
+  /** recalls of products they bought */
+  recalls?: Pick<MyRecall, 'productId' | 'title' | 'hazard' | 'issuedAt' | 'orderId'>[];
 }
 
 /** How long after delivery the store asks for a review, as Amazon's "How was it?" does. */
@@ -193,6 +198,15 @@ export function buildInbox(src: InboxSources, now: Date = new Date(), timeZone =
       subject: r.product.title,
       href: `/product/${encodeURIComponent(r.product.id)}#write-review`,
       orderId: r.orderId,
+    })),
+    ...(src.recalls ?? []).map((r): InboxMessage => ({
+      key: `recall:${r.productId}`,
+      kind: 'recall',
+      at: r.issuedAt,
+      subject: r.title,
+      href: `/recalls#recall-${encodeURIComponent(r.productId)}`,
+      orderId: r.orderId,
+      detail: r.hazard,
     })),
     ...src.answers.map((a): InboxMessage => ({
       key: `answer:${a.id}`,
@@ -331,12 +345,13 @@ export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null)
 /** The caller's messages in a store, newest first. */
 export async function listInbox(db: Db, market: Market, userId: string, now: Date = new Date(), timeZone = 'UTC'): Promise<InboxMessage[]> {
   const since = new Date(now.getTime() - INBOX_DAYS * 86_400_000).toISOString();
-  const [orders, returns, replies, answers, toReview] = await Promise.all([
+  const [orders, returns, replies, answers, toReview, recalls] = await Promise.all([
     listOrders(db, market, { limit: INBOX_LIMIT }),
     inboxReturns(db, market, userId),
     inboxReplies(db, market, userId, since),
     inboxAnswers(db, market, userId, since),
     awaitingReview(db, market, userId, now),
+    myRecalls(db, market, userId).catch((): MyRecall[] => []),
   ]);
-  return buildInbox({ orders, returns, replies, answers, toReview }, now, timeZone);
+  return buildInbox({ orders, returns, replies, answers, toReview, recalls }, now, timeZone);
 }
