@@ -341,6 +341,11 @@ export interface Order {
    * `line2`) and the six-digit code to collect it with
    */
   pickup?: { pointId: string; code: string };
+  /**
+   * a high-value order's six-digit one-time password, which the courier needs to hand it over
+   * (absent: none needed, or a pickup order)
+   */
+  deliveryOtp?: string;
   /** a pre-order: when its last item comes out; it ships from then (absent: nothing on it was a pre-order). */
   releaseAt?: string;
   /** EMI orders: how many monthly payments the shopper chose. */

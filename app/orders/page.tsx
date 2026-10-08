@@ -14,6 +14,7 @@ import { filterOrders, orderSummary, periodOptions, periodPhrase, readOrderFilte
 import { returnSummaries } from '@/lib/data/returns';
 import { RETURN_SUMMARY_CHIP } from '@/components/orders/Returns';
 import { getMarketplace } from '@/lib/marketplace-server';
+import { orderStage } from '@/lib/decision/tracking';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 
@@ -158,6 +159,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       <span className="text-[13px] text-ink-2">
                         Placed {longDate(new Date(o.placedAt ?? o.createdAt), store)} · {v.itemCount} {v.itemCount === 1 ? 'item' : 'items'} · to {o.shipTo.name}
                       </span>
+                      {o.deliveryOtp && orderStage(o, now, store.dates.timeZone) === 'out_for_delivery' ? (
+                        <span className="text-[13px] text-ink">
+                          Delivery OTP <strong className="font-mono font-semibold tracking-[0.15em]">{o.deliveryOtp}</strong>
+                          <span className="text-ink-2"> · share it with the delivery associate</span>
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex flex-none items-center gap-3">
                       <strong className="text-[17px] tabular-nums">{formatMoney(o.totals.totalMinor, o.currency)}</strong>

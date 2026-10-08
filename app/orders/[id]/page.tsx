@@ -362,6 +362,20 @@ export default async function OrderPage({
           ]}
         />
 
+        {order.deliveryOtp && order.status === 'placed' && stage !== 'delivered' ? (
+          <section className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-[22px]" aria-labelledby="otp-h">
+            <h2 id="otp-h" className="m-0 text-[18px] font-semibold">Delivery OTP</h2>
+            {stage === 'out_for_delivery' ? (
+              <>
+                <strong className="font-mono text-[32px] font-semibold tracking-[0.2em] text-ink" aria-label={`Delivery OTP ${order.deliveryOtp.split('').join(' ')}`}>{order.deliveryOtp}</strong>
+                <p className="m-0 text-[15px] text-ink-2">Share this one-time password with the delivery associate when your order arrives: they need it to hand the order over. Don’t share it before then.</p>
+              </>
+            ) : (
+              <p className="m-0 text-[15px] text-ink-2">This order needs a one-time password at delivery. It shows here on the delivery day, for you to share with the delivery associate.</p>
+            )}
+          </section>
+        ) : null}
+
         {order.pickup && order.status !== 'cancelled' ? (
           <section className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-[22px]" aria-labelledby="pickup-h">
             <h2 id="pickup-h" className="m-0 text-[18px] font-semibold">Pickup code</h2>
