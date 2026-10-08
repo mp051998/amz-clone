@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { balanceHistory, claimDemoGiftCard, redeemGiftCard, storeBalance } from '@/lib/data/balance';
+import { balanceHistory, storeBalance } from '@/lib/data/balance';
 import { DataError } from '@/lib/data/errors';
 import { listRechargePlans, listRecharges, rechargeMobile } from '@/lib/data/recharges';
 import { listTransactions } from '@/lib/data/transactions';
@@ -57,10 +57,9 @@ describe('mobile recharge (amazon.in)', () => {
 
   it('recharges from the balance, refusing what it doesn’t cover, and pays the cashback into it, up to ₹25', async () => {
     // ₹5,000 on the balance
-    const card = await claimDemoGiftCard(shopper.db, 'IN');
-    await redeemGiftCard(shopper.db, 'IN', card.code);
-    const start = (await storeBalance(shopper.db, 'IN'))!;
-    expect(start).toBe(card.amountMinor);
+    const start = 500_000;
+    await admin().from('store_balances').update({ balance_minor: start }).eq('user_id', shopper.id).eq('market_id', 'IN');
+    expect(await storeBalance(shopper.db, 'IN')).toBe(start);
 
     const done = await rechargeMobile(shopper.db, { number: NUMBER, circle: 'Mumbai', planId: 'jio-299', method: 'amazonpay' });
     expect(done).toMatchObject({ number: NUMBER, operator: 'Jio', circle: 'Mumbai', planId: 'jio-299', amountMinor: 29_900, cashbackMinor: 500, method: 'amazonpay' });
