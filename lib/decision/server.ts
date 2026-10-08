@@ -35,6 +35,8 @@ export interface RankFilters {
   deal?: boolean;
   /** Climate Pledge Friendly products only */
   climate?: boolean;
+  /** Small Business products only */
+  smallBusiness?: boolean;
   /** lowest price, minor units (the budget is the highest) */
   minPrice?: number;
   /** keep products with none left ("Include Out of Stock"); left out otherwise */
@@ -84,6 +86,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     rating: f.rating,
     deal: f.deal || undefined,
     climate: f.climate || undefined,
+    smallBusiness: f.smallBusiness || undefined,
     includeOutOfStock: f.includeOutOfStock || undefined,
     minDiscount: f.minDiscount,
     sort: CANDIDATE_SORT[f.sort ?? 'match'],
@@ -136,6 +139,7 @@ export async function rankedSearch(
     if (filters.size?.length) products = products.filter((p) => p.sizes?.some((s) => filters.size!.includes(s)));
     if (filters.deal) products = products.filter((p) => p.deal && p.dealPct);
     if (filters.climate) products = products.filter((p) => p.climate?.length);
+    if (filters.smallBusiness) products = products.filter((p) => p.smallBusiness);
     if (filters.minDiscount) products = products.filter((p) => p.deal && (p.dealPct ?? 0) >= filters.minDiscount!);
     if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
   }

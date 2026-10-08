@@ -56,6 +56,8 @@ export interface Product {
   subscribeSave?: boolean;
   /** Climate Pledge Friendly: its sustainability certifications (absent: it has none). */
   climate?: ClimateCert[];
+  /** Small Business: its brand is one of the store's small businesses (absent: it isn't). */
+  smallBusiness?: true;
 }
 
 /** The conditions an offer can be in other than new: Amazon's renewed and used grades. */

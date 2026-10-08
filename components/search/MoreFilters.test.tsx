@@ -161,3 +161,23 @@ describe('MoreFilters Climate Pledge Friendly', () => {
     expect(screen.queryByRole('heading', { name: 'Climate Pledge Friendly' })).toBeNull();
   });
 });
+
+describe('MoreFilters Small Business', () => {
+  const box = () => within(screen.getByRole('heading', { name: 'Small Business' }).parentElement!).getByRole('checkbox');
+
+  it('offers the filter with how many in scope are from small businesses', () => {
+    renderFilters({ smallBusinessCount: 3 });
+    expect(box()).toHaveAccessibleName('Small Business (3)');
+    expect(box()).toHaveAttribute('aria-checked', 'false');
+    expect(box().getAttribute('href')).toBe(hrefWith({ small: '1' }));
+  });
+
+  it('unticks when on, and has no section when there are none', () => {
+    renderFilters({ smallBusiness: true });
+    expect(box()).toHaveAttribute('aria-checked', 'true');
+    expect(box().getAttribute('href')).toBe(hrefWith({ small: null }));
+    cleanup();
+    renderFilters();
+    expect(screen.queryByRole('heading', { name: 'Small Business' })).toBeNull();
+  });
+});

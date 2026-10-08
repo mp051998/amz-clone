@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { product } from '@/test/fixtures/decision';
 
-const state = vi.hoisted(() => ({ products: [] as unknown[], asked: [] as unknown[], user: null as unknown, following: false, followAsked: [] as unknown[] }));
+const state = vi.hoisted(() => ({ products: [] as unknown[], asked: [] as unknown[], user: null as unknown, following: false, followAsked: [] as unknown[], smallBusiness: null as unknown }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -20,6 +20,7 @@ vi.mock('@/lib/auth', () => ({ readUser: async () => state.user }));
 vi.mock('@/lib/data/brand-follows', () => ({
   isFollowingBrand: async (_db: unknown, ...args: unknown[]) => (state.followAsked.push(args), state.following),
 }));
+vi.mock('@/lib/data/small-businesses', () => ({ getSmallBusiness: async () => state.smallBusiness }));
 vi.mock('@/app/actions/brands', () => ({ setBrandFollowed: async () => {} }));
 vi.mock('@/lib/data/catalog', () => ({
   listProducts: async (_db: unknown, market: string, opts: unknown) => (state.asked.push([market, opts]), state.products),
@@ -119,4 +120,20 @@ it('is not found for a brand with nothing on sale here', async () => {
 it('names the brand in the title, even with a stray %', async () => {
   expect((await generateMetadata({ params: Promise.resolve({ brand: 'Acme%20Audio' }) })).title).toBe('Acme Audio Store · Store');
   expect((await generateMetadata({ params: Promise.resolve({ brand: '100%' }) })).title).toBe('100% Store · Store');
+});
+
+it('says when the brand is a small business, with what it makes', async () => {
+  state.smallBusiness = { brand: 'Acme Audio', story: 'Speakers and headphones.' };
+  try {
+    await show('Acme Audio');
+    expect(screen.getByText('Small Business')).toBeInTheDocument();
+    expect(screen.getByText(/Acme Audio is a small business brand\. Speakers and headphones\./)).toBeInTheDocument();
+  } finally {
+    state.smallBusiness = null;
+  }
+});
+
+it('says nothing of it otherwise', async () => {
+  await show('Acme Audio');
+  expect(screen.queryByText('Small Business')).toBeNull();
 });

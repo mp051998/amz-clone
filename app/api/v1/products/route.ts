@@ -3,12 +3,13 @@ import { searchCatalog } from '@/lib/data/catalog';
 import { PAGE_SIZE, parseQuery } from '@/lib/search';
 
 /**
- * GET /api/v1/products?market=US&q=&dept=&brand=a,b&seller=a|b&size=M,L&rating=4&deal=1&climate=1&min=&max=&pct=25&oos=1&sort=featured&page=1
+ * GET /api/v1/products?market=US&q=&dept=&brand=a,b&seller=a|b&size=M,L&rating=4&deal=1&climate=1&small=1&min=&max=&pct=25&oos=1&sort=featured&page=1
  * Full-text search + facets over the store's catalog, one page at a time.
  * min / max: price range in minor units (cents / paise), either one optional.
  * seller: sold by any of these, `|`-separated (seller names can hold commas).
  * size: comes in any of these sizes, comma-separated.
  * climate=1: Climate Pledge Friendly products only (`climate` in the response: how many of the search are).
+ * small=1: Small Business products only (`smallBusiness` in the response: how many of the search are).
  * pct: only products on sale for at least this percentage off (1–99).
  * oos=1: include products that are out of stock (left out otherwise).
  * sort: featured | price-asc | price-desc | review | newest | bestsellers
@@ -24,6 +25,7 @@ export const GET = route(async (ctx) => {
     rating: sp.get('rating') ?? undefined,
     deal: sp.get('deal') === '1' || sp.get('deal') === 'true' ? '1' : undefined,
     climate: sp.get('climate') === '1' || sp.get('climate') === 'true' ? '1' : undefined,
+    small: sp.get('small') === '1' || sp.get('small') === 'true' ? '1' : undefined,
     min: sp.get('min') ?? undefined,
     max: sp.get('max') ?? undefined,
     pct: sp.get('pct') ?? undefined,
@@ -44,6 +46,7 @@ export const GET = route(async (ctx) => {
     sellers: r.sellerFacets,
     sizes: r.sizeFacets,
     climate: r.climateCount ?? 0,
+    smallBusiness: r.smallBusinessCount ?? 0,
     unavailable: r.unavailable,
     items: r.items,
   });
