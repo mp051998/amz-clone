@@ -121,6 +121,22 @@ describe('buildTransactions', () => {
     ]);
   });
 
+  it('charges bill payments to how they were paid, naming the biller and account', () => {
+    const bill = {
+      id: 'b1', billerId: 'bescom', category: 'electricity' as const, billerName: 'BESCOM (Bengaluru)', account: '1234567890',
+      period: '2026-10-01', amountMinor: 315_500, at: '2026-10-05T08:00:00Z',
+    };
+    const list = buildTransactions([order('A', '2026-10-04T09:00:00Z')], [], [], NOW, [], [
+      { ...bill, method: 'amazonpay' },
+      { ...bill, id: 'b2', method: 'netbanking', bank: 'SBI', at: '2026-10-03T08:00:00Z' },
+    ]);
+    expect(brief(list)).toEqual(['bill:b1 charge 315500 completed', 'order:A charge 2500 completed', 'bill:b2 charge 315500 completed']);
+    expect(list.filter((t) => t.source === 'bill').map((t) => [t.method, t.paymentLabel, t.biller])).toEqual([
+      ['amazonpay', '', { name: 'BESCOM (Bengaluru)', account: '1234567890' }],
+      ['netbanking', 'Net banking · SBI', { name: 'BESCOM (Bengaluru)', account: '1234567890' }],
+    ]);
+  });
+
   it('charges what was paid when placed, and refunds items cancelled since on their own', () => {
     const kettle = { productId: 'k2', title: 'Kettle', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, qty: 1 };
     const cancellation = (id: string, status: 'succeeded' | 'pending' | 'not_charged', at: string) => ({

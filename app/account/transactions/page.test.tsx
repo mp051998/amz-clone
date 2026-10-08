@@ -102,3 +102,15 @@ it('shows a mobile recharge with its number and how it was paid', async () => {
   expect(rows[1]).toHaveTextContent('UPI');
   expect(within(rows[0]).queryByRole('link')).toBeNull();
 });
+
+it('shows a bill payment with the biller and account', async () => {
+  state.store = amazonIn;
+  state.list = [
+    tx({ key: 'bill:b1', source: 'bill', amountMinor: 315_500, method: 'netbanking', paymentLabel: 'Net banking · SBI', orderId: undefined, biller: { name: 'BESCOM (Bengaluru)', account: '1234567890' } }),
+  ];
+  render(await TransactionsPage());
+  const row = screen.getByRole('listitem');
+  expect(row).toHaveTextContent('Bill payment BESCOM (Bengaluru) · 1234567890');
+  expect(row).toHaveTextContent('Net banking · SBI');
+  expect(screen.getByLabelText('Charge ₹3,155')).toBeInTheDocument();
+});
