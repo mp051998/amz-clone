@@ -1,6 +1,7 @@
 import type { CurrencyCode } from './contracts';
 import type { BudgetRange } from './decision/attributes';
 import { formatMoney } from './marketplaces';
+import { isOfferKind, type OfferKind } from './offers';
 import type { Product } from './types';
 
 // URL <-> query helpers for /s. The search itself runs in the database
@@ -32,6 +33,8 @@ export interface SearchQuery {
   climate?: boolean;
   /** "Small Business": only products from the store's small businesses (`small=1`) */
   smallBusiness?: boolean;
+  /** "Condition": only what can be bought new, renewed or used (`condition=`) */
+  condition?: OfferKind;
   /** lowest price, minor units */
   minPrice?: number;
   /** highest price, minor units */
@@ -61,6 +64,8 @@ export interface SearchResult {
   climateCount?: number;
   /** how many in the same scope are from small businesses, each variant group once */
   smallBusinessCount?: number;
+  /** how many in the same scope can be bought new, renewed or used, each variant group once */
+  conditionCounts?: Record<OfferKind, number>;
   /** matches with no option in stock, each variant group once (left out unless `includeOutOfStock`) */
   unavailable: number;
   headingLabel: string;
@@ -104,6 +109,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     deal: one(sp.deal) === '1' || undefined,
     climate: one(sp.climate) === '1' || undefined,
     smallBusiness: one(sp.small) === '1' || undefined,
+    condition: isOfferKind(one(sp.condition)) ? (one(sp.condition) as OfferKind) : undefined,
     minPrice: price(sp.min),
     maxPrice: price(sp.max),
     includeOutOfStock: one(sp.oos) === '1' || undefined,

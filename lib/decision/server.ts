@@ -2,7 +2,9 @@ import 'server-only';
 import type { Db } from '../db/client';
 import { getProducts, listProducts, searchCatalog } from '../data/catalog';
 import { getInsight as readInsight, getInsights } from '../data/insights';
+import { buyingChoices } from '../data/offers';
 import { formatMoney } from '../marketplaces';
+import { buyableAs, type OfferKind } from '../offers';
 import { PAGE_SIZE, type SearchQuery } from '../search';
 import { db as requestDb } from '../supabase/server';
 import type { Market, Product } from '../types';
@@ -37,6 +39,8 @@ export interface RankFilters {
   climate?: boolean;
   /** Small Business products only */
   smallBusiness?: boolean;
+  /** only what can be bought new, renewed or used */
+  condition?: OfferKind;
   /** lowest price, minor units (the budget is the highest) */
   minPrice?: number;
   /** keep products with none left ("Include Out of Stock"); left out otherwise */
@@ -87,6 +91,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     deal: f.deal || undefined,
     climate: f.climate || undefined,
     smallBusiness: f.smallBusiness || undefined,
+    condition: f.condition,
     includeOutOfStock: f.includeOutOfStock || undefined,
     minDiscount: f.minDiscount,
     sort: CANDIDATE_SORT[f.sort ?? 'match'],
@@ -142,6 +147,10 @@ export async function rankedSearch(
     if (filters.smallBusiness) products = products.filter((p) => p.smallBusiness);
     if (filters.minDiscount) products = products.filter((p) => p.deal && (p.dealPct ?? 0) >= filters.minDiscount!);
     if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
+    if (filters.condition) {
+      const offers = await buyingChoices(db, products.map((p) => p.id));
+      products = products.filter((p) => buyableAs(p, offers.get(p.id), filters.condition!));
+    }
   }
   const insights = await getInsights(db, products.map((p) => p.id));
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);

@@ -32,6 +32,8 @@ import { anonClient, db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
 import { recordSearch, relatedSearches } from '@/lib/data/search-terms';
 import { couponPercents } from '@/lib/data/coupons';
+import { buyingChoices } from '@/lib/data/offers';
+import { kindName, type OfferSummary } from '@/lib/offers';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { dayLabel } from '@/components/orders/format';
 
@@ -80,7 +82,7 @@ function one(sp: SP, key: string): string | undefined {
  *   spell  `0` = search exactly as typed, no spelling correction
  *   lens   `1` = `k` came from a photo (search by image, in the search box)
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|price-desc|rating|newest|bestsellers  ·  page
- *   brand, seller (`|`-separated), size, rating, deal, climate (Climate Pledge Friendly), small (Small Business), pct (percent off or more) — "More filters" facets  ·  oos  `1` = include out of stock
+ *   brand, seller (`|`-separated), size, rating, deal, climate (Climate Pledge Friendly), small (Small Business), pct (percent off or more), condition (new|renewed|used) — "More filters" facets  ·  oos  `1` = include out of stock
  */
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -121,7 +123,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const client = await db();
   const [result, scope, saved, jar, plus, related] = await Promise.all([
-    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, size: sizes, rating: facets.rating, deal: facets.deal, climate: facets.climate, smallBusiness: facets.smallBusiness, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
+    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, size: sizes, rating: facets.rating, deal: facets.deal, climate: facets.climate, smallBusiness: facets.smallBusiness, condition: facets.condition, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, includeOutOfStock: facets.includeOutOfStock, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
@@ -147,7 +149,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   };
   // nothing matched the words as typed: retry with typos corrected (only when that finds something)
   const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
-  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !sizes.length && !facets.rating && !facets.deal && !facets.climate && !facets.smallBusiness && !facets.minDiscount) {
+  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !sizes.length && !facets.rating && !facets.deal && !facets.climate && !facets.smallBusiness && !facets.condition && !facets.minDiscount) {
     const fix = await spellFix(client, store.id, k, pq.keywords, category);
     if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
   }
@@ -172,6 +174,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (facets.deal) chips.push({ label: 'On sale', href: hrefWith({ deal: null }) });
   if (facets.climate) chips.push({ label: 'Climate Pledge Friendly', href: hrefWith({ climate: null }) });
   if (facets.smallBusiness) chips.push({ label: 'Small Business', href: hrefWith({ small: null }) });
+  if (facets.condition) chips.push({ label: `Condition: ${kindName(facets.condition)}`, href: hrefWith({ condition: null }) });
   if (facets.minDiscount) chips.push({ label: `${facets.minDiscount}% off or more`, href: hrefWith({ pct: null }) });
   if (facets.minPrice) chips.push({ label: `${formatMoney(facets.minPrice, store.currency.code)} & above`, href: hrefWith({ min: null }) });
   if (facets.includeOutOfStock) chips.push({ label: 'Including out of stock', href: hrefWith({ oos: null }) });
@@ -209,16 +212,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   // nothing found: something to go on instead of a dead end (not in a price range — these could cost anything)
   const popular = items.length || budgetMinor || facets.minPrice ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
-  const facetFilters = brands.length + sellers.length + sizes.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.climate ? 1 : 0) + (facets.smallBusiness ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0);
+  const facetFilters = brands.length + sellers.length + sizes.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.climate ? 1 : 0) + (facets.smallBusiness ? 1 : 0) + (facets.condition ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
   // count the search as typed (for related searches), not each page, re-sort or filter of it
   if (k && total > 0 && !one(sp, 'page') && !one(sp, 'sort') && !one(sp, 'w') && !one(sp, 'preset') && !facetFilters && !facets.includeOutOfStock) {
     after(() => recordSearch(anonClient(), store.id, k));
   }
-  const [variants, coupons] = await Promise.all([
+  const [variants, coupons, choices] = await Promise.all([
     variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : []))),
     couponPercents(client, items.map((r) => r.product.id)),
+    // "More Buying Choices" (none before the offers migration)
+    buyingChoices(client, items.map((r) => r.product.id)).catch(() => new Map<string, OfferSummary>()),
   ]);
   const range = budgetRange(store.id, category);
   const cur = store.currency.code;
@@ -344,6 +349,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   climateCount={scope?.climateCount ?? 0}
                   smallBusiness={!!facets.smallBusiness}
                   smallBusinessCount={scope?.smallBusinessCount ?? 0}
+                  condition={facets.condition}
+                  conditionCounts={scope?.conditionCounts}
                   minDiscount={facets.minDiscount}
                   pricePresets={pricePresets(range)}
                   minPrice={facets.minPrice ?? null}
@@ -380,6 +387,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                         variants={r.product.variant ? variants.get(r.product.variant.group) : undefined}
                         delivery={delivery}
                         couponPct={coupons.get(r.product.id)}
+                        choices={choices.get(r.product.id)}
+                        condition={facets.condition}
                       />
                     </div>
                   </li>

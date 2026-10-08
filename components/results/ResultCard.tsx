@@ -4,6 +4,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { toStoreMinor } from '@/lib/fx';
 import { memberDealLabel, memberPrice } from '@/lib/member-deals';
+import { buyingChoicesText, type OfferKind, type OfferSummary } from '@/lib/offers';
 import { qtyDiscountText } from '@/lib/qty-discount';
 import { unitPriceText } from '@/lib/unit-price';
 import { releaseOf } from '@/lib/pre-order';
@@ -42,6 +43,10 @@ export interface ResultCardProps {
   delivery?: ResultDelivery;
   /** the product's coupon, percent off (applied on the product page or in the cart). */
   couponPct?: number;
+  /** "More Buying Choices": other sellers' offers of it, on sale and in stock. */
+  choices?: OfferSummary;
+  /** the search's "Condition" filter: the offers link opens on it */
+  condition?: OfferKind;
 }
 
 export interface ResultDelivery {
@@ -62,7 +67,7 @@ export function deliveryLine(store: Store, priceMinor: number, stock: number, de
 }
 
 /** Ranked search result card (prototype Search screen; design.md §5 Why it's here). */
-export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct }: ResultCardProps) {
+export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct, choices, condition }: ResultCardProps) {
   const p = r.product;
   const cur = store.currency.code;
   const href = storePath(store, `/product/${p.id}`);
@@ -104,6 +109,14 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
           <span className="flex flex-wrap items-center gap-1.5 text-[13px] text-ink-2">
             <MemberDealTag label={memberDealLabel(store.membership.name)} />
             {formatMoney(toStoreMinor(memberPrice(p)!, cur, p.curBase), cur)} for members
+          </span>
+        ) : null}
+        {choices ? (
+          <span className="flex flex-col text-[13px] text-ink-2">
+            <span>More Buying Choices</span>
+            <a href={storePath(store, `/product/${p.id}/offers${condition ? `?condition=${condition}` : ''}`)} className="text-ink-2 underline-offset-2 hover:underline">
+              <span className="font-semibold text-ink">{formatMoney(toStoreMinor(choices.fromMinor, cur, p.curBase), cur)}</span> {buyingChoicesText(choices)}
+            </a>
           </span>
         ) : null}
       </div>
