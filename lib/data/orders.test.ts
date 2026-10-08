@@ -6,7 +6,7 @@ vi.mock('./refunds', () => refunds);
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, placeOrder, readGiftNote, setOrderAddress, setOrderGst, setOrderInstructions } from './orders';
+import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, lastPaymentMethod, placeOrder, readGiftNote, setOrderAddress, setOrderGst, setOrderInstructions } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -377,5 +377,34 @@ describe('GST invoice', () => {
     expect((await setOrderGst(removed.db, inRow.id, '', '')).gst).toBeUndefined();
     expect(removed.calls[0]).toEqual(['set_order_gst', { p_order_id: inRow.id, p_gstin: '', p_name: '' }]);
     await expect(setOrderGst(t.db, inRow.id, 'nope', 'x')).rejects.toMatchObject({ code: 'invalid_input', detail: 'gstin' });
+  });
+});
+
+describe('lastPaymentMethod', () => {
+  /** an orders read answering `reply`, recording the filters it was given */
+  const reader = (reply: { data: unknown; error: unknown }) => {
+    const calls: unknown[][] = [];
+    const q: Record<string, unknown> = {};
+    for (const m of ['select', 'eq', 'not', 'order', 'limit']) q[m] = (...a: unknown[]) => { calls.push([m, ...a]); return q; };
+    q.maybeSingle = async () => reply;
+    return { db: { from: () => q } as unknown as Db, calls };
+  };
+
+  it('reads how the newest placed order in the store was paid', async () => {
+    const { db, calls } = reader({ data: { payment_method: 'upi' }, error: null });
+    expect(await lastPaymentMethod(db, 'IN')).toBe('upi');
+    expect(calls).toEqual([
+      ['select', 'payment_method'],
+      ['eq', 'market_id', 'IN'],
+      ['not', 'placed_at', 'is', null],
+      ['order', 'placed_at', { ascending: false }],
+      ['limit', 1],
+    ]);
+  });
+
+  it('is null with no orders, an unknown method or a failed read', async () => {
+    expect(await lastPaymentMethod(reader({ data: null, error: null }).db, 'US')).toBeNull();
+    expect(await lastPaymentMethod(reader({ data: { payment_method: 'cheque' }, error: null }).db, 'US')).toBeNull();
+    expect(await lastPaymentMethod(reader({ data: null, error: { message: 'boom', code: 'XX000' } }).db, 'US')).toBeNull();
   });
 });

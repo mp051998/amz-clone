@@ -48,3 +48,20 @@ it('prices each EMI tenure for the order', () => {
   ]);
   expect(screen.getByText(/No Cost EMI takes the bank’s interest off/)).toBeInTheDocument();
 });
+
+it('starts on how the shopper paid last time, marked as such', () => {
+  render(<PaymentSection {...base} curSymbol="₹" methods={['card', 'upi', 'cod']} initial="upi" lastUsed="upi" />);
+  const upi = screen.getByRole('radio', { name: /^UPI/ });
+  expect(upi).toBeChecked();
+  expect(upi.closest('label')).toHaveTextContent('Last used');
+  expect(screen.getByLabelText('UPI ID')).toBeInTheDocument();
+});
+
+it('marks the last-used method without starting on it, and ignores one the store doesn’t offer', () => {
+  render(<PaymentSection {...base} methods={['card', 'giftcard']} lastUsed="giftcard" balance={{ text: '$1.00', short: true, redeemHref: '/gift-cards#balance' }} />);
+  expect(screen.getAllByRole('radio')[0]).toBeChecked();
+  expect(screen.getByRole('radio', { name: /Gift card balance/ }).closest('label')).toHaveTextContent('Last used');
+  cleanup();
+  render(<PaymentSection {...base} methods={['card', 'upi']} initial="emi" />);
+  expect(screen.getAllByRole('radio')[0]).toBeChecked();
+});
