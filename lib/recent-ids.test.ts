@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextRecent, parseRecent, RECENT_MAX } from './recent-ids';
+import { nextRecent, parseIds, parseRecent, RECENT_MAX } from './recent-ids';
 
 describe('browsing history cookie', () => {
   it('puts the product first, dedupes and caps', () => {
@@ -15,5 +15,11 @@ describe('browsing history cookie', () => {
     expect(parseRecent('a, ,<script>,b')).toEqual(['a', 'b']);
     expect(parseRecent('%E0%A4%A')).toEqual([]);
     expect(parseRecent(undefined)).toEqual([]);
+  });
+
+  it('reads other id lists up to their own cap', () => {
+    const many = Array.from({ length: RECENT_MAX + 10 }, (_, i) => `p${i}`).join(',');
+    expect(parseIds(many, 100)).toHaveLength(RECENT_MAX + 10);
+    expect(parseIds('a,b,c', 2)).toEqual(['a', 'b']);
   });
 });

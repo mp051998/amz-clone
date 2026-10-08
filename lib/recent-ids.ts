@@ -11,10 +11,23 @@ export const RECENT_MAX = 30;
 /** 30 days, renewed on every change */
 export const RECENT_MAX_AGE = 60 * 60 * 24 * 30;
 
+/**
+ * "Don't use for recommendations": `recs:skip` holds the products, viewed or bought, the viewer
+ * asked not to base recommendations on, in the same format (newest first), kept for a year.
+ */
+export const RECS_SKIP_COOKIE = 'recs:skip';
+export const RECS_SKIP_MAX = 100;
+export const RECS_SKIP_MAX_AGE = 60 * 60 * 24 * 365;
+
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Parse a `recent:v1` value into unique, well-formed ids (newest first). */
 export function parseRecent(raw: string | undefined | null): string[] {
+  return parseIds(raw, RECENT_MAX);
+}
+
+/** Parse a comma-separated cookie value into up to `max` unique, well-formed ids, in order. */
+export function parseIds(raw: string | undefined | null, max: number): string[] {
   if (!raw) return [];
   let value = raw;
   try {
@@ -26,7 +39,7 @@ export function parseRecent(raw: string | undefined | null): string[] {
   for (const part of value.split(',')) {
     const id = part.trim();
     if (ID.test(id) && !seen.has(id)) seen.add(id);
-    if (seen.size >= RECENT_MAX) break;
+    if (seen.size >= max) break;
   }
   return [...seen];
 }

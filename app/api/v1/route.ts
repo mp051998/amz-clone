@@ -83,6 +83,7 @@ export function GET(): Response {
       'POST   /searches',
       'POST   /searches/image',
       'GET    /searches/related?q=',
+      'GET    /recommendations?recent=&skip=',
       'GET    /sellers?name=',
       'GET    /brands?name=',
       'GET    /pickup-points?q=',
