@@ -1,7 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Suggestions } from '@/lib/search';
 import { SearchBar } from './SearchBar';
+
+const lookAtImage = vi.fn();
+vi.mock('@/app/actions/lens', () => ({ lookAtImage: (...a: unknown[]) => lookAtImage(...a) }));
+const shrinkPhoto = vi.fn();
+vi.mock('./shrink-photo', () => ({ shrinkPhoto: (...a: unknown[]) => shrinkPhoto(...a) }));
 
 const answer: Suggestions = {
   total: 3,
@@ -97,4 +102,57 @@ it('shows the search being looked at, and only suggests once the box is used', a
   fireEvent.focus(box());
   expect(await screen.findByRole('option', { name: 'sony headphones' })).toBeInTheDocument();
   expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/suggest?market=US&q=wireless%20headphones');
+});
+
+describe('search by image', () => {
+  const assign = vi.fn();
+  const realLocation = window.location;
+  beforeEach(() => {
+    lookAtImage.mockReset();
+    shrinkPhoto.mockReset();
+    assign.mockReset();
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, assign } });
+  });
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+  });
+
+  const pick = (name = 'shoes.jpg') => {
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(input, { target: { files: [new File(['x'], name, { type: 'image/jpeg' })] } });
+  };
+
+  it('opens a photo picker from the camera, then searches for what’s in the photo', async () => {
+    shrinkPhoto.mockResolvedValue('data:image/jpeg;base64,/9j/AAAA');
+    lookAtImage.mockResolvedValue({ ok: true, result: { query: 'red running shoes', source: 'ai' } });
+    render(<SearchBar actionPath="/in/s" />);
+    const camera = screen.getByRole('button', { name: 'Search by image' });
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const click = vi.spyOn(input, 'click');
+    fireEvent.click(camera);
+    expect(click).toHaveBeenCalled();
+    expect(input).toHaveAttribute('accept', 'image/*');
+
+    pick('red-shoes.jpg');
+    expect(await screen.findByRole('status')).toHaveTextContent('Looking at your photo');
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/in/s?k=red+running+shoes&lens=1'));
+    expect(lookAtImage).toHaveBeenCalledWith({ image: 'data:image/jpeg;base64,/9j/AAAA', name: 'red-shoes.jpg' });
+  });
+
+  it('says so when nothing in the photo can be named, or it can’t be opened', async () => {
+    shrinkPhoto.mockResolvedValue('data:image/jpeg;base64,/9j/AAAA');
+    lookAtImage.mockResolvedValue({ ok: true, result: { query: null, source: 'rules' } });
+    render(<SearchBar />);
+    pick();
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t tell what’s in that photo');
+    expect(assign).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    shrinkPhoto.mockResolvedValue(null);
+    pick('photo.heic');
+    expect(await screen.findByRole('alert')).toHaveTextContent('That photo couldn’t be opened');
+    expect(lookAtImage).toHaveBeenCalledTimes(1);
+  });
 });

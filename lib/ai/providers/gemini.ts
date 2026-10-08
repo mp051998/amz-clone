@@ -63,7 +63,7 @@ export function createGeminiProvider(opts: GeminiOptions): LlmProvider {
           headers: { 'content-type': 'application/json', 'x-goog-api-key': opts.apiKey },
           body: JSON.stringify({
             ...(req.system ? { systemInstruction: { parts: [{ text: req.system }] } } : {}),
-            contents: [{ role: 'user', parts: [{ text: req.prompt }] }],
+            contents: [{ role: 'user', parts: [...(req.images ?? []).map((i) => ({ inlineData: { mimeType: i.mimeType, data: i.data } })), { text: req.prompt }] }],
             generationConfig,
           }),
           signal: controller.signal,

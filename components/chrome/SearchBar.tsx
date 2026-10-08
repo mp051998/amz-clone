@@ -1,8 +1,10 @@
 'use client';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { lookAtImage } from '@/app/actions/lens';
 import { SUGGEST_MIN, type Suggestions } from '@/lib/search';
 import type { Market } from '@/lib/types';
 import { cn } from '../lib/cn';
+import { shrinkPhoto } from './shrink-photo';
 
 export interface SearchDept { label: string; value: string }
 export interface SearchBarProps {
@@ -42,10 +44,24 @@ function Glass() {
   );
 }
 
+function Camera() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <path d="M3 6.5h3l1.5-2h5l1.5 2h3v9.5H3z" />
+      <circle cx="10" cy="11" r="3" />
+    </svg>
+  );
+}
+
+const UNREAD = 'That photo couldn’t be opened. Try a JPEG or PNG.';
+const UNNAMED = 'We couldn’t tell what’s in that photo. Try a closer one of just the item, or type what you’re looking for.';
+
 /**
  * Bordered search + accent Search button; GET ?k= so results are shareable (design.md §5 Search).
  * As you type it suggests (combobox): completions of the last word, the query in its top
  * departments, and a few products. Arrow keys move through them, Enter opens one, Escape closes.
+ * The camera searches by image (Amazon Lens): a photo, shrunk here, is named by the store
+ * (lib/data/lens.ts) and searched for.
  */
 export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder = 'Search products, brands, and more', label = 'Search', size = 'header', defaultDept, className }: SearchBarProps) {
   const hero = size === 'hero';
@@ -59,6 +75,22 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
   const [cache, setCache] = useState<Record<string, Suggestions>>({});
   /** the last query with an answer, shown while the next one loads */
   const [answered, setAnswered] = useState('');
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [lens, setLens] = useState<{ busy: boolean; error: string }>({ busy: false, error: '' });
+
+  const searchPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setOpen(false);
+    setLens({ busy: true, error: '' });
+    const image = await shrinkPhoto(file);
+    const res = image ? await lookAtImage({ image, name: file.name }).catch(() => null) : null;
+    const query = res?.ok ? res.result.query : null;
+    if (query) {
+      window.location.assign(`${actionPath}?${new URLSearchParams({ k: query, lens: '1' }).toString()}`);
+      return;
+    }
+    setLens({ busy: false, error: !image ? UNREAD : res && !res.ok ? res.message : res ? UNNAMED : 'Something went wrong. Please try again.' });
+  };
 
   const q = value.trim();
   const wanted = typedLength(q) >= SUGGEST_MIN;
@@ -183,6 +215,28 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
             hero ? 'px-[18px] py-[18px] text-[17px]' : 'px-3.5 py-[11px] text-[16px] md:text-[15px]',
           )}
         />
+        <input
+          ref={photoInput}
+          type="file"
+          accept="image/*"
+          hidden
+          tabIndex={-1}
+          onChange={(ev) => {
+            const file = ev.currentTarget.files?.[0];
+            ev.currentTarget.value = '';
+            void searchPhoto(file);
+          }}
+        />
+        <button
+          type="button"
+          aria-label="Search by image"
+          title="Search by image"
+          disabled={lens.busy}
+          onClick={() => photoInput.current?.click()}
+          className={cn('flex flex-none items-center border-0 bg-transparent text-ink-2 hover:text-ink disabled:opacity-50', hero ? 'px-3' : 'px-2.5')}
+        >
+          <Camera />
+        </button>
         <button
           type="submit"
           className={cn('flex-none border-0 bg-accent font-semibold text-on-accent hover:bg-accent-hover focus-visible:outline-offset-[-3px]', hero ? 'px-[26px] text-[16px]' : 'px-4 text-[14px] md:px-[18px]')}
@@ -206,6 +260,19 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
       <span className="sr-only" aria-live="polite">
         {visible ? `${options.length} suggestions. Use the up and down arrows to choose one.` : ''}
       </span>
+      {lens.busy || lens.error ? (
+        <div
+          role={lens.error ? 'alert' : 'status'}
+          className="absolute inset-x-0 top-[calc(100%+6px)] z-50 flex items-start justify-between gap-3 rounded-input border border-line bg-surface px-3.5 py-3 text-[14px] text-ink-2 shadow-hero"
+        >
+          <span>{lens.error || 'Looking at your photo…'}</span>
+          {lens.error ? (
+            <button type="button" onClick={() => setLens({ busy: false, error: '' })} className="flex-none text-ink underline underline-offset-2">
+              Close
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

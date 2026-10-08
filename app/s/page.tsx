@@ -78,6 +78,7 @@ function one(sp: SP, key: string): string | undefined {
  *   preset refine preset id, or `ai` = weights tuned by the quiz (summary in the `tuned_profile` cookie)
  *   orig   the query as typed, when `k` is its spelling correction ("Search instead for …")
  *   spell  `0` = search exactly as typed, no spelling correction
+ *   lens   `1` = `k` came from a photo (search by image, in the search box)
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|price-desc|rating|newest|bestsellers  ·  page
  *   brand, seller (`|`-separated), size, rating, deal, climate (Climate Pledge Friendly), small (Small Business), pct (percent off or more) — "More filters" facets  ·  oos  `1` = include out of stock
  */
@@ -267,6 +268,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <a href={hrefWith({ k: orig, orig: null, spell: '0' })} className="text-ink underline underline-offset-2">
                 Search instead for {orig}
               </a>
+            </p>
+          ) : null}
+          {k && one(sp, 'lens') === '1' ? (
+            <p className="m-0 text-[15px] text-ink-2" role="status">
+              Searching for <strong className="font-semibold text-ink">{k}</strong>, from your photo. Not quite it? Change the words in the search box.
             </p>
           ) : null}
           <Kicker>{k ? `You searched “${k}”` : 'Browse'}</Kicker>
