@@ -313,6 +313,8 @@ export interface Order {
   items: OrderItem[];
   createdAt: string;
   placedAt?: string;
+  /** when a Cash on Delivery order was paid online before delivery ("Pay now"); it's paid by `paymentMethod` since */
+  prepaidAt?: string;
   /** saved delivery schedule, set when the order is placed (absent before the lifecycle migration). */
   shippedAt?: string;
   outForDeliveryAt?: string;

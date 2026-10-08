@@ -182,7 +182,8 @@ export function noRushText(order: Order, now: Date, money: (minor: number) => st
 export function paidWithText(order: Order): string {
   const label = orderPaymentText(order);
   if (order.status === 'awaiting_payment') return `${label} · not paid yet`;
-  if (order.status !== 'cancelled') return label;
+  // a Pay on Delivery order paid online ahead of the delivery ("Pay now")
+  if (order.status !== 'cancelled') return order.prepaidAt ? `${label} · paid before delivery` : label;
   switch (order.refund?.status) {
     case 'succeeded': return `${label} · refunded`;
     case 'pending':

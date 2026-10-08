@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
-import { byTimeText, cartEta, noRushText, orderPaymentText, orderView, orderWithinText, refundText, releaseDate, returnUntilText } from './format';
+import { byTimeText, cartEta, noRushText, orderPaymentText, orderView, paidWithText, orderWithinText, refundText, releaseDate, returnUntilText } from './format';
 import type { Order } from '@/lib/types';
 
 it('counts down to the order-by time', () => {
@@ -101,4 +101,15 @@ it('splits a refund of a split payment between how they paid and the balance', (
   expect(refundText({ ...o, refund: { status: 'succeeded', amountMinor: 2500, balanceMinor: 2500 } }, amazon)).toBe('Refund of $25.00 to Gift card balance · issued.');
   // an ordinary card refund reads as before
   expect(refundText({ ...o, split: undefined, refund: { status: 'pending', amountMinor: 1080 } }, amazon)).toBe('Refund of $10.80 to Visa ending 4242 is processing.');
+});
+
+it('says a Pay on Delivery order paid online ahead of the delivery was paid before delivery', () => {
+  const order = {
+    id: '403-1', market: 'IN', currency: 'INR', status: 'placed', paymentMethod: 'upi', paymentLabel: 'UPI',
+    totals: { subtotalMinor: 219900, discountMinor: 0, shipMinor: 0, taxMinor: 0, totalMinor: 219900 },
+    items: [], createdAt: '2026-10-06T17:00:00.000Z', placedAt: '2026-10-06T17:00:00.000Z',
+  } as unknown as Order;
+  expect(paidWithText(order)).toBe('UPI');
+  expect(paidWithText({ ...order, prepaidAt: '2026-10-07T09:00:00.000Z' })).toBe('UPI · paid before delivery');
+  expect(paidWithText({ ...order, prepaidAt: '2026-10-07T09:00:00.000Z', status: 'cancelled', refund: { status: 'succeeded', amountMinor: 219900 } } as Order)).toBe('UPI · refunded');
 });

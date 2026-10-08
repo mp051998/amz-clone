@@ -292,6 +292,8 @@ export function toOrder(row: OrderWithItems): Order {
     items,
     createdAt: row.created_at,
     placedAt: opt(row.placed_at),
+    // a Cash on Delivery order paid online before it arrived (Pay now)
+    prepaidAt: opt(row.prepaid_at),
     // the lifecycle columns are absent on rows read before that migration lands
     shippedAt: opt(row.shipped_at),
     outForDeliveryAt: opt(row.out_for_delivery_at),

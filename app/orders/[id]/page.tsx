@@ -7,8 +7,8 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, noRushText, orderView, paidWithText, paymentText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
-import { balanceMethod } from '@/lib/data/balance';
-import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
+import { balanceMethod, storeBalance } from '@/lib/data/balance';
+import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payCodNow, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions/returns';
 import { withdrawMyClaim } from '@/app/actions/claims';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
@@ -48,6 +48,8 @@ import { protectionPlanName } from '@/lib/protection';
 import { emiText } from '@/lib/emi';
 import { weekdayName } from '@/lib/delivery-day';
 import { exchangeText } from '@/lib/exchange';
+import { CHECKOUT_BANKS } from '@/lib/bank-offers';
+import { selectClass } from '@/components/lib/controls';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -124,10 +126,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string; claim?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string; claim?: string; paid?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery, claim } = await searchParams;
+  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery, claim, paid } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -158,6 +160,10 @@ export default async function OrderPage({
   const addressOpen = stage === 'preparing';
   // a pickup order has no courier to instruct
   const instructionsOpen = !order.pickup && (stage === 'preparing' || stage === 'shipped');
+  // a Pay on Delivery order can be paid online instead until it arrives ("Pay now")
+  const payNowOpen = order.paymentMethod === 'cod' && order.status === 'placed' && stage !== 'delivered';
+  const wallet = payNowOpen ? await storeBalance(client, store.id).catch(() => null) : null;
+  const walletName = paymentText(balanceMethod(store.id), '');
   const point = order.pickup ? await getPickupPoint(client, store.id, order.pickup.pointId).catch(() => null) : null;
   const readyAt = order.deliveredAt ?? (view.delivered ? view.eta?.toISOString() : undefined);
   const collectBy = point && readyAt ? pickupBy(readyAt, point.holdDays) : null;
@@ -263,8 +269,12 @@ export default async function OrderPage({
 
         {methodErrorText ? (
           <Alert tone="error">{methodErrorText}</Alert>
+        ) : error === 'insufficient_balance' && payNowOpen ? (
+          <Alert tone="error">Your {lcFirst(walletName)} doesn’t cover this order. Add money to it, or pay another way.</Alert>
         ) : error ? (
           <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
+        ) : paid === '1' && order.prepaidAt ? (
+          <Alert tone="success">Paid, thanks. {money(order.totals.totalMinor)} by {paymentText(order.paymentMethod, order.paymentLabel)}: there’s nothing to pay when it arrives.</Alert>
         ) : cancelled === '1' && order.status === 'cancelled' ? (
           <Alert tone="success">Your order is cancelled.</Alert>
         ) : cancelled === 'items' && order.cancellations?.length ? (
@@ -435,6 +445,49 @@ export default async function OrderPage({
                 cancelLabel="Keep order"
               />
             </div>
+          </section>
+        ) : null}
+
+        {payNowOpen ? (
+          <section id="pay-now" className="flex flex-col gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-labelledby="pay-now-h">
+            <div className="flex max-w-[640px] flex-col gap-0.5">
+              <h2 id="pay-now-h" className="m-0 text-[16px] font-semibold">Pay now for a contactless delivery</h2>
+              <p className="m-0 text-[14px] text-ink-2">
+                You’re paying {money(order.totals.totalMinor)} on delivery. Pay it online now instead, any time before it arrives, and there’s nothing to pay at the door.
+                Cancel or return it later and it’s refunded the way you paid.
+              </p>
+            </div>
+            <form action={payCodNow.bind(null, order.id)} className="flex flex-col gap-3">
+              <fieldset className="m-0 flex max-w-[520px] flex-col gap-2 border-0 p-0">
+                <legend className="sr-only">Pay with</legend>
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-input border border-line px-3 py-2.5 text-[14px] has-[:checked]:border-ink has-[:disabled]:cursor-not-allowed has-[:disabled]:text-ink-3">
+                  <input type="radio" name="method" value="upi" defaultChecked required className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink" />
+                  <span>UPI<span className="block text-[13px] text-ink-3">Pay from any UPI app</span></span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-input border border-line px-3 py-2.5 text-[14px] has-[:checked]:border-ink has-[:disabled]:cursor-not-allowed has-[:disabled]:text-ink-3">
+                  <input type="radio" name="method" value="netbanking" required className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink" />
+                  <span>Net banking<span className="block text-[13px] text-ink-3">Pay from your bank account</span></span>
+                </label>
+                <label className="ml-[30px] flex max-w-[320px] flex-col gap-1.5 text-[13px] text-ink-2">
+                  Bank, for net banking
+                  <select name="bank" defaultValue={CHECKOUT_BANKS[0]} className={`w-full ${selectClass}`}>
+                    {CHECKOUT_BANKS.map((b) => (<option key={b} value={b}>{b}</option>))}
+                  </select>
+                </label>
+                {wallet != null ? (
+                  <label className="flex cursor-pointer items-start gap-2.5 rounded-input border border-line px-3 py-2.5 text-[14px] has-[:checked]:border-ink has-[:disabled]:cursor-not-allowed has-[:disabled]:text-ink-3">
+                    <input type="radio" name="method" value="amazonpay" required disabled={wallet < order.totals.totalMinor} className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink" />
+                    <span>
+                      {walletName}
+                      <span className="block text-[13px] text-ink-3">
+                        {wallet < order.totals.totalMinor ? `${money(wallet)} available, not enough for this order` : `${money(wallet)} available`}
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+              </fieldset>
+              <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} self-start`}>Pay {money(order.totals.totalMinor)} now</button>
+            </form>
           </section>
         ) : null}
 
