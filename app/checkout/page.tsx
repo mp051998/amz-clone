@@ -26,6 +26,7 @@ import { plusMembership } from '@/lib/data/plus';
 import { listPickupPoints } from '@/lib/data/pickup';
 import { weekdayName } from '@/lib/delivery-day';
 import { isBalanceMethod, isSplitMethod, storeBalance } from '@/lib/data/balance';
+import { payLater as payLaterAccount } from '@/lib/data/pay-later';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { DataError, messageFor } from '@/lib/data/errors';
 import { buyNowQuote } from '@/lib/data/cart';
@@ -100,7 +101,7 @@ export default async function CheckoutPage({
   const user = await readUser();
   if (!user) redirect(sp(`/signin?next=${encodeURIComponent(buy ? `/checkout?${buyNowQuery(buy)}` : '/checkout')}`));
   const client = await db();
-  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers, rewardMinor, traded] = await Promise.all([
+  const [priced, addresses, fastFee, wrapFee, plus, balanceMinor, points, lastMethod, bankOffers, rewardMinor, traded, payLater] = await Promise.all([
     promoCode ? promoQuote(client, store.id, promoCode, buy) : (buy ? quote(client, store.id, buy) : viewerCart()).then((c): CheckoutQuote | null => (c ? { cart: c } : null)),
     listAddresses(client, store.id),
     fastShipFee(client, store.id),
@@ -112,6 +113,7 @@ export default async function CheckoutPage({
     listBankOffers(client, store.id),
     noRushReward(client, store.id),
     trade(client, store.id, buy),
+    store.payments.some((pm) => pm.method === 'paylater') ? payLaterAccount(client).catch(() => null) : null,
   ]);
   const productHref = buy ? sp(`/product/${encodeURIComponent(buy.productId)}`) : null;
   const cart = priced?.cart ?? null;
@@ -251,7 +253,19 @@ export default async function CheckoutPage({
     .map((pm) => pm.method)
     .filter((m) => (m !== 'card' || stripeConfigured) && (m !== 'emi' || totals.totalMinor >= EMI_MIN_MINOR));
   // Pay on Delivery stays listed over its ceiling, greyed out with why, as amazon.in does
-  const offMethods: Partial<Record<string, string>> = methods.includes('cod') && overCodLimit(due) ? { cod: `Not available on orders over ${money(COD_MAX_MINOR)}` } : {};
+  const offMethods: Partial<Record<string, ReactNode>> = methods.includes('cod') && overCodLimit(due) ? { cod: `Not available on orders over ${money(COD_MAX_MINOR)}` } : {};
+  // so does Pay Later, until it's activated, while its bill is overdue, or when its limit falls short
+  const payLaterHref = sp('/amazon-pay/later');
+  if (methods.includes('paylater')) {
+    const off = !payLater
+      ? <>Not activated yet. <a href={payLaterHref} className="font-semibold text-ink underline underline-offset-2">Activate Pay Later</a></>
+      : payLater.overdue
+        ? <>Your bill is overdue. <a href={payLaterHref} className="font-semibold text-ink underline underline-offset-2">Pay it</a> to use Pay Later again</>
+        : payLater.availableMinor < due
+          ? `Your available limit, ${money(payLater.availableMinor)}, doesn’t cover this order`
+          : null;
+    if (off) offMethods.paylater = off;
+  }
   // balance methods pay the whole order from the gift card balance (null before balances exist); one
   // that falls short can pay part of it alongside card, UPI or net banking
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
@@ -337,7 +351,7 @@ export default async function CheckoutPage({
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} pickupPoints={pickupPoints} />
-          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} bankOffers={bankOfferNotes} unavailable={offMethods} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} bankOffers={bankOfferNotes} unavailable={offMethods} payLater={payLater ? { available: money(payLater.availableMinor), limit: money(payLater.limitMinor), href: payLaterHref } : undefined} />
           <StepCard
             n={3}
             title="Delivery"

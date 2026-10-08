@@ -68,8 +68,8 @@ export default async function ReturnPage({
   // when everything left to return is replacement only and can be replaced, that's the choice
   const replaceFirst = replaceOnly.length === lines.length && replaceable.length === lines.length;
   const original = refundTo(order.paymentMethod, order.paymentLabel);
-  // an order paid from the balance is refunded to it anyway
-  const balance = isBalanceMethod(order.paymentMethod) ? null : refundTo(balanceMethod(order.market), '');
+  // an order paid from the balance is refunded to it anyway, and a Pay Later one only to Pay Later
+  const balance = isBalanceMethod(order.paymentMethod) || order.paymentMethod === 'paylater' ? null : refundTo(balanceMethod(order.market), '');
   // a courier collects from the delivery address, which an order collected from a pickup point doesn't have
   const collectFrom = order.pickup ? undefined : [order.shipTo.line1, order.shipTo.line2, `${order.shipTo.city} ${order.shipTo.postcode}`].filter(Boolean).join(', ');
   const errorText = error

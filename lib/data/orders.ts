@@ -14,7 +14,7 @@ import { getPickupPoint } from './pickup';
 import { isBankOfferMethod } from '../bank-offers';
 import { isBalanceMethod, isSplitMethod } from './balance';
 
-export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
+export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay', 'paylater'];
 
 export function isPaymentMethod(v: unknown): v is PaymentMethod {
   return typeof v === 'string' && (PAYMENT_METHODS as readonly string[]).includes(v);

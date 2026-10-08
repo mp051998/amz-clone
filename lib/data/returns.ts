@@ -227,6 +227,10 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
   if (res.error?.message === 'invalid_input' && res.error.details === 'items') {
     throw new DataError('invalid_input', 'items', 'Those items or quantities can’t be returned. Check what’s left to return.');
   }
+  // the values were checked above: this is a Pay Later order, whose refunds only go back to Pay Later
+  if (res.error?.message === 'invalid_input' && res.error.details === 'refund_to') {
+    throw new DataError('invalid_input', 'refundTo', 'A Pay Later order’s refund goes back to Pay Later.');
+  }
   if (res.error?.message === 'return_not_allowed' && res.error.details === 'replacement_only') {
     throw new DataError(
       'return_not_allowed',

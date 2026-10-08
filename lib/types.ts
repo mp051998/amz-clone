@@ -215,7 +215,7 @@ export interface OrderReturn {
   rejectedAt?: string;
   cancelledAt?: string;
 }
-export type PaymentMethod = 'card' | 'giftcard' | 'upi' | 'netbanking' | 'cod' | 'emi' | 'amazonpay';
+export type PaymentMethod = 'card' | 'giftcard' | 'upi' | 'netbanking' | 'cod' | 'emi' | 'amazonpay' | 'paylater';
 
 export interface OrderItem {
   productId: string;

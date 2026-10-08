@@ -52,6 +52,8 @@ it('IN: the balance tile is real; the illustrative ones aren’t links once sign
   expect(screen.getByText('Scan any QR').closest('a')).toBeNull();
   expect(screen.getByText('Electricity').closest('a')).toBeNull();
   expect(screen.getByRole('link', { name: 'Add to your balance' })).toBeInTheDocument();
+  // Pay Later is real too
+  expect(screen.getByRole('link', { name: 'See Pay Later' })).toHaveAttribute('href', '/in/amazon-pay/later');
 });
 
 it('says so when the balance can’t be read', async () => {

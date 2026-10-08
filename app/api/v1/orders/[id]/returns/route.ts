@@ -22,7 +22,8 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
  * not_as_described), of the delivery. 'replacement' (store-fault reasons only): the same items ship
  * now at no charge. `refundTo` 'original' (default) refunds how the order was paid; 'balance' pays
  * the refund onto the caller's balance in the store as soon as the items are received (ignored for
- * a replacement or an order paid from the balance). `return_not_allowed` (409, detail
+ * a replacement or an order paid from the balance; refused for a Pay Later order, whose refunds go
+ * back to Pay Later). `return_not_allowed` (409, detail
  * not_delivered | window_closed); `replacement_unavailable` (409, detail already_replaced |
  * out_of_stock); `invalid_input` (detail items | reason | comment | resolution | refundTo).
  */

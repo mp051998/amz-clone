@@ -25,9 +25,9 @@ const IN_BILLS = [
   'Water', 'FASTag recharge', 'Municipal tax', 'App store credit', 'Rent', 'Loan repayment',
 ];
 
-/** IN — financial services. */
+/** IN — financial services; Pay Later is real. */
 const IN_FINANCE: Tile[] = [
-  { title: 'Pay Later', desc: 'Buy now, pay next month or convert to easy EMIs — instant activation, no paperwork.' },
+  { title: 'Pay Later', desc: 'Buy now, pay next month with no interest — instant activation, no paperwork.', href: '/amazon-pay/later' },
   { title: 'Insurance', desc: 'Car, bike, health and term-life cover in minutes, with instant policy documents.' },
   { title: 'Digital gold', desc: 'Buy 24K 99.9% pure digital gold from ₹1, stored securely and sellable anytime.' },
 ];
@@ -123,7 +123,11 @@ export default async function StorePayPage() {
 
             <Section title="Financial services">
               <div className={cardGrid}>
-                {IN_FINANCE.map((s) => (<InfoCard key={s.title} title={s.title}>{s.desc}</InfoCard>))}
+                {IN_FINANCE.map((s) => (
+                  <InfoCard key={s.title} title={s.title} footer={s.href ? <TextLink href={sp(s.href)}>{user ? 'See Pay Later' : 'Activate Pay Later'}</TextLink> : undefined}>
+                    {s.desc}
+                  </InfoCard>
+                ))}
               </div>
             </Section>
           </>
