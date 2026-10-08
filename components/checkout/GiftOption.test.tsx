@@ -40,3 +40,13 @@ it('offers gift wrap with its fee when the store wraps, sent only for a gift', (
   fireEvent.click(screen.getByLabelText('This order contains a gift'));
   expect(new FormData(container.querySelector('form')!).get('giftWrap')).toBeNull();
 });
+
+it('starts ticked when the cart said the order contains a gift', () => {
+  const { container } = render(<form><GiftOption max={240} initial /></form>);
+  expect(screen.getByLabelText('This order contains a gift')).toBeChecked();
+  expect(screen.getByLabelText('Gift message (optional)')).toBeInTheDocument();
+  expect(new FormData(container.querySelector('form')!).get('gift')).toBe('on');
+  // and can still be unticked
+  fireEvent.click(screen.getByLabelText('This order contains a gift'));
+  expect(screen.queryByLabelText('Gift message (optional)')).toBeNull();
+});

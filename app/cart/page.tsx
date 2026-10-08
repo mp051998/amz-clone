@@ -3,6 +3,7 @@ import { AppShell } from '@/components/AppShell';
 import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Alert } from '@/components/primitives/Alert';
+import { Checkbox } from '@/components/primitives/Checkbox';
 import { CartQty } from '@/components/cart/CartQty';
 import { CartSelect, CartSelectAll } from '@/components/cart/CartSelect';
 import { cartNotice } from '@/components/cart/notice';
@@ -420,7 +421,11 @@ export default async function CartPage({
                       : 'Some items are over their limit per customer. Update them to check out.'}
               </Alert>
             ) : user ? (
-              <a href={sp('/checkout')} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</a>
+              // ticked, checkout opens with its gift options (a message, gift wrap)
+              <form action={sp('/checkout')} method="get" className="flex flex-col gap-1">
+                <Checkbox name="gift" value="1" label="This order contains a gift" />
+                <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</button>
+              </form>
             ) : (
               // no guest checkout: orders belong to an account, so guests sign in first (the cart comes along)
               <a href={sp(`/signin?next=${encodeURIComponent('/checkout')}`)} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Sign in to check out</a>
