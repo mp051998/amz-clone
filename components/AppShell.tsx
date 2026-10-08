@@ -33,6 +33,7 @@ const MENU_PROGRAMS = [
   { label: 'Membership', path: '/prime' },
   { label: 'Video', path: '/prime-video' },
   { label: 'Gift cards', path: '/gift-cards' },
+  { label: 'Renewed', path: '/renewed' },
   { label: 'Registry', path: '/registry' },
   { label: 'Pay', path: '/amazon-pay' },
   { label: 'Business', path: '/business' },

@@ -2,6 +2,7 @@ import type { PublicMarketplace } from '@/lib/contracts';
 import type { SellerRating } from '@/lib/data/seller-feedback';
 import { storePath } from '@/lib/marketplace';
 import { conditionLabel } from '@/lib/offers';
+import { guaranteeLabel } from '@/lib/renewed';
 import type { Product } from '@/lib/types';
 import type { OfferItem } from './Offers';
 
@@ -13,13 +14,15 @@ export function positiveText(r: SellerRating): string {
 /** A product or one of its offers, as an offer row. Pure — unit-testable. */
 export function offerItem(
   x: Product,
-  o: { store: Pick<PublicMarketplace, 'id'>; priceText: string; rating?: SellerRating; delivery?: string; featured?: boolean },
+  o: { store: Pick<PublicMarketplace, 'id' | 'returns'>; priceText: string; rating?: SellerRating; delivery?: string; featured?: boolean },
 ): OfferItem {
+  const guarantee = x.condition === 'renewed' ? guaranteeLabel(o.store) : null;
   return {
     id: x.id,
     priceText: o.priceText,
     condition: conditionLabel(x.condition),
     ...(x.conditionNote ? { note: x.conditionNote } : {}),
+    ...(guarantee ? { guarantee: { label: guarantee, href: storePath(o.store, '/renewed') } } : {}),
     seller: x.seller,
     sellerHref: storePath(o.store, `/seller?name=${encodeURIComponent(x.seller)}`),
     ...(o.rating?.ratings ? { sellerRating: positiveText(o.rating) } : {}),

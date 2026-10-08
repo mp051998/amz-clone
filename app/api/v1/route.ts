@@ -115,6 +115,7 @@ export function GET(): Response {
       'DELETE /deals/lightning/:id/watch',
       'GET    /recalls',
       'GET    /small-businesses',
+      'GET    /renewed',
       'POST   /products/:id/coupon',
       'DELETE /products/:id/coupon',
       'GET    /cart',
