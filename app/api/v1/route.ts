@@ -51,6 +51,8 @@ export function GET(): Response {
       'POST   /me/cards',
       'DELETE /me/cards/:id',
       'GET    /me/messages',
+      'GET    /me/message-preferences',
+      'PUT    /me/message-preferences',
       'GET    /me/recalls',
       'POST   /me/review-photos',
       'GET    /me/support',
