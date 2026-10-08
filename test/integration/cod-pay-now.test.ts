@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createProduct, type ProductInput } from '@/lib/data/admin-catalog';
+import { createCategory } from '@/lib/data/admin-categories';
 import { storeBalance } from '@/lib/data/balance';
 import { setCartQty } from '@/lib/data/cart';
 import { DataError } from '@/lib/data/errors';
 import { cancelOrder, cancelOrderItems, getOrder, payCodOrder, placeOrder } from '@/lib/data/orders';
-import { deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, type TestUser } from './helpers';
+import { admin, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, type TestUser } from './helpers';
 
 /** What a call failed with, as `code:detail` (or 'no error'). */
 const failure = async (p: Promise<unknown>) => {
@@ -16,26 +18,72 @@ const failure = async (p: Promise<unknown>) => {
   return 'no error';
 };
 
+const tag = crypto.randomUUID().slice(0, 6);
+let boss: TestUser;
 let shopper: TestUser;
 let broke: TestUser;
 let other: TestUser;
+// the test's own amazon.in category and two products in it
+let category = '';
 let product = '';
 let second = '';
+
+const item = (priceMinor: number): ProductInput => ({
+  title: `Pay now test ${tag}`,
+  brand: null,
+  category,
+  image: '/products/placeholder.jpg',
+  priceMinor,
+  listMinor: null,
+  deal: false,
+  couponPct: null,
+  maxPerCustomer: null,
+  sizes: null,
+  unit: null,
+  qtyDiscount: null,
+  releaseAt: null,
+  badge: null,
+  boughtPastMonth: null,
+  seller: 'Test Seller',
+  shipsFrom: 'Store',
+  bullets: [],
+  description: null,
+  details: [],
+  // under pickProduct's 25, so other tests never pick these
+  stock: 20,
+  gallery: [],
+  variantGroup: null,
+  variantAxis: null,
+  variantLabel: null,
+});
 
 const cod = (u: TestUser, productId = product) =>
   placeOrder(u.db, 'IN', { paymentMethod: 'cod', shipping: IN_SHIPPING, buyNow: { productId, qty: 1 } });
 
 beforeAll(async () => {
-  [shopper, broke, other] = await Promise.all([
+  [boss, shopper, broke, other] = await Promise.all([
+    newUser('Pay Now Admin'),
     newUser('Pay Now Shopper'),
     newUser('Pay Now Broke', { funded: false }),
     newUser('Pay Now Other'),
   ]);
-  [product, second] = await Promise.all([pickProduct('IN', 118).then((p) => p.id), pickProduct('IN', 119).then((p) => p.id)]);
+  const { error } = await admin().from('admins').insert({ user_id: boss.id });
+  if (error) throw error;
+  category = await createCategory(boss.db, { name: `Pay now ${tag}` }, 'IN');
+  product = await createProduct(boss.db, 'IN', item(219_900));
+  second = await createProduct(boss.db, 'IN', item(99_900));
 });
 
 afterAll(async () => {
+  // orders go with the shoppers, and then the products and the category can
   await Promise.all([deleteUser(shopper), deleteUser(broke), deleteUser(other)]);
+  const ids = [product, second].filter(Boolean);
+  if (ids.length) await admin().from('products').delete().in('id', ids);
+  if (category) {
+    await admin().from('market_categories').delete().eq('category_slug', category);
+    await admin().from('categories').delete().eq('slug', category);
+  }
+  await deleteUser(boss);
 });
 
 describe('Pay now on Pay on Delivery orders', () => {
