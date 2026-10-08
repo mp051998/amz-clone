@@ -124,6 +124,7 @@ export function productFormValues(p: AdminProduct, timeZone: string): ProductFor
     coupon: p.couponPct == null ? '' : String(p.couponPct),
     limit: p.maxPerCustomer == null ? '' : String(p.maxPerCustomer),
     sizes: p.sizes?.join(', ') ?? '',
+    climate: (p.climate ?? []).join(','),
     unit: p.unit ? unitSizeText(p.unit) : '',
     qtyPct: p.qtyDiscount ? String(p.qtyDiscount.percentOff) : '',
     qtyMin: p.qtyDiscount ? String(p.qtyDiscount.minQty) : '',

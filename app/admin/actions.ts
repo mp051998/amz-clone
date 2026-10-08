@@ -22,6 +22,7 @@ import { storePath } from '@/lib/marketplace';
 import { parseDetailLines } from '@/lib/product-details';
 import { parseUnitSize } from '@/lib/unit-price';
 import { localDayStart } from '@/lib/decision/tracking';
+import { climateCerts } from '@/lib/climate';
 import { adminClient } from './guard';
 
 /** What the product form needs back: field errors, a form-level message, and the values to keep. */
@@ -42,6 +43,7 @@ const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 
 export async function saveProduct(id: string | null, _prev: ProductFormState, formData: FormData): Promise<ProductFormState> {
   const values: Record<string, string> = Object.fromEntries(FIELDS.map((k) => [k, String(formData.get(k) ?? '')]));
   values.deal = formData.get('deal') === 'on' ? 'on' : '';
+  values.climate = climateCerts(formData.getAll('climate')).join(',');
   const kept = formData.getAll('gallery').map((v) => String(v).trim()).filter(Boolean);
   values.gallery = kept.join('\n');
   const back = (errors: ProductFormState['errors']): ProductFormState => ({ errors, values });
@@ -86,6 +88,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     couponPct,
     maxPerCustomer,
     sizes: sizeList.length ? sizeList : null,
+    climate: climateCerts(values.climate.split(',')),
     unit,
     qtyDiscount,
     releaseAt,

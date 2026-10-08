@@ -77,6 +77,7 @@ import { emiPlans } from '@/lib/emi';
 import { EmiOffer } from '@/components/product/EmiOffer';
 import { BankOffers } from '@/components/product/BankOffers';
 import { ProductPerks } from '@/components/product/ProductPerks';
+import { ClimateBadge, ClimateFeatures } from '@/components/product/ClimatePledge';
 import { productPerks } from '@/components/product/perks';
 import { listBankOffers } from '@/lib/data/bank-offers';
 import { PromoOffers } from '@/components/product/PromoOffers';
@@ -416,6 +417,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     <span>in <span className="underline underline-offset-2">{p.categoryName}</span></span>
                   </a>
                 ) : null}
+                {p.climate?.length ? <ClimateBadge href="#climate" /> : null}
                 {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
                 {returnSignal?.frequent ? <FrequentlyReturned signal={returnSignal.frequent} reviewsHref="#reviews" /> : null}
                 {returnSignal?.usuallyKept ? <UsuallyKept /> : null}
@@ -611,6 +613,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <h2 id="specs-h" className="m-0 text-[22px] font-semibold">Specifications</h2>
           <Specs groups={specs} />
         </section>
+
+        {p.climate?.length ? <ClimateFeatures certs={p.climate} /> : null}
 
         {info.description ? (
           <section aria-labelledby="desc-h" className="flex max-w-[860px] flex-col gap-3">

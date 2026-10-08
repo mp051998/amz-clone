@@ -28,6 +28,8 @@ export interface SearchQuery {
   size?: string[];
   rating?: number;
   deal?: boolean;
+  /** "Climate Pledge Friendly": only products with a sustainability certification (`climate=1`) */
+  climate?: boolean;
   /** lowest price, minor units */
   minPrice?: number;
   /** highest price, minor units */
@@ -53,6 +55,8 @@ export interface SearchResult {
   sellerFacets: { name: string; count: number }[];
   /** sizes in the same scope, with counts, in size-chart order */
   sizeFacets: { name: string; count: number }[];
+  /** how many in the same scope are Climate Pledge Friendly, each variant group once */
+  climateCount?: number;
   /** matches with no option in stock, each variant group once (left out unless `includeOutOfStock`) */
   unavailable: number;
   headingLabel: string;
@@ -94,6 +98,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     size: sizeRaw ? readSizes(sizeRaw) : undefined,
     rating: Number.isFinite(rating) && rating >= 1 && rating <= 5 ? rating : undefined,
     deal: one(sp.deal) === '1' || undefined,
+    climate: one(sp.climate) === '1' || undefined,
     minPrice: price(sp.min),
     maxPrice: price(sp.max),
     includeOutOfStock: one(sp.oos) === '1' || undefined,

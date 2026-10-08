@@ -1,3 +1,4 @@
+import type { ClimateCert } from './climate';
 import type { CurrencyCode } from './contracts';
 import type { ExchangeCondition } from './exchange';
 import type { QtyDiscount } from './qty-discount';
@@ -53,6 +54,8 @@ export interface Product {
   conditionNote?: string;
   /** can be bought with Subscribe & Save, delivered every few months (absent: it can't). */
   subscribeSave?: boolean;
+  /** Climate Pledge Friendly: its sustainability certifications (absent: it has none). */
+  climate?: ClimateCert[];
 }
 
 /** The conditions an offer can be in other than new: Amazon's renewed and used grades. */

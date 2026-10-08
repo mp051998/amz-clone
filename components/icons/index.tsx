@@ -38,6 +38,8 @@ export const IconLock = (p: IconProps) => (<Line {...p}><rect x="5" y="11" width
 export const IconTruck = (p: IconProps) => (<Line {...p}><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z" /><circle cx="7" cy="18" r="1.4" /><circle cx="17" cy="18" r="1.4" /></Line>);
 export const IconCash = (p: IconProps) => (<Line {...p}><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.6" /><path d="M6.5 9.5v.01M17.5 14.5v.01" /></Line>);
 export const IconReturn = (p: IconProps) => (<Line {...p}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></Line>);
+/** A leaf (Climate Pledge Friendly). */
+export const IconLeaf = (p: IconProps) => (<Line {...p}><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14Z" /><path d="M5 19 13 11" /></Line>);
 
 /** Filled star for ratings (design.md §2.5, §5 Stars). */
 export const IconStar = (props: IconProps) => {

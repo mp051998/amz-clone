@@ -30,7 +30,7 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
   const initial: ProductFormValues = base
     ? { ...productFormValues(base, store.dates.timeZone), variantLabel: '', stock: '0', gallery: '' }
     : {
-        title: '', brand: '', category: categories[0]?.slug ?? '', image: '', price: '', listPrice: '', deal: false, coupon: '', limit: '', sizes: '', unit: '', qtyPct: '', qtyMin: '', release: '',
+        title: '', brand: '', category: categories[0]?.slug ?? '', image: '', price: '', listPrice: '', deal: false, coupon: '', limit: '', sizes: '', climate: '', unit: '', qtyPct: '', qtyMin: '', release: '',
         badge: '', boughtPastMonth: '', seller: '', shipsFrom: '', bullets: '', description: '', details: '', stock: '0',
         gallery: '', variantGroup: '', variantAxis: '', variantLabel: '',
       };
