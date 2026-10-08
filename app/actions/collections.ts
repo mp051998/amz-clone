@@ -133,10 +133,14 @@ export async function moveToCollection(fromId: string, toId: string, productId: 
   });
 }
 
-/** On someone's shared list: mark an item bought by the caller, or undo their mark. */
-export async function markGiftBought(token: string, productId: string, bought: boolean): Promise<{ ok: true } | ActionError> {
+/**
+ * On someone's shared list: mark an item bought by the caller (`quantity` of it, else all that's
+ * still needed), or undo their mark.
+ */
+export async function markGiftBought(token: string, productId: string, bought: boolean, quantity?: number): Promise<{ ok: true } | ActionError> {
   return run(async (client) => {
-    await collections.markSharedGift(client, String(token), String(productId), bought === true);
+    if (bought === true && quantity !== undefined) await collections.setSharedGift(client, String(token), String(productId), quantity);
+    else await collections.markSharedGift(client, String(token), String(productId), bought === true);
     revalidate();
     return { ok: true as const };
   });

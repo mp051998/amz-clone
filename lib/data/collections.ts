@@ -430,8 +430,13 @@ export interface SharedList {
   collectionId: string | null;
   /** still to buy first, then bought; newest first within each. Products no longer on sale are left out */
   products: Product[];
-  /** items gift givers marked bought: by the viewer (`you`) or another giver. Empty for the owner */
+  /**
+   * items gift givers marked bought: the viewer marked some (`you`), or other givers' marks cover
+   * its quantity (`someone`). Empty for the owner
+   */
   bought: Record<string, GiftMark>;
+  /** how many of each item givers marked bought (`has`), `yours` of them; only marked items, empty for the owner */
+  gifts: Record<string, GiftCount>;
   /** each product's comment, quantity and priority, as the owner set them */
   details: Record<string, ItemDetails>;
 }
@@ -444,6 +449,17 @@ export interface ItemDetails {
 }
 
 export type GiftMark = 'you' | 'someone';
+
+/** "Has": how many of an item gift givers marked bought, and how many of those the viewer did. */
+export interface GiftCount {
+  has: number;
+  yours: number;
+}
+
+/** How many more of an item the list still needs ("Needs 3 · Has 1" leaves 2). */
+export function giftsLeft(list: Pick<SharedList, 'gifts' | 'details'>, productId: string): number {
+  return Math.max(0, (list.details[productId]?.quantity ?? 1) - (list.gifts[productId]?.has ?? 0));
+}
 
 export function isShareToken(v: unknown): v is string {
   return typeof v === 'string' && /^[0-9a-f]{32}$/.test(v);
@@ -470,7 +486,16 @@ interface SharedRow {
   owner_name: string;
   mine: boolean;
   collection_id: string | null;
-  items: { product_id: string; added_at: string; bought?: GiftMark | null; comment?: string; quantity?: number; priority?: number }[];
+  items: {
+    product_id: string;
+    added_at: string;
+    bought?: GiftMark | null;
+    comment?: string;
+    quantity?: number;
+    priority?: number;
+    has?: number | null;
+    yours?: number | null;
+  }[];
 }
 
 /** A shared list by its link, or null when the link is off or never existed. */
@@ -482,13 +507,19 @@ export async function getSharedList(db: Db, token: string): Promise<SharedList |
   const row = unwrap(res) as unknown as SharedRow | null;
   if (!row) return null;
   const bought: Record<string, GiftMark> = {};
+  const gifts: Record<string, GiftCount> = {};
   const details: Record<string, ItemDetails> = {};
   for (const i of row.items) {
+    const quantity = i.quantity ?? 1;
     if (i.bought === 'you' || i.bought === 'someone') bought[i.product_id] = i.bought;
-    details[i.product_id] = { comment: i.comment ?? '', quantity: i.quantity ?? 1, priority: priorityName(i.priority) };
+    details[i.product_id] = { comment: i.comment ?? '', quantity, priority: priorityName(i.priority) };
+    // before the migration a mark covered the whole item
+    const has = i.has ?? (i.bought ? quantity : 0);
+    if (has > 0) gifts[i.product_id] = { has, yours: i.yours ?? (i.bought === 'you' ? quantity : 0) };
   }
-  // stable: newest first stays within each group
-  const ids = row.items.map((i) => i.product_id).sort((a, b) => Number(a in bought) - Number(b in bought));
+  // stable: newest first stays within each group; an item is bought once givers' marks cover it
+  const done = (id: string) => Number(giftsLeft({ gifts, details }, id) === 0);
+  const ids = row.items.map((i) => i.product_id).sort((a, b) => done(a) - done(b));
   const byId = new Map((await getProducts(db, ids)).map((p) => [p.id, p]));
   return {
     token,
@@ -501,16 +532,41 @@ export async function getSharedList(db: Db, token: string): Promise<SharedList |
     collectionId: row.collection_id,
     products: ids.flatMap((id) => byId.get(id) ?? []),
     bought,
+    gifts,
     details,
   };
 }
 
 /**
- * A gift giver marks an item on someone's shared list as bought (or undoes their mark). One giver
- * per item: `409 gift_already_bought` when another got there first; `409 own_list` for the owner.
+ * A gift giver marks an item on someone's shared list as bought (all that's still needed of it),
+ * or undoes their mark. `409 gift_already_bought` when other givers' marks already cover it;
+ * `409 own_list` for the owner.
  */
 export async function markSharedGift(db: Db, token: string, productId: string, bought: boolean): Promise<void> {
   if (!isShareToken(token)) throw new DataError('collection_not_found');
   if (typeof productId !== 'string' || !productId) throw new DataError('item_not_found');
   unwrap(await db.rpc('mark_shared_gift', { p_token: token, p_product: productId, p_bought: bought === true }));
+}
+
+/** Most a giver can mark of one item (an item's quantity tops out at the same). */
+export const GIFT_QUANTITY_MAX = LIST_QUANTITY_MAX;
+
+/**
+ * A gift giver marks how many of an item they bought, toward the quantity the owner asked for
+ * (replacing their earlier mark; `markSharedGift(…, false)` undoes it). `409 gift_too_many` when
+ * that's more than is still needed, saying how many are; `409 gift_already_bought` when other
+ * givers' marks already cover it.
+ */
+export async function setSharedGift(db: Db, token: string, productId: string, quantity: unknown): Promise<void> {
+  if (!isShareToken(token)) throw new DataError('collection_not_found');
+  if (typeof productId !== 'string' || !productId) throw new DataError('item_not_found');
+  if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1 || quantity > GIFT_QUANTITY_MAX) {
+    throw new DataError('invalid_input', 'quantity', `Mark between 1 and ${GIFT_QUANTITY_MAX}.`);
+  }
+  const res = await db.rpc('set_shared_gift', { p_token: token, p_product: productId, p_quantity: quantity });
+  if (res.error?.message === 'gift_too_many') {
+    const left = Number(res.error.details);
+    if (left > 0) throw new DataError('gift_too_many', String(left), `Only ${left} more ${left === 1 ? 'is' : 'are'} needed.`);
+  }
+  unwrap(res);
 }

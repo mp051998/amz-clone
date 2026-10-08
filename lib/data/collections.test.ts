@@ -4,6 +4,7 @@ import { product } from '@/test/fixtures/decision';
 import {
   backInStock,
   getSharedList,
+  giftsLeft,
   isBackInStock,
   isShareToken,
   listChoices,
@@ -12,6 +13,7 @@ import {
   priceDrops,
   priorityName,
   setItemDetails,
+  setSharedGift,
   shareCollection,
   unshareCollection,
 } from './collections';
@@ -69,6 +71,40 @@ it('reads gift givers’ marks off a shared list', async () => {
     shared_collection: { data: { name: 'Wedding', kind: 'custom', market_id: 'US', shared_at: '2026-10-05T10:00:00Z', owner_name: 'Asha', mine: false, collection_id: null, items }, error: null },
   });
   expect((await getSharedList(db, TOKEN))!.bought).toEqual({ a: 'you', c: 'someone' });
+});
+
+it('counts what each item still needs once gift givers mark part of its quantity', async () => {
+  const items = [
+    { product_id: 'a', added_at: '2026-10-05', quantity: 3, has: 1, yours: 1, bought: 'you' },
+    { product_id: 'b', added_at: '2026-10-04', quantity: 2, has: 2, yours: 0, bought: 'someone' },
+    { product_id: 'c', added_at: '2026-10-03', quantity: 4, has: 0, yours: 0, bought: null },
+    // before the migration: a mark covered the whole item
+    { product_id: 'd', added_at: '2026-10-02', quantity: 2, bought: 'you' },
+    { product_id: 'e', added_at: '2026-10-01', bought: 'someone' },
+  ];
+  const { db } = fakeDb({
+    shared_collection: { data: { name: 'Wedding', kind: 'custom', market_id: 'US', shared_at: '2026-10-05T10:00:00Z', owner_name: 'Asha', mine: false, collection_id: null, items }, error: null },
+  });
+  const list = (await getSharedList(db, TOKEN))!;
+  expect(list.gifts).toEqual({ a: { has: 1, yours: 1 }, b: { has: 2, yours: 0 }, d: { has: 2, yours: 2 }, e: { has: 1, yours: 0 } });
+  expect(['a', 'b', 'c', 'd', 'e', 'gone'].map((id) => giftsLeft(list, id))).toEqual([2, 0, 4, 0, 0, 1]);
+  // the owner lowered the quantity under what givers marked
+  expect(giftsLeft({ gifts: { a: { has: 3, yours: 0 } }, details: { a: { comment: '', quantity: 1, priority: 'medium' } } }, 'a')).toBe(0);
+});
+
+it('marks a number bought only when it’s a whole number from 1 to 99, and says how many are left', async () => {
+  const ok = fakeDb({});
+  for (const quantity of [0, 100, 1.5, '2', null]) {
+    await expect(setSharedGift(ok.db, TOKEN, 'p1', quantity)).rejects.toMatchObject({ code: 'invalid_input', detail: 'quantity' });
+  }
+  await expect(setSharedGift(ok.db, 'nope', 'p1', 1)).rejects.toMatchObject({ code: 'collection_not_found' });
+  expect(ok.rpcs).toEqual([]);
+  await setSharedGift(ok.db, TOKEN, 'p1', 2);
+  expect(ok.rpcs).toEqual([['set_shared_gift', { p_token: TOKEN, p_product: 'p1', p_quantity: 2 }]]);
+
+  const tooMany = (left: string) => fakeDb({ set_shared_gift: { data: null, error: { message: 'gift_too_many', details: left, hint: '', code: 'P0001' } } }).db;
+  await expect(setSharedGift(tooMany('2'), TOKEN, 'p1', 3)).rejects.toMatchObject({ code: 'gift_too_many', status: 409, message: 'Only 2 more are needed.' });
+  await expect(setSharedGift(tooMany('1'), TOKEN, 'p1', 3)).rejects.toMatchObject({ message: 'Only 1 more is needed.' });
 });
 
 it('reads each item’s comment, quantity and priority off a shared list', async () => {
