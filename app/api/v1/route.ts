@@ -92,6 +92,7 @@ export function GET(): Response {
       'POST   /answers/:id/helpful',
       'GET    /coupons',
       'GET    /bank-offers',
+      'GET    /exchange-devices?kind=',
       'GET    /deals/lightning',
       'GET    /deals/lightning/watched',
       'POST   /deals/lightning/:id/watch',

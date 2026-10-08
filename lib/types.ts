@@ -1,4 +1,5 @@
 import type { CurrencyCode } from './contracts';
+import type { ExchangeCondition } from './exchange';
 import type { QtyDiscount } from './qty-discount';
 import type { FeatureStars } from './review-features';
 import type { ProductUnit } from './unit-price';
@@ -75,6 +76,8 @@ export interface OrderTotals {
   snsMinor?: number;
   /** the Bank Offer's part of discountMinor (absent without one) */
   bankOfferMinor?: number;
+  /** an old device traded in: its part of discountMinor (absent without one) */
+  exchangeMinor?: number;
   shipMinor: number;
   taxMinor: number;
   /** gift wrap, per unit wrapped (absent or 0 without it) */
@@ -241,6 +244,8 @@ export interface OrderItem {
   unitSnsMinor?: number;
   /** the Bank Offer's part of unitDiscountMinor (absent without one) */
   unitBankMinor?: number;
+  /** an old device traded in for it: its part of unitDiscountMinor (absent without one) */
+  unitExchangeMinor?: number;
   /**
    * days after delivery it can be returned, when its category had its own window in the store
    * when it was ordered (0: not returnable); absent for the store's own window
@@ -295,6 +300,12 @@ export interface Order {
    * part and what the payment method was charged, as placed (absent otherwise)
    */
   split?: { balanceMinor: number; chargedMinor: number };
+  /**
+   * an old device traded in (Buy Now of one phone or laptop, amazon.in): its name as ordered, its
+   * condition and what it took off (`deviceId` absent once the store stops listing it); collected
+   * when the order is delivered
+   */
+  exchange?: { deviceId?: string; device: string; condition: ExchangeCondition; valueMinor: number };
   totals: OrderTotals;
   shipTo: ShippingAddress;
   /** set while the shopper keeps it out of their order list */

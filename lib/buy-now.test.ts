@@ -43,3 +43,14 @@ it('carries the size picked, trimmed, and drops a blank or overlong one', () => 
   expect(readBuyNow('k1', '1', null, ['M'])).toEqual({ productId: 'k1', qty: 1 });
   expect(new URLSearchParams(buyNowQuery({ productId: 'k1', qty: 1 })).has('size')).toBe(false);
 });
+
+it('carries an old device traded in, for one unit', () => {
+  const b = readBuyNow('k1', '3', null, null, 'apple-iphone-13', 'screen_damaged');
+  expect(b).toEqual({ productId: 'k1', qty: 1, exchange: { deviceId: 'apple-iphone-13', condition: 'screen_damaged' } });
+  const q = new URLSearchParams(buyNowQuery(b!));
+  expect([q.get('exchange'), q.get('condition')]).toEqual(['apple-iphone-13', 'screen_damaged']);
+  expect(readBuyNow(q.get('buy'), q.get('qty'), q.get('protection'), q.get('size'), q.get('exchange'), q.get('condition'))).toEqual(b);
+  // without a known condition there's no exchange, and the quantity stands
+  expect(readBuyNow('k1', '3', null, null, 'apple-iphone-13', 'mint')).toEqual({ productId: 'k1', qty: 3 });
+  expect(new URLSearchParams(buyNowQuery({ productId: 'k1', qty: 2 })).has('exchange')).toBe(false);
+});

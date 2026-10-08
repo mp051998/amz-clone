@@ -14,8 +14,19 @@ import { SaveButton } from '../decision/SaveButton';
 import { SizeChart } from './SizeChart';
 import { useToast } from '../decision/Toast';
 import { limitNote } from '@/lib/purchase-limits';
+import { CONDITION_LABEL, EXCHANGE_CONDITIONS, type ExchangeCondition } from '@/lib/exchange';
 
 export interface ConfidenceRow { k: string; v: string }
+
+/** A model the store takes in exchange for this product, with what it takes off (formatted). */
+export interface ExchangeOption {
+  id: string;
+  brand: string;
+  model: string;
+  /** off with the screen undamaged, and cracked or marked */
+  good: string;
+  damaged: string;
+}
 
 export interface BuyPanelProps {
   productId: string;
@@ -56,6 +67,8 @@ export interface BuyPanelProps {
   sizes?: string[];
   /** a pre-order: when it comes out ("November 20, 2026"); Buy Now reads "Pre-order now" */
   preOrder?: { release: string };
+  /** amazon.in's exchange offer: trade an old `kind` ("phone") in with Buy Now, up to `upTo` off */
+  exchange?: { kind: string; upTo: string; devices: ExchangeOption[] };
 }
 
 /** at or below this many units the panel warns "Only N left". */
@@ -63,6 +76,9 @@ export const LOW_STOCK = 10;
 
 const SIZE_CHIP =
   'flex min-h-10 min-w-12 cursor-pointer items-center justify-center rounded-input border border-line bg-surface px-3 text-[14px] text-ink hover:border-ink has-[:checked]:border-ink has-[:checked]:font-semibold has-[:checked]:ring-1 has-[:checked]:ring-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink';
+
+const OPTION =
+  'flex cursor-pointer items-center gap-2 rounded-input border border-line bg-surface px-3 py-2.5 text-[14px] has-[:checked]:border-ink has-[:checked]:ring-1 has-[:checked]:ring-ink';
 
 const LEVEL_TONE = {
   High: 'bg-good-bg text-good-strong',
@@ -76,14 +92,23 @@ const LEVEL_TONE = {
  * An eligible product offers the store's protection plan as a box above the buttons; both take it.
  * A product that comes in sizes (clothes, shoes) asks for one first, and both buttons take it.
  * A pre-order says when it's released in place of the stock line, and Buy Now reads "Pre-order now".
+ * With an exchange offer the shopper can pick their old phone or laptop (brand, model, screen) and see
+ * what it takes off; that's a Buy Now of one, so the quantity and Add to Cart step aside meanwhile.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, preOrder }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, preOrder, exchange }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
   const [plan, setPlan] = useState(false);
   const [size, setSize] = useState<string | null>(null);
   const needsSize = Boolean(sizes?.length) && !size;
+  const brands = exchange ? [...new Set(exchange.devices.map((d) => d.brand))] : [];
+  const [trading, setTrading] = useState(false);
+  const [brand, setBrand] = useState(brands[0] ?? '');
+  const [deviceId, setDeviceId] = useState('');
+  const [condition, setCondition] = useState<ExchangeCondition>('good');
+  const device = trading ? exchange?.devices.find((d) => d.id === deviceId) : undefined;
+  const needsDevice = trading && !device;
   const [justAdded, setJustAdded] = useState(false);
   const [err, setErr] = useState<string | null>(error ?? null);
   const [pending, start] = useTransition();
@@ -164,9 +189,13 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
         <form
           action={buyNow}
           onSubmit={(e) => {
-            if (!needsSize) return;
-            e.preventDefault();
-            askSize();
+            if (needsSize) {
+              e.preventDefault();
+              askSize();
+            } else if (needsDevice) {
+              e.preventDefault();
+              setErr(`Select the ${exchange?.kind} you’re exchanging.`);
+            }
           }}
           className="flex flex-col gap-3"
         >
@@ -197,14 +226,92 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
               <SizeChart sizes={sizes} title={name} selected={size} />
             </fieldset>
           ) : null}
-          <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">
-            Quantity
-            <select name="qty" value={qty} onChange={(e) => setQty(Number(e.target.value))} className={selectClass}>
-              {Array.from({ length: maxQty }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </label>
+          {exchange ? (
+            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+              <legend className="mb-1.5 p-0 text-[14px] font-semibold">Exchange your old {exchange.kind}?</legend>
+              <label className={OPTION}>
+                <input type="radio" name="trade_in" checked={!trading} onChange={() => setTrading(false)} className="h-4 w-4 accent-ink" />
+                Buy without exchange
+              </label>
+              <label className={OPTION}>
+                <input
+                  type="radio"
+                  name="trade_in"
+                  checked={trading}
+                  onChange={() => {
+                    setTrading(true);
+                    setErr(null);
+                  }}
+                  className="h-4 w-4 accent-ink"
+                />
+                <span>
+                  With exchange <span className="font-semibold text-good-strong">Up to {exchange.upTo} off</span>
+                </span>
+              </label>
+              {trading ? (
+                <div className="flex flex-col gap-2.5 rounded-input border border-line bg-surface-2 p-3">
+                  <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">
+                    Brand
+                    <select
+                      value={brand}
+                      onChange={(e) => {
+                        setBrand(e.target.value);
+                        setDeviceId('');
+                      }}
+                      className={selectClass}
+                    >
+                      {brands.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">
+                    Model
+                    <select
+                      name="exchange"
+                      value={deviceId}
+                      onChange={(e) => {
+                        setDeviceId(e.target.value);
+                        setErr(null);
+                      }}
+                      className={cn(selectClass, 'max-w-[60%]')}
+                    >
+                      <option value="">Select</option>
+                      {exchange.devices.filter((d) => d.brand === brand).map((d) => (
+                        <option key={d.id} value={d.id}>{d.model}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div role="radiogroup" aria-label="Its condition" className="flex flex-col gap-1.5">
+                    {EXCHANGE_CONDITIONS.map((c) => (
+                      <label key={c} className="flex items-center gap-2 text-[14px]">
+                        <input type="radio" name="condition" value={c} checked={condition === c} onChange={() => setCondition(c)} className="h-4 w-4 accent-ink" />
+                        {CONDITION_LABEL[c]}
+                      </label>
+                    ))}
+                  </div>
+                  {device ? (
+                    <p className="m-0 text-[14px]">
+                      Exchange value: <strong className="font-semibold text-good-strong">−{condition === 'good' ? device.good : device.damaged}</strong>
+                    </p>
+                  ) : null}
+                  <p className="m-0 text-[13px] text-ink-3">For Buy Now, one item. Keep your old {exchange.kind} ready: it’s collected when this is delivered.</p>
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
+          {trading ? (
+            <input type="hidden" name="qty" value="1" />
+          ) : (
+            <label className="flex items-center justify-between gap-3 text-[14px] text-ink-2">
+              Quantity
+              <select name="qty" value={qty} onChange={(e) => setQty(Number(e.target.value))} className={selectClass}>
+                {Array.from({ length: maxQty }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {protection ? (
             <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
               <legend className="mb-1.5 p-0 text-[14px] font-semibold">Add a protection plan:</legend>
@@ -212,14 +319,16 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
                 <input type="checkbox" name="protection" value="1" checked={plan} onChange={(e) => setPlan(e.target.checked)} className="mt-[3px] h-4 w-4 accent-ink" />
                 <span>
                   {protection.name} for <strong className="font-semibold">{protection.price}</strong>
-                  {qty > 1 ? <span className="text-ink-3"> each</span> : null}
+                  {qty > 1 && !trading ? <span className="text-ink-3"> each</span> : null}
                 </span>
               </label>
             </fieldset>
           ) : null}
-          <button type="button" onClick={onAdd} disabled={pending} aria-busy={pending || undefined} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>
-            {pending ? 'Adding…' : 'Add to Cart'}
-          </button>
+          {trading ? null : (
+            <button type="button" onClick={onAdd} disabled={pending} aria-busy={pending || undefined} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>
+              {pending ? 'Adding…' : 'Add to Cart'}
+            </button>
+          )}
           <button type="submit" className={buttonClasses({ variant: 'dark', size: 'lg', block: true })}>{preOrder ? 'Pre-order now' : 'Buy Now'}</button>
         </form>
       ) : null}

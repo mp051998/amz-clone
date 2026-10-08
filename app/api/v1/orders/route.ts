@@ -14,7 +14,7 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day' | 'no_rush', buyNow?: { productId, qty? }, promoCode?, bank?, gst?: { gstin, name }, useBalance? }
+ * POST /api/v1/orders { paymentMethod, emiMonths?, shipping: { fullName, phone, line1, line2?, landmark?, city, state, postcode, instructions? } | { fullName, phone, pickupPoint }, gift?: { message?, wrap? }, speed?: 'standard' | 'fast' | 'day' | 'no_rush', buyNow?: { productId, qty?, exchange?: { deviceId, condition } }, promoCode?, bank?, gst?: { gstin, name }, useBalance? }
  * Checks out the caller's cart in this store (or, with `buyNow`, just that product, leaving the cart as it is). The database reserves stock and
  * computes every total. Non-card orders come back `placed`; card orders come
  * back `awaiting_payment` with a Stripe `checkoutUrl` to send the customer to. India only: `gst`
@@ -40,9 +40,15 @@ export const POST = route(async (ctx) => {
   if (b.speed !== undefined && !isShipSpeed(b.speed)) throw new DataError('delivery_option_unavailable');
   let buyNow: BuyNow | undefined;
   if (b.buyNow !== undefined) {
-    const raw = (b.buyNow && typeof b.buyNow === 'object' ? b.buyNow : {}) as { productId?: unknown; qty?: unknown; protection?: unknown; size?: unknown };
-    buyNow = readBuyNow(raw.productId, raw.qty ?? 1, raw.protection === true, raw.size) ?? undefined;
+    const raw = (b.buyNow && typeof b.buyNow === 'object' ? b.buyNow : {}) as { productId?: unknown; qty?: unknown; protection?: unknown; size?: unknown; exchange?: unknown };
+    const ex = (raw.exchange && typeof raw.exchange === 'object' ? raw.exchange : {}) as { deviceId?: unknown; condition?: unknown };
+    buyNow = readBuyNow(raw.productId, raw.qty ?? 1, raw.protection === true, raw.size, ex.deviceId, ex.condition) ?? undefined;
     if (!buyNow) throw new DataError('invalid_input', 'buyNow.productId', 'Say which product to buy.');
+    if (raw.exchange !== undefined && !buyNow.exchange) {
+      throw new DataError('invalid_input', 'buyNow.exchange', 'Say which device you’re trading in (deviceId) and its condition: good or screen_damaged.');
+    }
+    // an exchange is for one unit
+    if (buyNow.exchange && raw.qty !== undefined && Number(raw.qty) !== 1) throw new DataError('exchange_unavailable', 'qty');
   }
 
   if (b.promoCode !== undefined && b.promoCode !== null && typeof b.promoCode !== 'string') {

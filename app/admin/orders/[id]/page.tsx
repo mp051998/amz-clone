@@ -22,6 +22,7 @@ import { returnAction } from '../../returns/actions';
 import { ReturnRow } from '../../returns/ReturnRow';
 import { CANCEL_REASON, REFUND_CHIP, REFUND_LABEL, STAGE_CHIP, adminTime } from '../labels';
 import { weekdayName } from '@/lib/delivery-day';
+import { exchangeText } from '@/lib/exchange';
 
 export const metadata: Metadata = { title: 'Order · Admin · Store' };
 
@@ -148,15 +149,15 @@ export default async function AdminOrderPage({ params, searchParams }: {
                 <span className="w-14 flex-none" aria-hidden><ProductFrame src={it.image} alt="" aspect="1/1" /></span>
                 <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
                   <a href={to(`/admin/products/${encodeURIComponent(it.productId)}`)} className="line-clamp-2 text-[15px] font-semibold text-ink no-underline hover:underline">{it.title}</a>
-                  <span className="text-[13px] text-ink-3">{money(it.unitPriceMinor)} × {it.qty} · Sold by {it.seller}{it.unitDiscountMinor ? ` · coupon −${money(it.unitDiscountMinor * it.qty)}` : ''}{it.protectionMinor ? ` · protection plan ${money(it.protectionMinor * it.qty)}` : ''}</span>
+                  <span className="text-[13px] text-ink-3">{money(it.unitPriceMinor)} × {it.qty} · Sold by {it.seller}{(it.unitDiscountMinor ?? 0) > (it.unitExchangeMinor ?? 0) ? ` · coupon −${money(((it.unitDiscountMinor ?? 0) - (it.unitExchangeMinor ?? 0)) * it.qty)}` : ''}{it.unitExchangeMinor && order.exchange ? ` · exchange −${money(it.unitExchangeMinor * it.qty)} for a ${exchangeText(order.exchange.device, order.exchange.condition)}` : ''}{it.protectionMinor ? ` · protection plan ${money(it.protectionMinor * it.qty)}` : ''}</span>
                 </div>
                 <strong className="tabular-nums">{money(it.unitPriceMinor * it.qty)}</strong>
               </div>
             ))}
             <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">
               <div className="flex justify-between"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(order.totals.subtotalMinor)}</dd></div>
-              {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) ? (
-                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0))}</dd></div>
+              {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0))}</dd></div>
               ) : null}
               {order.totals.qtyDiscountMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(order.totals.qtyDiscountMinor)}</dd></div>
@@ -169,6 +170,9 @@ export default async function AdminOrderPage({ params, searchParams }: {
               ) : null}
               {order.totals.bankOfferMinor ? (
                 <div className="flex justify-between"><dt className="text-ink-2">Bank offer{order.bank ? ` (${order.bank})` : ''}</dt><dd className="m-0 tabular-nums">−{money(order.totals.bankOfferMinor)}</dd></div>
+              ) : null}
+              {order.totals.exchangeMinor ? (
+                <div className="flex justify-between"><dt className="text-ink-2">Exchange offer</dt><dd className="m-0 tabular-nums">−{money(order.totals.exchangeMinor)}</dd></div>
               ) : null}
               <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
               {order.totals.wrapMinor ? (

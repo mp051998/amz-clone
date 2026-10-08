@@ -130,6 +130,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(bank ? { p_bank: bank } : {}),
       // likewise only when it's asked for
       ...(useBalance ? { p_use_balance: true } : {}),
+      ...(input.buyNow?.exchange ? { p_exchange: { device_id: input.buyNow.exchange.deviceId, condition: input.buyNow.exchange.condition } } : {}),
     }),
   );
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);

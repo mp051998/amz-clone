@@ -48,7 +48,7 @@ function itemLines(order: Order, currency: string, imageOrigin?: string): Stripe
       currency,
       unit_amount: it.unitPriceMinor - (it.unitDiscountMinor ?? 0),
       product_data: {
-        name: it.unitDiscountMinor ? `${it.title.slice(0, 104)} (coupon applied)` : it.title.slice(0, 120),
+        name: it.unitExchangeMinor ? `${it.title.slice(0, 104)} (with exchange)` : it.unitDiscountMinor ? `${it.title.slice(0, 104)} (coupon applied)` : it.title.slice(0, 120),
         // Stripe fetches images itself, so only offer publicly reachable ones.
         images: productImageUrl(it.image, imageOrigin),
       },
