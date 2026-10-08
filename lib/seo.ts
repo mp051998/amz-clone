@@ -15,6 +15,7 @@ export const STORE_PAGES = [
   '/coupons',
   '/bestsellers',
   '/new-releases',
+  '/renewed',
   '/gift-cards',
   '/prime',
   '/registry',

@@ -73,8 +73,12 @@ export interface PublicMarketplace {
   address: { schema: 'US' | 'IN'; postcode: { label: string; pattern: string }; types?: Array<'home' | 'office'> };
   payments: { method: string; phase: number }[];
   delivery: { methods: string[]; freeThresholdMinor: number };
-  /** days after delivery a shopper can start a return (markets.return_days in the database). */
-  returns: { days: number };
+  /**
+   * days after delivery a shopper can start a return (markets.return_days in the database), and
+   * the Renewed Guarantee's days for an item bought renewed (markets.renewed_return_days; absent:
+   * no guarantee, the category's window).
+   */
+  returns: { days: number; renewedDays?: number };
   membership: { name: string };
   nav: { subnav: string[]; departments: string[] };
   ui: MarketplaceUi;
