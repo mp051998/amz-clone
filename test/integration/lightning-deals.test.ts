@@ -181,7 +181,8 @@ describe('Lightning Deals', () => {
   it('are served at /deals/lightning and on the product', async () => {
     const list = await import('@/app/api/v1/deals/lightning/route');
     const one = await import('@/app/api/v1/products/[id]/route');
-    const req = (path: string) => new NextRequest(`http://localhost/api/v1${path}`, { headers: { 'x-market': 'US' } });
+    const token = (await shopper.db.auth.getSession()).data.session!.access_token;
+    const req = (path: string) => new NextRequest(`http://localhost/api/v1${path}`, { headers: { authorization: `Bearer ${token}`, 'x-market': 'US' } });
     const got = (await (await list.GET(req('/deals/lightning'), { params: Promise.resolve({}) })).json()) as {
       upcoming: { deal: { productId: string; dealPriceMinor: number; state: string }; product: { id: string; priceMinor: number } }[];
     };
