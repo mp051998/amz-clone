@@ -771,8 +771,11 @@ export default async function OrderPage({
           ))}
           <dl className="m-0 flex flex-col gap-1 border-t border-line-2 px-[18px] py-3.5 text-[14px]">
             <div className="flex justify-between"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(order.totals.subtotalMinor)}</dd></div>
-            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) ? (
-              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0))}</dd></div>
+            {order.totals.memberMinor ? (
+              <div className="flex justify-between"><dt className="text-ink-2">{store.membership.name} savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.memberMinor)}</dd></div>
+            ) : null}
+            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.memberMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0))}</dd></div>
             ) : null}
             {order.totals.qtyDiscountMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(order.totals.qtyDiscountMinor)}</dd></div>

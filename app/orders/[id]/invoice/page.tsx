@@ -130,6 +130,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                       {l.size ? <span className="block text-[13px] text-ink-2">Size: {l.size}</span> : null}
                       {l.condition ? <span className="block text-[13px] text-ink-2">Condition: {conditionLabel(l.condition)}</span> : null}
                       <span className="block text-[13px] text-ink-3">Sold by {l.seller}</span>
+                      {l.memberMinor ? <span className="block text-[13px] text-ink-2">{store.membership.name} exclusive deal −{money(l.memberMinor)}</span> : null}
                       {l.discountMinor ? <span className="block text-[13px] text-ink-2">Coupon −{money(l.discountMinor)}</span> : null}
                       {l.qtyDiscountMinor ? <span className="block text-[13px] text-ink-2">Quantity discount −{money(l.qtyDiscountMinor)}</span> : null}
                       {l.promoMinor ? <span className="block text-[13px] text-ink-2">Promotion −{money(l.promoMinor)}</span> : null}
@@ -148,6 +149,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
           <dl className="m-0 ml-auto flex w-full max-w-[320px] flex-col gap-1.5 pt-2 text-[14px]">
             <div className="flex justify-between gap-4"><dt className="text-ink-2">Items</dt><dd className="m-0 tabular-nums">{money(inv.subtotalMinor)}</dd></div>
+            {inv.memberMinor > 0 ? (
+              <div className="flex justify-between gap-4"><dt className="text-ink-2">{store.membership.name} savings</dt><dd className="m-0 tabular-nums">−{money(inv.memberMinor)}</dd></div>
+            ) : null}
             {inv.discountMinor > 0 ? (
               <div className="flex justify-between gap-4"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money(inv.discountMinor)}</dd></div>
             ) : null}

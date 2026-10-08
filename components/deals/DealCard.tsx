@@ -3,6 +3,8 @@ import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { toStoreMinor } from '@/lib/fx';
 import { formatMoney } from '@/lib/marketplaces';
+import { memberDealLabel, memberPrice } from '@/lib/member-deals';
+import { MemberDealTag } from '../product/MemberDeal';
 import { Price } from '../primitives/Price';
 import { ProductFrame } from '../decision/ProductFrame';
 import { CompareToggle } from '../decision/Compare';
@@ -47,6 +49,12 @@ export function DealCard({ product: p, store, saved = false, lightning, watching
             {p.title}
           </a>
           <Price minor={price} currency={cur} listMinor={list} showSavings={false} size={18} />
+          {p.memberPct ? (
+            <span className="flex flex-wrap items-center gap-1.5 text-[13px] text-ink-2">
+              <MemberDealTag label={memberDealLabel(store.membership.name)} />
+              {formatMoney(toStoreMinor(memberPrice(p)!, cur, p.curBase), cur)} for members
+            </span>
+          ) : null}
           {lightning ? <LightningDealInfo deal={lightning} money={(minor) => formatMoney(toStoreMinor(minor, cur, p.curBase), cur)} /> : null}
           <span className="text-[13px] text-ink-2">
             <span aria-hidden className="text-star">★</span> {p.rating.toFixed(1)}

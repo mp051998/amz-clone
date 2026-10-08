@@ -59,6 +59,8 @@ export interface Product {
   climate?: ClimateCert[];
   /** Small Business: its brand is one of the store's small businesses (absent: it isn't). */
   smallBusiness?: true;
+  /** Plus exclusive deal: the percent off its price for Plus members (absent: none). */
+  memberPct?: number;
 }
 
 /** The conditions an offer can be in other than new: Amazon's renewed and used grades. */
@@ -72,8 +74,10 @@ export interface Category {
 export interface OrderTotals {
   /** the items at their list price */
   subtotalMinor: number;
-  /** what applied coupons, quantity discounts and a promotion code take off the items (0 or absent without any) */
+  /** what a member's price, applied coupons, quantity discounts and a promotion code take off the items (0 or absent without any) */
   discountMinor?: number;
+  /** Plus exclusive deals: the member's price's part of discountMinor (absent without one) */
+  memberMinor?: number;
   /** the quantity discounts' part of discountMinor (absent without one) */
   qtyDiscountMinor?: number;
   /** the promotion code's part of discountMinor (absent without one) */
@@ -99,8 +103,10 @@ export interface CartLine {
   lineTotalMinor: number;
   /** the product's coupon, applied (clipped) by this shopper or not */
   coupon?: { percentOff: number; clipped: boolean };
-  /** what the applied coupon, the quantity discount and a promotion code take off this line (0 without any) */
+  /** what a member's price, the applied coupon, the quantity discount and a promotion code take off this line (0 without any) */
   discountMinor?: number;
+  /** a Plus exclusive deal's part of discountMinor, for a member (absent otherwise) */
+  memberMinor?: number;
   /** the quantity discount's part of discountMinor, when the line holds enough (absent otherwise) */
   qtyDiscountMinor?: number;
   /** false when stock dropped below the quantity in the cart, or the product was archived. */
@@ -238,8 +244,10 @@ export interface OrderItem {
   seller: string;
   unitPriceMinor: number;
   qty: number;
-  /** what a coupon, a quantity discount and a promotion code took off each unit (absent without any) */
+  /** what a member's price, a coupon, a quantity discount and a promotion code took off each unit (absent without any) */
   unitDiscountMinor?: number;
+  /** a Plus exclusive deal's part of unitDiscountMinor (absent without one) */
+  unitMemberMinor?: number;
   /** the quantity discount's part of unitDiscountMinor (absent without one) */
   unitQtyDiscountMinor?: number;
   /** the promotion code's part of unitDiscountMinor (absent without one) */

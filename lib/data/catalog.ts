@@ -124,6 +124,8 @@ export interface ListOptions {
   /** only this brand's products */
   brand?: string;
   dealsOnly?: boolean;
+  /** only products with a member price (Plus exclusive deals) */
+  memberDeals?: boolean;
   order?: ListOrder;
   limit?: number;
   excludeId?: string;
@@ -137,6 +139,7 @@ export async function listProducts(db: Db, market: Market, opts: ListOptions = {
   if (opts.seller) q = q.eq('seller', opts.seller);
   if (opts.brand) q = q.eq('brand', opts.brand);
   if (opts.dealsOnly) q = q.eq('deal', true).not('deal_pct', 'is', null);
+  if (opts.memberDeals) q = q.not('member_pct', 'is', null);
   if (opts.excludeId) q = q.neq('id', opts.excludeId);
   switch (opts.order ?? 'position') {
     case 'popular':
