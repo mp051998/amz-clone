@@ -76,6 +76,8 @@ import { protectionPlanName } from '@/lib/protection';
 import { emiPlans } from '@/lib/emi';
 import { EmiOffer } from '@/components/product/EmiOffer';
 import { BankOffers } from '@/components/product/BankOffers';
+import { ProductPerks } from '@/components/product/ProductPerks';
+import { productPerks } from '@/components/product/perks';
 import { listBankOffers } from '@/lib/data/bank-offers';
 import { PromoOffers } from '@/components/product/PromoOffers';
 import { activePromoCodes } from '@/lib/data/promo';
@@ -251,6 +253,18 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   ];
 
   const threshold = store.delivery.freeThresholdMinor;
+  // amazon.in's icons under the price
+  const perks = p.archived || store.id !== 'IN'
+    ? []
+    : productPerks({
+        priceMinor,
+        freeThresholdMinor: threshold,
+        member: plus ? store.membership.name : undefined,
+        cod: store.payments.some((m) => m.method === 'cod'),
+        returnDays: returnPolicy.days,
+        replacementOnly: returnPolicy.replacementOnly,
+        money: (minor) => formatMoney(minor, cur),
+      });
   // the same schedule checkout and order tracking use
   const now = new Date();
   // a pre-order arrives once it's out, with no faster option
@@ -441,6 +455,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   {store.pricing.taxNote ? <span className="text-[12px] text-ink-3">{store.pricing.taxNote}</span> : null}
                 </div>
               )}
+              <ProductPerks perks={perks} />
 
               {info.variants ? (
                 <VariantPicker
