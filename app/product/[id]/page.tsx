@@ -78,6 +78,7 @@ import { promosFor } from '@/lib/promo';
 import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { unitsLeft } from '@/lib/purchase-limits';
 import { asksFit, FIT_LABELS } from '@/lib/review-fit';
+import { featuresFor } from '@/lib/review-features';
 import { listOffers } from '@/lib/data/offers';
 import { kindsLabel, offerSummary } from '@/lib/offers';
 import { SubscribeSave } from '@/components/product/SubscribeSave';
@@ -183,7 +184,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
   const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers] = await Promise.all([
     getInsight(p.id, client),
-    loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
+    loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p), features: featuresFor(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
     user ? listChoices(client, store.id, p.id).catch((): ListChoice[] => []) : Promise.resolve(null),
     getProductInfo(client, p.id),
@@ -534,6 +535,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           insight={insight ? { summary: insight.summary, praised: insight.praised, criticized: insight.criticized, source: insight.source } : null}
           aiPending={aiPending}
           askFit={asksFit(p)}
+          askFeatures={featuresFor(p)}
         />
 
         <QuestionsPanel

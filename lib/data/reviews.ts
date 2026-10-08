@@ -1,5 +1,6 @@
 import type { Db } from '../db/client';
 import type { Market, Product, Review } from '../types';
+import { isReviewFeature, readFeatureStars, type FeatureStars } from '../review-features';
 import { isReviewFit, type FitCounts } from '../review-fit';
 import { REVIEW_PHOTO_MAX, reviewPhoto } from '../review-photos';
 import { readReviewSearch } from '../review-search';
@@ -24,6 +25,7 @@ interface ReviewRow {
   hidden_at?: string | null;
   photos?: string[];
   fit?: string | null;
+  features?: unknown;
 }
 
 function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, reported: Set<string>): Review {
@@ -44,10 +46,15 @@ function toReview(row: ReviewRow, viewerId: string | null, voted: Set<string>, r
     ...(row.hidden_at ? { hidden: true } : {}),
     photos: (row.photos ?? []).map(reviewPhoto),
     ...(isReviewFit(row.fit) ? { fit: row.fit } : {}),
+    ...withFeatures(readFeatureStars(row.features)),
   };
 }
 
-const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at, hidden_at, photos, fit';
+function withFeatures(features: FeatureStars): { features?: FeatureStars } {
+  return Object.keys(features).length ? { features } : {};
+}
+
+const REVIEW_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at, hidden_at, photos, fit, features';
 // until the moderation migration lands (a deploy can go out first): no hidden_at yet
 const LEGACY_COLS = 'id, user_id, author_name, rating, title, body, verified, helpful_count, created_at';
 const MISSING_COLUMN = '42703';
@@ -156,6 +163,16 @@ export async function reviewFitCounts(db: Db, productId: string): Promise<FitCou
   return counts;
 }
 
+/**
+ * "By feature": each feature rated on a product's visible reviews, with its average and how many
+ * rated it. Empty before the migration, and on an error (the page goes on without it).
+ */
+export async function reviewFeatureRows(db: Db, productId: string): Promise<{ feature: string; average: number; count: number }[]> {
+  const res = await db.rpc('review_feature_ratings', { p_product_id: productId });
+  if (res.error) return [];
+  return (res.data ?? []).map((r) => ({ feature: r.feature, average: Number(r.average), count: r.ratings }));
+}
+
 export interface ReviewPage {
   items: Review[];
   total: number;
@@ -244,6 +261,8 @@ export interface ReviewInput {
   photos?: unknown;
   /** clothing and shoes: small | true_to_size | large; null clears it, left out keeps it */
   fit?: unknown;
+  /** "By feature": feature → 1–5 stars; null or {} clears them, left out keeps them */
+  features?: unknown;
 }
 
 function parseFit(v: unknown): string | null | undefined {
@@ -251,6 +270,21 @@ function parseFit(v: unknown): string | null | undefined {
   if (v === null || v === '') return null;
   if (!isReviewFit(v)) throw new DataError('invalid_input', 'fit', 'Choose runs small, true to size or runs large.');
   return v;
+}
+
+function parseFeatures(v: unknown): FeatureStars | undefined {
+  if (v === undefined) return undefined;
+  if (v === null) return {};
+  const bad = () => new DataError('invalid_input', 'features', 'Rate each feature from 1 to 5 stars.');
+  if (typeof v !== 'object' || Array.isArray(v)) throw bad();
+  const out: FeatureStars = {};
+  for (const [k, n] of Object.entries(v)) {
+    // a feature left unrated
+    if (n === null || n === 0) continue;
+    if (!isReviewFeature(k) || !Number.isInteger(n) || (n as number) < 1 || (n as number) > 5) throw bad();
+    out[k] = n as number;
+  }
+  return out;
 }
 
 function parsePhotos(v: unknown, userId: string): string[] | undefined {
@@ -283,6 +317,7 @@ export async function upsertReview(db: Db, productId: string, userId: string, in
   const r = parseReview(input);
   const photos = parsePhotos(input.photos, userId);
   const fit = parseFit(input.fit);
+  const features = parseFeatures(input.features);
   const existing = unwrap(
     await db.from('reviews').select('id, photos').eq('product_id', productId).eq('user_id', userId).maybeSingle(),
   );
@@ -298,6 +333,7 @@ export async function upsertReview(db: Db, productId: string, userId: string, in
             ...(r.authorName ? { author_name: r.authorName } : {}),
             ...(photos ? { photos } : {}),
             ...(fit !== undefined ? { fit } : {}),
+            ...(features !== undefined ? { features } : {}),
           })
           .eq('id', existing.id)
           .select(cols)
@@ -307,7 +343,7 @@ export async function upsertReview(db: Db, productId: string, userId: string, in
         await db
           .from('reviews')
           // author_name is required by the table; the trigger fills the profile name when blank
-          .insert({ product_id: productId, rating: r.rating, title: r.title, body: r.body, author_name: r.authorName || ' ', photos: photos ?? [], fit: fit ?? null })
+          .insert({ product_id: productId, rating: r.rating, title: r.title, body: r.body, author_name: r.authorName || ' ', photos: photos ?? [], fit: fit ?? null, features: features ?? {} })
           .select(cols)
           .single(),
       );
