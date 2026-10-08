@@ -4,11 +4,13 @@ import { balanceMethod } from './balance';
 import { unwrap } from './errors';
 import { listGiftCardPurchases, type GiftCardPurchase } from './gift-card-purchases';
 import { listOrders } from './orders';
+import { listRecharges, type Recharge } from './recharges';
 
 /**
  * "Your transactions": every charge and refund in a store, newest first, built from what the
  * store already keeps: orders (charged when placed, or on delivery for cash on delivery),
- * refunds for cancelled orders, cancelled items and received returns, gift card purchases and balance reloads.
+ * refunds for cancelled orders, cancelled items and received returns, gift card purchases, balance reloads
+ * and mobile recharges.
  * An order paid partly from the balance (split payment) is two charges, one to each, and its refunds
  * are split the way the database split them (`balanceMinor`).
  */
@@ -17,12 +19,13 @@ export type TransactionStatus = 'completed' | 'pending' | 'failed' | 'due';
 
 export interface Transaction {
   /**
-   * stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `return:<id>` or `gift:<id>` (gift cards and reloads);
+   * stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `return:<id>`, `gift:<id>` (gift cards and reloads)
+   * or `recharge:<id>`;
    * the balance's part of a split payment, or of its refund, adds `:balance`
    */
   key: string;
   kind: 'charge' | 'refund';
-  source: 'order' | 'cancellation' | 'return' | 'gift_card' | 'reload';
+  source: 'order' | 'cancellation' | 'return' | 'gift_card' | 'reload' | 'recharge';
   amountMinor: number;
   at: string;
   /** `due`: cash on delivery not delivered yet */
@@ -30,6 +33,8 @@ export interface Transaction {
   method: PaymentMethod;
   paymentLabel: string;
   orderId?: string;
+  /** a mobile recharge: the number recharged */
+  number?: string;
 }
 
 /** A received return's refund. */
@@ -103,7 +108,13 @@ function orderTransactions(o: Order, now: Date): Transaction[] {
 }
 
 /** Newest first; on the same instant a refund sorts above the charge it gives back. */
-export function buildTransactions(orders: Order[], returns: ReturnRefund[], giftCards: GiftCardPurchase[], now: Date = new Date()): Transaction[] {
+export function buildTransactions(
+  orders: Order[],
+  returns: ReturnRefund[],
+  giftCards: GiftCardPurchase[],
+  now: Date = new Date(),
+  recharges: Recharge[] = [],
+): Transaction[] {
   const all: Transaction[] = [
     ...orders.flatMap((o) => orderTransactions(o, now)),
     ...returns
@@ -137,6 +148,17 @@ export function buildTransactions(orders: Order[], returns: ReturnRefund[], gift
         method: 'card',
         paymentLabel: 'Card',
       })),
+    ...recharges.map((r): Transaction => ({
+      key: `recharge:${r.id}`,
+      kind: 'charge',
+      source: 'recharge',
+      amountMinor: r.amountMinor,
+      at: r.at,
+      status: 'completed',
+      method: r.method,
+      paymentLabel: r.method === 'upi' ? 'UPI' : r.method === 'netbanking' ? (r.bank ? `Net banking · ${r.bank}` : 'Net banking') : '',
+      number: r.number,
+    })),
   ];
   return all.sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || (a.kind === b.kind ? 0 : a.kind === 'refund' ? -1 : 1));
 }
@@ -182,10 +204,11 @@ async function returnRefunds(db: Db, market: Market, userId: string): Promise<Re
 
 /** The caller's charges and refunds in a store, newest first (the latest 200 orders' worth). */
 export async function listTransactions(db: Db, market: Market, userId: string, now: Date = new Date()): Promise<Transaction[]> {
-  const [orders, returns, giftCards] = await Promise.all([
+  const [orders, returns, giftCards, recharges] = await Promise.all([
     listOrders(db, market, { limit: 200 }),
     returnRefunds(db, market, userId),
     listGiftCardPurchases(db, market, 50),
+    market === 'IN' ? listRecharges(db, market, 50) : [],
   ]);
-  return buildTransactions(orders, returns, giftCards, now);
+  return buildTransactions(orders, returns, giftCards, now, recharges);
 }

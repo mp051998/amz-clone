@@ -106,6 +106,21 @@ describe('buildTransactions', () => {
     expect(list[0]).toMatchObject({ source: 'reload', method: 'card' });
   });
 
+  it('charges mobile recharges to how they were paid, with the number', () => {
+    const recharge = { id: 'm1', number: '9876543210', operator: 'Jio' as const, circle: 'Mumbai', planId: 'jio-299', amountMinor: 29_900, cashbackMinor: 598, at: '2026-10-05T08:00:00Z' };
+    const list = buildTransactions([order('A', '2026-10-04T09:00:00Z')], [], [], NOW, [
+      { ...recharge, method: 'amazonpay' },
+      { ...recharge, id: 'm2', method: 'netbanking', bank: 'HDFC Bank', at: '2026-10-03T08:00:00Z' },
+      { ...recharge, id: 'm3', method: 'upi', at: '2026-10-02T08:00:00Z' },
+    ]);
+    expect(brief(list)).toEqual(['recharge:m1 charge 29900 completed', 'order:A charge 2500 completed', 'recharge:m2 charge 29900 completed', 'recharge:m3 charge 29900 completed']);
+    expect(list.filter((t) => t.source === 'recharge').map((t) => [t.method, t.paymentLabel, t.number])).toEqual([
+      ['amazonpay', '', '9876543210'],
+      ['netbanking', 'Net banking · HDFC Bank', '9876543210'],
+      ['upi', 'UPI', '9876543210'],
+    ]);
+  });
+
   it('charges what was paid when placed, and refunds items cancelled since on their own', () => {
     const kettle = { productId: 'k2', title: 'Kettle', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, qty: 1 };
     const cancellation = (id: string, status: 'succeeded' | 'pending' | 'not_charged', at: string) => ({

@@ -87,3 +87,18 @@ it('uses the store’s money and paths', async () => {
   expect(screen.getByText('Refund delayed. We’re retrying it.')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Order A-1' })).toHaveAttribute('href', '/in/orders/A-1?placed=0');
 });
+
+it('shows a mobile recharge with its number and how it was paid', async () => {
+  state.store = amazonIn;
+  state.list = [
+    tx({ key: 'recharge:m1', source: 'recharge', amountMinor: 29_900, method: 'amazonpay', paymentLabel: '', orderId: undefined, number: '9876543210' }),
+    tx({ key: 'recharge:m2', source: 'recharge', amountMinor: 19_900, method: 'upi', paymentLabel: 'UPI', orderId: undefined, number: '9123456789' }),
+  ];
+  render(await TransactionsPage());
+  const rows = screen.getAllByRole('listitem');
+  expect(rows[0]).toHaveTextContent('Mobile recharge 98765 43210');
+  expect(rows[0]).toHaveTextContent('Wallet balance');
+  expect(rows[1]).toHaveTextContent('Mobile recharge 91234 56789');
+  expect(rows[1]).toHaveTextContent('UPI');
+  expect(within(rows[0]).queryByRole('link')).toBeNull();
+});

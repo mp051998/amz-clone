@@ -9,6 +9,7 @@ import { listTransactions, type Transaction } from '@/lib/data/transactions';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { formatMobile } from '@/lib/recharge';
 import { db } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Your transactions · Store' };
@@ -19,6 +20,7 @@ const TITLE: Record<Transaction['source'], string> = {
   return: 'Refund: return',
   gift_card: 'Gift card purchase',
   reload: 'Balance reload',
+  recharge: 'Mobile recharge',
 };
 
 const STATUS: Partial<Record<Transaction['status'], string>> = {
@@ -53,7 +55,7 @@ export default async function TransactionsPage() {
         <div className="flex flex-col gap-1.5">
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your transactions</h1>
-          <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns, gift cards and balance reloads.</span>
+          <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns, gift cards, balance reloads and recharges.</span>
         </div>
 
         {!list.length ? (
@@ -82,6 +84,7 @@ export default async function TransactionsPage() {
                             </a>
                           </>
                         ) : null}
+                        {t.number ? <span className="font-normal tabular-nums"> {formatMobile(t.number)}</span> : null}
                       </span>
                       <span className="text-[13px] text-ink-2">
                         {t.kind === 'refund' ? 'To ' : ''}
