@@ -141,6 +141,7 @@ export function GET(): Response {
       'POST   /orders/:id/pay-now',
       'POST   /orders/:id/cancel',
       'POST   /orders/:id/cancel-items',
+      'POST   /orders/:id/request-cancellation',
       'GET    /orders/:id/returns',
       'POST   /orders/:id/returns',
       'POST   /orders/:id/not-received',

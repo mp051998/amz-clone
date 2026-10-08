@@ -59,6 +59,28 @@ it('a delivered order says where it was left, or who it was handed to', () => {
   expect(orderView({ ...order, shipTo: { ...order.shipTo, dropoff: 'property_staff' } }, amazon, now).window).toBe('Handed to property staff · Today, 11:30 AM');
 });
 
+it('a shipped order can be stopped until it goes out for delivery, and says so once it was', () => {
+  const order = {
+    id: '114-3', market: 'US', currency: 'USD', status: 'placed', paymentMethod: 'giftcard', paymentLabel: 'Gift card',
+    totals: { subtotalMinor: 1000, discountMinor: 0, shipMinor: 0, taxMinor: 0, totalMinor: 1000 },
+    shipTo: { name: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' },
+    items: [], createdAt: '2026-10-06T17:00:00.000Z', placedAt: '2026-10-06T17:00:00.000Z',
+    shippedAt: '2026-10-07T03:00:00.000Z', outForDeliveryAt: '2026-10-07T16:00:00.000Z', deliveredAt: '2026-10-07T18:30:00.000Z',
+  } as Order;
+  expect(orderView(order, amazon, new Date('2026-10-07T01:00:00.000Z'))).toMatchObject({ stopUntil: null });
+  const shipped = orderView(order, amazon, new Date('2026-10-07T10:00:00.000Z'));
+  expect(shipped.cancelUntil).toBeNull();
+  expect(shipped.stopUntil?.toISOString()).toBe('2026-10-07T16:00:00.000Z');
+  expect(orderView(order, amazon, new Date('2026-10-07T16:00:00.000Z')).stopUntil).toBeNull();
+  const stopped = orderView(
+    { ...order, status: 'cancelled', cancelReason: 'intercepted', cancelledAt: '2026-10-07T10:00:00.000Z', refund: { status: 'succeeded', amountMinor: 1000 } },
+    amazon,
+    new Date('2026-10-07T11:00:00.000Z'),
+  );
+  expect(stopped).toMatchObject({ kicker: 'CANCELLED', headline: 'Cancelled: sent back to us', stopUntil: null, chip: { label: 'Cancelled · refunded' } });
+  expect(stopped.steps.map((x) => x.label)).toEqual(['Order placed', 'Shipped', 'Cancelled']);
+});
+
 it('a pre-order says when it is released, and arrives from then', () => {
   const release = '2026-11-20T08:00:00.000Z'; // midnight PST
   const now = new Date('2026-10-07T17:00:00.000Z');

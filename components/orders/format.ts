@@ -1,7 +1,7 @@
 import type { Store } from '../lib/store';
 import type { Order, OrderCancellation } from '@/lib/types';
 import type { TrackingStep } from '@/lib/decision/types';
-import { cancellableUntil, deliveryEta, isDelivered, trackingSteps } from '@/lib/decision/tracking';
+import { cancellableUntil, deliveryEta, isDelivered, stoppableUntil, trackingSteps } from '@/lib/decision/tracking';
 import { DROPOFF } from '@/lib/dropoff';
 import { formatMoney } from '@/lib/marketplaces';
 import { balanceMethod } from '@/lib/data/balance';
@@ -211,6 +211,8 @@ export interface OrderView {
   itemCount: number;
   /** the shopper may cancel until then (it ships); null once they can't. */
   cancelUntil: Date | null;
+  /** shipped: the shopper may ask for it to be stopped until then (out for delivery); else null. */
+  stopUntil: Date | null;
 }
 
 /** Everything the order pages say about an order's progress, derived from its time + status. */
@@ -224,15 +226,18 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   const current = steps.find((s) => s.state === 'current');
   const until = cancellableUntil(order, now);
   const cancelUntil = until ? new Date(until) : null;
+  const stop = stoppableUntil(order, now);
+  const stopUntil = stop ? new Date(stop) : null;
 
   if (order.status === 'cancelled') {
     const headline =
       order.cancelReason === 'sold_out' ? 'Cancelled: an item sold out'
       : order.cancelReason === 'admin' ? 'Cancelled by the store'
+      : order.cancelReason === 'intercepted' ? 'Cancelled: sent back to us'
       : 'Order cancelled';
     const refunded = order.refund?.status === 'succeeded';
     return {
-      steps, eta, delivered, itemCount, cancelUntil,
+      steps, eta, delivered, itemCount, cancelUntil, stopUntil,
       kicker: 'CANCELLED',
       headline,
       window: refundText(order, store),
@@ -241,7 +246,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   }
   if (order.status === 'awaiting_payment') {
     return {
-      steps, eta, delivered, itemCount, cancelUntil,
+      steps, eta, delivered, itemCount, cancelUntil, stopUntil,
       kicker: 'PAYMENT PENDING',
       headline: 'Waiting for payment',
       window: 'Complete card payment to confirm this order — unpaid orders are released.',
@@ -250,7 +255,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   }
   if (delivered && eta && order.pickup) {
     return {
-      steps, eta, delivered, itemCount, cancelUntil,
+      steps, eta, delivered, itemCount, cancelUntil, stopUntil,
       kicker: 'READY FOR PICKUP',
       headline: 'Ready for pickup',
       window: `At ${order.shipTo.line1} · ${stepTime(eta, store, now)}`,
@@ -259,7 +264,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   }
   if (delivered && eta) {
     return {
-      steps, eta, delivered, itemCount, cancelUntil,
+      steps, eta, delivered, itemCount, cancelUntil, stopUntil,
       kicker: 'DELIVERED',
       headline: 'Delivered',
       // where it was left, when there's a spot for it; handed over otherwise
@@ -274,7 +279,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
   const release = order.releaseAt && Date.parse(order.releaseAt) > now.getTime() ? new Date(order.releaseAt) : null;
   if (release) {
     return {
-      steps, eta, delivered, itemCount, cancelUntil,
+      steps, eta, delivered, itemCount, cancelUntil, stopUntil,
       kicker: 'PRE-ORDER',
       headline: `Arriving ${when}`,
       window: `Releases ${releaseDate(release, store)} · ships that day`,
@@ -282,7 +287,7 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
     };
   }
   return {
-    steps, eta, delivered, itemCount, cancelUntil,
+    steps, eta, delivered, itemCount, cancelUntil, stopUntil,
     kicker: out ? 'OUT FOR DELIVERY' : 'ON TIME',
     headline: `Arriving ${when}`,
     window: eta ? `${rel ? `${shortDate(eta, store)} · ` : ''}${deliveryWindow(eta, store)}` : '',
