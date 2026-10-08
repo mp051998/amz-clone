@@ -32,6 +32,7 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   sizes: null,
   unit: null,
   qtyDiscount: { percentOff: 5, minQty: 3 },
+  releaseAt: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Roll Store',

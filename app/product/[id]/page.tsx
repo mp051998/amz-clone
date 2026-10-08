@@ -13,7 +13,7 @@ import { BackLink } from '@/components/product/BackLink';
 import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
 import { ratingText, sellerRatings, type SellerRating } from '@/lib/data/seller-feedback';
 import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
-import { byTimeText, dayLabel, orderWithinText } from '@/components/orders/format';
+import { byTimeText, dayLabel, orderWithinText, releaseDate } from '@/components/orders/format';
 import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
@@ -33,6 +33,7 @@ import { getProduct, getProductInfo } from '@/lib/data/catalog';
 import { listChoices, type ListChoice } from '@/lib/data/collections';
 import { messageFor } from '@/lib/data/errors';
 import { deliveryOptions } from '@/lib/decision/tracking';
+import { releaseOf } from '@/lib/pre-order';
 import { decisionConfig } from '@/lib/decision/attributes';
 import { effectiveWeights, readDecisionParams } from '@/lib/decision/params';
 import { shortTitle } from '@/lib/decision/verdict';
@@ -209,7 +210,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const threshold = store.delivery.freeThresholdMinor;
   // the same schedule checkout and order tracking use
   const now = new Date();
-  const options = deliveryOptions(now, store.dates.timeZone);
+  // a pre-order arrives once it's out, with no faster option
+  const release = releaseOf(p, now);
+  const options = deliveryOptions(now, store.dates.timeZone, null, release);
   const delivery = {
     member: store.membership.name,
     // members get standard and faster delivery free on every order
@@ -436,6 +439,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   protection={planMinor ? { name: protectionPlanName(store.id), price: formatMoney(planMinor, cur) } : undefined}
                   limit={p.maxPerCustomer ? { max: p.maxPerCustomer, left: user ? unitsLeft(p, allowance) : null } : undefined}
                   sizes={p.sizes}
+                  preOrder={release ? { release: releaseDate(new Date(release), store) } : undefined}
                 />
               )}
             </aside>

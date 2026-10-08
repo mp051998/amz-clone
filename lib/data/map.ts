@@ -43,6 +43,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     ...(row.unit_qty != null && isUnitKind(row.unit_kind) ? { unit: { qty: Number(row.unit_qty), kind: row.unit_kind } } : {}),
     // absent on rows read before the quantity discounts migration lands
     ...(row.qty_discount_pct && row.qty_discount_min ? { qtyDiscount: { percentOff: row.qty_discount_pct, minQty: row.qty_discount_min } } : {}),
+    // absent on rows read before the pre-orders migration lands
+    ...(row.release_at ? { releaseAt: row.release_at } : {}),
   };
 }
 
@@ -254,6 +256,8 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.delivery_day ? { deliveryDay: row.delivery_day } : {}),
     // absent on rows read before the pickup migration lands
     ...(row.pickup_point_id && row.pickup_code ? { pickup: { pointId: row.pickup_point_id, code: row.pickup_code } } : {}),
+    // absent on rows read before the pre-orders migration lands
+    ...(row.release_at ? { releaseAt: row.release_at } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),
     ...(row.promo_code ? { promoCode: row.promo_code } : {}),
     // absent on rows read before the GST invoice migration lands

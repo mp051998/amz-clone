@@ -15,6 +15,7 @@ const good: ProductInput = {
   sizes: null,
   unit: null,
   qtyDiscount: null,
+  releaseAt: null,
   badge: null,
   boughtPastMonth: null,
   seller: 'Acme Store',
@@ -58,6 +59,16 @@ describe('validateProduct', () => {
     }
     const { couponPct: _, ...noCoupon } = good;
     expect(validateProduct(noCoupon)).toMatchObject({ ok: true, data: { couponPct: null } });
+  });
+
+  it('takes a release date as an ISO instant, and none by default', () => {
+    expect(validateProduct({ ...good, releaseAt: '2026-11-20T08:00:00.000Z' })).toMatchObject({ ok: true, data: { releaseAt: '2026-11-20T08:00:00.000Z' } });
+    for (const bad of ['next week', '2026-13-40', '']) {
+      const res = validateProduct({ ...good, releaseAt: bad });
+      expect(!res.ok && res.errors.releaseAt).toBe('Enter the release date');
+    }
+    const { releaseAt: _, ...noRelease } = good;
+    expect(validateProduct(noRelease)).toMatchObject({ ok: true, data: { releaseAt: null } });
   });
 
   it('takes a whole-number limit per customer from 1 to 99, and none by default', () => {

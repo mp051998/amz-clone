@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
-import { byTimeText, orderView, orderWithinText, returnUntilText } from './format';
+import { byTimeText, cartEta, orderView, orderWithinText, releaseDate, returnUntilText } from './format';
 import type { Order } from '@/lib/types';
 
 it('counts down to the order-by time', () => {
@@ -42,4 +42,25 @@ it('a pickup order is ready for pickup, at its point, once delivered', () => {
   const coming = orderView(order, amazon, new Date('2026-10-07T10:00:00.000Z'));
   expect(coming.headline).toBe('Arriving today');
   expect(coming.steps.at(-1)).toMatchObject({ label: 'Ready for pickup', state: 'upcoming' });
+});
+
+it('a pre-order says when it is released, and arrives from then', () => {
+  const release = '2026-11-20T08:00:00.000Z'; // midnight PST
+  const now = new Date('2026-10-07T17:00:00.000Z');
+  expect(releaseDate(new Date(release), amazon)).toBe('November 20, 2026');
+  expect(releaseDate(new Date('2026-11-19T18:30:00.000Z'), amazonIn)).toBe('20 November 2026');
+  expect(cartEta(now, amazon, release).toISOString()).toBe('2026-11-21T19:30:00.000Z');
+  expect(cartEta(now, amazon, null).getTime()).toBeLessThan(Date.parse(release));
+  const order = {
+    id: '114-2', market: 'US', currency: 'USD', status: 'placed', paymentMethod: 'giftcard', paymentLabel: 'Gift card',
+    totals: { subtotalMinor: 1000, discountMinor: 0, shipMinor: 0, taxMinor: 0, totalMinor: 1000 },
+    shipTo: { name: 'Alex Morgan', phone: '2065550123', line1: '1 Main St', city: 'Seattle', state: 'WA', postcode: '98121' },
+    items: [], createdAt: now.toISOString(), placedAt: now.toISOString(), releaseAt: release,
+    shippedAt: '2026-11-20T18:00:00.000Z', outForDeliveryAt: '2026-11-21T17:00:00.000Z', deliveredAt: '2026-11-21T19:30:00.000Z',
+  } as Order;
+  const waiting = orderView(order, amazon, now);
+  expect(waiting).toMatchObject({ kicker: 'PRE-ORDER', headline: 'Arriving Saturday, November 21', window: 'Releases November 20, 2026 · ships that day' });
+  expect(waiting.cancelUntil?.toISOString()).toBe('2026-11-20T18:00:00.000Z');
+  // once it's out it's any other order
+  expect(orderView(order, amazon, new Date('2026-11-20T20:00:00.000Z')).kicker).toBe('ON TIME');
 });

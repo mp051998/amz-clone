@@ -60,6 +60,8 @@ export interface ProductInput {
   unit: ProductUnit | null;
   /** "Save 5% when you buy 2 or more": percent off (1–50) each unit of a line of at least minQty (2–99), or null for none. */
   qtyDiscount: QtyDiscount | null;
+  /** when it comes out (ISO; the store's midnight that day): sold as a pre-order until then, or null once out. */
+  releaseAt: string | null;
   badge: string | null;
   boughtPastMonth: string | null;
   seller: string;
@@ -160,6 +162,7 @@ const ProductInputSchema = z
       })
       .nullable()
       .default(null),
+    releaseAt: z.iso.datetime({ offset: true, error: 'Enter the release date' }).nullable().default(null),
     badge: optional(40),
     boughtPastMonth: optional(40),
     seller: required('the seller', 120),
@@ -262,6 +265,7 @@ function toRow(p: ProductInput) {
     unit_kind: p.unit?.kind ?? null,
     qty_discount_pct: p.qtyDiscount?.percentOff ?? null,
     qty_discount_min: p.qtyDiscount?.minQty ?? null,
+    release_at: p.releaseAt,
     badge: p.badge,
     bought_past_month: p.boughtPastMonth,
     seller: p.seller,
@@ -432,6 +436,8 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     unit: r.unit_qty != null && isUnitKind(r.unit_kind) ? { qty: Number(r.unit_qty), kind: r.unit_kind } : null,
     // absent before the quantity discounts migration
     qtyDiscount: r.qty_discount_pct && r.qty_discount_min ? { percentOff: r.qty_discount_pct, minQty: r.qty_discount_min } : null,
+    // absent before the pre-orders migration
+    releaseAt: r.release_at ?? null,
     badge: r.badge,
     boughtPastMonth: r.bought_past_month,
     seller: r.seller,

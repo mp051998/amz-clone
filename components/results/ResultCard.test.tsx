@@ -80,3 +80,10 @@ it('promises the store’s delivery day: free over the threshold, and always for
   cleanup();
   expect(card({}, { day: 'Tomorrow, October 7' })).toContain('FREE delivery Tomorrow, October 7');
 });
+
+it('says when a pre-order comes out in place of the delivery day', () => {
+  // far off, so it stays a pre-order
+  expect(show({ releaseAt: '2099-11-20T08:00:00.000Z' })).toHaveTextContent('Pre-order · releases November 20, 2099');
+  cleanup();
+  expect(show({ releaseAt: '2020-11-20T08:00:00.000Z' })).not.toHaveTextContent('Pre-order');
+});
