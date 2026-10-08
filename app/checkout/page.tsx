@@ -85,9 +85,9 @@ async function quote(client: Awaited<ReturnType<typeof db>>, market: Cart['marke
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; size?: string; promo?: string; exchange?: string; condition?: string }>;
+  searchParams: Promise<{ error?: string; msg?: string; detail?: string; canceled?: string; buy?: string; qty?: string; protection?: string; size?: string; promo?: string; exchange?: string; condition?: string; gift?: string }>;
 }) {
-  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, size, promo: promoParam, exchange: exchangeId, condition } = await searchParams;
+  const { error, msg, detail, canceled, buy: buyId, qty: buyQty, protection, size, promo: promoParam, exchange: exchangeId, condition, gift } = await searchParams;
   const promoCode = readPromoCode(promoParam);
   // Buy Now: checkout for just this product (with an old device traded in, one); the cart is left as it is
   const buy = readBuyNow(buyId, buyQty, protection, size, exchangeId, condition);
@@ -395,7 +395,7 @@ export default async function CheckoutPage({
                 <strong className="font-semibold text-ink">{releaseDate(new Date(release), store)}</strong>. You can cancel any time before then.
               </p>
             ) : null}
-            <GiftOption max={GIFT_NOTE_MAX} wrapFee={wrapFee === null ? undefined : money(wrapFee)} />
+            <GiftOption max={GIFT_NOTE_MAX} wrapFee={wrapFee === null ? undefined : money(wrapFee)} initial={gift === '1'} />
             {isIN ? <GstOption nameMax={GST_NAME_MAX} /> : null}
           </StepCard>
           <section className="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-[18px]" aria-labelledby="co-items-h">

@@ -7,10 +7,11 @@ import { cn } from '../lib/cn';
 /**
  * "This order contains a gift" with an optional note for the recipient (checkout Delivery step),
  * and gift wrap when the store offers it (`wrapFee`, the per-item price as shown). The wrap box has
- * id `gift-wrap` so the order summary can follow it with CSS alone.
+ * id `gift-wrap` so the order summary can follow it with CSS alone. `initial` ticks the gift box
+ * to begin with (the cart's "This order contains a gift", `/checkout?gift=1`).
  */
-export function GiftOption({ max, wrapFee }: { max: number; wrapFee?: string }) {
-  const [gift, setGift] = useState(false);
+export function GiftOption({ max, wrapFee, initial = false }: { max: number; wrapFee?: string; initial?: boolean }) {
+  const [gift, setGift] = useState(initial);
   const [wrap, setWrap] = useState(false);
   const [note, setNote] = useState('');
   const noteId = useId();
