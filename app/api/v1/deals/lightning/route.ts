@@ -1,0 +1,17 @@
+import { json, preflight, route } from '@/lib/api/http';
+import { getProducts } from '@/lib/data/catalog';
+import { lightningDeals } from '@/lib/data/lightning-deals';
+
+/**
+ * GET /api/v1/deals/lightning — this store's Lightning Deals: `live` (ending soonest first) and
+ * `upcoming` (starting within a day, soonest first), each `{deal, product}`. A live deal's product
+ * already carries the deal price.
+ */
+export const GET = route(async (ctx) => {
+  const { live, upcoming } = await lightningDeals(ctx.db, ctx.market);
+  const products = new Map((await getProducts(ctx.db, [...live, ...upcoming].map((d) => d.productId))).map((p) => [p.id, p]));
+  const withProduct = (deals: typeof live) => deals.flatMap((deal) => (products.has(deal.productId) ? [{ deal, product: products.get(deal.productId)! }] : []));
+  return json({ market: ctx.market, live: withProduct(live), upcoming: withProduct(upcoming) });
+});
+
+export const OPTIONS = preflight;

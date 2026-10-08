@@ -419,3 +419,23 @@ export interface Subscription {
   createdAt: string;
   cancelledAt?: string;
 }
+
+/**
+ * A Lightning Deal: a product's price for a few hours, for so many units. While it's live the
+ * product carries the deal price; `wasPriceMinor` is what it cost before.
+ */
+export interface LightningDeal {
+  id: string;
+  productId: string;
+  market: Market;
+  dealPriceMinor: number;
+  /** the price before it went live (absent while upcoming) */
+  wasPriceMinor?: number;
+  /** units at the deal price, and how many have been ordered */
+  quota: number;
+  claimed: number;
+  startsAt: string;
+  endsAt: string;
+  /** live now; upcoming; or sold out before its end */
+  state: 'live' | 'upcoming' | 'sold_out';
+}

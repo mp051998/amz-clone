@@ -2,13 +2,14 @@ import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
 import { isUsedCondition } from '../offers';
 import { isUnitKind } from '../unit-price';
-import type { Address, CancelReason, Cart, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus, Subscription, SubscriptionIssue } from '../types';
+import type { Address, CancelReason, Cart, LightningDeal, Market, Order, OrderCancellation, OrderItem, OrderStatus, PaymentMethod, Product, RefundStatus, Subscription, SubscriptionIssue } from '../types';
 
 type ProductRow = Database['public']['Views']['catalog_products_all']['Row'];
 type AddressRow = Database['public']['Tables']['addresses']['Row'];
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
+type LightningDealRow = Database['public']['Tables']['lightning_deals']['Row'];
 
 const opt = <T>(v: T | null | undefined): T | undefined => (v === null ? undefined : v);
 
@@ -301,5 +302,23 @@ export function toSubscription(row: SubscriptionRow): Subscription {
     ...(row.last_order_id ? { lastOrderId: row.last_order_id } : {}),
     createdAt: row.created_at,
     ...(row.cancelled_at ? { cancelledAt: row.cancelled_at } : {}),
+  };
+}
+
+/** lightning_deals row → LightningDeal; null for one that's over (its time came, or it was called off). */
+export function toLightningDeal(row: LightningDealRow): LightningDeal | null {
+  const state = row.ended_at ? (row.end_reason === 'sold_out' ? 'sold_out' : null) : row.started_at ? 'live' : 'upcoming';
+  if (!state) return null;
+  return {
+    id: row.id,
+    productId: row.product_id,
+    market: row.market_id as Market,
+    dealPriceMinor: row.deal_price_minor,
+    ...(row.was_price_minor != null ? { wasPriceMinor: row.was_price_minor } : {}),
+    quota: row.quota,
+    claimed: row.claimed,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    state,
   };
 }

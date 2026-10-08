@@ -1,19 +1,22 @@
-import type { Product } from '@/lib/types';
+import type { LightningDeal, Product } from '@/lib/types';
 import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { toStoreMinor } from '@/lib/fx';
+import { formatMoney } from '@/lib/marketplaces';
 import { Price } from '../primitives/Price';
 import { ProductFrame } from '../decision/ProductFrame';
 import { CompareToggle } from '../decision/Compare';
 import { SaveButton } from '../decision/SaveButton';
+import { LightningDealInfo } from './LightningDeal';
 import { QuickAdd } from './QuickAdd';
 
 /**
  * Deal card after the prototype's "Deals for you" card (design-import … ~line 124): hatched frame on the
  * left, accent "N% off" tag, name, price with struck list/M.R.P., ★ rating; Compare + Save underneath.
- * No fake urgency (claimed bars, timers) — the saving itself is the reason it's here (design.md §12).
+ * No fake urgency — the saving itself is the reason it's here (design.md §12). The only timer and
+ * claimed bar are a `lightning` deal's own: its real end and units.
  */
-export function DealCard({ product: p, store, saved = false }: { product: Product; store: Store; saved?: boolean }) {
+export function DealCard({ product: p, store, saved = false, lightning }: { product: Product; store: Store; saved?: boolean; lightning?: LightningDeal }) {
   const href = storePath(store, `/product/${p.id}`);
   const cur = store.currency.code;
   const price = toStoreMinor(p.priceMinor, cur, p.curBase);
@@ -35,6 +38,7 @@ export function DealCard({ product: p, store, saved = false }: { product: Produc
             {p.title}
           </a>
           <Price minor={price} currency={cur} listMinor={list} showSavings={false} size={18} />
+          {lightning ? <LightningDealInfo deal={lightning} money={(minor) => formatMoney(toStoreMinor(minor, cur, p.curBase), cur)} /> : null}
           <span className="text-[13px] text-ink-2">
             <span aria-hidden className="text-star">★</span> {p.rating.toFixed(1)}
             <span className="text-ink-3"> · {p.reviewCount.toLocaleString('en-US')} ratings</span>

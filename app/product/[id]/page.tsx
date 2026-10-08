@@ -62,7 +62,7 @@ import { countAnsweredQuestions, listQuestions, type QuestionPage } from '@/lib/
 import { myOpenReport } from '@/lib/data/product-reports';
 import { getRecall, type Recall } from '@/lib/data/recalls';
 import { lastPurchase, type LastPurchase } from '@/lib/data/buy-again';
-import type { Product } from '@/lib/types';
+import type { LightningDeal, Product } from '@/lib/types';
 import { protectionOffer } from '@/lib/data/cart';
 import { alsoBought } from '@/lib/data/also-bought';
 import { alsoViewed } from '@/lib/data/also-viewed';
@@ -82,6 +82,8 @@ import { SubscribeSave } from '@/components/product/SubscribeSave';
 import { subscriptionFor } from '@/lib/data/subscriptions';
 import { snsPriceMinor, storeDay } from '@/lib/subscribe-save';
 import { OtherSellers } from '@/components/product/Offers';
+import { LightningDealInfo } from '@/components/deals/LightningDeal';
+import { lightningDealsFor } from '@/lib/data/lightning-deals';
 import { offerItem } from '@/components/product/offerItems';
 
 type SP = Record<string, string | string[] | undefined>;
@@ -175,7 +177,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -203,6 +205,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     p.archived ? Promise.resolve([]) : alsoBought(client, p).catch(() => []),
     offersP,
     user && p.subscribeSave && !p.archived ? subscriptionFor(client, p.id) : Promise.resolve(null),
+    p.archived ? Promise.resolve(new Map<string, LightningDeal>()) : lightningDealsFor(client, [p.id]),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -212,6 +215,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   const cur = store.currency.code;
   const money = (minor: number, base = p.curBase) => formatMoney(toStoreMinor(minor, cur, base), cur);
+  const deal = lightning.get(p.id);
   const priceMinor = toStoreMinor(p.priceMinor, cur, p.curBase);
   const listMinor = p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined;
   const num = (n: number) => n.toLocaleString(store.locale.default);
@@ -391,7 +395,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               {p.archived ? null : (
                 <div className="flex flex-col gap-1 border-t border-line pt-4">
                   <Price minor={priceMinor} currency={cur} listMinor={listMinor} listLabel={store.pricing.listLabel} size={32} unitText={p.unit ? unitPriceText(priceMinor, cur, p.unit) : undefined} />
-                  {p.deal ? <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span> : null}
+                  {deal ? (
+                    <LightningDealInfo deal={deal} money={(minor) => money(minor)} />
+                  ) : p.deal ? (
+                    <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span>
+                  ) : null}
                   <EmiOffer plans={emiPlans(store.id, priceMinor)} currency={cur} />
                   {coupon ? (
                     <CouponToggle
