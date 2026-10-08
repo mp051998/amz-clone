@@ -3,7 +3,7 @@ import { refundBreakdown, refundTo, returnChip, returnRefundTo } from '@/compone
 import type { Db } from '../db/client';
 import type { Order, OrderReturn } from '../types';
 import { DataError } from './errors';
-import { canStartReturn, chooseReturnMethod, getOrderReturns, isReturnReason, reportMissingUntil, requestReturn, returnPickupDays, returnWindows, toReturn, type OrderReturns } from './returns';
+import { canStartReturn, chooseReturnMethod, getOrderReturns, isExchange, isReturnReason, isSizeReason, reportMissingUntil, requestReturn, returnPickupDays, returnWindows, toReturn, type OrderReturns } from './returns';
 
 const row = {
   id: 'r1',
@@ -168,6 +168,70 @@ describe('replacements', () => {
     await requestReturn(db, 'o1', { items, reason: 'damaged', resolution: 'refund' });
     await requestReturn(db, 'o1', { items, reason: 'better_price' });
     for (const [, args] of rpc.mock.calls as unknown as [string, Record<string, unknown>][]) expect(args).not.toHaveProperty('p_resolution');
+  });
+});
+
+describe('size exchanges', () => {
+  const exchange = {
+    ...row,
+    status: 'requested',
+    reason: 'too_small',
+    resolution: 'replacement',
+    items: [{ product_id: 'p1', title: 'Tee', image: '/i.png', unit_price_minor: 2000, qty: 1, size: 'M', exchange_size: 'L' }],
+    items_minor: 0,
+    tax_minor: 0,
+    refund_minor: 0,
+    refund_status: null,
+    replacement_shipped_at: '2026-10-01T10:00:00Z',
+    replacement_delivered_at: '2026-10-03T18:30:00Z',
+  };
+  function fakeDb(error: { message: string; details: string } | null = null) {
+    const rpc = vi.fn(async () => (error ? { data: null, error } : { data: exchange, error: null }));
+    return { db: { rpc } as unknown as Db, rpc };
+  }
+  const code = (p: Promise<unknown>) => p.then(() => 'ok', (e: DataError) => `${e.code}:${e.detail}`);
+
+  it('knows the size reasons, which aren’t the store’s fault', () => {
+    expect(isReturnReason('too_small') && isReturnReason('too_large')).toBe(true);
+    expect([isSizeReason('too_small'), isSizeReason('too_large'), isSizeReason('damaged')]).toEqual([true, true, false]);
+  });
+
+  it('maps the size sent instead, and tells an exchange from a replacement', () => {
+    const r = toReturn(exchange);
+    expect(r.items[0]).toMatchObject({ size: 'M', exchangeSize: 'L' });
+    expect(isExchange(r)).toBe(true);
+    expect(isExchange({ ...r, items: [{ ...r.items[0], exchangeSize: undefined }] })).toBe(false);
+    expect(isExchange({ ...r, resolution: 'refund' })).toBe(false);
+    expect(toReturn(row).items[0]).not.toHaveProperty('exchangeSize');
+  });
+
+  it('asks for an exchange with each item’s new size', async () => {
+    const { db, rpc } = fakeDb();
+    expect(await requestReturn(db, 'o1', { items: [{ productId: 'p1', qty: 1, size: ' L ' }], reason: 'too_small', resolution: 'replacement' })).toMatchObject({ resolution: 'replacement' });
+    expect(rpc).toHaveBeenLastCalledWith('request_return', expect.objectContaining({ p_items: [{ product_id: 'p1', qty: 1, size: 'L' }], p_reason: 'too_small', p_resolution: 'replacement' }));
+  });
+
+  it('needs a size for every item, before asking', async () => {
+    const { db, rpc } = fakeDb();
+    const items = [{ productId: 'p1', qty: 1, size: 'L' }, { productId: 'p2', qty: 1 }];
+    expect(await code(requestReturn(db, 'o1', { items, reason: 'too_large', resolution: 'replacement' }))).toBe('invalid_input:size');
+    expect(await code(requestReturn(db, 'o1', { items: [{ productId: 'p1', qty: 1, size: '  ' }], reason: 'too_large', resolution: 'replacement' }))).toBe('invalid_input:size');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('leaves a size out of a refund, and lets a store-fault replacement go without one', async () => {
+    const { db, rpc } = fakeDb();
+    await requestReturn(db, 'o1', { items: [{ productId: 'p1', qty: 1, size: 'L' }], reason: 'too_small' });
+    expect(rpc).toHaveBeenLastCalledWith('request_return', expect.objectContaining({ p_items: [{ product_id: 'p1', qty: 1 }] }));
+    await requestReturn(db, 'o1', { items: [{ productId: 'p1', qty: 1 }], reason: 'damaged', resolution: 'replacement' });
+    expect(rpc).toHaveBeenLastCalledWith('request_return', expect.objectContaining({ p_items: [{ product_id: 'p1', qty: 1 }] }));
+  });
+
+  it('words a size the database turns away', async () => {
+    const { db } = fakeDb({ message: 'invalid_input', details: 'size' });
+    const err = await requestReturn(db, 'o1', { items: [{ productId: 'p1', qty: 1, size: 'XXL' }], reason: 'too_small', resolution: 'replacement' }).catch((e: DataError) => e);
+    expect(err).toMatchObject({ code: 'invalid_input', detail: 'size' });
+    expect((err as DataError).message).toMatch(/choose a size the item comes in/);
   });
 });
 

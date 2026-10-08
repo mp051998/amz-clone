@@ -199,7 +199,7 @@ export default async function OrderPage({
   const methodErrorText = methodError
     ? (() => {
         const why = METHOD_ERROR[methodError] ?? lcFirst(messageFor(methodError) ?? 'something went wrong. Please try again.');
-        return returned === 'started' || returned === 'replacement' ? `Return started, but ${why}` : why[0].toUpperCase() + why.slice(1);
+        return returned === 'started' || returned === 'replacement' || returned === 'exchange' ? `Return started, but ${why}` : why[0].toUpperCase() + why.slice(1);
       })()
     : null;
   // a missing package can be sent again when every item is still on sale and in stock
@@ -289,6 +289,8 @@ export default async function OrderPage({
           <Alert tone="success">Return started. Send the items back as shown below, with the code.</Alert>
         ) : returned === 'replacement' ? (
           <Alert tone="success">Your replacement is on its way. Send the original items back as shown below, with the code.</Alert>
+        ) : returned === 'exchange' ? (
+          <Alert tone="success">Your exchange is on its way in the new size. Send the original items back as shown below, with the code.</Alert>
         ) : returned === 'method' ? (
           <Alert tone="success">Return method changed.</Alert>
         ) : returned === 'cancelled' ? (

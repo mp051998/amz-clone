@@ -1,12 +1,12 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import type { PublicMarketplace } from '@/lib/contracts';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
 
 const ONE = { delivered: true, returnBy: '2099-01-01T12:00:00Z', returnByItem: { p1: '2099-01-01T12:00:00Z' }, returnable: { p1: 1 }, replaceable: {}, returns: [] };
-const state = vi.hoisted(() => ({ order: null as unknown, store: null as unknown, returns: null as unknown, points: [] as unknown[] }));
+const state = vi.hoisted(() => ({ order: null as unknown, store: null as unknown, returns: null as unknown, points: [] as unknown[], products: [] as unknown[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -24,6 +24,7 @@ vi.mock('@/lib/data/returns', async (original) => ({
   getOrderReturns: async () => state.returns,
 }));
 vi.mock('@/lib/data/pickup', () => ({ listPickupPoints: async () => state.points }));
+vi.mock('@/lib/data/catalog', () => ({ getProducts: async () => state.products }));
 vi.mock('@/app/actions/returns', () => ({ startReturn: async () => {} }));
 
 const LOCKER = { id: 'US-AUS-BLUEBONNET', kind: 'locker', name: 'Hub Locker – Bluebonnet', line1: '1000 E 41st St', city: 'Austin', state: 'TX', postcode: '78751', hours: 'Open 24 hours', holdDays: 3 };
@@ -59,6 +60,7 @@ beforeEach(() => {
   state.store = amazon;
   state.returns = ONE;
   state.points = [LOCKER];
+  state.products = [];
 });
 afterEach(() => {
   cleanup();
@@ -183,4 +185,49 @@ it('explains a refused return of a replacement-only item', async () => {
   state.order = order({ items: [{ ...order().items[0], title: 'Phone', replacementOnly: true }] });
   render(await ReturnPage({ params: Promise.resolve({ id: '114-0000000-0000000' }), searchParams: Promise.resolve({ error: 'return_not_allowed', field: 'replacement_only' }) }));
   expect(screen.getByText(/^Phone can only be replaced, if it arrived damaged, .*we refund it only when it can’t be replaced\.$/)).toBeTruthy();
+});
+
+describe('exchanges for another size', () => {
+  const tee = { ...order().items[0], title: 'Tee', size: 'M' };
+  beforeEach(() => {
+    state.returns = { ...ONE, replaceable: { p1: 1 } };
+    state.products = [{ id: 'p1', sizes: ['S', 'M', 'L'] }];
+  });
+
+  it('offers an exchange, with the sizes it comes in other than the one ordered', async () => {
+    await show(order({ items: [tee] }));
+    const ex = screen.getByRole('radio', { name: /^An exchange for a different size/ }) as HTMLInputElement;
+    expect([ex.name, ex.value, ex.checked]).toEqual(['resolution', 'exchange', false]);
+    expect((screen.getByRole('radio', { name: /^A refund/ }) as HTMLInputElement).checked).toBe(true);
+    const size = screen.getByRole('combobox', { name: 'For an exchange, send size' }) as HTMLSelectElement;
+    expect(size.name).toBe('size:p1');
+    expect([...size.options].map((o) => [o.value, o.text])).toEqual([['', 'Choose a size'], ['S', 'S'], ['L', 'L']]);
+  });
+
+  it('not for an item that can’t be replaced now, comes in one size, or has no size', async () => {
+    state.returns = { ...ONE, replaceable: {} };
+    await show(order({ items: [tee] }));
+    expect(screen.queryByRole('radio', { name: /^An exchange/ })).toBeNull();
+    cleanup();
+    state.returns = { ...ONE, replaceable: { p1: 1 } };
+    state.products = [{ id: 'p1', sizes: ['M'] }];
+    await show(order({ items: [tee] }));
+    expect(screen.queryByRole('radio', { name: /^An exchange/ })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'For an exchange, send size' })).toBeNull();
+    cleanup();
+    await show(order());
+    expect(screen.queryByRole('radio', { name: /^An exchange/ })).toBeNull();
+  });
+
+  it('names the items that can be exchanged when others can’t', async () => {
+    state.returns = { ...ONE, returnable: { p1: 1, p2: 1 }, replaceable: { p1: 1, p2: 1 } };
+    await show(order({ items: [tee, { productId: 'p2', title: 'Lamp', image: '', seller: 'Store', unitPriceMinor: 900, qty: 1 }] }));
+    expect(screen.getByText(/at no charge, if it’s too small or too large; available for Tee\./)).toBeTruthy();
+  });
+
+  it('explains a missing or wrong size', async () => {
+    state.order = order({ items: [tee] });
+    render(await ReturnPage({ params: Promise.resolve({ id: '114-0000000-0000000' }), searchParams: Promise.resolve({ error: 'invalid_input', field: 'size' }) }));
+    expect(screen.getByText(/pick the size you’d like instead of the one you have/)).toBeTruthy();
+  });
 });

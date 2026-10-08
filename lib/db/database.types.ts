@@ -841,13 +841,13 @@ isOneToOne: true
                   ]
                 },"return_items": {
                   Row: {
-                    "order_id": string,"product_id": string,"qty": number,"return_id": string
+                    "order_id": string,"product_id": string,"qty": number,"return_id": string,"size": string | null
                   }
                   Insert: {
-                    "order_id": string,"product_id": string,"qty": number,"return_id": string
+                    "order_id": string,"product_id": string,"qty": number,"return_id": string,"size"?: string | null
                   }
                   Update: {
-                    "order_id"?: string,"product_id"?: string,"qty"?: number,"return_id"?: string
+                    "order_id"?: string,"product_id"?: string,"qty"?: number,"return_id"?: string,"size"?: string | null
                   }
                   Relationships: [
                     {

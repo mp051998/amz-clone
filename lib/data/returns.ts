@@ -14,6 +14,8 @@ export const RETURN_REASONS: readonly ReturnReason[] = [
   'no_longer_needed',
   'bought_by_mistake',
   'better_price',
+  'too_small',
+  'too_large',
   'damaged',
   'defective',
   'wrong_item',
@@ -23,6 +25,18 @@ export const RETURN_REASONS: readonly ReturnReason[] = [
 
 /** Reasons where the store got it wrong: the delivery charge share is refunded too. */
 export const STORE_FAULT_REASONS: readonly ReturnReason[] = ['damaged', 'defective', 'wrong_item', 'missing_parts', 'not_as_described'];
+
+/** Reasons a size didn't fit: the item can go back for another size instead (an exchange). */
+export const SIZE_REASONS: readonly ReturnReason[] = ['too_small', 'too_large'];
+
+export function isSizeReason(reason: ReturnReason): boolean {
+  return SIZE_REASONS.includes(reason);
+}
+
+/** An exchange: a replacement sent in another size. */
+export function isExchange(r: Pick<OrderReturn, 'resolution' | 'items'>): boolean {
+  return r.resolution === 'replacement' && r.items.some((it) => it.exchangeSize);
+}
 
 export function isReturnReason(v: unknown): v is ReturnReason {
   return (RETURN_REASONS as readonly unknown[]).includes(v);
@@ -60,6 +74,7 @@ export function toReturn(json: unknown): OrderReturn {
       unitPriceMinor: Number(it.unit_price_minor ?? 0),
       qty: Number(it.qty ?? 0),
       ...(typeof it.size === 'string' && it.size ? { size: it.size } : {}),
+      ...(typeof it.exchange_size === 'string' && it.exchange_size ? { exchangeSize: it.exchange_size } : {}),
     })),
     itemsMinor: Number(r.items_minor ?? 0),
     taxMinor: Number(r.tax_minor ?? 0),
@@ -178,11 +193,16 @@ export function reportMissingUntil(order: Order, r: OrderReturns | null, now: Da
   return r.returns.every((x) => x.status === 'cancelled') ? until : null;
 }
 
+const SIZE_MESSAGE = 'For an exchange, choose a size the item comes in, other than the one you have, for each item.';
+
 export interface ReturnInput {
   items?: unknown;
   reason?: unknown;
   comment?: unknown;
-  /** 'refund' (the default) or 'replacement' */
+  /**
+   * 'refund' (the default) or 'replacement': the same items again for a store-fault reason, or an
+   * exchange for too_small / too_large, each item with the `size` to send instead
+   */
   resolution?: unknown;
   /**
    * Where a refund goes: 'original' (the default), back to how the order was paid, or 'balance',
@@ -193,15 +213,20 @@ export interface ReturnInput {
 }
 
 /**
- * Start a return: `items` is [{productId, qty}]. The DB checks the window and quantities, and for a
- * replacement that the items haven't been replaced before and are in stock.
+ * Start a return: `items` is [{productId, qty, size?}] (`size` on an exchange only). The DB checks
+ * the window and quantities, and for a replacement that the items haven't been replaced before and
+ * are in stock, and an exchange's sizes.
  */
 export async function requestReturn(db: Db, orderId: string, input: ReturnInput): Promise<OrderReturn> {
   if (!isReturnReason(input.reason)) throw new DataError('invalid_input', 'reason', 'Choose why you’re returning it.');
   const resolution: ReturnResolution | null =
     input.resolution == null || input.resolution === '' || input.resolution === 'refund' ? 'refund' : input.resolution === 'replacement' ? 'replacement' : null;
-  if (!resolution || (resolution === 'replacement' && !isStoreFault(input.reason))) {
-    throw new DataError('invalid_input', 'resolution', 'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described.');
+  if (!resolution || (resolution === 'replacement' && !isStoreFault(input.reason) && !isSizeReason(input.reason))) {
+    throw new DataError(
+      'invalid_input',
+      'resolution',
+      'Replacements are for items that arrived damaged, don’t work, are wrong, have parts missing or aren’t as described, and exchanges for a size that’s too small or too large.',
+    );
   }
   const toBalance = input.refundTo === 'balance';
   if (!toBalance && input.refundTo != null && input.refundTo !== '' && input.refundTo !== 'original') {
@@ -211,9 +236,14 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
   if (comment.length > 1000) throw new DataError('invalid_input', 'comment', 'Keep the comment under 1,000 characters.');
   const items = (Array.isArray(input.items) ? input.items : [])
     .map((it) => it as Row)
-    .map((it) => ({ product_id: String(it?.productId ?? ''), qty: Number(it?.qty) }))
-    .filter((it) => it.product_id && Number.isInteger(it.qty) && it.qty > 0);
+    .map((it) => ({ product_id: String(it?.productId ?? ''), qty: Number(it?.qty), size: typeof it?.size === 'string' ? it.size.trim() : '' }))
+    .filter((it) => it.product_id && Number.isInteger(it.qty) && it.qty > 0)
+    // a size goes with a replacement only (an exchange's)
+    .map(({ size, ...it }) => (resolution === 'replacement' && size ? { ...it, size } : it));
   if (!items.length) throw new DataError('invalid_input', 'items', 'Choose at least one item to return.');
+  if (resolution === 'replacement' && isSizeReason(input.reason) && items.some((it) => !('size' in it))) {
+    throw new DataError('invalid_input', 'size', SIZE_MESSAGE);
+  }
   const res = await db.rpc('request_return', {
     p_order_id: orderId,
     p_items: items,
@@ -224,6 +254,7 @@ export async function requestReturn(db: Db, orderId: string, input: ReturnInput)
     // likewise left out for the original payment method
     ...(toBalance && resolution === 'refund' ? { p_refund_to: 'balance' } : {}),
   });
+  if (res.error?.message === 'invalid_input' && res.error.details === 'size') throw new DataError('invalid_input', 'size', SIZE_MESSAGE);
   if (res.error?.message === 'invalid_input' && res.error.details === 'items') {
     throw new DataError('invalid_input', 'items', 'Those items or quantities can’t be returned. Check what’s left to return.');
   }
