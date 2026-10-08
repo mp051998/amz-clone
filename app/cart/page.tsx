@@ -11,6 +11,7 @@ import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { SavedForLater } from '@/components/cart/SavedForLater';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
+import { ShareButton } from '@/components/product/ShareButton';
 import { cartEta, longDate, relativeDayName, releaseDate } from '@/components/orders/format';
 import { removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
@@ -37,6 +38,7 @@ import { limitNote, unitsLeft } from '@/lib/purchase-limits';
 import { protectionPlanName } from '@/lib/protection';
 import { qtyDiscountShortfall } from '@/lib/qty-discount';
 import { latestRelease, releaseOf } from '@/lib/pre-order';
+import { productUrl } from '@/lib/seo';
 import { conditionLabel } from '@/lib/offers';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
@@ -298,6 +300,15 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                               Remove
                             </button>
                           </form>
+                          {/* another seller's offer compares and shares as its product */}
+                          <a
+                            href={sp(`/compare?similar=${encodeURIComponent(p.offerOf ?? p.id)}`)}
+                            className="inline-flex min-h-11 items-center px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink"
+                            aria-label={`Compare ${p.title} with similar items`}
+                          >
+                            Compare with similar items
+                          </a>
+                          <ShareButton variant="link" title={p.title} path={productUrl({ id: p.offerOf ?? p.id, market: p.market })} />
                         </div>
                       </div>
                     </li>

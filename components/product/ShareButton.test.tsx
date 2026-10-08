@@ -67,3 +67,11 @@ it('shareTargets encodes the title and link', () => {
   expect(t.Facebook).toBe('https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fs.example%2Fproduct%2Fx');
   expect(t.Pinterest).not.toContain('media=');
 });
+
+it('as a link on a cart line, names the item and opens the same panel', () => {
+  render(<ShareButton variant="link" title="Kettle" path="/product/abc" />);
+  const link = screen.getByRole('button', { name: 'Share Kettle' });
+  expect(link).toHaveTextContent(/^Share$/);
+  fireEvent.click(link);
+  expect(screen.getByRole('textbox', { name: 'Link to this product' })).toHaveValue(`${window.location.origin}/product/abc`);
+});
