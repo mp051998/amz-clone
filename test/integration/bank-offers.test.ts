@@ -79,7 +79,8 @@ beforeAll(async () => {
     createProduct(boss.db, 'IN', input(3, 200000)),
     createProduct(boss.db, 'IN', input(4, 310000)),
   ]);
-  const ins = await admin().from('bank_offers').insert(OFFERS.map((o) => ({ market_id: 'IN', ...o })));
+  // the columns an offer leaves out take their defaults, not null
+  const ins = await admin().from('bank_offers').insert(OFFERS.map((o) => ({ market_id: 'IN', ...o })), { defaultToNull: false });
   if (ins.error) throw ins.error;
 });
 
