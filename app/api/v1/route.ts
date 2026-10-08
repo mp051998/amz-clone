@@ -102,6 +102,7 @@ export function GET(): Response {
       'PUT    /orders/:id/delivery-feedback',
       'DELETE /orders/:id/delivery-feedback',
       'POST   /returns/:id/cancel',
+      'PUT    /returns/:id/method',
       'GET    /addresses',
       'POST   /addresses',
       'GET    /addresses/:id',

@@ -762,13 +762,13 @@ isOneToOne: false
                   ]
                 },"returns": {
                   Row: {
-                    "cancelled_at": string | null,"comment": string | null,"created_at": string,"dropoff_by": string,"dropoff_code": string,"id": string,"items_minor": number,"order_id": string,"reason": string,"received_at": string | null,"refund_minor": number,"refund_status": string | null,"refund_to": string,"refunded_at": string | null,"reject_note": string | null,"rejected_at": string | null,"replacement_delivered_at": string | null,"replacement_shipped_at": string | null,"resolution": string,"ship_minor": number,"status": string,"stripe_refund_id": string | null,"tax_minor": number,"user_id": string | null,"protection_minor": number,"wrap_minor": number
+                    "cancelled_at": string | null,"comment": string | null,"created_at": string,"dropoff_by": string,"dropoff_code": string,"id": string,"items_minor": number,"order_id": string,"reason": string,"received_at": string | null,"refund_minor": number,"refund_status": string | null,"refund_to": string,"refunded_at": string | null,"reject_note": string | null,"rejected_at": string | null,"replacement_delivered_at": string | null,"replacement_shipped_at": string | null,"resolution": string,"ship_minor": number,"status": string,"stripe_refund_id": string | null,"tax_minor": number,"user_id": string | null,"protection_minor": number,"wrap_minor": number,"method": string,"dropoff_point_id": string | null,"pickup_on": string | null
                   }
                   Insert: {
-                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by": string,"dropoff_code": string,"id"?: string,"items_minor": number,"order_id": string,"reason": string,"received_at"?: string | null,"refund_status"?: string | null,"refund_to"?: string,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor": number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor": number,"user_id"?: string | null,"protection_minor"?: number,"wrap_minor"?: number
+                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by": string,"dropoff_code": string,"id"?: string,"items_minor": number,"order_id": string,"reason": string,"received_at"?: string | null,"refund_status"?: string | null,"refund_to"?: string,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor": number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor": number,"user_id"?: string | null,"protection_minor"?: number,"wrap_minor"?: number,"method"?: string,"dropoff_point_id"?: string | null,"pickup_on"?: string | null
                   }
                   Update: {
-                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by"?: string,"dropoff_code"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"reason"?: string,"received_at"?: string | null,"refund_status"?: string | null,"refund_to"?: string,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor"?: number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor"?: number,"user_id"?: string | null,"protection_minor"?: number,"wrap_minor"?: number
+                    "cancelled_at"?: string | null,"comment"?: string | null,"created_at"?: string,"dropoff_by"?: string,"dropoff_code"?: string,"id"?: string,"items_minor"?: number,"order_id"?: string,"reason"?: string,"received_at"?: string | null,"refund_status"?: string | null,"refund_to"?: string,"refunded_at"?: string | null,"reject_note"?: string | null,"rejected_at"?: string | null,"replacement_delivered_at"?: string | null,"replacement_shipped_at"?: string | null,"resolution"?: string,"ship_minor"?: number,"status"?: string,"stripe_refund_id"?: string | null,"tax_minor"?: number,"user_id"?: string | null,"protection_minor"?: number,"wrap_minor"?: number,"method"?: string,"dropoff_point_id"?: string | null,"pickup_on"?: string | null
                   }
                   Relationships: [
                     {
@@ -949,6 +949,9 @@ isOneToOne: false
                            },
 "cancel_my_return":
 { Args: { "p_return_id": string }; Returns: Json
+                           },
+"choose_return_method":
+{ Args: { "p_return_id": string; "p_method": string; "p_point"?: string; "p_pickup_on"?: string }; Returns: Json
                            },
 "cancel_pending_order":
 { Args: { "p_order_id": string }; Returns: Json

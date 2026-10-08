@@ -178,6 +178,10 @@ export interface OrderReturn {
   refundToBalance?: boolean;
   dropoffCode: string;
   dropoffBy: string;
+  /** the Hub Locker or Hub Counter the shopper chose to drop it off at (absent: any drop-off point, or a pickup) */
+  dropoffPoint?: PickupPoint;
+  /** a courier collects it from the delivery address on this day, "2026-10-14" in the store's time zone (absent: it's dropped off) */
+  pickupOn?: string;
   rejectNote?: string;
   createdAt: string;
   receivedAt?: string;

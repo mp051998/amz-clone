@@ -6,17 +6,27 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { DataError } from '@/lib/data/errors';
-import { cancelReturn, requestReturn } from '@/lib/data/returns';
+import { cancelReturn, chooseReturnMethod, requestReturn } from '@/lib/data/returns';
 import { reportNotReceived } from '@/lib/data/not-received';
 import type { OrderReturn } from '@/lib/types';
 
 const ORDER_ID = /^\d{3}-\d{7}-\d{7}$/;
 
+/** The return-method fields (see ReturnMethodFields). */
+const methodInput = (formData: FormData) => ({
+  method: formData.get('method'),
+  pickupPointId: formData.get('point'),
+  pickupOn: formData.get('pickupOn'),
+});
+
 /**
  * The return form (bound to the order id): one `qty:<productId>` field per item, a reason, an
- * optional comment, the resolution (refund, or a replacement for a store-fault reason) and where a
- * refund goes (`refundTo`: back to how they paid, or the store balance). The database checks the window and what's left to return, and prices the
- * refund; back to the order on success, or to the form with the error.
+ * optional comment, the resolution (refund, or a replacement for a store-fault reason), where a
+ * refund goes (`refundTo`: back to how they paid, or the store balance) and how it goes back
+ * (`method`: dropped off, at `point` or anywhere, or picked up on `pickupOn`). The database checks
+ * the window and what's left to return, and prices the refund; back to the order on success, or to
+ * the form with the error. A return method that doesn't take still leaves the return started, to be
+ * dropped off anywhere, and the order page says why.
  */
 export async function startReturn(orderId: string, formData: FormData): Promise<void> {
   const market = await getMarket();
@@ -48,8 +58,51 @@ export async function startReturn(orderId: string, formData: FormData): Promise<
     if (failure.detail) qs.set('field', failure.detail);
     redirect(sp(`${page}/return?${qs}`));
   }
+  // dropping off anywhere is how every return starts
+  const how = methodInput(formData);
+  let methodError: string | null = null;
+  if (returned && (how.method === 'pickup' || (typeof how.pickupPointId === 'string' && how.pickupPointId.trim()))) {
+    try {
+      returned = await chooseReturnMethod(await db(), returned.id, how);
+    } catch (err) {
+      if (!(err instanceof DataError)) throw err;
+      methodError = err.detail ?? err.code;
+    }
+  }
   revalidatePath('/', 'layout');
-  redirect(sp(`${page}?placed=0&return=${returned?.resolution === 'replacement' ? 'replacement' : 'started'}`));
+  const done = returned?.resolution === 'replacement' ? 'replacement' : 'started';
+  redirect(sp(`${page}?placed=0&return=${done}${methodError ? `&method_error=${encodeURIComponent(methodError)}` : ''}`));
+}
+
+/**
+ * "Change return method" on an order page (bound to the order and return ids, both checked): the
+ * return method fields, as on the return form.
+ */
+export async function changeReturnMethod(orderId: string, returnId: string, formData: FormData): Promise<void> {
+  const market = await getMarket();
+  const sp = (path: string) => storePath({ id: market }, path);
+  if (typeof orderId !== 'string' || !ORDER_ID.test(orderId)) redirect(sp('/orders'));
+  const page = `/orders/${encodeURIComponent(orderId)}`;
+  if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(page)}`));
+  let failure: DataError | null = null;
+  try {
+    await chooseReturnMethod(await db(), String(returnId), methodInput(formData));
+  } catch (err) {
+    if (!(err instanceof DataError)) throw err;
+    failure = err;
+  }
+  revalidatePath('/', 'layout');
+  redirect(
+    sp(
+      `${page}?placed=0&${
+        failure
+          ? failure.code === 'invalid_input' && failure.detail
+            ? `method_error=${encodeURIComponent(failure.detail)}`
+            : `error=${encodeURIComponent(failure.code)}`
+          : 'return=method'
+      }`,
+    ),
+  );
 }
 
 /** "Cancel return" on an order page (bound to the order and return ids, both checked). */

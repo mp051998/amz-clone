@@ -4,6 +4,7 @@ import { fieldClass } from '@/components/lib/controls';
 import { StatusChip } from '@/components/orders/Tracking';
 import { itemsText, REASON_LABEL, refundBreakdown, returnChip } from '@/components/orders/Returns';
 import { paymentText } from '@/components/orders/format';
+import { pickupDayText, pointText } from '@/components/orders/ReturnMethod';
 import { canRetryReturnRefund, type AdminReturn } from '@/lib/data/admin-returns';
 import { balanceMethod } from '@/lib/data/balance';
 import { STORE_FAULT_REASONS } from '@/lib/data/returns';
@@ -86,7 +87,15 @@ export function ReturnRow({
             <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Breakdown</dt><dd className="m-0 tabular-nums">{refundBreakdown(r, r.order.currency)}</dd></div>
           </>
         )}
-        <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Drop-off code</dt><dd className="m-0 font-mono tracking-[0.06em]">{r.dropoffCode}</dd></div>
+        {r.reason === 'not_received' ? null : (
+          <div className="flex flex-col">
+            <dt className="text-[13px] text-ink-3">Coming back by</dt>
+            <dd className="m-0">
+              {r.pickupOn ? `Courier pickup, ${pickupDayText(r.pickupOn, store)}` : r.dropoffPoint ? `Drop-off at ${pointText(r.dropoffPoint)}` : 'Drop-off, any point'}
+            </dd>
+          </div>
+        )}
+        <div className="flex flex-col"><dt className="text-[13px] text-ink-3">{r.pickupOn ? 'Return code' : 'Drop-off code'}</dt><dd className="m-0 font-mono tracking-[0.06em]">{r.dropoffCode}</dd></div>
         {r.stripeRefundId ? (
           <div className="flex flex-col"><dt className="text-[13px] text-ink-3">Stripe refund</dt><dd className="m-0 break-all font-mono text-[13px]">{r.stripeRefundId}</dd></div>
         ) : null}

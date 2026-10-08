@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import type { PublicMarketplace } from '@/lib/contracts';
@@ -6,7 +6,7 @@ import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
 
 const ONE = { delivered: true, returnBy: '2099-01-01T12:00:00Z', returnByItem: { p1: '2099-01-01T12:00:00Z' }, returnable: { p1: 1 }, replaceable: {}, returns: [] };
-const state = vi.hoisted(() => ({ order: null as unknown, store: null as unknown, returns: null as unknown }));
+const state = vi.hoisted(() => ({ order: null as unknown, store: null as unknown, returns: null as unknown, points: [] as unknown[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -23,7 +23,10 @@ vi.mock('@/lib/data/returns', async (original) => ({
   ...(await original<typeof import('@/lib/data/returns')>()),
   getOrderReturns: async () => state.returns,
 }));
+vi.mock('@/lib/data/pickup', () => ({ listPickupPoints: async () => state.points }));
 vi.mock('@/app/actions/returns', () => ({ startReturn: async () => {} }));
+
+const LOCKER = { id: 'US-AUS-BLUEBONNET', kind: 'locker', name: 'Hub Locker – Bluebonnet', line1: '1000 E 41st St', city: 'Austin', state: 'TX', postcode: '78751', hours: 'Open 24 hours', holdDays: 3 };
 
 import ReturnPage from './page';
 
@@ -55,8 +58,12 @@ beforeEach(() => {
   state.order = null;
   state.store = amazon;
   state.returns = ONE;
+  state.points = [LOCKER];
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 it('offers the refund back to how they paid, or on the gift card balance', async () => {
   await show(order());
@@ -79,7 +86,40 @@ it('doesn’t ask when the order was paid from the balance', async () => {
   await show(order({ paymentMethod: 'giftcard', paymentLabel: 'Gift card balance' }));
   expect(screen.getByText(/Refunds go to your gift card balance once the items reach us\./)).toBeTruthy();
   expect(screen.queryByRole('group', { name: 'Where should the refund go?' })).toBeNull();
-  expect(screen.queryByRole('radio')).toBeNull();
+  expect(screen.queryAllByRole('radio').filter((r) => (r as HTMLInputElement).name === 'refundTo')).toEqual([]);
+});
+
+it('asks how it goes back: dropped off, anywhere or at a Hub point, or picked up from the address', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-08T18:00:00Z')); // Thursday 11 AM in Seattle
+  await show(order());
+  const how = screen.getByRole('group', { name: 'How will you send it back?' });
+  const drop = within(how).getByRole('radio', { name: /Drop it off/ }) as HTMLInputElement;
+  const pickup = within(how).getByRole('radio', { name: /Have it picked up/ }) as HTMLInputElement;
+  expect([drop.name, drop.value, drop.defaultChecked]).toEqual(['method', 'dropoff', true]);
+  expect([pickup.name, pickup.value, pickup.defaultChecked]).toEqual(['method', 'pickup', false]);
+  expect(within(how).getByText(/A courier collects it from 1 Main St, Austin 78701\./)).toBeTruthy();
+
+  const where = within(how).getByRole('combobox', { name: 'Where' }) as HTMLSelectElement;
+  expect(where.name).toBe('point');
+  expect([...where.options].map((o) => [o.value, o.text])).toEqual([
+    ['', 'Any drop-off point'],
+    ['US-AUS-BLUEBONNET', 'Hub Locker – Bluebonnet, 1000 E 41st St, Austin · Open 24 hours'],
+  ]);
+  const day = within(how).getByRole('combobox', { name: 'Pickup day' }) as HTMLSelectElement;
+  expect(day.name).toBe('pickupOn');
+  // from tomorrow, a week ahead
+  expect([...day.options].map((o) => o.value)).toEqual(['2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15']);
+  expect(day.options[0].text).toBe('Tomorrow, October 9');
+  expect(day.options[1].text).toBe('Saturday, October 10');
+});
+
+it('only offers a drop-off for an order collected from a pickup point', async () => {
+  await show(order({ pickup: { pointId: 'US-AUS-BLUEBONNET', code: '123456' } }));
+  const how = screen.getByRole('group', { name: 'How will you send it back?' });
+  expect(within(how).getByRole('radio', { name: /Drop it off/ })).toBeTruthy();
+  expect(within(how).queryByRole('radio', { name: /Have it picked up/ })).toBeNull();
+  expect(within(how).queryByRole('combobox', { name: 'Pickup day' })).toBeNull();
 });
 
 it('gives one return-by date when every item shares it', async () => {

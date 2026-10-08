@@ -8,15 +8,16 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, orderView, paidWithText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
-import { cancelMyReturn, reportMissing } from '@/app/actions/returns';
+import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
+import { ReturnMethodFields } from '@/components/orders/ReturnMethod';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
 import { deliveryFeedbackFor, deliveryFeedbackOpen, deliveryFeedbackOpenUntil, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
-import { canStartReturn, getOrderReturns, reportMissingUntil, returnWindows } from '@/lib/data/returns';
+import { canStartReturn, getOrderReturns, reportMissingUntil, returnPickupDays, returnWindows } from '@/lib/data/returns';
 import { InstructionsField } from '@/components/checkout/AddressFields';
 import { deliveryOptions, orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
@@ -24,7 +25,7 @@ import { firstName, readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { getOrder } from '@/lib/data/orders';
 import { listAddresses } from '@/lib/data/addresses';
-import { getPickupPoint, pickupBy } from '@/lib/data/pickup';
+import { getPickupPoint, listPickupPoints, pickupBy } from '@/lib/data/pickup';
 import { getProducts } from '@/lib/data/catalog';
 import { reviewedProductIds } from '@/lib/data/reviews';
 import { recallsFor, type Recall } from '@/lib/data/recalls';
@@ -49,6 +50,13 @@ function addressLine(o: Order): string {
   const s = o.shipTo;
   return [s.name, s.line1, s.line2, `${s.city} ${s.postcode}`].filter(Boolean).join(', ');
 }
+
+/** Why a return method didn't take (`method_error`), after "Return started, but" or on its own. */
+const METHOD_ERROR: Record<string, string> = {
+  method: 'it can’t be picked up: an order collected from a pickup point goes back to one.',
+  pickup_point: 'that drop-off point isn’t taking returns. Choose another, or drop it off at any point.',
+  pickup_on: 'that pickup day isn’t available. Choose a day from tomorrow until the drop-off deadline.',
+};
 
 /** Whether a saved address is where the order already goes (its note aside). */
 function sameAddress(a: Address, s: Order['shipTo']): boolean {
@@ -91,10 +99,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string }>;
+  searchParams: Promise<{ placed?: string; cancelled?: string; error?: string; return?: string; method_error?: string; archived?: string; instructions?: string; address?: string; feedback?: string; delivery?: string }>;
 }) {
   const { id } = await params;
-  const { placed, cancelled, error, return: returned, archived, instructions, address, feedback, delivery } = await searchParams;
+  const { placed, cancelled, error, return: returned, method_error: methodError, archived, instructions, address, feedback, delivery } = await searchParams;
   const store = await getMarketplace();
   const user = await readUser();
   if (!user) redirect(storePath(store, `/signin?next=${encodeURIComponent(`/orders/${id}`)}`));
@@ -141,6 +149,17 @@ export default async function OrderPage({
   const windows = returns ? returnWindows(returns, now) : null;
   const missingUntil = reportMissingUntil(order, returns, now);
   const reportedMissing = returns?.returns.some((r) => r.reason === 'not_received' && r.status !== 'cancelled') ?? false;
+  // how an open return goes back can change until it reaches us; a courier collects from the
+  // delivery address, which an order collected from a pickup point doesn't have
+  const sending = new Set(returns?.returns.filter((r) => r.status === 'requested' && r.reason !== 'not_received').map((r) => r.id) ?? []);
+  const dropoffPoints = sending.size ? await listPickupPoints(client, store.id) : [];
+  const collectFrom = order.pickup ? undefined : [order.shipTo.line1, order.shipTo.line2, `${order.shipTo.city} ${order.shipTo.postcode}`].filter(Boolean).join(', ');
+  const methodErrorText = methodError
+    ? (() => {
+        const why = METHOD_ERROR[methodError] ?? lcFirst(messageFor(methodError) ?? 'something went wrong. Please try again.');
+        return returned === 'started' || returned === 'replacement' ? `Return started, but ${why}` : why[0].toUpperCase() + why.slice(1);
+      })()
+    : null;
   // a missing package can be sent again when every item is still on sale and in stock
   const replaceMissing =
     missingUntil && order.items.every((i) => {
@@ -208,16 +227,20 @@ export default async function OrderPage({
           </div>
         </div>
 
-        {error ? (
+        {methodErrorText ? (
+          <Alert tone="error">{methodErrorText}</Alert>
+        ) : error ? (
           <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
         ) : cancelled === '1' && order.status === 'cancelled' ? (
           <Alert tone="success">Your order is cancelled.</Alert>
         ) : cancelled === 'items' && order.cancellations?.length ? (
           <Alert tone="success">Items cancelled. The rest of your order is still on its way.</Alert>
         ) : returned === 'started' ? (
-          <Alert tone="success">Return started. Drop the items off with the code below.</Alert>
+          <Alert tone="success">Return started. Send the items back as shown below, with the code.</Alert>
         ) : returned === 'replacement' ? (
-          <Alert tone="success">Your replacement is on its way. Drop the original items off with the code below.</Alert>
+          <Alert tone="success">Your replacement is on its way. Send the original items back as shown below, with the code.</Alert>
+        ) : returned === 'method' ? (
+          <Alert tone="success">Return method changed.</Alert>
         ) : returned === 'cancelled' ? (
           <Alert tone="success">Your return is cancelled.</Alert>
         ) : returned === 'missing' && reportedMissing ? (
@@ -461,6 +484,27 @@ export default async function OrderPage({
                   r.status === 'requested' && (!r.replacement || Date.parse(r.replacement.shippedAt) > now.getTime())
                     ? cancelMyReturn.bind(null, order.id, r.id)
                     : undefined
+                }
+                pickupFrom={collectFrom}
+                change={
+                  sending.has(r.id) ? (
+                    <details className="text-[14px]" open={methodError && !returned ? true : undefined}>
+                      <summary className="cursor-pointer font-semibold text-ink">Change return method</summary>
+                      <form action={changeReturnMethod.bind(null, order.id, r.id)} className="mt-3 flex flex-col gap-3">
+                        <ReturnMethodFields
+                          idPrefix={`return-${r.id}`}
+                          legend="How will you send it back?"
+                          points={dropoffPoints}
+                          days={returnPickupDays(store.dates.timeZone, now, r.dropoffBy)}
+                          pickupFrom={collectFrom}
+                          store={store}
+                          now={now}
+                          current={{ pointId: r.dropoffPoint?.id, pickupOn: r.pickupOn }}
+                        />
+                        <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Save return method</button>
+                      </form>
+                    </details>
+                  ) : undefined
                 }
               />
             ))}

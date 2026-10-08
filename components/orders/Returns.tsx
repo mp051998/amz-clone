@@ -5,6 +5,7 @@ import type { CurrencyCode } from '@/lib/contracts';
 import { balanceMethod } from '@/lib/data/balance';
 import type { ReturnSummary } from '@/lib/data/returns';
 import type { Market, OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
+import { pickupDayText } from './ReturnMethod';
 import { StatusChip } from './Tracking';
 import { longDate, shortDate, type ChipTone, type StoreDates } from './format';
 
@@ -82,6 +83,35 @@ export function refundBreakdown(r: OrderReturn, currency: CurrencyCode): string 
     .join(' · ');
 }
 
+/**
+ * How an open return goes back, as a sentence: collected on its pickup day, or dropped off by the
+ * deadline at the point chosen (or any), with its code. `thing` is "it" or "the original".
+ */
+export function sendBackText(r: OrderReturn, store: StoreDates, thing: string, pickupFrom?: string): ReactNode {
+  const code = <strong className="font-mono tracking-[0.06em]">{r.dropoffCode}</strong>;
+  if (r.pickupOn) {
+    return (
+      <>
+        We’ll collect {thing}{pickupFrom ? ` from ${pickupFrom}` : ''} on <strong>{pickupDayText(r.pickupOn, store)}</strong>. Have it packed and ready, and give the courier this code: {code}.
+      </>
+    );
+  }
+  const by = <strong>{longDate(new Date(r.dropoffBy), store)}</strong>;
+  const p = r.dropoffPoint;
+  if (p) {
+    return (
+      <>
+        Drop {thing} off by {by} at <strong>{p.name}</strong>, {p.line1}, {p.city} ({p.hours}), and {p.kind === 'locker' ? 'enter' : 'show'} this code: {code}.
+      </>
+    );
+  }
+  return (
+    <>
+      Drop {thing} off by {by} at any drop-off point and show this code: {code}.
+    </>
+  );
+}
+
 /** What the shopper needs to know about one return, and what they can do next. */
 export function ReturnCard({
   r,
@@ -92,6 +122,8 @@ export function ReturnCard({
   store,
   now = new Date(),
   cancel,
+  pickupFrom,
+  change,
 }: {
   r: OrderReturn;
   currency: CurrencyCode;
@@ -102,10 +134,13 @@ export function ReturnCard({
   now?: Date;
   /** bound "cancel return" action, while it can be cancelled */
   cancel?: () => Promise<void>;
+  /** the delivery address a courier collects a pickup from */
+  pickupFrom?: string;
+  /** "Change return method", while it's on its way back */
+  change?: ReactNode;
 }) {
   const money = formatMoney(r.refundMinor, currency);
   const to = returnRefundTo(r, market, method, label);
-  const code = <strong className="font-mono tracking-[0.06em]">{r.dropoffCode}</strong>;
   // a missing package has nothing to send back, so nothing to receive
   const got = r.reason === 'not_received' ? '' : 'We received your return. ';
   let lead: ReactNode;
@@ -120,7 +155,7 @@ export function ReturnCard({
         <>{swap} There’s nothing to send back.</>
       ) : r.status === 'requested' ? (
         <>
-          {swap} Drop the original off by <strong>{longDate(new Date(r.dropoffBy), store)}</strong> at any drop-off point and show this code: {code}.
+          {swap} {sendBackText(r, store, 'the original', pickupFrom)}
         </>
       ) : (
         <>{swap} We’ve received the original, so there’s nothing more to do.</>
@@ -128,8 +163,7 @@ export function ReturnCard({
   } else if (r.status === 'requested') {
     lead = (
       <>
-        Drop it off by <strong>{longDate(new Date(r.dropoffBy), store)}</strong> at any drop-off point and show this code: {code}. We’ll refund{' '}
-        {money} to {to} once it reaches us.
+        {sendBackText(r, store, 'it', pickupFrom)} We’ll refund {money} to {to} once it reaches us.
       </>
     );
   } else if (r.status === 'rejected') {
@@ -164,6 +198,7 @@ export function ReturnCard({
       </div>
       <p className="m-0 text-[15px] font-semibold">{itemsText(r)}</p>
       <p className="m-0 text-[14px] leading-[1.5] text-ink-2">{lead}</p>
+      {change}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-2 pt-2.5 text-[13px] text-ink-3">
         <span className="tabular-nums">
           {r.resolution === 'replacement'

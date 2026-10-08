@@ -8,7 +8,7 @@ import { unwrap } from './errors';
  * place_order checks the one chosen.
  */
 
-type PickupRow = {
+export type PickupRow = {
   id: string;
   kind: string;
   name: string;
@@ -20,7 +20,7 @@ type PickupRow = {
   hold_days: number;
 };
 
-function toPickupPoint(r: PickupRow): PickupPoint {
+export function toPickupPoint(r: PickupRow): PickupPoint {
   return {
     id: r.id,
     kind: r.kind === 'counter' ? 'counter' : 'locker',
