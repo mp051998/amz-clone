@@ -60,6 +60,26 @@ it('shows the sharer’s comment, quantity and priority on an item', async () =>
   expect(screen.getAllByText('Priority:')).toHaveLength(1);
 });
 
+it('sorts by priority or price, still-to-buy items first', async () => {
+  const p3 = product({ id: 'p3', title: 'Toaster', priceMinor: 500 });
+  state.list = list({
+    products: [product(), product({ id: 'p2', title: 'Kettle', stock: 0, listMinor: 12999 }), p3],
+    bought: { p3: 'someone' },
+    details: { p2: { comment: '', quantity: 1, priority: 'high' } },
+  });
+  const titles = () => screen.getAllByRole('listitem').map((li) => li.querySelector('a + a')?.textContent);
+  render(await SharedListPage({ params: Promise.resolve({ token: TOKEN }), searchParams: Promise.resolve({ sort: 'priority' }) }));
+  expect(titles()).toEqual(['Kettle', 'Acme Wireless Headphones, 40h battery', 'Toaster']);
+  const nav = screen.getByRole('navigation', { name: 'Sort this list' });
+  expect(nav.querySelector('[aria-current="true"]')?.textContent).toBe('Priority');
+  expect(screen.getByRole('link', { name: 'Date added' })).toHaveAttribute('href', `/lists/${TOKEN}`);
+  expect(screen.getByRole('link', { name: 'Price: low to high' })).toHaveAttribute('href', `/lists/${TOKEN}?sort=price-asc`);
+  cleanup();
+  render(await SharedListPage({ params: Promise.resolve({ token: TOKEN }), searchParams: Promise.resolve({ sort: 'price-asc' }) }));
+  // the bought toaster stays last, cheapest or not
+  expect(titles().at(-1)).toBe('Toaster');
+});
+
 it('tells the sharer it’s theirs, with a way back to manage it', async () => {
   state.list = list({ mine: true, collectionId: 'c1' });
   await page();

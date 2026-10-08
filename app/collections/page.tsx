@@ -5,6 +5,7 @@ import { EmptyState, ProductFrame } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
 import { CollectionMenu, CollectionNote, ItemActions, ItemDetails, NewCollection } from '@/components/collections/CollectionControls';
 import { ItemNotes } from '@/components/collections/ItemNotes';
+import { ListSort } from '@/components/collections/ListSort';
 import { ShareList } from '@/components/collections/ShareList';
 import { cn } from '@/components/lib/cn';
 import { readUser } from '@/lib/auth';
@@ -13,6 +14,7 @@ import { isBackInStock, listCollections } from '@/lib/data/collections';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { parseListSort, sortList, type ListSort as Sort } from '@/lib/list-sort';
 import { siteOrigin } from '@/lib/origin';
 import type { Collection, CollectionItem } from '@/lib/decision/types';
 
@@ -27,8 +29,9 @@ function dropTotal(c: Collection): number {
   return c.items.reduce((sum, i) => sum + Math.max(0, dropOf(i)), 0);
 }
 
-export default async function CollectionsPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
-  const { c } = await searchParams;
+export default async function CollectionsPage({ searchParams }: { searchParams: Promise<{ c?: string; sort?: string }> }) {
+  const { c, sort: sortParam } = await searchParams;
+  const sort = parseListSort(sortParam);
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
   if (!(await readUser())) redirect(sp(`/signin?next=${encodeURIComponent(c ? `/collections?c=${c}` : '/collections')}`));
@@ -41,6 +44,8 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
   const comparable = selected ? selected.items.filter((i) => !i.product.archived) : [];
   const compareIds = comparable.slice(0, COMPARE_MAX).map((i) => encodeURIComponent(i.product.id));
   const moveTargets = selected ? collections.filter((x) => x.id !== selected.id).map((x) => ({ id: x.id, name: x.name })) : [];
+  const items = selected ? sortList(selected.items, sort) : [];
+  const sortHref = (s: Sort) => sp(`/collections?c=${selected?.id ?? ''}${s === 'added' ? '' : `&sort=${s}`}`);
   const shareUrl = selected?.shareToken ? `${await siteOrigin()}${sp(`/lists/${selected.shareToken}`)}` : null;
 
   return (
@@ -106,6 +111,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                   </div>
                 </div>
                 <ShareList key={selected.id} id={selected.id} name={selected.name} market={store.id} url={shareUrl} />
+                {items.length > 1 ? <ListSort sort={sort} href={sortHref} /> : null}
 
                 {selected.items.length === 0 ? (
                   <EmptyState action={<a href={sp('/s')} className={buttonClasses({ variant: 'secondary' })}>Find something to save</a>}>
@@ -115,7 +121,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                   </EmptyState>
                 ) : (
                   <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">
-                    {selected.items.map((it) => {
+                    {items.map((it) => {
                       const p = it.product;
                       const d = dropOf(it);
                       const href = sp(`/product/${p.id}`);

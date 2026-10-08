@@ -6,6 +6,7 @@ import { AddFromList } from '@/components/collections/AddFromList';
 import { SeeOptions } from '@/components/product/SeeOptions';
 import { GiftMark } from '@/components/collections/GiftMark';
 import { ItemNotes } from '@/components/collections/ItemNotes';
+import { ListSort } from '@/components/collections/ListSort';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Stars } from '@/components/primitives/Stars';
@@ -14,6 +15,7 @@ import { getSharedList } from '@/lib/data/collections';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
+import { parseListSort, sortList, type ListSort as Sort } from '@/lib/list-sort';
 import { db } from '@/lib/supabase/server';
 
 type Params = Promise<{ token: string }>;
@@ -29,8 +31,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
  * link sees its name, the sharer's first name and its products, and can add them to their cart.
  * Gift givers mark what they've bought so nobody buys it twice; the sharer never sees the marks.
  */
-export default async function SharedListPage({ params }: { params: Params }) {
+export default async function SharedListPage({ params, searchParams }: { params: Params; searchParams?: Promise<{ sort?: string }> }) {
   const { token } = await params;
+  const sort = parseListSort((await searchParams)?.sort);
   const store = await getMarketplace();
   const [list, user] = await Promise.all([getSharedList(await db(), token), readUser()]);
   if (!list) notFound();
@@ -38,6 +41,10 @@ export default async function SharedListPage({ params }: { params: Params }) {
 
   const sp = (path: string) => storePath(store, path);
   const n = list.products.length;
+  // still to buy first, then bought, each group in the order picked
+  const sorted = sortList(list.products.map((product) => ({ product, priority: list.details[product.id]?.priority })), sort);
+  const products = [...sorted.filter((i) => !list.bought[i.product.id]), ...sorted.filter((i) => list.bought[i.product.id])].map((i) => i.product);
+  const sortHref = (s: Sort) => sp(`/lists/${token}${s === 'added' ? '' : `?sort=${s}`}`);
   const boughtCount = list.products.filter((p) => list.bought[p.id]).length;
   const signInHref = user ? undefined : sp(`/signin?next=${encodeURIComponent(`/lists/${token}`)}`);
 
@@ -63,13 +70,15 @@ export default async function SharedListPage({ params }: { params: Params }) {
           </Alert>
         ) : null}
 
+        {n > 1 ? <ListSort sort={sort} href={sortHref} /> : null}
+
         {n === 0 ? (
           <EmptyState action={<a href={sp('/deals')} className={buttonClasses({ variant: 'secondary' })}>Browse today’s deals</a>}>
             Nothing on this list yet.
           </EmptyState>
         ) : (
           <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 p-0">
-            {list.products.map((p) => {
+            {products.map((p) => {
               const href = sp(`/product/${encodeURIComponent(p.id)}`);
               const cut = p.listMinor && p.listMinor > p.priceMinor ? p.listMinor : null;
               return (
