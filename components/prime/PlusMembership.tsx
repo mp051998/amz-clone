@@ -1,34 +1,58 @@
 'use client';
 import { useFormStatus } from 'react-dom';
-import { joinPlusAction, leavePlusAction } from '@/app/actions/plus';
+import { joinPlusAction, leavePlusAction, setPlusPlanAction, setPlusRenewalAction } from '@/app/actions/plus';
+import type { PlusPlanId } from '@/lib/plus-plans';
 import { ConfirmAction } from '../admin/ConfirmAction';
 import { Button, type ButtonProps } from '../primitives/Button';
 
-function Submit({ label, variant, size, block }: { label: string } & Pick<ButtonProps, 'variant' | 'size' | 'block'>) {
+type Look = Pick<ButtonProps, 'variant' | 'size' | 'block'>;
+
+function Submit({ label, pendingLabel, variant, size, block }: { label: string; pendingLabel: string } & Look) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" variant={variant} size={size} block={block} loading={pending}>
-      {pending ? 'Joining…' : label}
+      {pending ? pendingLabel : label}
     </Button>
   );
 }
 
-/** Join Plus for a signed-in shopper (free in this demo). */
-export function JoinPlusButton({ label = 'Join Plus', variant = 'primary', size, block }: { label?: string } & Pick<ButtonProps, 'variant' | 'size' | 'block'>) {
+/** Join Plus for a signed-in shopper (free in this demo), on `plan` (monthly when left out). */
+export function JoinPlusButton({ label = 'Join Plus', plan, variant = 'primary', size, block }: { label?: string; plan?: PlusPlanId } & Look) {
   return (
     <form action={joinPlusAction} className={block ? 'flex' : 'contents'}>
-      <Submit label={label} variant={variant} size={size} block={block} />
+      {plan ? <input type="hidden" name="plan" value={plan} /> : null}
+      <Submit label={label} pendingLabel="Joining…" variant={variant} size={size} block={block} />
     </form>
   );
 }
 
-/** End the membership, after a second click. */
-export function LeavePlusButton() {
+/** Switch to `plan` from the next renewal on (the member's current plan cancels a switch). */
+export function SwitchPlanButton({ plan, label, variant = 'secondary' }: { plan: PlusPlanId; label: string } & Pick<ButtonProps, 'variant'>) {
+  return (
+    <form action={setPlusPlanAction} className="contents">
+      <input type="hidden" name="plan" value={plan} />
+      <Submit label={label} pendingLabel="Saving…" variant={variant} />
+    </form>
+  );
+}
+
+/** Turn renewal on or off. */
+export function RenewalButton({ renew, label, variant = 'secondary' }: { renew: boolean; label: string } & Pick<ButtonProps, 'variant'>) {
+  return (
+    <form action={setPlusRenewalAction} className="contents">
+      <input type="hidden" name="renew" value={renew ? '1' : '0'} />
+      <Submit label={label} pendingLabel="Saving…" variant={variant} />
+    </form>
+  );
+}
+
+/** End the membership at once, after a second click. */
+export function LeavePlusButton({ label = 'End membership' }: { label?: string }) {
   return (
     <ConfirmAction
       action={leavePlusAction}
-      label="End membership"
-      prompt="End Plus? Delivery charges apply again from your next order."
+      label={label}
+      prompt="End Plus now? Delivery charges apply again from your next order."
       confirmLabel="End membership"
       pendingLabel="Ending…"
       cancelLabel="Keep Plus"

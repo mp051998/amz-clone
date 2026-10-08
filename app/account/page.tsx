@@ -22,6 +22,7 @@ import { historyPaused, readRecentIds } from '@/lib/recent';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
+import { shortDate } from '@/components/orders/format';
 
 export const metadata: Metadata = { title: 'Account · Store' };
 
@@ -63,7 +64,11 @@ export default async function AccountPage() {
     { title: 'Addresses', meta: addresses.length ? `${plural(addresses.length, 'address', 'addresses')}${defaultAddr ? ` · default ${defaultAddr.city}` : ''}` : 'None saved', desc: 'Where your orders go. Pick one at checkout.', href: '/account/addresses' },
     {
       title: 'Plus membership',
-      meta: plus ? 'Member · FREE delivery' : 'Not a member',
+      meta: plus
+        ? plus.renewsAt
+          ? `Member · ${plus.autoRenew ? 'renews' : 'ends'} ${shortDate(new Date(plus.renewsAt), store)}`
+          : 'Member · FREE delivery'
+        : 'Not a member',
       desc: plus ? 'FREE delivery on every order and FREE faster delivery. End it any time.' : 'FREE delivery on every order, with no minimum. Free in this demo.',
       href: '/prime',
     },

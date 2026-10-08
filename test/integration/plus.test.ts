@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getCart, setCartQty } from '@/lib/data/cart';
 import { DataError } from '@/lib/data/errors';
 import { placeOrder } from '@/lib/data/orders';
-import { joinPlus, leavePlus, plusMembership } from '@/lib/data/plus';
+import { joinPlus, leavePlus, plusMembership, setPlusPlan, setPlusRenewal } from '@/lib/data/plus';
+import type { PlusPlanId } from '@/lib/plus-plans';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { admin, anon, deleteUser, IN_SHIPPING, newUser, US_SHIPPING, type TestUser } from './helpers';
 
@@ -57,11 +58,13 @@ describe('Plus membership', () => {
     expect(await plusMembership(anon())).toBeNull();
   });
 
-  it('membership only changes through join_plus / leave_plus', async () => {
-    const forged = await other.db.from('plus_members').insert({ user_id: other.id });
+  it('membership only changes through its functions', async () => {
+    const forged = await other.db.from('plus_members').insert({ user_id: other.id, renews_at: '2030-01-01T00:00:00Z' });
     expect(forged.error).toBeTruthy();
     const backdated = await member.db.from('plus_members').update({ joined_at: '2020-01-01T00:00:00Z' }).eq('user_id', member.id).select();
     expect(backdated.error ?? (backdated.data?.length === 0 ? 'no rows' : null)).toBeTruthy();
+    const extended = await member.db.from('plus_members').update({ renews_at: '2040-01-01T00:00:00Z', plan: 'annual' }).eq('user_id', member.id).select();
+    expect(extended.error ?? (extended.data?.length === 0 ? 'no rows' : null)).toBeTruthy();
     const { error } = await anon().rpc('join_plus');
     expect(error).toBeTruthy();
   });
@@ -116,5 +119,90 @@ describe('Plus membership', () => {
 
   it('signed out, joining is refused', async () => {
     expect(await code(joinPlus(anon()))).not.toBe('no error');
+  });
+});
+
+const DAY = 86_400_000;
+/** Days from one ISO timestamp to another. */
+const daysBetween = (from: string, to: string) => (Date.parse(to) - Date.parse(from)) / DAY;
+
+describe('Plus plans and renewal', () => {
+  let planner: TestUser;
+
+  beforeAll(async () => {
+    planner = await newUser('Plus Planner');
+  });
+  afterAll(async () => {
+    await deleteUser(planner);
+  });
+
+  /** Make the planner's period end a minute ago, then run the renewals. */
+  const periodOver = async () => {
+    const { error } = await admin().from('plus_members').update({ renews_at: new Date(Date.now() - 60_000).toISOString() }).eq('user_id', planner.id);
+    if (error) throw error;
+    const run = await admin().rpc('run_plus_renewals');
+    if (run.error) throw run.error;
+  };
+
+  it('each store sells its own plans', async () => {
+    const { data } = await admin().from('markets').select('id, plus_plans').order('id');
+    expect(data).toEqual([
+      { id: 'IN', plus_plans: ['monthly', 'quarterly', 'annual'] },
+      { id: 'US', plus_plans: ['monthly', 'annual'] },
+    ]);
+  });
+
+  it('joins on a plan the store sells, for one period', async () => {
+    expect(await code(joinPlus(planner.db, 'US', 'quarterly'))).toBe('invalid_input');
+    expect(await plusMembership(planner.db)).toBeNull();
+    const m = await joinPlus(planner.db, 'IN', 'quarterly');
+    expect(m).toMatchObject({ market: 'IN', plan: 'quarterly', autoRenew: true });
+    expect(m.nextPlan).toBeUndefined();
+    // three calendar months on
+    expect(daysBetween(m.since, m.renewsAt!)).toBeGreaterThanOrEqual(89);
+    expect(daysBetween(m.since, m.renewsAt!)).toBeLessThanOrEqual(92);
+    // joining again changes nothing
+    expect(await joinPlus(planner.db, 'US', 'annual')).toEqual(m);
+  });
+
+  it('switches plans from the next renewal, and back', async () => {
+    const before = (await plusMembership(planner.db))!;
+    const switched = await setPlusPlan(planner.db, 'annual');
+    expect(switched).toMatchObject({ plan: 'quarterly', nextPlan: 'annual', renewsAt: before.renewsAt });
+    expect((await setPlusPlan(planner.db, 'quarterly')).nextPlan).toBeUndefined();
+    expect(await code(setPlusPlan(planner.db, 'weekly' as PlusPlanId))).toBe('invalid_input');
+  });
+
+  it('turns renewal off and on', async () => {
+    expect((await setPlusRenewal(planner.db, false)).autoRenew).toBe(false);
+    expect((await setPlusRenewal(planner.db, true)).autoRenew).toBe(true);
+    const direct = await planner.db.from('plus_members').update({ auto_renew: false }).eq('user_id', planner.id).select();
+    expect(direct.error ?? (direct.data?.length === 0 ? 'no rows' : null)).toBeTruthy();
+  });
+
+  it('renews a period that’s over on the plan switched to', async () => {
+    await setPlusPlan(planner.db, 'annual');
+    await periodOver();
+    const m = (await plusMembership(planner.db))!;
+    expect(m).toMatchObject({ plan: 'annual', autoRenew: true });
+    expect(m.nextPlan).toBeUndefined();
+    // a year after the period ended
+    expect(daysBetween(new Date().toISOString(), m.renewsAt!)).toBeGreaterThan(363);
+  });
+
+  it('with renewal off, keeps the benefits until the period ends, then ends', async () => {
+    await setPlusRenewal(planner.db, false);
+    const totals = async () => (await planner.db.rpc('order_totals', { p_market: 'US', p_subtotal: 3000 })).data![0];
+    expect((await totals()).ship_minor).toBe(0);
+    await periodOver();
+    expect(await plusMembership(planner.db)).toBeNull();
+    expect((await totals()).ship_minor).toBe(599);
+  });
+
+  it('only members switch plans or renewal; only the service role runs renewals', async () => {
+    expect(await code(setPlusPlan(planner.db, 'annual'))).toBe('plus_required');
+    expect(await code(setPlusRenewal(planner.db, true))).toBe('plus_required');
+    expect((await planner.db.rpc('run_plus_renewals')).error).toBeTruthy();
+    expect((await anon().rpc('set_plus_renewal', { p_renew: true })).error).toBeTruthy();
   });
 });
