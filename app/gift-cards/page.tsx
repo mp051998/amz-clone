@@ -64,6 +64,7 @@ function entryText(e: BalanceEntry, reloadText: string): string {
     case 'recharge': return 'Mobile recharge';
     case 'cashback': return 'Recharge cashback';
     case 'bill': return 'Bill payment';
+    case 'trade_in': return 'Trade-In credit';
     default: return e.orderId ? `Refund for order ${e.orderId}` : 'Refund';
   }
 }

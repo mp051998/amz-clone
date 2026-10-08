@@ -29,11 +29,12 @@ const STRIP_PROGRAMS = [
 ];
 
 /** "All" menu: the store's own pages beyond the departments. */
-const MENU_PROGRAMS = [
+const MENU_PROGRAMS: { label: string; path: string; only?: 'US' | 'IN' }[] = [
   { label: 'Membership', path: '/prime' },
   { label: 'Video', path: '/prime-video' },
   { label: 'Gift cards', path: '/gift-cards' },
   { label: 'Renewed', path: '/renewed' },
+  { label: 'Trade-In', path: '/trade-in', only: 'US' },
   { label: 'Registry', path: '/registry' },
   { label: 'Pay', path: '/amazon-pay' },
   { label: 'Business', path: '/business' },
@@ -100,7 +101,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
   const menu: AllMenuSection[] = [
     { heading: 'Trending', links: STRIP_PROGRAMS.map((p) => to(p.label, p.path)) },
     { heading: 'Shop by department', links: categories.map((c) => to(c.name, `/s?dept=${encodeURIComponent(c.slug)}`)) },
-    { heading: 'Programs & features', links: MENU_PROGRAMS.map((p) => to(p.label, p.path)) },
+    { heading: 'Programs & features', links: MENU_PROGRAMS.filter((p) => !p.only || p.only === key).map((p) => to(p.label, p.path)) },
     {
       heading: 'Help & settings',
       links: [
