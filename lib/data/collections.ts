@@ -1,6 +1,6 @@
 import type { Db } from '../db/client';
 import type { Database } from '../db/database.types';
-import type { Collection, CollectionItem } from '../decision/types';
+import { LIST_PRIORITIES, type Collection, type CollectionItem, type ListPriority } from '../decision/types';
 import type { Market, Product } from '../types';
 import { getProducts } from './catalog';
 import { DataError, unwrap } from './errors';
@@ -21,7 +21,10 @@ export const SYSTEM_COLLECTION_NAMES: Record<Exclude<CollectionKind, 'custom'>, 
 };
 
 type CollectionRow = Database['public']['Tables']['collections']['Row'];
-type ItemRow = Pick<Database['public']['Tables']['collection_items']['Row'], 'product_id' | 'saved_price_minor' | 'saved_in_stock' | 'added_at'>;
+type ItemRow = Pick<
+  Database['public']['Tables']['collection_items']['Row'],
+  'product_id' | 'saved_price_minor' | 'saved_in_stock' | 'added_at' | 'comment' | 'quantity' | 'priority'
+>;
 type RowWithItems = CollectionRow & { collection_items?: ItemRow[] };
 
 const KIND_ORDER: Record<string, number> = { considering: 0, custom: 1, later: 2 };
@@ -48,6 +51,23 @@ function parseNote(v: unknown): string {
   return note;
 }
 
+/** A stored priority (-2 to 2) by name. */
+export function priorityName(n: number | null | undefined): ListPriority {
+  return LIST_PRIORITIES[(n ?? 0) + 2] ?? 'medium';
+}
+
+function toItem(r: ItemRow, product: Product): CollectionItem {
+  return {
+    product,
+    savedPriceMinor: r.saved_price_minor,
+    savedInStock: r.saved_in_stock,
+    addedAt: r.added_at,
+    comment: r.comment ?? '',
+    quantity: r.quantity ?? 1,
+    priority: priorityName(r.priority),
+  };
+}
+
 async function hydrate(db: Db, rows: RowWithItems[]): Promise<Collection[]> {
   const ids = [...new Set(rows.flatMap((r) => (r.collection_items ?? []).map((i) => i.product_id)))];
   const products = new Map((await getProducts(db, ids, { includeArchived: true })).map((p) => [p.id, p]));
@@ -66,12 +86,13 @@ async function hydrate(db: Db, rows: RowWithItems[]): Promise<Collection[]> {
         .sort((a, b) => b.added_at.localeCompare(a.added_at))
         .flatMap((i): CollectionItem[] => {
           const product = products.get(i.product_id);
-          return product ? [{ product, savedPriceMinor: i.saved_price_minor, savedInStock: i.saved_in_stock, addedAt: i.added_at }] : [];
+          return product ? [toItem(i, product)] : [];
         }),
     }));
 }
 
-const WITH_ITEMS = '*, collection_items(product_id, saved_price_minor, saved_in_stock, added_at)';
+const ITEM_COLUMNS = 'product_id, saved_price_minor, saved_in_stock, added_at, comment, quantity, priority';
+const WITH_ITEMS = `*, collection_items(${ITEM_COLUMNS})`;
 
 /** The caller's collections in a store, with items and live products (system lists first/last). */
 export async function listCollections(db: Db, market: Market): Promise<Collection[]> {
@@ -147,14 +168,65 @@ export async function addItem(db: Db, collectionId: string, productId: string): 
   const item = unwrap(
     await db
       .from('collection_items')
-      .select('product_id, saved_price_minor, saved_in_stock, added_at')
+      .select(ITEM_COLUMNS)
       .eq('collection_id', collectionId)
       .eq('product_id', productId)
       .maybeSingle(),
   );
   const [product] = await getProducts(db, [productId]);
   if (!item || !product) throw new DataError('product_not_found');
-  return { product, savedPriceMinor: item.saved_price_minor, savedInStock: item.saved_in_stock, addedAt: item.added_at };
+  return toItem(item, product);
+}
+
+/** Longest comment on a list item. */
+export const LIST_COMMENT_MAX = 250;
+/** Most of one item a shopper can want. */
+export const LIST_QUANTITY_MAX = 99;
+
+export interface ItemDetailsInput {
+  comment?: unknown;
+  quantity?: unknown;
+  priority?: unknown;
+}
+
+function parseDetails(input: ItemDetailsInput): { p_comment?: string; p_quantity?: number; p_priority?: number } {
+  const out: { p_comment?: string; p_quantity?: number; p_priority?: number } = {};
+  if (input.comment !== undefined) {
+    if (typeof input.comment !== 'string') throw new DataError('invalid_input', 'comment', 'Write the comment as text.');
+    const comment = input.comment.trim();
+    if (comment.length > LIST_COMMENT_MAX) throw new DataError('invalid_input', 'comment', `Keep the comment under ${LIST_COMMENT_MAX} characters.`);
+    out.p_comment = comment;
+  }
+  if (input.quantity !== undefined) {
+    const raw = input.quantity;
+    const quantity = typeof raw === 'string' && /^\d{1,3}$/.test(raw.trim()) ? Number(raw.trim()) : raw;
+    if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1 || quantity > LIST_QUANTITY_MAX) {
+      throw new DataError('invalid_input', 'quantity', `Choose a quantity from 1 to ${LIST_QUANTITY_MAX}.`);
+    }
+    out.p_quantity = quantity;
+  }
+  if (input.priority !== undefined) {
+    const at = LIST_PRIORITIES.indexOf(input.priority as ListPriority);
+    if (at < 0) throw new DataError('invalid_input', 'priority', 'Choose a priority from lowest to highest.');
+    out.p_priority = at - 2;
+  }
+  if (!Object.keys(out).length) throw new DataError('invalid_input', 'comment', 'Nothing to update.');
+  return out;
+}
+
+/**
+ * "Add comment, quantity & priority": set any of an item's comment (trimmed, up to 250
+ * characters; empty clears it), quantity (1–99) and priority on one of the caller's lists. What's
+ * left out stays as it is. `404 item_not_found` when the item isn't on one of the caller's lists.
+ */
+export async function setItemDetails(db: Db, collectionId: string, productId: string, input: ItemDetailsInput): Promise<CollectionItem> {
+  if (!isUuid(collectionId)) throw new DataError('collection_not_found');
+  const args = parseDetails(input);
+  unwrap(await db.rpc('set_collection_item_details', { p_collection: collectionId, p_product: productId, ...args }));
+  const row = unwrap(await db.from('collection_items').select(ITEM_COLUMNS).eq('collection_id', collectionId).eq('product_id', productId).maybeSingle());
+  const [product] = await getProducts(db, [productId], { includeArchived: true });
+  if (!row || !product) throw new DataError('item_not_found');
+  return toItem(row, product);
 }
 
 /** Remove a product from one collection (no-op when absent). */
@@ -360,6 +432,15 @@ export interface SharedList {
   products: Product[];
   /** items gift givers marked bought: by the viewer (`you`) or another giver. Empty for the owner */
   bought: Record<string, GiftMark>;
+  /** each product's comment, quantity and priority, as the owner set them */
+  details: Record<string, ItemDetails>;
+}
+
+/** What the owner said about an item on their list. */
+export interface ItemDetails {
+  comment: string;
+  quantity: number;
+  priority: ListPriority;
 }
 
 export type GiftMark = 'you' | 'someone';
@@ -389,7 +470,7 @@ interface SharedRow {
   owner_name: string;
   mine: boolean;
   collection_id: string | null;
-  items: { product_id: string; added_at: string; bought?: GiftMark | null }[];
+  items: { product_id: string; added_at: string; bought?: GiftMark | null; comment?: string; quantity?: number; priority?: number }[];
 }
 
 /** A shared list by its link, or null when the link is off or never existed. */
@@ -401,7 +482,11 @@ export async function getSharedList(db: Db, token: string): Promise<SharedList |
   const row = unwrap(res) as unknown as SharedRow | null;
   if (!row) return null;
   const bought: Record<string, GiftMark> = {};
-  for (const i of row.items) if (i.bought === 'you' || i.bought === 'someone') bought[i.product_id] = i.bought;
+  const details: Record<string, ItemDetails> = {};
+  for (const i of row.items) {
+    if (i.bought === 'you' || i.bought === 'someone') bought[i.product_id] = i.bought;
+    details[i.product_id] = { comment: i.comment ?? '', quantity: i.quantity ?? 1, priority: priorityName(i.priority) };
+  }
   // stable: newest first stays within each group
   const ids = row.items.map((i) => i.product_id).sort((a, b) => Number(a in bought) - Number(b in bought));
   const byId = new Map((await getProducts(db, ids)).map((p) => [p.id, p]));
@@ -416,6 +501,7 @@ export async function getSharedList(db: Db, token: string): Promise<SharedList |
     collectionId: row.collection_id,
     products: ids.flatMap((id) => byId.get(id) ?? []),
     bought,
+    details,
   };
 }
 

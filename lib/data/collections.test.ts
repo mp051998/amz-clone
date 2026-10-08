@@ -1,7 +1,20 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { product } from '@/test/fixtures/decision';
-import { backInStock, getSharedList, isBackInStock, isShareToken, listChoices, markSharedGift, moveItem, priceDrops, shareCollection, unshareCollection } from './collections';
+import {
+  backInStock,
+  getSharedList,
+  isBackInStock,
+  isShareToken,
+  listChoices,
+  markSharedGift,
+  moveItem,
+  priceDrops,
+  priorityName,
+  setItemDetails,
+  shareCollection,
+  unshareCollection,
+} from './collections';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
 
@@ -56,6 +69,56 @@ it('reads gift givers’ marks off a shared list', async () => {
     shared_collection: { data: { name: 'Wedding', kind: 'custom', market_id: 'US', shared_at: '2026-10-05T10:00:00Z', owner_name: 'Asha', mine: false, collection_id: null, items }, error: null },
   });
   expect((await getSharedList(db, TOKEN))!.bought).toEqual({ a: 'you', c: 'someone' });
+});
+
+it('reads each item’s comment, quantity and priority off a shared list', async () => {
+  const items = [
+    { product_id: 'a', added_at: '2026-10-05', comment: 'Blue', quantity: 2, priority: 2 },
+    { product_id: 'b', added_at: '2026-10-04', comment: '', quantity: 1, priority: -1 },
+    // from before the columns: as saved
+    { product_id: 'c', added_at: '2026-10-03' },
+  ];
+  const { db } = fakeDb({
+    shared_collection: { data: { name: 'Wedding', kind: 'custom', market_id: 'US', shared_at: '2026-10-05T10:00:00Z', owner_name: 'Asha', mine: false, collection_id: null, items }, error: null },
+  });
+  expect((await getSharedList(db, TOKEN))!.details).toEqual({
+    a: { comment: 'Blue', quantity: 2, priority: 'highest' },
+    b: { comment: '', quantity: 1, priority: 'low' },
+    c: { comment: '', quantity: 1, priority: 'medium' },
+  });
+});
+
+it('names priorities from lowest (-2) to highest (2)', () => {
+  expect([-2, -1, 0, 1, 2, null, undefined, 7].map(priorityName)).toEqual(['lowest', 'low', 'medium', 'high', 'highest', 'medium', 'medium', 'medium']);
+});
+
+it('sets an item’s comment, quantity and priority, leaving out what isn’t given', async () => {
+  const C = '11111111-1111-4111-8111-111111111111';
+  const { db, rpcs } = fakeDb({ set_collection_item_details: { data: null, error: { message: 'item_not_found', details: '', hint: '', code: 'P0001' } } });
+  await expect(setItemDetails(db, C, 'p1', { comment: '  Blue  ', quantity: '3', priority: 'high' })).rejects.toMatchObject({ code: 'item_not_found' });
+  await expect(setItemDetails(db, C, 'p1', { priority: 'lowest' })).rejects.toMatchObject({ code: 'item_not_found' });
+  await expect(setItemDetails(db, C, 'p1', { comment: '', quantity: 99 })).rejects.toMatchObject({ code: 'item_not_found' });
+  expect(rpcs).toEqual([
+    ['set_collection_item_details', { p_collection: C, p_product: 'p1', p_comment: 'Blue', p_quantity: 3, p_priority: 1 }],
+    ['set_collection_item_details', { p_collection: C, p_product: 'p1', p_priority: -2 }],
+    ['set_collection_item_details', { p_collection: C, p_product: 'p1', p_comment: '', p_quantity: 99 }],
+  ]);
+});
+
+it('refuses item details that don’t fit, before asking the database', async () => {
+  const C = '11111111-1111-4111-8111-111111111111';
+  const { db, rpcs } = fakeDb({});
+  await expect(setItemDetails(db, 'nope', 'p1', { comment: 'x' })).rejects.toMatchObject({ code: 'collection_not_found' });
+  await expect(setItemDetails(db, C, 'p1', {})).rejects.toMatchObject({ code: 'invalid_input' });
+  await expect(setItemDetails(db, C, 'p1', { comment: 'x'.repeat(251) })).rejects.toMatchObject({ code: 'invalid_input', detail: 'comment' });
+  await expect(setItemDetails(db, C, 'p1', { comment: 5 })).rejects.toMatchObject({ code: 'invalid_input', detail: 'comment' });
+  for (const quantity of [0, 100, 1.5, '2x', '', null]) {
+    await expect(setItemDetails(db, C, 'p1', { quantity })).rejects.toMatchObject({ code: 'invalid_input', detail: 'quantity' });
+  }
+  for (const priority of ['urgent', 0, '']) {
+    await expect(setItemDetails(db, C, 'p1', { priority })).rejects.toMatchObject({ code: 'invalid_input', detail: 'priority' });
+  }
+  expect(rpcs).toEqual([]);
 });
 
 it('marks a shared list item bought only for a well-formed link and product', async () => {

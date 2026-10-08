@@ -159,13 +159,13 @@ isOneToOne: false
                   ]
                 },"collection_items": {
                   Row: {
-                    "added_at": string,"collection_id": string,"product_id": string,"saved_in_stock": boolean,"saved_price_minor": number
+                    "added_at": string,"collection_id": string,"comment": string,"priority": number,"product_id": string,"quantity": number,"saved_in_stock": boolean,"saved_price_minor": number
                   }
                   Insert: {
-                    "added_at"?: string,"collection_id": string,"product_id": string,"saved_in_stock"?: boolean,"saved_price_minor": number
+                    "added_at"?: string,"collection_id": string,"comment"?: string,"priority"?: number,"product_id": string,"quantity"?: number,"saved_in_stock"?: boolean,"saved_price_minor": number
                   }
                   Update: {
-                    "added_at"?: string,"collection_id"?: string,"product_id"?: string,"saved_in_stock"?: boolean,"saved_price_minor"?: number
+                    "added_at"?: string,"collection_id"?: string,"comment"?: string,"priority"?: number,"product_id"?: string,"quantity"?: number,"saved_in_stock"?: boolean,"saved_price_minor"?: number
                   }
                   Relationships: [
                     {
@@ -1224,6 +1224,9 @@ isOneToOne: false
                            },
 "move_collection_item":
 { Args: { "p_from": string; "p_to": string; "p_product": string }; Returns: undefined
+                           },
+"set_collection_item_details":
+{ Args: { "p_collection": string; "p_product": string; "p_comment"?: string; "p_quantity"?: number; "p_priority"?: number }; Returns: undefined
                            },
 "mark_shared_gift":
 { Args: { "p_token": string; "p_product": string; "p_bought": boolean }; Returns: undefined

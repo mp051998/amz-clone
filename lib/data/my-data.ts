@@ -47,7 +47,16 @@ export interface ListRecord {
   kind: 'custom' | 'considering' | 'later';
   shared: boolean;
   createdAt: string;
-  items: { productId: string; title: string; savedPriceMinor: number; savedInStock: boolean; addedAt: string }[];
+  items: {
+    productId: string;
+    title: string;
+    savedPriceMinor: number;
+    savedInStock: boolean;
+    addedAt: string;
+    comment: string;
+    quantity: number;
+    priority: string;
+  }[];
 }
 
 /** A "Contact us" case and its messages, oldest first (`agent`: someone at the store). */
@@ -103,7 +112,16 @@ export function listRecord(c: Collection): ListRecord {
     kind: c.kind ?? 'custom',
     shared: Boolean(c.shareToken),
     createdAt: c.createdAt,
-    items: c.items.map((i) => ({ productId: i.product.id, title: i.product.title, savedPriceMinor: i.savedPriceMinor, savedInStock: i.savedInStock, addedAt: i.addedAt })),
+    items: c.items.map((i) => ({
+      productId: i.product.id,
+      title: i.product.title,
+      savedPriceMinor: i.savedPriceMinor,
+      savedInStock: i.savedInStock,
+      addedAt: i.addedAt,
+      comment: i.comment ?? '',
+      quantity: i.quantity ?? 1,
+      priority: i.priority ?? 'medium',
+    })),
   };
 }
 

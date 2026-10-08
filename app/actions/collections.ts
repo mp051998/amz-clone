@@ -107,6 +107,23 @@ export async function createCollectionWith(name: string, productId: string): Pro
   });
 }
 
+/** Collections "Add comment, quantity & priority" on an item; what's left out stays as it is. */
+export async function setListItemDetails(
+  collectionId: string,
+  productId: string,
+  details: { comment?: string; quantity?: string | number; priority?: string },
+): Promise<{ item: CollectionItem } | ActionError> {
+  return run(async (client) => {
+    const item = await collections.setItemDetails(client, String(collectionId), String(productId), {
+      comment: details?.comment,
+      quantity: details?.quantity,
+      priority: details?.priority,
+    });
+    revalidate();
+    return { item };
+  });
+}
+
 /** Collections "Move to": onto another of the shopper's lists, keeping the price it was saved at. */
 export async function moveToCollection(fromId: string, toId: string, productId: string): Promise<{ ok: true } | ActionError> {
   return run(async (client) => {

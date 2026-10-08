@@ -5,6 +5,7 @@ import { EmptyState, ProductFrame } from '@/components/decision';
 import { AddFromList } from '@/components/collections/AddFromList';
 import { SeeOptions } from '@/components/product/SeeOptions';
 import { GiftMark } from '@/components/collections/GiftMark';
+import { ItemNotes } from '@/components/collections/ItemNotes';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { Stars } from '@/components/primitives/Stars';
@@ -82,6 +83,7 @@ export default async function SharedListPage({ params }: { params: Params }) {
                     <strong className="text-[18px] tabular-nums">{formatMoney(p.priceMinor, p.curBase)}</strong>
                     {cut ? <s className="text-[13px] text-ink-3 tabular-nums">{formatMoney(cut, p.curBase)}</s> : null}
                   </span>
+                  <ItemNotes {...list.details[p.id]} />
                   <div className="mt-auto flex flex-col gap-2">
                     {p.sizes && p.stock > 0 ? (
                       <SeeOptions href={href} name={p.title} variant="primary" size="md" />

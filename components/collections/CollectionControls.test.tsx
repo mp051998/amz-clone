@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
-const calls = vi.hoisted(() => ({ move: [] as string[][], refresh: 0, toasts: [] as string[], result: {} as object }));
+const calls = vi.hoisted(() => ({ move: [] as string[][], details: [] as unknown[][], refresh: 0, toasts: [] as string[], result: {} as object }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => { calls.refresh += 1; }, push: () => {} }) }));
 vi.mock('../decision/Toast', () => ({ useToast: () => ({ toast: (m: string) => calls.toasts.push(m) }) }));
@@ -13,13 +13,15 @@ vi.mock('@/app/actions/collections', () => ({
   renameCollection: async () => ({}),
   updateCollectionNote: async () => ({}),
   moveToCollection: async (...a: string[]) => { calls.move.push(a); return calls.result; },
+  setListItemDetails: async (...a: unknown[]) => { calls.details.push(a); return calls.result; },
 }));
 
-import { ItemActions } from './CollectionControls';
+import { ItemActions, ItemDetails } from './CollectionControls';
 
 afterEach(() => {
   cleanup();
   calls.move = [];
+  calls.details = [];
   calls.refresh = 0;
   calls.toasts = [];
   calls.result = {};
@@ -59,4 +61,38 @@ it('offers no move with nowhere to go, or for an item that’s gone', () => {
   show({ unavailable: true });
   expect(screen.queryByRole('button', { name: /Move Kettle/ })).toBeNull();
   expect(screen.getByRole('button', { name: 'Remove Kettle from Things I\'m Considering' })).toBeTruthy();
+});
+
+const details = (over: Partial<Parameters<typeof ItemDetails>[0]> = {}) =>
+  render(<ItemDetails collectionId="c" productId="p1" productName="Kettle" market="US" {...over} />);
+
+it('adds a comment, quantity and priority to an item', async () => {
+  calls.result = { item: {} };
+  details();
+  fireEvent.click(screen.getByRole('button', { name: 'Add comment, quantity & priority for Kettle' }));
+  const form = screen.getByRole('form', { name: 'Comment, quantity and priority for Kettle' });
+  expect((screen.getByLabelText('Quantity') as HTMLInputElement).value).toBe('1');
+  expect((screen.getByLabelText('Priority') as HTMLSelectElement).value).toBe('medium');
+  fireEvent.change(screen.getByLabelText('Comment'), { target: { value: 'Any color but yellow' } });
+  fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText('Priority'), { target: { value: 'high' } });
+  fireEvent.submit(form);
+  await waitFor(() => expect(calls.refresh).toBe(1));
+  expect(calls.details).toEqual([['c', 'p1', { comment: 'Any color but yellow', quantity: '2', priority: 'high' }]]);
+  expect(calls.toasts).toEqual(['Saved']);
+  expect(screen.queryByRole('form')).toBeNull();
+});
+
+it('edits what’s there, and says why a save didn’t happen', async () => {
+  calls.result = { error: 'invalid_input', message: 'Keep the comment under 250 characters.' };
+  details({ comment: 'Blue', quantity: 3, priority: 'lowest' });
+  fireEvent.click(screen.getByRole('button', { name: 'Edit comment, quantity & priority for Kettle' }));
+  expect((screen.getByLabelText('Comment') as HTMLTextAreaElement).value).toBe('Blue');
+  expect((screen.getByLabelText('Quantity') as HTMLInputElement).value).toBe('3');
+  expect((screen.getByLabelText('Priority') as HTMLSelectElement).value).toBe('lowest');
+  fireEvent.submit(screen.getByRole('form'));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', '⚠Keep the comment under 250 characters.');
+  expect(calls.refresh).toBe(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('form')).toBeNull();
 });

@@ -7,6 +7,7 @@ import {
   moveToCollection,
   removeFromCollection,
   renameCollection,
+  setListItemDetails,
   updateCollectionNote,
 } from '@/app/actions/collections';
 import { addToCartQuiet } from '@/app/collections/actions';
@@ -14,9 +15,11 @@ import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
 import { SeeOptions } from '../product/SeeOptions';
 import { cn } from '../lib/cn';
-import { fieldClass } from '../lib/controls';
+import { fieldClass, selectClass } from '../lib/controls';
 import { storeHref, type MarketId } from '../lib/store';
 import { usePopover } from '../lib/usePopover';
+import { LIST_PRIORITIES, type ListPriority } from '@/lib/decision/types';
+import { PRIORITY_LABEL } from './ItemNotes';
 
 type Result = { error?: string; message?: string } | object;
 
@@ -363,5 +366,94 @@ export function CollectionNote({ id, note, market }: { id: string; note: string;
         <span id={`note-${id}-hint`} className="text-[13px] text-ink-3">Saved automatically. Only you can see it.</span>
       )}
     </div>
+  );
+}
+
+/** "Add comment, quantity & priority" on one item of the shopper's list: an inline form. */
+export function ItemDetails({ collectionId, productId, productName, comment = '', quantity = 1, priority = 'medium', market }: {
+  collectionId: string;
+  productId: string;
+  productName: string;
+  comment?: string;
+  quantity?: number;
+  priority?: ListPriority;
+  market: MarketId;
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const signin = useSignin(market);
+  const { toast } = useToast();
+  const id = useId();
+  const set = Boolean(comment) || quantity > 1 || priority !== 'medium';
+
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    start(async () => {
+      const res = await setListItemDetails(collectionId, productId, {
+        comment: String(f.get('comment') ?? ''),
+        quantity: String(f.get('quantity') ?? ''),
+        priority: String(f.get('priority') ?? ''),
+      });
+      const err = errorOf(res);
+      if (err) {
+        if (err.error === 'not_authenticated') return signin();
+        setError(err.message ?? "Couldn't save that.");
+        return;
+      }
+      setOpen(false);
+      setError(null);
+      toast('Saved');
+      router.refresh();
+    });
+  };
+
+  if (!open) {
+    return (
+      <Button variant="link" className="self-start text-[13px]" onClick={() => setOpen(true)}>
+        {set ? 'Edit comment, quantity & priority' : 'Add comment, quantity & priority'}{' '}
+        <span className="sr-only">for {productName}</span>
+      </Button>
+    );
+  }
+  return (
+    <form onSubmit={submit} className="flex w-full flex-col gap-2.5 rounded-card border border-line bg-surface-2 p-3" aria-label={`Comment, quantity and priority for ${productName}`}>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`${id}-comment`} className="text-[13px] font-semibold">Comment</label>
+        <textarea
+          id={`${id}-comment`}
+          name="comment"
+          defaultValue={comment}
+          rows={2}
+          maxLength={250}
+          autoFocus
+          placeholder="e.g. Size M, any color but yellow"
+          className={cn(fieldClass, 'min-h-[64px] resize-y py-2')}
+        />
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`${id}-qty`} className="text-[13px] font-semibold">Quantity</label>
+          <input id={`${id}-qty`} name="quantity" type="number" inputMode="numeric" min={1} max={99} required defaultValue={quantity} className={cn(fieldClass, 'w-24')} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`${id}-priority`} className="text-[13px] font-semibold">Priority</label>
+          <select id={`${id}-priority`} name="priority" defaultValue={priority} className={selectClass}>
+            {LIST_PRIORITIES.map((p) => (
+              <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {error ? (
+        <span role="alert" className="flex gap-1.5 text-[13px] text-bad"><span aria-hidden>⚠</span>{error}</span>
+      ) : null}
+      <div className="flex gap-2">
+        <Button type="submit" variant="dark" size="sm" loading={pending}>Save</Button>
+        <Button variant="secondary" size="sm" onClick={() => { setOpen(false); setError(null); }}>Cancel</Button>
+      </div>
+    </form>
   );
 }

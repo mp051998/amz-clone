@@ -119,6 +119,7 @@ export function GET(): Response {
       'PATCH  /collections/:id',
       'DELETE /collections/:id',
       'POST   /collections/:id/items',
+      'PATCH  /collections/:id/items/:productId',
       'DELETE /collections/:id/items/:productId',
       'POST   /collections/:id/items/:productId/move',
       'POST   /collections/:id/share',

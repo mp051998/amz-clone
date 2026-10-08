@@ -29,7 +29,7 @@ const TOKEN = 'a'.repeat(32);
 const page = async () => render(await SharedListPage({ params: Promise.resolve({ token: TOKEN }) }));
 const list = (over: Partial<SharedList> = {}): SharedList => ({
   token: TOKEN, name: 'Wedding registry', kind: 'custom', market: 'US', ownerName: 'Asha', sharedAt: '2026-10-05T10:00:00Z',
-  mine: false, collectionId: null, products: [product(), product({ id: 'p2', title: 'Kettle', stock: 0, listMinor: 12999 })], bought: {}, ...over,
+  mine: false, collectionId: null, products: [product(), product({ id: 'p2', title: 'Kettle', stock: 0, listMinor: 12999 })], bought: {}, details: {}, ...over,
 });
 
 afterEach(cleanup);
@@ -48,6 +48,16 @@ it('shows the list, who shared it and an add-to-cart for each product', async ()
   expect(screen.getByRole('button', { name: 'Add Kettle to cart' })).toHaveProperty('disabled', true);
   expect(screen.getByRole('link', { name: 'Kettle' })).toHaveAttribute('href', '/product/p2');
   expect(screen.queryByText(/This is your list/)).toBeNull();
+});
+
+it('shows the sharer’s comment, quantity and priority on an item', async () => {
+  state.list = list({ details: { p2: { comment: 'The blue one, please', quantity: 2, priority: 'highest' } } });
+  await page();
+  expect(screen.getByText('“The blue one, please”')).toBeTruthy();
+  expect(screen.getByText('Priority:').nextElementSibling?.textContent).toBe('Highest');
+  expect(screen.getByText('Quantity:').nextElementSibling?.textContent).toBe('2');
+  // only one item says anything
+  expect(screen.getAllByText('Priority:')).toHaveLength(1);
 });
 
 it('tells the sharer it’s theirs, with a way back to manage it', async () => {
