@@ -54,6 +54,8 @@ export interface BuyPanelProps {
   limit?: { max: number; left: number | null };
   /** the sizes it comes in: one must be picked before Add to Cart or Buy Now */
   sizes?: string[];
+  /** a pre-order: when it comes out ("November 20, 2026"); Buy Now reads "Pre-order now" */
+  preOrder?: { release: string };
 }
 
 /** at or below this many units the panel warns "Only N left". */
@@ -73,8 +75,9 @@ const LEVEL_TONE = {
  * stays on the page with a ✓ banner + toast) / Buy Now (dark → checkout), Save + Compare, and Add to List.
  * An eligible product offers the store's protection plan as a box above the buttons; both take it.
  * A product that comes in sizes (clothes, shoes) asks for one first, and both buttons take it.
+ * A pre-order says when it's released in place of the stock line, and Buy Now reads "Pre-order now".
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, preOrder }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
@@ -145,6 +148,8 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
 
       {!available ? (
         <p className="m-0 rounded-input bg-surface-4 px-3 py-2.5 text-[15px] font-semibold text-ink-2">Out of stock — save it and we’ll flag it on your lists when it’s back.</p>
+      ) : preOrder ? (
+        <p className="m-0 text-[14px] font-semibold text-good">This item will be released on {preOrder.release}.</p>
       ) : stock <= LOW_STOCK ? (
         <p className="m-0 text-[14px] font-semibold text-warn-strong">Only {stock} left in stock — order soon.</p>
       ) : (
@@ -215,7 +220,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
           <button type="button" onClick={onAdd} disabled={pending} aria-busy={pending || undefined} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>
             {pending ? 'Adding…' : 'Add to Cart'}
           </button>
-          <button type="submit" className={buttonClasses({ variant: 'dark', size: 'lg', block: true })}>Buy Now</button>
+          <button type="submit" className={buttonClasses({ variant: 'dark', size: 'lg', block: true })}>{preOrder ? 'Pre-order now' : 'Buy Now'}</button>
         </form>
       ) : null}
 

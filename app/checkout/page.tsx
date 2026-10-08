@@ -14,7 +14,8 @@ import { GST_NAME_MAX } from '@/lib/gst';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StepCard } from '@/components/checkout/StepCard';
-import { arrivingText, byTimeText, lcFirst, relativeDayName } from '@/components/orders/format';
+import { arrivingText, byTimeText, lcFirst, relativeDayName, releaseDate } from '@/components/orders/format';
+import { latestRelease } from '@/lib/pre-order';
 import { submitCheckout } from '@/app/actions/order';
 import { stripeConfigured } from '@/lib/stripe';
 import { readUser } from '@/lib/auth';
@@ -164,7 +165,9 @@ export default async function CheckoutPage({
   const now = new Date();
   // Delivery Day: a Plus member's weekday, in a store that offers it; it costs what standard does
   const dayStore = store.features.deliveryDay === true;
-  const options = deliveryOptions(now, store.dates.timeZone, dayStore ? plus?.deliveryDay : null);
+  // a pre-order holds the order until it's released (orders_fill_schedule): no faster option then
+  const release = latestRelease(lines.filter((l) => l.available).map((l) => l.product), now);
+  const options = deliveryOptions(now, store.dates.timeZone, dayStore ? plus?.deliveryDay : null, release);
   const eta = new Date(options.standard);
   const onDay = options.day ? new Date(options.day) : null;
   // faster delivery is offered only while it beats standard (and once the store has a fee for it);
@@ -295,6 +298,12 @@ export default async function CheckoutPage({
               <p className="m-0 text-[13px] text-ink-2">
                 Get your orders together on one day each week.{' '}
                 <a href={sp('/prime#delivery-day')} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">Choose your Delivery Day</a>
+              </p>
+            ) : null}
+            {release ? (
+              <p className="m-0 text-[13px] text-ink-2">
+                {lines.length > 1 ? 'Your order includes a pre-order, so it all ships' : 'This pre-order ships'} when it’s released on{' '}
+                <strong className="font-semibold text-ink">{releaseDate(new Date(release), store)}</strong>. You can cancel any time before then.
               </p>
             ) : null}
             <GiftOption max={GIFT_NOTE_MAX} wrapFee={wrapFee === null ? undefined : money(wrapFee)} />

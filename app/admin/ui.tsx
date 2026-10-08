@@ -9,6 +9,7 @@ import type { AdminProduct } from '@/lib/data/admin-catalog';
 import { detailLines } from '@/lib/product-details';
 import { storePath } from '@/lib/marketplace';
 import { unitSizeText } from '@/lib/unit-price';
+import { localDayOf } from '@/lib/decision/tracking';
 import { cn } from '@/components/lib/cn';
 
 const STORE_LABEL = { US: 'United States store', IN: 'India store' } as const;
@@ -109,7 +110,7 @@ export function majorText(minor: number | null | undefined): string {
 }
 
 /** A saved product as product-form strings. */
-export function productFormValues(p: AdminProduct): ProductFormValues {
+export function productFormValues(p: AdminProduct, timeZone: string): ProductFormValues {
   return {
     title: p.title,
     brand: p.brand ?? '',
@@ -124,6 +125,7 @@ export function productFormValues(p: AdminProduct): ProductFormValues {
     unit: p.unit ? unitSizeText(p.unit) : '',
     qtyPct: p.qtyDiscount ? String(p.qtyDiscount.percentOff) : '',
     qtyMin: p.qtyDiscount ? String(p.qtyDiscount.minQty) : '',
+    release: p.releaseAt ? localDayOf(p.releaseAt, timeZone) : '',
     badge: p.badge ?? '',
     boughtPastMonth: p.boughtPastMonth ?? '',
     seller: p.seller,

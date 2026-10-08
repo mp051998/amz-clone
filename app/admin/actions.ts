@@ -19,6 +19,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { parseDetailLines } from '@/lib/product-details';
 import { parseUnitSize } from '@/lib/unit-price';
+import { localDayStart } from '@/lib/decision/tracking';
 import { adminClient } from './guard';
 
 /** What the product form needs back: field errors, a form-level message, and the values to keep. */
@@ -27,7 +28,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'qtyPct', 'qtyMin', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'qtyPct', 'qtyMin', 'release', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 /** Field errors the data layer can raise after validation. */
 const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
@@ -67,6 +68,9 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
   const qtyMinText = values.qtyMin.trim();
   const qtyWhole = (t: string) => (/^\d+$/.test(t) ? Number(t) : NaN);
   const qtyDiscount = !qtyPctText && !qtyMinText ? null : { percentOff: qtyWhole(qtyPctText), minQty: qtyWhole(qtyMinText) };
+  // "2026-11-20" from the date field: that day's midnight in the store; blank once it's out
+  const releaseText = values.release.trim();
+  const releaseAt = !releaseText ? null : /^\d{4}-\d{2}-\d{2}$/.test(releaseText) ? localDayStart(releaseText, store.dates.timeZone) : releaseText;
   const details = parseDetailLines(values.details);
   const input = {
     title: values.title,
@@ -82,6 +86,7 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     sizes: sizeList.length ? sizeList : null,
     unit,
     qtyDiscount,
+    releaseAt,
     badge: values.badge,
     boughtPastMonth: values.boughtPastMonth,
     seller: values.seller,

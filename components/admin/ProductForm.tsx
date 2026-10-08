@@ -31,6 +31,8 @@ export interface ProductFormValues {
   /** quantity discount percent and the units it starts at, both blank for none. */
   qtyPct: string;
   qtyMin: string;
+  /** release date ("2026-11-20", the store's day), blank once it's out. */
+  release: string;
   badge: string;
   boughtPastMonth: string;
   seller: string;
@@ -228,6 +230,15 @@ export function ProductForm({
               <Input label="Sold by" name="seller" required maxLength={120} defaultValue={val('seller')} error={e.seller} />
               <Input label="Ships from" name="shipsFrom" required maxLength={120} defaultValue={val('shipsFrom')} error={e.shipsFrom} />
             </div>
+            <Input
+              label="Release date"
+              name="release"
+              type="date"
+              defaultValue={val('release')}
+              error={e.releaseAt}
+              hint="Optional, for something not out yet: until this day it’s sold as a pre-order and orders of it ship on the day. Moving it moves those orders too."
+              className="sm:max-w-[240px]"
+            />
           </Group>
 
           <Group title="Product details">

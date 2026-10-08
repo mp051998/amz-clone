@@ -6,7 +6,7 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
-import { dayLabel, lcFirst, longDate, orderView, paidWithText, returnUntilText, stepTime } from '@/components/orders/format';
+import { dayLabel, lcFirst, longDate, orderView, paidWithText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
 import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, reportMissing } from '@/app/actions/returns';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
@@ -161,6 +161,9 @@ export default async function OrderPage({
             <span className="text-[13px] text-ink-3">{order.pickup ? 'Ready for pickup' : 'Arriving'}</span>
             <strong className="text-[24px] font-semibold">{view.eta ? dayLabel(view.eta, store, now) : 'Soon'}</strong>
             <span className="text-[15px] text-ink-2">{addressLine(order)}</span>
+            {order.releaseAt && Date.parse(order.releaseAt) > now.getTime() ? (
+              <span className="text-[15px] text-ink-2">Pre-order: it ships when it’s released on {releaseDate(new Date(order.releaseAt), store)}. You can cancel until then.</span>
+            ) : null}
             <div className="mt-2 flex flex-wrap justify-between gap-1.5 border-t border-line-2 pt-3 text-[14px]">
               <span>Order <span className="font-mono">{order.id}</span></span>
               <strong className="tabular-nums">{money(order.totals.totalMinor)} · {countText}</strong>
@@ -265,6 +268,7 @@ export default async function OrderPage({
             { label: 'Items', value: order.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ') },
             { label: order.pickup ? 'Pick up at' : 'Deliver to', value: addressLine(order) },
             ...(order.shipTo.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{order.shipTo.instructions}</span> }] : []),
+            ...(order.releaseAt ? [{ label: 'Pre-order', value: `${Date.parse(order.releaseAt) > now.getTime() ? 'Releases' : 'Released'} ${releaseDate(new Date(order.releaseAt), store)}` }] : []),
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.shipSpeed === 'day' ? [{ label: 'Delivery', value: `Your Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
@@ -369,7 +373,9 @@ export default async function OrderPage({
         {view.cancelUntil ? (
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Cancel order">
             <p className="m-0 text-[14px] text-ink-2">
-              Changed your mind? You can cancel until it ships, {lcFirst(stepTime(view.cancelUntil, store, now))}.
+              Changed your mind? You can cancel until it ships,{' '}
+              {/* a pre-order's can be weeks off, past where a weekday says which day */}
+              {order.releaseAt ? `${longDate(view.cancelUntil, store)} at ${timeOfDay(view.cancelUntil, store)}` : lcFirst(stepTime(view.cancelUntil, store, now))}.
             </p>
             <div className="flex flex-wrap items-center gap-2.5">
               {order.items.length > 1 ? (

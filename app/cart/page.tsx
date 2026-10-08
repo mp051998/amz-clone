@@ -11,7 +11,7 @@ import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { SavedForLater } from '@/components/cart/SavedForLater';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
-import { cartEta, longDate, relativeDayName } from '@/components/orders/format';
+import { cartEta, longDate, relativeDayName, releaseDate } from '@/components/orders/format';
 import { removeItem } from '@/app/actions/cart';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
@@ -34,6 +34,7 @@ import { purchaseAllowance } from '@/lib/data/purchase-limits';
 import { limitNote, unitsLeft } from '@/lib/purchase-limits';
 import { protectionPlanName } from '@/lib/protection';
 import { qtyDiscountShortfall } from '@/lib/qty-discount';
+import { latestRelease, releaseOf } from '@/lib/pre-order';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
@@ -133,7 +134,9 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   }
 
   const now = new Date();
-  const eta = cartEta(now, store);
+  // the order ships together, so a pre-order on it holds the rest until its release
+  const release = latestRelease(lines.filter((l) => l.selected && l.available).map((l) => l.product), now);
+  const eta = cartEta(now, store, release);
   const etaText = relativeDayName(eta, store, now)?.toLowerCase() ?? `on ${longDate(eta, store)}`;
   const freeShip = totals.shipMinor === 0;
   const allSelected = lines.every((l) => l.selected);
@@ -200,7 +203,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                           <span className="text-[14px] font-semibold text-warn">⚠ Only {p.stock} left — lower the quantity to check out.</span>
                         ) : (
                           <span className="text-[14px] text-ink-2">
-                            {p.stock <= 10 ? `Only ${p.stock} left` : 'In stock'} · {freeShip ? 'FREE delivery' : 'Delivery'} {etaText}
+                            {releaseOf(p, now) ? `Pre-order: releases ${releaseDate(new Date(p.releaseAt!), store)}` : p.stock <= 10 ? `Only ${p.stock} left` : 'In stock'} · {freeShip ? 'FREE delivery' : 'Delivery'} {etaText}
                             {l.qty > 1 ? <span className="text-ink-3"> · {money(p.priceMinor)} each</span> : null}
                           </span>
                         )}
@@ -359,7 +362,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
               <a href={sp(`/signin?next=${encodeURIComponent('/checkout')}`)} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Sign in to check out</a>
             )}
             <span className="text-[13px] leading-[1.4] text-ink-2">
-              Arrives {etaText}.{' '}
+              Arrives {etaText}{release ? ', once everything’s released' : ''}.{' '}
               {user ? 'You can review everything before you pay.' : 'Orders need an account. Sign in or create one — your cart comes with you.'}
             </span>
           </aside>

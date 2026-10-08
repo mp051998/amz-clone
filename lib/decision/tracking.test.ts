@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, orderStage, plannedSchedule, trackingSteps } from './tracking';
+import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, localDayOf, localDayStart, orderStage, plannedSchedule, trackingSteps } from './tracking';
 
 const placed = '2026-09-01T00:00:00.000Z';
 const at = (h: number) => new Date(Date.parse(placed) + h * 3_600_000);
@@ -181,5 +181,51 @@ describe('Delivery Day', () => {
   it('an unpaid Delivery Day order shows that plan', () => {
     const steps = trackingSteps({ status: 'awaiting_payment', createdAt: wed, shipSpeed: 'day', deliveryDay: 5 }, new Date(wed), NY);
     expect(steps.slice(2).map((x) => x.at)).toEqual(['2026-10-08T22:00:00.000Z', '2026-10-09T13:00:00.000Z', '2026-10-09T15:30:00.000Z']);
+  });
+});
+
+describe('pre-orders', () => {
+  const IST = 'Asia/Kolkata';
+  const now = new Date('2026-10-07T04:30:00.000Z');
+  // midnight IST, November 20
+  const release = '2026-11-19T18:30:00.000Z';
+
+  it('runs from the release, with no faster option', () => {
+    expect(deliveryOptions(now, IST, null, release)).toEqual({ standard: '2026-11-21T06:00:00.000Z', fast: null, fastBy: null, day: null });
+    // a release already past changes nothing
+    expect(deliveryOptions(now, IST, null, '2026-10-01T00:00:00.000Z')).toEqual(deliveryOptions(now, IST));
+  });
+
+  it('an unpaid pre-order prepares and ships from its release', () => {
+    const steps = trackingSteps({ status: 'awaiting_payment', createdAt: now.toISOString(), releaseAt: release }, now, IST);
+    expect(steps.map((x) => x.at)).toEqual([
+      '2026-10-07T04:30:00.000Z',
+      '2026-11-19T20:30:00.000Z',
+      '2026-11-20T04:30:00.000Z',
+      '2026-11-21T03:30:00.000Z',
+      '2026-11-21T06:00:00.000Z',
+    ]);
+  });
+
+  it('a placed pre-order waits at the first step until its release', () => {
+    const order = { status: 'placed' as const, createdAt: now.toISOString(), placedAt: now.toISOString(), releaseAt: release };
+    const later = new Date('2026-11-01T00:00:00.000Z');
+    expect(trackingSteps(order, later, IST).map((s) => s.state)).toEqual(['current', 'upcoming', 'upcoming', 'upcoming', 'upcoming']);
+    expect(orderStage(order, later, IST)).toBe('preparing');
+    expect(deliveryEta(order, later, IST)).toBe('2026-11-21T06:00:00.000Z');
+    // the saved schedule (from the database) still wins
+    const saved = { ...order, shippedAt: '2026-11-20T04:30:00.000Z', outForDeliveryAt: '2026-11-21T03:30:00.000Z', deliveredAt: '2026-11-21T06:00:00.000Z' };
+    expect(trackingSteps(saved, later, IST)[1].at).toBe('2026-11-19T20:30:00.000Z');
+    expect(cancellableUntil(saved, later)).toBe('2026-11-20T04:30:00.000Z');
+  });
+});
+
+describe('local days', () => {
+  it('turns a store day into its midnight and back', () => {
+    expect(localDayStart('2026-11-20', 'Asia/Kolkata')).toBe('2026-11-19T18:30:00.000Z');
+    expect(localDayStart('2026-11-20', 'America/New_York')).toBe('2026-11-20T05:00:00.000Z');
+    expect(localDayStart('2026-07-04', 'America/New_York')).toBe('2026-07-04T04:00:00.000Z');
+    expect(localDayOf('2026-11-19T18:30:00.000Z', 'Asia/Kolkata')).toBe('2026-11-20');
+    expect(localDayOf('2026-11-19T18:30:00.000Z', 'America/New_York')).toBe('2026-11-19');
   });
 });
