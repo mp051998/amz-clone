@@ -382,7 +382,7 @@ export default async function CheckoutPage({
                 }
               />
             ) : null}
-            {dayStore && plus && !plus.deliveryDay ? (
+            {dayStore && plus && !plus.shared && !plus.deliveryDay ? (
               <p className="m-0 text-[13px] text-ink-2">
                 Get your orders together on one day each week.{' '}
                 <a href={sp('/prime#delivery-day')} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">Choose your Delivery Day</a>

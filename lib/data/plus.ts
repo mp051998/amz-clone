@@ -22,6 +22,11 @@ export interface PlusMembership {
   /** when the period ends (ISO timestamp): the membership renews then, or ends if `autoRenew` is off */
   renewsAt?: string;
   autoRenew: boolean;
+  /**
+   * present when the membership is shared with the caller by a member of their household (Plus
+   * Household): the plan and renewal are that member's, and so is Delivery Day
+   */
+  shared?: { ownerName?: string };
 }
 
 type Row = {
@@ -47,10 +52,22 @@ function toPlus(row: Row): PlusMembership {
   };
 }
 
-/** The caller's membership, or null (signed out, not a member, or not readable yet). */
+/** The membership a household member shares with the caller, as `plus_household()` returns it. */
+type SharedRow = Row & { owner_name?: string | null };
+
+/**
+ * The caller's membership, or the one a member of their household shares with them (`shared`),
+ * or null (signed out, not a member, or not readable yet).
+ */
 export async function plusMembership(db: Db): Promise<PlusMembership | null> {
   const { data, error } = await db.from('plus_members').select('*').maybeSingle();
-  return error || !data ? null : toPlus(data);
+  if (error) return null;
+  if (data) return toPlus(data);
+  const household = await db.rpc('plus_household');
+  const shared = household.error ? null : (household.data as { shared?: SharedRow | null } | null)?.shared;
+  if (!shared) return null;
+  const { owner_name, ...row } = shared;
+  return { ...toPlus({ ...row, delivery_day: null }), shared: owner_name ? { ownerName: owner_name } : {} };
 }
 
 /**

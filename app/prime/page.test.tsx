@@ -3,11 +3,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
 import type { PlusMembership } from '@/lib/data/plus';
+import type { PlusHousehold } from '@/lib/data/plus-household';
 
 const state = vi.hoisted(() => ({
   store: null as unknown,
   user: null as unknown,
   plus: null as PlusMembership | null,
+  household: { owned: null, shared: null, invites: [] } as PlusHousehold,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -16,12 +18,18 @@ vi.mock('@/lib/marketplace-server', () => ({ getMarketplace: async () => state.s
 vi.mock('@/lib/auth', () => ({ readUser: async () => state.user }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/plus', () => ({ plusMembership: async () => state.plus }));
+vi.mock('@/lib/data/plus-household', () => ({ NO_HOUSEHOLD: { owned: null, shared: null, invites: [] }, plusHousehold: async () => state.household }));
 vi.mock('@/app/actions/plus', () => ({
   joinPlusAction: async () => {},
   leavePlusAction: async () => {},
   setDeliveryDayAction: async () => {},
   setPlusPlanAction: async () => {},
   setPlusRenewalAction: async () => {},
+  invitePlusHouseholdAction: async () => {},
+  stopSharingPlusAction: async () => {},
+  acceptPlusInviteAction: async () => {},
+  declinePlusInviteAction: async () => {},
+  leavePlusHouseholdAction: async () => {},
 }));
 
 import PlusPage from './page';
@@ -29,13 +37,14 @@ import PlusPage from './page';
 /** A US member on the monthly plan, renewing November 1. */
 const MEMBER: PlusMembership = { since: '2026-10-01T18:00:00Z', market: 'US', plan: 'monthly', renewsAt: '2026-11-01T18:00:00Z', autoRenew: true };
 
-const page = async (sp: { joined?: string; left?: string; day?: string; plan?: string; renew?: string } = {}) => render(await PlusPage({ searchParams: Promise.resolve(sp) }));
+const page = async (sp: { joined?: string; left?: string; day?: string; plan?: string; renew?: string; household?: string } = {}) => render(await PlusPage({ searchParams: Promise.resolve(sp) }));
 
 afterEach(cleanup);
 beforeEach(() => {
   state.store = amazon;
   state.user = null;
   state.plus = null;
+  state.household = { owned: null, shared: null, invites: [] };
 });
 
 it('signed out, joining starts with a new account and comes back here', async () => {
@@ -171,4 +180,98 @@ it('confirms renewal turned back on', async () => {
   state.plus = MEMBER;
   await page({ renew: 'on' });
   expect(membership().getByRole('status')).toHaveTextContent('Your membership will renew on November 1, 2026.');
+});
+
+const OWNER = '6f1c2b8e-4a1d-4c39-9d5b-2f6a8e1c7b30';
+const section = (name: string) => screen.getByRole('heading', { name }).closest('section') as HTMLElement;
+
+it('a member can invite an adult to share their Plus', async () => {
+  state.user = { id: 'u1', name: 'Asha', email: 'asha@example.com' };
+  state.plus = MEMBER;
+  await page();
+  const household = section('Your household');
+  expect(household).toHaveTextContent('Share FREE delivery and FREE faster delivery with one other adult in your household');
+  expect(within(household).getByLabelText('Their email')).toHaveAttribute('type', 'email');
+  expect(within(household).getByRole('button', { name: 'Send invite' })).toBeInTheDocument();
+});
+
+it('a member sees the invite waiting, and can cancel it', async () => {
+  state.user = { id: 'u1', name: 'Asha', email: 'asha@example.com' };
+  state.plus = MEMBER;
+  state.household = { owned: { email: 'ravi@example.com', invitedAt: '2026-10-02T10:00:00Z' }, shared: null, invites: [] };
+  await page({ household: 'invited' });
+  const household = section('Your household');
+  expect(within(household).getByRole('status')).toHaveTextContent('Invite sent to ravi@example.com.');
+  expect(household).toHaveTextContent('Invite sent to ravi@example.com on October 2, 2026. It\'s waiting for them to accept');
+  expect(within(household).getByRole('button', { name: 'Cancel invite' })).toBeInTheDocument();
+  expect(within(household).queryByLabelText('Their email')).toBeNull();
+});
+
+it('a member sees who shares their Plus, and can stop sharing', async () => {
+  state.user = { id: 'u1', name: 'Asha', email: 'asha@example.com' };
+  state.plus = MEMBER;
+  state.household = { owned: { email: 'ravi@example.com', memberName: 'Ravi', invitedAt: '2026-10-02T10:00:00Z', joinedAt: '2026-10-03T10:00:00Z' }, shared: null, invites: [] };
+  await page();
+  const household = section('Your household');
+  expect(household).toHaveTextContent('Shared with Ravi since October 3, 2026.');
+  expect(within(household).getByRole('button', { name: 'Stop sharing' })).toBeInTheDocument();
+});
+
+it('says why an invite wasn’t sent', async () => {
+  state.user = { id: 'u1', name: 'Asha', email: 'asha@example.com' };
+  state.plus = MEMBER;
+  await page({ household: 'email' });
+  expect(within(section('Your household')).getByRole('alert')).toHaveTextContent('Enter the email address of another adult.');
+  cleanup();
+  state.household = { owned: { email: 'ravi@example.com', memberName: 'Ravi', invitedAt: '2026-10-02T10:00:00Z', joinedAt: '2026-10-03T10:00:00Z' }, shared: null, invites: [] };
+  await page({ household: 'household_full' });
+  expect(within(section('Your household')).getByRole('alert')).toHaveTextContent('You already share your Plus with someone.');
+});
+
+it('the adult a membership is shared with sees whose it is and can leave, but not manage it', async () => {
+  state.user = { id: 'u2', name: 'Ravi', email: 'ravi@example.com' };
+  state.plus = { ...MEMBER, since: '2026-10-03T10:00:00Z', shared: { ownerName: 'Asha' } };
+  state.household = { owned: null, shared: { ownerName: 'Asha', since: '2026-10-03T10:00:00Z' }, invites: [] };
+  await page({ household: 'joined' });
+  expect(screen.getByRole('status')).toHaveTextContent('You now share Asha’s Plus.');
+  expect(screen.getByText(/Asha shares their Plus membership with you\./)).toBeInTheDocument();
+  expect(screen.getByText(/Sharing since/)).toHaveTextContent('Sharing since October 3, 2026');
+  const membership = section('Your membership');
+  expect(membership).toHaveTextContent('Asha shares their Plus with you, since October 3, 2026.');
+  expect(within(membership).getByRole('button', { name: 'Leave household' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'End now' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Switch to/ })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Your household' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Your Delivery Day' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Choose a plan' })).toBeNull();
+});
+
+it('an invite can be accepted or declined', async () => {
+  state.user = { id: 'u2', name: 'Ravi', email: 'ravi@example.com' };
+  state.household = { owned: null, shared: null, invites: [{ ownerId: OWNER, ownerName: 'Asha', invitedAt: '2026-10-02T10:00:00Z' }] };
+  await page();
+  const invites = section('Plus invites');
+  expect(invites).toHaveTextContent('Asha invited you on October 2, 2026 to share their Plus membership');
+  const accept = within(invites).getByRole('button', { name: 'Accept' });
+  expect(accept.closest('form')!.querySelector('input[name="owner"]')).toHaveValue(OWNER);
+  expect(within(invites).getByRole('button', { name: 'Decline' }).closest('form')!.querySelector('input[name="owner"]')).toHaveValue(OWNER);
+});
+
+it('a member with their own Plus can only decline an invite', async () => {
+  state.user = { id: 'u2', name: 'Ravi', email: 'ravi@example.com' };
+  state.plus = MEMBER;
+  state.household = { owned: null, shared: null, invites: [{ ownerId: OWNER, invitedAt: '2026-10-02T10:00:00Z' }] };
+  await page({ household: 'plus_owned' });
+  expect(screen.getByRole('alert')).toHaveTextContent('You have your own Plus membership.');
+  const invites = section('Plus invites');
+  expect(invites).toHaveTextContent('A Plus member invited you');
+  expect(invites).toHaveTextContent('You have your own membership. End it to share theirs instead.');
+  expect(within(invites).queryByRole('button', { name: 'Accept' })).toBeNull();
+  expect(within(invites).getByRole('button', { name: 'Decline' })).toBeInTheDocument();
+});
+
+it('confirms leaving a household', async () => {
+  state.user = { id: 'u2', name: 'Ravi', email: 'ravi@example.com' };
+  await page({ household: 'left' });
+  expect(screen.getByRole('status')).toHaveTextContent('You’ve left the household.');
 });

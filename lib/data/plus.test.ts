@@ -45,6 +45,30 @@ it('reads the membership, or null when there is none or it cannot be read', asyn
   expect(await plusMembership(fakeDb({ data: null, error: { code: '42501', message: 'permission denied' } }).db)).toBeNull();
 });
 
+it('falls back to the membership a household member shares with the caller', async () => {
+  const shared = (household: { data: unknown; error: unknown }) => {
+    const rpcs: string[] = [];
+    const db = {
+      from: () => ({ select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      rpc: async (fn: string) => (rpcs.push(fn), household),
+    };
+    return { db: db as unknown as Db, rpcs };
+  };
+  const SHARED = { ...ROW, joined_at: '2026-10-07T09:00:00Z', delivery_day: 3, owner_name: 'Asha' };
+  const asha = shared({ data: { owned: null, shared: SHARED, invites: [] }, error: null });
+  // the plan and renewal are Asha's; the Delivery Day isn't shared
+  expect(await plusMembership(asha.db)).toEqual({ ...MEMBER, since: '2026-10-07T09:00:00Z', shared: { ownerName: 'Asha' } });
+  expect(asha.rpcs).toEqual(['plus_household']);
+  expect(await plusMembership(shared({ data: { owned: null, shared: { ...SHARED, owner_name: null }, invites: [] }, error: null }).db)).toMatchObject({ shared: {} });
+  expect(await plusMembership(shared({ data: { owned: null, shared: null, invites: [] }, error: null }).db)).toBeNull();
+  // before the household migration
+  expect(await plusMembership(shared({ data: null, error: { code: 'PGRST202', message: 'not found' } }).db)).toBeNull();
+  // the caller's own membership needs no second read
+  const own = fakeDb({ data: ROW, error: null });
+  await plusMembership(own.db);
+  expect(own.rpcs).toEqual([]);
+});
+
 it('joins on a plan and leaves through the RPCs', async () => {
   const join = fakeDb({ data: ROW, error: null });
   expect(await joinPlus(join.db, 'IN', 'quarterly')).toEqual(MEMBER);

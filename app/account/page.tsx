@@ -65,11 +65,17 @@ export default async function AccountPage() {
     {
       title: 'Plus membership',
       meta: plus
-        ? plus.renewsAt
-          ? `Member · ${plus.autoRenew ? 'renews' : 'ends'} ${shortDate(new Date(plus.renewsAt), store)}`
-          : 'Member · FREE delivery'
+        ? plus.shared
+          ? `Shared by ${plus.shared.ownerName ?? 'your household'}`
+          : plus.renewsAt
+            ? `Member · ${plus.autoRenew ? 'renews' : 'ends'} ${shortDate(new Date(plus.renewsAt), store)}`
+            : 'Member · FREE delivery'
         : 'Not a member',
-      desc: plus ? 'FREE delivery on every order and FREE faster delivery. End it any time.' : 'FREE delivery on every order, with no minimum. Free in this demo.',
+      desc: plus?.shared
+        ? 'FREE delivery on every order and FREE faster delivery, shared through your household.'
+        : plus
+          ? 'FREE delivery on every order and FREE faster delivery. End it any time.'
+          : 'FREE delivery on every order, with no minimum. Free in this demo.',
       href: '/prime',
     },
     {

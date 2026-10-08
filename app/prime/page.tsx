@@ -7,7 +7,16 @@ import { CheckList } from '@/components/decision/CheckList';
 import { buttonClasses } from '@/components/primitives/Button';
 import { cn } from '@/components/lib/cn';
 import { Alert } from '@/components/primitives/Alert';
-import { JoinPlusButton, LeavePlusButton, RenewalButton, SwitchPlanButton } from '@/components/prime/PlusMembership';
+import {
+  HouseholdInviteForm,
+  InviteReplyButton,
+  JoinPlusButton,
+  LeaveHouseholdButton,
+  LeavePlusButton,
+  RenewalButton,
+  StopSharingButton,
+  SwitchPlanButton,
+} from '@/components/prime/PlusMembership';
 import { DeliveryDayForm } from '@/components/prime/DeliveryDay';
 import { weekdayName } from '@/lib/delivery-day';
 import { getMarketplace } from '@/lib/marketplace-server';
@@ -15,6 +24,8 @@ import { storePath } from '@/lib/marketplace';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { plusMembership } from '@/lib/data/plus';
+import { NO_HOUSEHOLD, plusHousehold } from '@/lib/data/plus-household';
+import { DataError } from '@/lib/data/errors';
 import { PLUS_PLANS, plusPlan, type PlusPlanId } from '@/lib/plus-plans';
 
 export const metadata: Metadata = { title: 'Plus membership · Store' };
@@ -27,9 +38,18 @@ interface Benefit {
   cta: string;
 }
 
-export default async function PlusPage({ searchParams }: { searchParams: Promise<{ joined?: string; left?: string; day?: string; plan?: string; renew?: string }> }) {
+type SP = { joined?: string; left?: string; day?: string; plan?: string; renew?: string; household?: string };
+
+export default async function PlusPage({ searchParams }: { searchParams: Promise<SP> }) {
   const [store, user, sp] = await Promise.all([getMarketplace(), readUser(), searchParams]);
-  const plus = user ? await plusMembership(await db()) : null;
+  const client = user ? await db() : null;
+  const [plus, household] = client
+    ? await Promise.all([plusMembership(client), plusHousehold(client).catch(() => NO_HOUSEHOLD)])
+    : [null, NO_HOUSEHOLD];
+  // the membership a member of the shopper's household shares with them
+  const shared = plus?.shared;
+  const sharer = shared?.ownerName ?? 'A Plus member';
+  const owned = plus && !shared ? household.owned : null;
   const isIN = store.id === 'IN';
   const sym = store.currency.symbol;
 
@@ -61,6 +81,25 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
   const current = plus ? plusPlan(plus.market, plus.plan) : undefined;
   const next = plus?.nextPlan ? plusPlan(plus.market, plus.nextPlan) : undefined;
   const periodEnd = plus?.renewsAt ? fullDate(plus.renewsAt) : null;
+
+  // what a household change did, or why it didn't (`?household=`): by the household section for
+  // the member sharing their Plus, at the top for the shopper an invite is for
+  const householdNote = sp.household === 'email' || sp.household === 'household_full' || sp.household === 'plus_required'
+    ? <Alert tone="error">{sp.household === 'email' ? 'Enter the email address of another adult.' : new DataError(sp.household).message}</Alert>
+    : sp.household === 'invited' && owned && !owned.joinedAt
+      ? <Alert tone="success">Invite sent to {owned.email}. They accept it on this page, signed in with that email.</Alert>
+      : sp.household === 'stopped' && plus && !shared && !owned
+        ? <Alert tone="info">You no longer share your Plus.</Alert>
+        : null;
+  const inviteNote = sp.household === 'joined' && shared
+    ? <Alert tone="success">You now share {shared.ownerName ? `${shared.ownerName}’s` : 'a household member’s'} Plus. FREE delivery and FREE faster delivery are on for your next orders.</Alert>
+    : sp.household === 'left' && !plus
+      ? <Alert tone="info">You’ve left the household. Delivery charges apply again from your next order.</Alert>
+      : sp.household === 'declined'
+        ? <Alert tone="info">Invite declined.</Alert>
+        : sp.household === 'plus_owned' || sp.household === 'household_member' || sp.household === 'invite_not_found'
+          ? <Alert tone="error">{new DataError(sp.household).message}</Alert>
+          : null;
 
   const benefits: Benefit[] = [
     {
@@ -109,6 +148,7 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
       <Page>
         {sp.joined && plus ? <Alert tone="success">Welcome to Plus. FREE delivery and FREE faster delivery are on for your next orders.</Alert> : null}
         {sp.left && !plus ? <Alert tone="info">Your Plus membership has ended. Orders you&apos;ve placed keep their delivery; new ones are charged as usual.</Alert> : null}
+        {inviteNote}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)]">
           <PageHead
             kicker="Delivery · video · member deals"
@@ -127,7 +167,12 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
               )
             }
           >
-            {plus ? (
+            {shared ? (
+              <>
+                <p className="m-0">{sharer} shares their Plus membership with you. FREE delivery on every order and FREE faster delivery are on, in both stores.</p>
+                <p className="m-0 mt-2 text-[14px] text-ink-3">Nothing is billed in this demo store. Leave the household any time.</p>
+              </>
+            ) : plus ? (
               <>
                 <p className="m-0">You&apos;re a Plus member since {memberSince}. FREE delivery on every order and FREE faster delivery are on, in both stores.</p>
                 <p className="m-0 mt-2 text-[14px] text-ink-3">Nothing is billed in this demo store. Switch plans or end the membership any time.</p>
@@ -148,7 +193,7 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
             />
             <p className="m-0 border-t border-line-2 pt-3 text-[14px] text-ink-2">
               {plus ? (
-                <>Member since <strong className="font-semibold text-ink">{memberSince}</strong></>
+                <>{shared ? 'Sharing since' : 'Member since'} <strong className="font-semibold text-ink">{memberSince}</strong></>
               ) : (
                 <>From <strong className="text-[18px] font-bold text-ink tabular-nums">{plans[0].price}</strong>{plans[0].per}</>
               )}
@@ -156,7 +201,39 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
           </div>
         </div>
 
-        {plus ? (
+        {household.invites.length && !shared ? (
+          <Section id="invites" title="Plus invites" note="Share a household member’s Plus">
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {household.invites.map((i) => (
+                <li key={i.ownerId} className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
+                  <p className="m-0 text-[15px] text-ink-2">
+                    <strong className="font-semibold text-ink">{i.ownerName ?? 'A Plus member'}</strong> invited you on {fullDate(i.invitedAt)} to share their Plus membership: FREE delivery on every order and FREE faster delivery, at no cost to you.
+                  </p>
+                  {plus ? <p className="m-0 text-[14px] text-ink-3">You have your own membership. End it to share theirs instead.</p> : null}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {plus ? null : <InviteReplyButton owner={i.ownerId} accept />}
+                    <InviteReplyButton owner={i.ownerId} accept={false} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
+        {shared ? (
+          <Section id="membership" title="Your membership" note="Shared through your household">
+            <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
+              <p className="m-0 text-[15px] text-ink-2">
+                {sharer} shares their Plus with you, since <strong className="font-semibold text-ink">{memberSince}</strong>. You get FREE delivery on every order and FREE faster delivery while their membership lasts
+                {periodEnd && !plus.autoRenew ? <>, until <strong className="font-semibold text-ink">{periodEnd}</strong></> : null}.
+              </p>
+              <p className="m-0 text-[14px] text-ink-3">Its plan, renewal and Delivery Day are theirs to manage. Joining Plus yourself ends the sharing.</p>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <LeaveHouseholdButton />
+              </div>
+            </div>
+          </Section>
+        ) : plus ? (
           <Section id="membership" title="Your membership" note="Plan and renewal">
             <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
               {sp.plan && next && sp.plan === next.id && periodEnd ? <Alert tone="success">You&apos;ll switch to the {next.long.toLowerCase()} on {periodEnd}.</Alert> : null}
@@ -197,7 +274,41 @@ export default async function PlusPage({ searchParams }: { searchParams: Promise
           </Section>
         ) : null}
 
-        {plus && store.features.deliveryDay ? (
+        {plus && !shared ? (
+          <Section id="household" title="Your household" note="Share Plus with one adult">
+            <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
+              {householdNote}
+              {!owned ? (
+                <>
+                  <p className="m-0 text-[15px] text-ink-2">
+                    Share FREE delivery and FREE faster delivery with one other adult in your household, at no extra cost. They accept your invite on this page, signed in with the email you send it to.
+                  </p>
+                  <HouseholdInviteForm />
+                </>
+              ) : owned.joinedAt ? (
+                <>
+                  <p className="m-0 text-[15px] text-ink-2">
+                    Shared with <strong className="font-semibold text-ink">{owned.memberName ?? owned.email}</strong> since {fullDate(owned.joinedAt)}. They get FREE delivery and FREE faster delivery on their own orders while your membership lasts.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <StopSharingButton name={owned.memberName ?? owned.email} joined />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="m-0 text-[15px] text-ink-2">
+                    Invite sent to <strong className="font-semibold text-ink">{owned.email}</strong> on {fullDate(owned.invitedAt)}. It&apos;s waiting for them to accept, signed in with that email.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <StopSharingButton name={owned.email} joined={false} />
+                  </div>
+                </>
+              )}
+            </div>
+          </Section>
+        ) : null}
+
+        {plus && !shared && store.features.deliveryDay ? (
           <Section id="delivery-day" title="Your Delivery Day" note="Fewer boxes, fewer trips">
             <div className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-5">
               {sp.day === 'off' && !plus.deliveryDay ? <Alert tone="info">Delivery Day is off. Orders arrive as soon as they can.</Alert> : null}

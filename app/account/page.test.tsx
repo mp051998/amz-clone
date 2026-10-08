@@ -10,7 +10,7 @@ const state = vi.hoisted(() => ({
   orders: 2,
   recent: [] as string[],
   paused: false,
-  plus: null as { since: string; renewsAt?: string; autoRenew?: boolean } | null,
+  plus: null as { since: string; renewsAt?: string; autoRenew?: boolean; shared?: { ownerName?: string } } | null,
   balance: 0 as number | null,
   collections: [] as unknown[],
   toReview: [] as unknown[],
@@ -142,6 +142,12 @@ it('shows the Plus membership, joined or not', async () => {
   state.plus = { since: '2026-10-01T10:00:00Z' };
   render(await AccountPage());
   expect(within(tile('Plus membership')).getByText('Member · FREE delivery')).toBeInTheDocument();
+  cleanup();
+  // shared through a household
+  state.plus = { since: '2026-10-01T10:00:00Z', renewsAt: '2026-11-01T10:00:00Z', autoRenew: true, shared: { ownerName: 'Asha' } };
+  render(await AccountPage());
+  expect(within(tile('Plus membership')).getByText('Shared by Asha')).toBeInTheDocument();
+  expect(tile('Plus membership')).toHaveTextContent('shared through your household');
 });
 
 it('shows the gift card balance in this store', async () => {
