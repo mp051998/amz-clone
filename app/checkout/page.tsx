@@ -37,6 +37,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { protectionPlanName } from '@/lib/protection';
 import { EMI_MIN_MINOR, emiPlan, emiPlans } from '@/lib/emi';
+import { COD_MAX_MINOR, overCodLimit } from '@/lib/cod';
 import { exchangeQuote } from '@/lib/data/exchange';
 import { exchangeText, type ExchangeCondition } from '@/lib/exchange';
 import { PromoCode } from '@/components/checkout/PromoCode';
@@ -249,6 +250,8 @@ export default async function CheckoutPage({
   const methods = store.payments
     .map((pm) => pm.method)
     .filter((m) => (m !== 'card' || stripeConfigured) && (m !== 'emi' || totals.totalMinor >= EMI_MIN_MINOR));
+  // Pay on Delivery stays listed over its ceiling, greyed out with why, as amazon.in does
+  const offMethods: Partial<Record<string, string>> = methods.includes('cod') && overCodLimit(due) ? { cod: `Not available on orders over ${money(COD_MAX_MINOR)}` } : {};
   // balance methods pay the whole order from the gift card balance (null before balances exist); one
   // that falls short can pay part of it alongside card, UPI or net banking
   const balance = balanceMinor !== null && methods.some(isBalanceMethod)
@@ -268,7 +271,7 @@ export default async function CheckoutPage({
     ]),
   );
   // start on how they paid last time, unless it can't pay for this order (a balance that's short)
-  const lastUsed = lastMethod && methods.includes(lastMethod) ? lastMethod : undefined;
+  const lastUsed = lastMethod && methods.includes(lastMethod) && !offMethods[lastMethod] ? lastMethod : undefined;
   const initialMethod = lastUsed && !(isBalanceMethod(lastUsed) && (!balance || balance.short)) ? lastUsed : undefined;
 
   return shell(
@@ -334,7 +337,7 @@ export default async function CheckoutPage({
         ) : null}
         <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-3">
           <AddressStep addresses={addresses} isIN={isIN} defaultName={prefillName} manageHref={sp('/account/addresses')} pickupPoints={pickupPoints} />
-          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} bankOffers={bankOfferNotes} />
+          <PaymentSection methods={methods} curSymbol={store.currency.symbol} defaultName={prefillName} stripeCard={stripeConfigured} balance={balance} emi={emi} initial={initialMethod} lastUsed={lastUsed} bankOffers={bankOfferNotes} unavailable={offMethods} />
           <StepCard
             n={3}
             title="Delivery"
