@@ -281,6 +281,8 @@ interface SearchJson {
   sizes?: { name: string; count: number }[];
   /** how many are Climate Pledge Friendly (absent before the climate-pledge migration) */
   climate?: number;
+  /** how many are from small businesses (absent before the small-business migration) */
+  small_business?: number;
   items: Parameters<typeof toProduct>[0][];
 }
 
@@ -296,6 +298,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       p_sizes: query.size?.length ? query.size : undefined,
       // left out unless asked for, so a search works before the climate-pledge migration
       p_climate: query.climate || undefined,
+      p_small_business: query.smallBusiness || undefined,
       p_min_rating: query.rating ?? undefined,
       p_deal: query.deal ?? false,
       p_sort: query.sort,
@@ -325,6 +328,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     sellerFacets: json.sellers ?? [],
     sizeFacets: (json.sizes ?? []).sort((a, b) => compareSizes(a.name, b.name)),
     climateCount: json.climate ?? 0,
+    smallBusinessCount: json.small_business ?? 0,
     unavailable: json.unavailable ?? 0,
     headingLabel,
   };

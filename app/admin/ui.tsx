@@ -18,6 +18,7 @@ const SECTIONS = [
   { path: '/admin', label: 'Overview' },
   { path: '/admin/products', label: 'Products' },
   { path: '/admin/categories', label: 'Categories' },
+  { path: '/admin/small-businesses', label: 'Small businesses' },
   { path: '/admin/orders', label: 'Orders' },
   { path: '/admin/sales', label: 'Sales' },
   { path: '/admin/deals', label: 'Deals' },

@@ -93,3 +93,9 @@ it('marks a Climate Pledge Friendly product', () => {
   cleanup();
   expect(show()).not.toHaveTextContent('Climate Pledge Friendly');
 });
+
+it('marks a small business’s product', () => {
+  expect(show({ smallBusiness: true })).toHaveTextContent('Small Business');
+  cleanup();
+  expect(show()).not.toHaveTextContent('Small Business');
+});

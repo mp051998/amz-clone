@@ -78,6 +78,8 @@ import { EmiOffer } from '@/components/product/EmiOffer';
 import { BankOffers } from '@/components/product/BankOffers';
 import { ProductPerks } from '@/components/product/ProductPerks';
 import { ClimateBadge, ClimateFeatures } from '@/components/product/ClimatePledge';
+import { SmallBusinessBadge, SmallBusinessPanel } from '@/components/product/SmallBusiness';
+import { getSmallBusiness } from '@/lib/data/small-businesses';
 import { productPerks } from '@/components/product/perks';
 import { listBankOffers } from '@/lib/data/bank-offers';
 import { PromoOffers } from '@/components/product/PromoOffers';
@@ -190,6 +192,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
+  // its brand's story, when it's a small business's
+  const smallBusinessP = p.smallBusiness && p.brand ? getSmallBusiness(client, store.id, p.brand).catch(() => null) : Promise.resolve(null);
   const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnPolicy, myPrice, trade] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p), features: featuresFor(p) }),
@@ -224,6 +228,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     user && !p.archived ? myOpenPriceReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : exchangeOffer(client, store.id, p.category),
   ]);
+  const smallBusiness = await smallBusinessP;
   const sellerRating = sellers.get(p.seller);
 
   const ranked = rankOne(p, insight, weights);
@@ -418,6 +423,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   </a>
                 ) : null}
                 {p.climate?.length ? <ClimateBadge href="#climate" /> : null}
+                {p.smallBusiness ? <SmallBusinessBadge href={smallBusiness ? '#small-business' : undefined} /> : null}
                 {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
                 {returnSignal?.frequent ? <FrequentlyReturned signal={returnSignal.frequent} reviewsHref="#reviews" /> : null}
                 {returnSignal?.usuallyKept ? <UsuallyKept /> : null}
@@ -615,6 +621,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         </section>
 
         {p.climate?.length ? <ClimateFeatures certs={p.climate} /> : null}
+
+        {smallBusiness ? <SmallBusinessPanel business={smallBusiness} storeHref={storePath(store, `/stores/${encodeURIComponent(smallBusiness.brand)}`)} /> : null}
 
         {info.description ? (
           <section aria-labelledby="desc-h" className="flex max-w-[860px] flex-col gap-3">

@@ -246,6 +246,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"small_businesses": {
+                  Row: {
+                    "brand": string,"created_at": string,"market_id": string,"story": string
+                  }
+                  Insert: {
+                    "brand": string,"created_at"?: string,"market_id": string,"story": string
+                  }
+                  Update: {
+                    "brand"?: string,"created_at"?: string,"market_id"?: string,"story"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"brand_follows": {
                   Row: {
                     "brand": string,"followed_at": string,"market_id": string,"user_id": string
@@ -1136,7 +1149,7 @@ isOneToOne: false
           Views: {
             "catalog_products": {
                   Row: {
-                    "badge": string | null,"badge_rank": number | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[] | null,"category_name": string | null,"category_slug": string | null,"currency": string | null,"deal": boolean | null,"deal_pct": number | null,"id": string | null,"image": string | null,"list_minor": number | null,"market_id": string | null,"position": number | null,"price_minor": number | null,"rating": number | null,"review_count": number | null,"seller": string | null,"ships_from": string | null,"stock": number | null,"title": string | null,"variant_axis": string | null,"variant_group": string | null,"variant_label": string | null,"max_per_customer": number | null,"sizes": (string)[] | null,"unit_qty": number | null,"unit_kind": string | null,"qty_discount_pct": number | null,"qty_discount_min": number | null,"release_at": string | null,"subscribe_save": boolean | null,"climate": (string)[] | null
+                    "badge": string | null,"badge_rank": number | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[] | null,"category_name": string | null,"category_slug": string | null,"currency": string | null,"deal": boolean | null,"deal_pct": number | null,"id": string | null,"image": string | null,"list_minor": number | null,"market_id": string | null,"position": number | null,"price_minor": number | null,"rating": number | null,"review_count": number | null,"seller": string | null,"ships_from": string | null,"stock": number | null,"title": string | null,"variant_axis": string | null,"variant_group": string | null,"variant_label": string | null,"max_per_customer": number | null,"sizes": (string)[] | null,"unit_qty": number | null,"unit_kind": string | null,"qty_discount_pct": number | null,"qty_discount_min": number | null,"release_at": string | null,"subscribe_save": boolean | null,"climate": (string)[] | null,"small_business": boolean | null
                   }
                   Relationships: [
                     {
@@ -1156,7 +1169,7 @@ isOneToOne: false
                 },
             "catalog_products_all": {
                   Row: {
-                    "archived_at": string | null,"badge": string | null,"badge_rank": number | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[] | null,"category_name": string | null,"category_slug": string | null,"currency": string | null,"deal": boolean | null,"deal_pct": number | null,"id": string | null,"image": string | null,"list_minor": number | null,"market_id": string | null,"position": number | null,"price_minor": number | null,"rating": number | null,"review_count": number | null,"seller": string | null,"ships_from": string | null,"stock": number | null,"title": string | null,"variant_axis": string | null,"variant_group": string | null,"variant_label": string | null,"max_per_customer": number | null,"sizes": (string)[] | null,"unit_qty": number | null,"unit_kind": string | null,"qty_discount_pct": number | null,"qty_discount_min": number | null,"release_at": string | null,"offer_of": string | null,"condition": string | null,"condition_note": string | null,"subscribe_save": boolean | null,"climate": (string)[] | null
+                    "archived_at": string | null,"badge": string | null,"badge_rank": number | null,"bought_past_month": string | null,"brand": string | null,"bullets": (string)[] | null,"category_name": string | null,"category_slug": string | null,"currency": string | null,"deal": boolean | null,"deal_pct": number | null,"id": string | null,"image": string | null,"list_minor": number | null,"market_id": string | null,"position": number | null,"price_minor": number | null,"rating": number | null,"review_count": number | null,"seller": string | null,"ships_from": string | null,"stock": number | null,"title": string | null,"variant_axis": string | null,"variant_group": string | null,"variant_label": string | null,"max_per_customer": number | null,"sizes": (string)[] | null,"unit_qty": number | null,"unit_kind": string | null,"qty_discount_pct": number | null,"qty_discount_min": number | null,"release_at": string | null,"offer_of": string | null,"condition": string | null,"condition_note": string | null,"subscribe_save": boolean | null,"climate": (string)[] | null,"small_business": boolean | null
                   }
                   Relationships: [
                     {
@@ -1443,7 +1456,7 @@ isOneToOne: false
 { Args: { "p_product": string }; Returns: Json
                            },
 "search_catalog":
-{ Args: { "p_brands"?: (string)[],"p_climate"?: boolean,"p_deal"?: boolean,"p_dept"?: string,"p_in_stock"?: boolean,"p_market": string,"p_max_price"?: number,"p_min_discount"?: number,"p_min_price"?: number,"p_min_rating"?: number,"p_page"?: number,"p_page_size"?: number,"p_q"?: string,"p_sellers"?: (string)[],"p_sizes"?: (string)[],"p_sort"?: string }; Returns: Json
+{ Args: { "p_brands"?: (string)[],"p_climate"?: boolean,"p_deal"?: boolean,"p_dept"?: string,"p_in_stock"?: boolean,"p_market": string,"p_max_price"?: number,"p_min_discount"?: number,"p_min_price"?: number,"p_min_rating"?: number,"p_page"?: number,"p_page_size"?: number,"p_q"?: string,"p_sellers"?: (string)[],"p_sizes"?: (string)[],"p_small_business"?: boolean,"p_sort"?: string }; Returns: Json
                            },
 "search_suggest":
 { Args: { "p_market": string,"p_q": string }; Returns: Json

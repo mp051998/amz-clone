@@ -58,6 +58,8 @@ export function toProduct(row: Partial<ProductRow>): Product {
     ...(row.subscribe_save ? { subscribeSave: true } : {}),
     // absent on rows read before the Climate Pledge Friendly migration lands
     ...(climateCerts(row.climate).length ? { climate: climateCerts(row.climate) } : {}),
+    // absent on rows read before the Small Business migration
+    ...(row.small_business ? { smallBusiness: true as const } : {}),
   };
 }
 

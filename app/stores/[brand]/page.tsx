@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell';
 import { FollowBrand } from '@/components/brand/FollowBrand';
 import { Page, PageHead, Section, cardGrid } from '@/components/brand/Page';
 import { RankCard } from '@/components/bestsellers/RankCard';
+import { SmallBusinessBadge } from '@/components/product/SmallBusiness';
 import { Pill } from '@/components/decision/Pill';
 import { viewerSavedIds } from '@/components/deals/viewerSaved';
 import { Alert } from '@/components/primitives/Alert';
@@ -11,6 +12,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
 import { isFollowingBrand } from '@/lib/data/brand-follows';
 import { brandStore } from '@/lib/data/brands';
+import { getSmallBusiness } from '@/lib/data/small-businesses';
 import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { db } from '@/lib/supabase/server';
@@ -47,7 +49,10 @@ export default async function BrandStorePage({ params, searchParams }: { params:
   const client = await db();
   const [shop, saved, user, sp] = await Promise.all([brandStore(client, store.id, brand), viewerSavedIds(store.id), readUser(), searchParams ?? Promise.resolve({} as Awaited<SearchParams>)]);
   if (!shop) notFound();
-  const following = user ? await isFollowingBrand(client, store.id, user.id, shop.brand).catch(() => false) : false;
+  const [following, smallBusiness] = await Promise.all([
+    user ? isFollowingBrand(client, store.id, user.id, shop.brand).catch(() => false) : false,
+    getSmallBusiness(client, store.id, shop.brand).catch(() => null),
+  ]);
 
   // search narrowed to the brand (and a department), with its filters and sorts
   const search = (dept?: string) =>
@@ -94,6 +99,12 @@ export default async function BrandStorePage({ params, searchParams }: { params:
             </>
           ) : null}
         </PageHead>
+        {smallBusiness ? (
+          <div className="flex max-w-[860px] flex-col gap-1 rounded-input border border-line p-3">
+            <SmallBusinessBadge />
+            <p className="m-0 text-[15px] leading-snug">{shop.brand} is a small business brand. {smallBusiness.story}</p>
+          </div>
+        ) : null}
         {sp.follow_error ? <Alert tone="error">{sp.follow_error === 'not_found' ? `Nothing from ${shop.brand} is on sale in this store to follow.` : 'We couldn’t change that. Please try again.'}</Alert> : null}
         {shop.departments.length > 1 ? (
           <nav aria-label={`${shop.brand} store`} className="flex flex-wrap gap-2">
