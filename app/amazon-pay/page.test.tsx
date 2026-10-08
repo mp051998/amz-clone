@@ -54,6 +54,8 @@ it('IN: the balance tile is real; the illustrative ones aren’t links once sign
   expect(screen.getByRole('link', { name: 'Add to your balance' })).toBeInTheDocument();
   // Pay Later is real too
   expect(screen.getByRole('link', { name: 'See Pay Later' })).toHaveAttribute('href', '/in/amazon-pay/later');
+  // and mobile recharge
+  expect(screen.getByRole('link', { name: 'Mobile recharge' })).toHaveAttribute('href', '/in/amazon-pay/recharge');
 });
 
 it('says so when the balance can’t be read', async () => {

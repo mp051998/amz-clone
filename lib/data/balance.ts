@@ -37,9 +37,9 @@ export interface GiftCard {
 
 export interface BalanceEntry {
   id: number;
-  /** positive for money in (a redeemed card, a reload, a refund, a No-Rush reward), negative for an order */
+  /** positive for money in (a redeemed card, a reload, a refund, a No-Rush reward, recharge cashback), negative for an order or a recharge */
   amountMinor: number;
-  kind: 'gift_card' | 'order' | 'refund' | 'reload' | 'reward';
+  kind: 'gift_card' | 'order' | 'refund' | 'reload' | 'reward' | 'recharge' | 'cashback';
   orderId: string | null;
   giftCardCode: string | null;
   at: string;

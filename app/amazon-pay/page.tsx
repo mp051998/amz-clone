@@ -19,10 +19,11 @@ const IN_ACTIONS: { label: string; href?: string }[] = [
   { label: 'Scan any QR' }, { label: 'Send money' }, { label: 'To bank / UPI ID' }, { label: 'Pay balance', href: '/gift-cards#balance' },
 ];
 
-/** IN — recharges & bill payments. */
-const IN_BILLS = [
-  'Mobile recharge', 'Electricity', 'DTH', 'Broadband', 'Credit card bill', 'Gas cylinder',
-  'Water', 'FASTag recharge', 'Municipal tax', 'App store credit', 'Rent', 'Loan repayment',
+/** IN — recharges & bill payments; mobile recharge is real. */
+const IN_BILLS: { label: string; href?: string }[] = [
+  { label: 'Mobile recharge', href: '/amazon-pay/recharge' }, { label: 'Electricity' }, { label: 'DTH' }, { label: 'Broadband' },
+  { label: 'Credit card bill' }, { label: 'Gas cylinder' }, { label: 'Water' }, { label: 'FASTag recharge' },
+  { label: 'Municipal tax' }, { label: 'App store credit' }, { label: 'Rent' }, { label: 'Loan repayment' },
 ];
 
 /** IN — financial services; Pay Later is real. */
@@ -115,9 +116,9 @@ export default async function StorePayPage() {
               </div>
             </Section>
 
-            <Section title="Recharges & bill payments" note="Earn balance cashback on every bill">
+            <Section title="Recharges & bill payments" note="Earn 2% back on your balance on mobile recharges, up to ₹25">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                {IN_BILLS.map((a) => (<ActionTile key={a} label={a} href={startHref} />))}
+                {IN_BILLS.map((a) => (<ActionTile key={a.label} label={a.label} href={a.href ? sp(a.href) : startHref} />))}
               </div>
             </Section>
 

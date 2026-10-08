@@ -685,6 +685,51 @@ isOneToOne: false
       referencedColumns: ["user_id"]
     }
                   ]
+                },"recharge_plans": {
+                  Row: {
+                    "id": string,"market_id": string,"operator": string,"amount_minor": number,"validity_days": number | null,"data": string,"calls": string | null,"sms": string | null,"kind": string,"active": boolean
+                  }
+                  Insert: {
+                    "id": string,"market_id": string,"operator": string,"amount_minor": number,"validity_days"?: number | null,"data": string,"calls"?: string | null,"sms"?: string | null,"kind": string,"active"?: boolean
+                  }
+                  Update: {
+                    "id"?: string,"market_id"?: string,"operator"?: string,"amount_minor"?: number,"validity_days"?: number | null,"data"?: string,"calls"?: string | null,"sms"?: string | null,"kind"?: string,"active"?: boolean
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recharge_plans_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"recharges": {
+                  Row: {
+                    "id": string,"user_id": string,"market_id": string,"number": string,"operator": string,"circle": string,"plan_id": string,"amount_minor": number,"cashback_minor": number,"method": string,"bank": string | null,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"user_id": string,"market_id": string,"number": string,"operator": string,"circle": string,"plan_id": string,"amount_minor": number,"cashback_minor"?: number,"method": string,"bank"?: string | null,"created_at"?: string
+                  }
+                  Update: {
+                    "id"?: string,"user_id"?: string,"market_id"?: string,"number"?: string,"operator"?: string,"circle"?: string,"plan_id"?: string,"amount_minor"?: number,"cashback_minor"?: number,"method"?: string,"bank"?: string | null,"created_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recharges_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    },
+                    {
+      foreignKeyName: "recharges_plan_id_fkey"
+      columns: ["plan_id"]
+isOneToOne: false
+      referencedRelation: "recharge_plans"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"plus_members": {
                   Row: {
                     "joined_at": string,"user_id": string,"delivery_day": number | null,"market_id": string,"plan": string,"next_plan": string | null,"renews_at": string,"auto_renew": boolean
@@ -1231,6 +1276,9 @@ isOneToOne: false
                            },
 "repay_pay_later":
 { Args: { "p_amount": number,"p_method": string,"p_bank"?: string }; Returns: Json
+                           },
+"recharge_mobile":
+{ Args: { "p_number": string,"p_circle": string,"p_plan": string,"p_method": string,"p_bank"?: string }; Returns: Json
                            },
 "join_plus":
 { Args: { "p_market"?: string,"p_plan"?: string }; Returns: Json
