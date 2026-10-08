@@ -521,6 +521,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   protection={planMinor ? { name: protectionPlanName(store.id), price: formatMoney(planMinor, cur) } : undefined}
                   limit={p.maxPerCustomer ? { max: p.maxPerCustomer, left: user ? unitsLeft(p, allowance) : null } : undefined}
                   sizes={p.sizes}
+                  fit={p.sizes?.length ? returnSignal?.fit : null}
                   preOrder={release ? { release: releaseDate(new Date(release), store) } : undefined}
                   exchange={
                     trade
