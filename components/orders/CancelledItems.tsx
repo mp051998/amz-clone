@@ -20,7 +20,8 @@ export function cancellationChip(c: OrderCancellation): { label: string; tone: C
 }
 
 export function CancelledItems({ order, store, href }: { order: Order; store: StoreDates; href: (productId: string) => string }) {
-  const cancellations = order.cancellations ?? [];
+  // a Pre-order Price Guarantee refund has no items: PriceGuarantees shows it
+  const cancellations = (order.cancellations ?? []).filter((c) => !c.priceGuarantee);
   if (!cancellations.length) return null;
   const money = (minor: number) => formatMoney(minor, order.currency);
   // "Includes $1.20 tax, $3.99 gift wrap and $7.99 protection plans."

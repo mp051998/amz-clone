@@ -42,6 +42,7 @@ export type InboxKind =
   | 'refunded'
   | 'items_cancelled'
   | 'items_refunded'
+  | 'price_guarantee'
   | 'return_received'
   | 'return_refunded'
   | 'return_rejected'
@@ -71,6 +72,8 @@ export interface InboxMessage {
   amountMinor?: number;
   /** a return's refund paid onto the store balance, as the shopper asked, not back to how they paid */
   toBalance?: true;
+  /** a price drop on a pay-on-delivery order: nothing to refund, it costs less on delivery */
+  unpaid?: true;
   /** why a return wasn't accepted, the answer's text, a recall's hazard, or the store's note on a claim */
   detail?: string;
   /** answers: who wrote it; support replies: the seller, on a case with one; claims: the seller it's about */
@@ -214,6 +217,19 @@ function orderMessages(o: Order, now: Date, timeZone: string): InboxMessage[] {
     out.push({ ...base, key: `refunded:${o.id}`, kind: 'refunded', at: o.refund.refundedAt, amountMinor: o.refund.amountMinor });
   }
   for (const c of o.cancellations ?? []) {
+    // a pre-ordered item's price dropped before release: one message, with the difference
+    if (c.priceGuarantee) {
+      out.push({
+        ...base,
+        subject: c.priceGuarantee.title,
+        key: `price_guarantee:${c.id}`,
+        kind: 'price_guarantee',
+        at: c.createdAt,
+        amountMinor: c.refund.amountMinor,
+        ...(c.refund.status === 'not_charged' ? { unpaid: true as const } : {}),
+      });
+      continue;
+    }
     const items = { ...base, subject: orderSubject(c) };
     out.push({ ...items, key: `items_cancelled:${c.id}`, kind: 'items_cancelled', at: c.createdAt });
     if (c.refund.status === 'succeeded' && c.refund.amountMinor > 0 && c.refund.refundedAt) {

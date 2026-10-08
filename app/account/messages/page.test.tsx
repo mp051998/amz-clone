@@ -112,6 +112,19 @@ it('says which items were cancelled and what came back for them', async () => {
   expect(cancelled).toHaveTextContent('The rest of your order is still coming.');
 });
 
+it('says a pre-ordered item’s price dropped, and what came back or comes off', async () => {
+  state.list = [
+    msg({ key: 'price_guarantee:g2', kind: 'price_guarantee', at: '2026-10-06T07:00:00Z', subject: 'Starfall (PS5)', amountMinor: 500, unpaid: true }),
+    msg({ key: 'price_guarantee:g1', kind: 'price_guarantee', at: '2026-10-06T06:00:00Z', subject: 'Starfall (PS5)', amountMinor: 540 }),
+  ];
+  render(await MessagesPage());
+  const [cod, card] = screen.getAllByRole('listitem');
+  expect(within(card).getByText('Pre-order Price Guarantee')).toBeInTheDocument();
+  expect(within(card).getByRole('link', { name: 'Starfall (PS5)' })).toBeInTheDocument();
+  expect(card).toHaveTextContent('Its price dropped before release, so you pay the lower price: $5.40 back to how you paid.');
+  expect(cod).toHaveTextContent('you pay the lower price: $5.00 less when it arrives.');
+});
+
 it('follows a replacement to the door', async () => {
   state.list = [
     msg({ key: 'replacement_delivered:s1', kind: 'replacement_delivered', at: '2026-10-06T06:05:00Z', subject: 'Mug' }),

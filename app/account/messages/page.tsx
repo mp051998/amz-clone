@@ -24,6 +24,7 @@ const HEAD: Record<InboxKind, string> = {
   refunded: 'Refund issued',
   items_cancelled: 'Items cancelled',
   items_refunded: 'Refund issued',
+  price_guarantee: 'Pre-order Price Guarantee',
   return_received: 'Return received',
   return_refunded: 'Return refunded',
   return_rejected: 'Return not accepted',
@@ -62,6 +63,10 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
       return 'Cancelled before they shipped. The rest of your order is still coming.';
     case 'items_refunded':
       return `${money(m.amountMinor ?? 0)} back to how you paid, for the items you cancelled.`;
+    case 'price_guarantee':
+      return m.unpaid
+        ? `Its price dropped before release, so you pay the lower price: ${money(m.amountMinor ?? 0)} less when it arrives.`
+        : `Its price dropped before release, so you pay the lower price: ${money(m.amountMinor ?? 0)} back to how you paid.`;
     case 'return_received':
       return 'We have your return.';
     case 'return_refunded':

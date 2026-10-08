@@ -10,7 +10,7 @@ import { listRecharges, type Recharge } from './recharges';
 /**
  * "Your transactions": every charge and refund in a store, newest first, built from what the
  * store already keeps: orders (charged when placed, or on delivery for cash on delivery),
- * refunds for cancelled orders, cancelled items and received returns, gift card purchases, balance reloads,
+ * refunds for cancelled orders, cancelled items, pre-order price drops and received returns, gift card purchases, balance reloads,
  * mobile recharges and bill payments.
  * An order paid partly from the balance (split payment) is two charges, one to each, and its refunds
  * are split the way the database split them (`balanceMinor`).
@@ -20,13 +20,13 @@ export type TransactionStatus = 'completed' | 'pending' | 'failed' | 'due';
 
 export interface Transaction {
   /**
-   * stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `return:<id>`, `gift:<id>` (gift cards and reloads)
+   * stable and unique: `order:<id>`, `cancel:<id>`, `cancel-items:<id>`, `price-guarantee:<id>`, `return:<id>`, `gift:<id>` (gift cards and reloads)
    * `recharge:<id>` or `bill:<id>`;
    * the balance's part of a split payment, or of its refund, adds `:balance`
    */
   key: string;
   kind: 'charge' | 'refund';
-  source: 'order' | 'cancellation' | 'return' | 'gift_card' | 'reload' | 'recharge' | 'bill';
+  source: 'order' | 'cancellation' | 'price_guarantee' | 'return' | 'gift_card' | 'reload' | 'recharge' | 'bill';
   amountMinor: number;
   at: string;
   /** `due`: cash on delivery not delivered yet */
@@ -67,7 +67,7 @@ function orderTransactions(o: Order, now: Date): Transaction[] {
   const base = { method: o.paymentMethod, paymentLabel: o.paymentLabel, orderId: o.id };
   const cancelled = (o.cancellations ?? []).filter((c) => c.refund.status !== 'not_charged' && c.refund.amountMinor > 0);
   const total = o.totals.totalMinor;
-  // what was charged when placed: the order as it is now plus the items cancelled since
+  // what was charged when placed: the order as it is now plus the items cancelled (and price drops refunded) since
   const charged = total + cancelled.reduce((sum, c) => sum + c.refund.amountMinor, 0);
   if (o.paymentMethod === 'cod') {
     const delivered = o.deliveredAt && Date.parse(o.deliveredAt) <= now.getTime() ? o.deliveredAt : null;
@@ -88,9 +88,9 @@ function orderTransactions(o: Order, now: Date): Transaction[] {
   for (const c of cancelled) {
     out.push(...splitRefund({
       ...base,
-      key: `cancel-items:${c.id}`,
+      key: c.priceGuarantee ? `price-guarantee:${c.id}` : `cancel-items:${c.id}`,
       kind: 'refund',
-      source: 'cancellation',
+      source: c.priceGuarantee ? 'price_guarantee' : 'cancellation',
       amountMinor: c.refund.amountMinor,
       at: c.refund.refundedAt ?? c.createdAt,
       status: refundStatus(c.refund.status),

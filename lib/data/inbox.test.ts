@@ -126,6 +126,21 @@ it('says when items were cancelled from an order that kept coming, and when thei
   expect(inbox.find((m) => m.key === 'items_cancelled:c2')).toMatchObject({ subject: 'Mug', at: '2026-10-05T10:00:00Z' });
 });
 
+it('says when a pre-ordered item’s price dropped before release, with the difference', () => {
+  const o = order('P', '2026-10-04T08:00:00Z', {
+    cancellations: [
+      { id: 'g1', items: [], priceGuarantee: { productId: 'g', title: 'Starfall (PS5)', priceMinor: 4500, qty: 1 }, itemsMinor: 500, taxMinor: 40, refund: { status: 'pending', amountMinor: 540 }, createdAt: '2026-10-05T10:00:00Z' },
+      // pay on delivery: it just costs less when it arrives
+      { id: 'g2', items: [], priceGuarantee: { productId: 'g', title: 'Starfall (PS5)', priceMinor: 4000, qty: 1 }, itemsMinor: 500, taxMinor: 0, refund: { status: 'not_charged', amountMinor: 500 }, createdAt: '2026-10-06T10:00:00Z' },
+    ],
+  });
+  const inbox = buildInbox({ orders: [o], returns: [], replies: [], answers: [] }, NOW).filter((m) => m.kind === 'price_guarantee');
+  expect(inbox.map((m) => m.key)).toEqual(['price_guarantee:g2', 'price_guarantee:g1']);
+  expect(inbox[1]).toMatchObject({ kind: 'price_guarantee', subject: 'Starfall (PS5)', amountMinor: 540, at: '2026-10-05T10:00:00Z', href: '/orders/P?placed=0' });
+  expect(inbox[1].unpaid).toBeUndefined();
+  expect(inbox[0].unpaid).toBe(true);
+});
+
 it('follows a replacement on its way, from the request, even if the item sent back is turned down', () => {
   const o = order('D', '2026-10-01T00:00:00Z', {
     ...schedule('2026-10-01T12:00:00Z', '2026-10-03T20:00:00Z', '2026-10-04T09:00:00Z'),

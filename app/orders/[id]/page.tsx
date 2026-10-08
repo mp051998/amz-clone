@@ -16,6 +16,7 @@ import { PairsWith } from '@/components/cart/PairsWith';
 import { refundTo, ReturnCard } from '@/components/orders/Returns';
 import { ReturnMethodFields } from '@/components/orders/ReturnMethod';
 import { CancelledItems } from '@/components/orders/CancelledItems';
+import { PriceGuarantees } from '@/components/orders/PriceGuarantees';
 import { ClaimsSection } from '@/components/orders/Claims';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
@@ -293,7 +294,7 @@ export default async function OrderPage({
           <Alert tone="success">Your order is cancelled.</Alert>
         ) : cancelled === 'stopped' && order.status === 'cancelled' ? (
           <Alert tone="success">We’ve stopped your package: the carrier is bringing it back to us, and your order is cancelled.</Alert>
-        ) : cancelled === 'items' && order.cancellations?.length ? (
+        ) : cancelled === 'items' && order.cancellations?.some((c) => !c.priceGuarantee) ? (
           <Alert tone="success">Items cancelled. The rest of your order is still on its way.</Alert>
         ) : returned === 'started' ? (
           <Alert tone="success">Return started. Send the items back as shown below, with the code.</Alert>
@@ -774,8 +775,8 @@ export default async function OrderPage({
             {order.totals.memberMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">{store.membership.name} savings</dt><dd className="m-0 tabular-nums">−{money(order.totals.memberMinor)}</dd></div>
             ) : null}
-            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.memberMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) ? (
-              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0))}</dd></div>
+            {(order.totals.discountMinor ?? 0) > (order.totals.promoMinor ?? 0) + (order.totals.memberMinor ?? 0) + (order.totals.qtyDiscountMinor ?? 0) + (order.totals.snsMinor ?? 0) + (order.totals.bankOfferMinor ?? 0) + (order.totals.exchangeMinor ?? 0) + (order.totals.guaranteeMinor ?? 0) ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Coupon savings</dt><dd className="m-0 tabular-nums">−{money((order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0) - (order.totals.guaranteeMinor ?? 0))}</dd></div>
             ) : null}
             {order.totals.qtyDiscountMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">Quantity discounts</dt><dd className="m-0 tabular-nums">−{money(order.totals.qtyDiscountMinor)}</dd></div>
@@ -791,6 +792,9 @@ export default async function OrderPage({
             ) : null}
             {order.totals.exchangeMinor ? (
               <div className="flex justify-between"><dt className="text-ink-2">Exchange offer</dt><dd className="m-0 tabular-nums">−{money(order.totals.exchangeMinor)}</dd></div>
+            ) : null}
+            {order.totals.guaranteeMinor ? (
+              <div className="flex justify-between"><dt className="text-ink-2">Pre-order Price Guarantee</dt><dd className="m-0 tabular-nums">−{money(order.totals.guaranteeMinor)}</dd></div>
             ) : null}
             <div className="flex justify-between"><dt className="text-ink-2">Delivery</dt><dd className="m-0 tabular-nums">{order.totals.shipMinor === 0 ? 'FREE' : money(order.totals.shipMinor)}</dd></div>
             {order.totals.wrapMinor ? (
@@ -808,6 +812,8 @@ export default async function OrderPage({
         </section>
 
         <CancelledItems order={order} store={store} href={(productId) => sp(`/product/${encodeURIComponent(productId)}`)} />
+
+        <PriceGuarantees order={order} store={store} href={(productId) => sp(`/product/${encodeURIComponent(productId)}`)} />
 
         {deliveryUntil ? (
           deliveryFeedbackOpen(order, now) ? (

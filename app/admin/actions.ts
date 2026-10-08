@@ -17,6 +17,7 @@ import {
 import { cancelLightningDeal, dealProblemOf, getAdminLightningDeal, parseDealForm, scheduleLightningDeal } from '@/lib/data/admin-lightning-deals';
 import { DataError } from '@/lib/data/errors';
 import { recallProduct } from '@/lib/data/recalls';
+import { refundPriceGuarantees } from '@/lib/data/refunds';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { parseDetailLines } from '@/lib/product-details';
@@ -138,6 +139,8 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     values.gallery = input.gallery.join('\n');
     if (id) {
       await updateProduct(client, id, input);
+      // a lower price on a pre-ordered item: card orders get the difference back now
+      await refundPriceGuarantees(id);
       saved = id;
     } else {
       saved = await createProduct(client, store.id, input);

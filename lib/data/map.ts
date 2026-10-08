@@ -217,6 +217,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       ...(it.unit_bank_minor ? { unitBankMinor: it.unit_bank_minor } : {}),
       // absent on rows read before the exchange offers migration lands
       ...(it.unit_exchange_minor ? { unitExchangeMinor: it.unit_exchange_minor } : {}),
+      // absent on rows read before the Pre-order Price Guarantee migration lands
+      ...(it.unit_guarantee_minor ? { unitGuaranteeMinor: it.unit_guarantee_minor } : {}),
       // absent on rows read before the category return windows migration lands, and for the store's window
       ...(typeof it.return_days === 'number' ? { returnDays: it.return_days } : {}),
       // absent on rows read before the replacement-only migration lands, and for refundable lines
@@ -228,6 +230,10 @@ function toCancellation(row: CancellationWithItems): OrderCancellation {
   return {
     id: row.id,
     items: toOrderItems(row.items ?? row.order_cancelled_items ?? []),
+    // absent on rows read before the Pre-order Price Guarantee migration lands
+    ...(row.kind === 'price_guarantee' && row.product_id && row.price_minor != null && row.qty
+      ? { priceGuarantee: { productId: row.product_id, title: row.title ?? '', priceMinor: row.price_minor, qty: row.qty } }
+      : {}),
     itemsMinor: row.items_minor,
     taxMinor: row.tax_minor,
     // absent on rows read before the gift wrap migration lands
@@ -260,6 +266,8 @@ export function toOrder(row: OrderWithItems): Order {
   const bankOfferMinor = items.reduce((s, it) => s + (it.unitBankMinor ?? 0) * it.qty, 0);
   // and an exchange's
   const exchangeMinor = items.reduce((s, it) => s + (it.unitExchangeMinor ?? 0) * it.qty, 0);
+  // and the Pre-order Price Guarantee's
+  const guaranteeMinor = items.reduce((s, it) => s + (it.unitGuaranteeMinor ?? 0) * it.qty, 0);
   const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
@@ -294,6 +302,7 @@ export function toOrder(row: OrderWithItems): Order {
       ...(snsMinor ? { snsMinor } : {}),
       ...(bankOfferMinor ? { bankOfferMinor } : {}),
       ...(exchangeMinor ? { exchangeMinor } : {}),
+      ...(guaranteeMinor ? { guaranteeMinor } : {}),
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
       // absent on rows read before the gift wrap migration lands

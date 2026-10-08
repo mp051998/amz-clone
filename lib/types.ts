@@ -88,6 +88,8 @@ export interface OrderTotals {
   bankOfferMinor?: number;
   /** an old device traded in: its part of discountMinor (absent without one) */
   exchangeMinor?: number;
+  /** the Pre-order Price Guarantee: price drops before release, its part of discountMinor (absent without any) */
+  guaranteeMinor?: number;
   shipMinor: number;
   taxMinor: number;
   /** gift wrap, per unit wrapped (absent or 0 without it) */
@@ -270,6 +272,8 @@ export interface OrderItem {
   unitBankMinor?: number;
   /** an old device traded in for it: its part of unitDiscountMinor (absent without one) */
   unitExchangeMinor?: number;
+  /** the Pre-order Price Guarantee: how much its price came down before release, part of unitDiscountMinor (absent without) */
+  unitGuaranteeMinor?: number;
   /**
    * days after delivery it can be returned, when its category had its own window in the store
    * when it was ordered (0: not returnable); absent for the store's own window
@@ -280,9 +284,24 @@ export interface OrderItem {
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */
+/** A pre-ordered item whose price dropped before the end of its release day, and the price it was honored at. */
+export interface PriceGuarantee {
+  productId: string;
+  title: string;
+  /** the lower price per unit */
+  priceMinor: number;
+  qty: number;
+}
+
+/**
+ * Some items cancelled from an order and their refund, or (`priceGuarantee`, with no items) the
+ * Pre-order Price Guarantee's refund of a price drop.
+ */
 export interface OrderCancellation {
   id: string;
   items: OrderItem[];
+  /** set on a Pre-order Price Guarantee refund rather than cancelled items */
+  priceGuarantee?: PriceGuarantee;
   /** what the items cost after any coupon */
   itemsMinor: number;
   /** the tax that no longer applies */
