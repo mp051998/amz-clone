@@ -19,6 +19,7 @@ import { ClaimsSection } from '@/components/orders/Claims';
 import { SellerFeedbackSection } from '@/components/orders/SellerFeedback';
 import { DeliveryFeedbackSection } from '@/components/orders/DeliveryFeedback';
 import { deliveryFeedbackFor, deliveryFeedbackOpen, deliveryFeedbackOpenUntil, type DeliveryFeedback } from '@/lib/data/delivery-feedback';
+import { isReturnable } from '@/lib/data/return-policy';
 import { canStartReturn, getOrderReturns, reportMissingUntil, returnPickupDays, returnWindows } from '@/lib/data/returns';
 import { orderClaims } from '@/lib/data/atoz-claims';
 import { claimableSellers, claimOpenUntil, type AtozClaim } from '@/lib/atoz';
@@ -478,9 +479,13 @@ export default async function OrderPage({
                     ? 'You told us this order didn’t arrive.'
                     : canStartReturn(returns, now)
                       ? `Eligible for return ${windows ? returnUntilText(windows, store) : `until ${longDate(returnBy, store)}`}.`
-                      : returnBy.getTime() < now.getTime()
-                        ? `The return window closed on ${longDate(returnBy, store)}.`
-                        : 'Every item in this order is being returned.'}
+                      : !order.items.some(isReturnable)
+                        ? order.items.length === 1
+                          ? 'This item can’t be returned.'
+                          : 'Items in this order can’t be returned.'
+                        : returnBy.getTime() < now.getTime()
+                          ? `The return window closed on ${longDate(returnBy, store)}.`
+                          : 'Every item in this order is being returned.'}
                 </p>
               </div>
               {canStartReturn(returns, now) ? (
@@ -566,6 +571,11 @@ export default async function OrderPage({
                   Qty {it.qty} · Sold by{' '}
                   <a href={sp(`/seller?name=${encodeURIComponent(it.seller)}`)} className="text-ink-3 underline underline-offset-2">{it.seller}</a>
                 </span>
+                {!isReturnable(it) ? (
+                  <span className="text-[13px] text-ink-2">Not returnable</span>
+                ) : it.returnDays ? (
+                  <span className="text-[13px] text-ink-2">Returnable within {it.returnDays} days of delivery</span>
+                ) : null}
                 {it.unitDiscountMinor ? <span className="text-[13px] font-semibold text-good-strong">Coupon −{money(it.unitDiscountMinor * it.qty)}</span> : null}
                 {it.protectionMinor ? <span className="text-[13px] text-ink-2">+ {protectionPlanName(order.market)} · {money(it.protectionMinor * it.qty)}</span> : null}
                 {view.delivered ? (

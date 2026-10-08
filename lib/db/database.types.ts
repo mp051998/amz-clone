@@ -313,13 +313,13 @@ isOneToOne: false
                   ]
                 },"market_categories": {
                   Row: {
-                    "category_slug": string,"market_id": string,"position": number
+                    "category_slug": string,"market_id": string,"position": number,"return_days": number | null
                   }
                   Insert: {
-                    "category_slug": string,"market_id": string,"position": number
+                    "category_slug": string,"market_id": string,"position": number,"return_days"?: number | null
                   }
                   Update: {
-                    "category_slug"?: string,"market_id"?: string,"position"?: number
+                    "category_slug"?: string,"market_id"?: string,"position"?: number,"return_days"?: number | null
                   }
                   Relationships: [
                     {
@@ -433,13 +433,13 @@ isOneToOne: false
                   ]
                 },"order_items": {
                   Row: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"unit_bank_minor": number,"lightning_deal_id": string | null
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days": number | null,"seller": string,"title": string,"unit_discount_minor": number,"unit_price_minor": number,"protection_minor": number,"unit_promo_minor": number,"unit_qty_discount_minor": number,"size": string | null,"offer_of": string | null,"condition": string | null,"subscription_id": string | null,"unit_sns_minor": number,"unit_bank_minor": number,"lightning_deal_id": string | null
                   }
                   Insert: {
-                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"lightning_deal_id"?: string | null
+                    "image": string,"line_no": number,"order_id": string,"product_id": string,"qty": number,"return_days"?: number | null,"seller": string,"title": string,"unit_discount_minor"?: number,"unit_price_minor": number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"lightning_deal_id"?: string | null
                   }
                   Update: {
-                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"lightning_deal_id"?: string | null
+                    "image"?: string,"line_no"?: number,"order_id"?: string,"product_id"?: string,"qty"?: number,"return_days"?: number | null,"seller"?: string,"title"?: string,"unit_discount_minor"?: number,"unit_price_minor"?: number,"protection_minor"?: number,"unit_promo_minor"?: number,"unit_qty_discount_minor"?: number,"size"?: string | null,"offer_of"?: string | null,"condition"?: string | null,"subscription_id"?: string | null,"unit_sns_minor"?: number,"unit_bank_minor"?: number,"lightning_deal_id"?: string | null
                   }
                   Relationships: [
                     {

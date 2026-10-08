@@ -635,6 +635,45 @@ it('once reported, says it was refunded instead', async () => {
   expect(screen.queryByRole('region', { name: 'Package didn’t arrive?' })).toBeNull();
 });
 
+describe('return windows by category', () => {
+  const delivered = () => new Date(Date.now() - 2 * 86_400_000).toISOString();
+
+  it('says which items can’t be returned, and which have a shorter window', async () => {
+    state.order = order({
+      deliveredAt: delivered(),
+      items: [
+        { productId: 'k 1', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1000, qty: 1, returnDays: 0 },
+        { productId: 'm', title: 'Mug', image: '', seller: 'Store', unitPriceMinor: 2000, qty: 1, returnDays: 7 },
+        { productId: 'p', title: 'Pan', image: '', seller: 'Store', unitPriceMinor: 2000, qty: 1 },
+      ],
+    });
+    await show();
+    expect(screen.getByText('Not returnable')).toBeInTheDocument();
+    expect(screen.getByText('Returnable within 7 days of delivery')).toBeInTheDocument();
+    expect(screen.getAllByText(/Returnable within/)).toHaveLength(1);
+  });
+
+  it('says an order of things that can’t go back can’t be returned', async () => {
+    state.returnBy = new Date(Date.now() + 20 * 86_400_000).toISOString();
+    state.order = order({
+      deliveredAt: delivered(),
+      items: [
+        { productId: 'k 1', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1000, qty: 1, returnDays: 0 },
+        { productId: 'm', title: 'Mug', image: '', seller: 'Store', unitPriceMinor: 2000, qty: 1, returnDays: 0 },
+      ],
+    });
+    await show();
+    expect(screen.getByText('Items in this order can’t be returned.')).toBeInTheDocument();
+    cleanup();
+    state.order = order({
+      deliveredAt: delivered(),
+      items: [{ productId: 'k 1', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1000, qty: 1, returnDays: 0 }],
+    });
+    await show();
+    expect(screen.getByText('This item can’t be returned.')).toBeInTheDocument();
+  });
+});
+
 describe('return method', () => {
   const started = () => {
     const delivered = new Date(Date.now() - 2 * 86_400_000).toISOString();

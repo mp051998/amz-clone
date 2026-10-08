@@ -194,6 +194,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       ...(it.unit_sns_minor ? { unitSnsMinor: it.unit_sns_minor } : {}),
       // absent on rows read before the Bank Offers migration lands
       ...(it.unit_bank_minor ? { unitBankMinor: it.unit_bank_minor } : {}),
+      // absent on rows read before the category return windows migration lands, and for the store's window
+      ...(typeof it.return_days === 'number' ? { returnDays: it.return_days } : {}),
     }));
 }
 

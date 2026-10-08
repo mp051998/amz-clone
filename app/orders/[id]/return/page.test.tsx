@@ -140,3 +140,18 @@ it('gives a replacement its own, later return-by, item by item', async () => {
   expect(screen.getByText(/1 ordered · return by January 1/)).toBeTruthy();
   expect(screen.getByText(/1 of 2 left to return · return by February 1/)).toBeTruthy();
 });
+
+it('says an item in a category that can’t go back can’t be returned', async () => {
+  state.returns = { ...ONE, returnable: { p1: 0 } };
+  await show(order({ items: [{ ...order().items[0], returnDays: 0 }] }));
+  expect(screen.getByText('This item can’t be returned.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /Start return|Submit/ })).toBeNull();
+});
+
+it('lists the items that can’t be returned beside the ones that can', async () => {
+  state.returns = { ...ONE, returnable: { p1: 1, p2: 0 } };
+  await show(order({ items: [...order().items, { productId: 'p2', title: 'Lipstick', image: '', seller: 'Store', unitPriceMinor: 900, qty: 1, returnDays: 0 }] }));
+  expect(screen.getByText('Can’t be returned: Lipstick.')).toBeTruthy();
+  expect(screen.getByRole('combobox', { name: 'Lamp' })).toBeTruthy();
+  expect(screen.queryByRole('combobox', { name: 'Lipstick' })).toBeNull();
+});
