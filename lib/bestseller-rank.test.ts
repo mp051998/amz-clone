@@ -10,7 +10,7 @@ vi.mock('@/lib/data/catalog', () => ({
   },
 }));
 
-import { bestsellerRank } from './bestseller-rank';
+import { bestsellerRank, isTopSeller, topSellers } from './bestseller-rank';
 
 const db = {} as never;
 
@@ -31,4 +31,28 @@ it('a variant option shares its group card’s rank', async () => {
 
 it('no rank outside the list', async () => {
   expect(await bestsellerRank(db, { id: 'z', market: 'US', category: 'audio' }, 3)).toBeNull();
+});
+
+it("finds each department's #1 once, however many of its products are on the page", async () => {
+  const tops = await topSellers(db, 'US', ['audio', 'audio', 'kitchen']);
+  expect(state.asked).toEqual([
+    { market: 'US', opts: { category: 'audio', order: 'popular', limit: 1 } },
+    { market: 'US', opts: { category: 'kitchen', order: 'popular', limit: 1 } },
+  ]);
+  expect(isTopSeller({ id: 'a', category: 'audio' }, tops)).toBe(true);
+  expect(isTopSeller({ id: 'c', category: 'audio' }, tops)).toBe(false);
+  // the same product filed under another department isn't that department's #1
+  expect(isTopSeller({ id: 'a', category: 'toys' }, tops)).toBe(false);
+});
+
+it('another option of the #1 card is the #1 too', async () => {
+  state.list = [{ id: 'b', variant: { group: 'g1', axis: 'Colour', label: 'Black' } }];
+  const tops = await topSellers(db, 'US', ['audio']);
+  expect(isTopSeller({ id: 'b-white', category: 'audio', variant: { group: 'g1', axis: 'Colour', label: 'White' } }, tops)).toBe(true);
+  expect(isTopSeller({ id: 'x', category: 'audio', variant: { group: 'g2', axis: 'Colour', label: 'White' } }, tops)).toBe(false);
+});
+
+it('a department with nothing listed has no #1', async () => {
+  state.list = [];
+  expect((await topSellers(db, 'US', ['audio'])).size).toBe(0);
 });
