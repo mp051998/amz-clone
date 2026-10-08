@@ -85,6 +85,7 @@ export function GET(): Response {
       'GET    /coupons',
       'GET    /bank-offers',
       'GET    /deals/lightning',
+      'GET    /deals/lightning/watched',
       'POST   /deals/lightning/:id/watch',
       'DELETE /deals/lightning/:id/watch',
       'GET    /recalls',
