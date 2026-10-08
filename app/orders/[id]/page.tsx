@@ -24,7 +24,7 @@ import { isReturnable } from '@/lib/data/return-policy';
 import { canStartReturn, getOrderReturns, reportMissingUntil, returnPickupDays, returnWindows } from '@/lib/data/returns';
 import { orderClaims } from '@/lib/data/atoz-claims';
 import { claimableSellers, claimOpenUntil, type AtozClaim } from '@/lib/atoz';
-import { InstructionsField } from '@/components/checkout/AddressFields';
+import { DropoffField, InstructionsField } from '@/components/checkout/AddressFields';
 import { deliveryOptions, orderStage } from '@/lib/decision/tracking';
 import { messageFor } from '@/lib/data/errors';
 import { firstName, readUser } from '@/lib/auth';
@@ -47,6 +47,7 @@ import type { Address, Order, OrderItem } from '@/lib/types';
 import { protectionPlanName } from '@/lib/protection';
 import { emiText } from '@/lib/emi';
 import { weekdayName } from '@/lib/delivery-day';
+import { DROPOFF } from '@/lib/dropoff';
 import { exchangeText } from '@/lib/exchange';
 import { CHECKOUT_BANKS } from '@/lib/bank-offers';
 import { selectClass } from '@/components/lib/controls';
@@ -344,6 +345,7 @@ export default async function OrderPage({
             { label: 'Items', value: order.items.map((i) => `${i.title}${i.qty > 1 ? ` × ${i.qty}` : ''}`).join(', ') },
             { label: order.pickup ? 'Pick up at' : 'Deliver to', value: addressLine(order) },
             ...(order.shipTo.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{order.shipTo.instructions}</span> }] : []),
+            ...(order.shipTo.dropoff && !order.pickup ? [{ label: 'Drop-off', value: DROPOFF[order.shipTo.dropoff].label }] : []),
             ...(order.releaseAt ? [{ label: 'Pre-order', value: `${Date.parse(order.releaseAt) > now.getTime() ? 'Releases' : 'Released'} ${releaseDate(new Date(order.releaseAt), store)}` }] : []),
             ...(order.shipSpeed === 'fast' ? [{ label: 'Delivery', value: 'Faster delivery' }] : []),
             ...(order.shipSpeed === 'day' ? [{ label: 'Delivery', value: `Your Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` }] : []),
@@ -434,9 +436,10 @@ export default async function OrderPage({
         {instructionsOpen ? (
           <details className="rounded-panel border border-line bg-surface px-[18px] py-3.5" open={error === 'invalid_input' || undefined}>
             <summary className="cursor-pointer text-[15px] font-semibold text-ink">
-              {order.shipTo.instructions ? 'Change delivery instructions' : 'Add delivery instructions'}
+              {order.shipTo.instructions || order.shipTo.dropoff ? 'Change delivery instructions' : 'Add delivery instructions'}
             </summary>
             <form action={updateOrderInstructions.bind(null, order.id)} className="mt-3 flex flex-col gap-3">
+              <DropoffField defaultValue={order.shipTo.dropoff} hint="For this order, until it’s out for delivery. Your address book keeps its own." />
               <InstructionsField
                 defaultValue={order.shipTo.instructions}
                 hint="For this order, until it’s out for delivery. Leave it blank to remove them. Your address book keeps its own note."

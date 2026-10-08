@@ -44,6 +44,21 @@ it('a pickup order is ready for pickup, at its point, once delivered', () => {
   expect(coming.steps.at(-1)).toMatchObject({ label: 'Ready for pickup', state: 'upcoming' });
 });
 
+it('a delivered order says where it was left, or who it was handed to', () => {
+  const order = {
+    id: '114-2', market: 'US', currency: 'USD', status: 'placed', paymentMethod: 'giftcard', paymentLabel: 'Gift card',
+    totals: { subtotalMinor: 1000, discountMinor: 0, shipMinor: 0, taxMinor: 0, totalMinor: 1000 },
+    shipTo: { name: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' },
+    items: [], createdAt: '2026-10-06T17:00:00.000Z', placedAt: '2026-10-06T17:00:00.000Z',
+    shippedAt: '2026-10-07T03:00:00.000Z', outForDeliveryAt: '2026-10-07T16:00:00.000Z', deliveredAt: '2026-10-07T18:30:00.000Z',
+  } as Order;
+  const now = new Date('2026-10-07T20:00:00.000Z');
+  expect(orderView(order, amazon, now).window).toBe('Handed to Alex · Today, 11:30 AM');
+  const left = orderView({ ...order, shipTo: { ...order.shipTo, dropoff: 'front_door' } }, amazon, now);
+  expect(left).toMatchObject({ kicker: 'DELIVERED', window: 'Left at the front door · Today, 11:30 AM' });
+  expect(orderView({ ...order, shipTo: { ...order.shipTo, dropoff: 'property_staff' } }, amazon, now).window).toBe('Handed to property staff · Today, 11:30 AM');
+});
+
 it('a pre-order says when it is released, and arrives from then', () => {
   const release = '2026-11-20T08:00:00.000Z'; // midnight PST
   const now = new Date('2026-10-07T17:00:00.000Z');

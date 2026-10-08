@@ -1,5 +1,6 @@
 import type { ClimateCert } from './climate';
 import type { CurrencyCode } from './contracts';
+import type { DropoffSpot } from './dropoff';
 import type { ExchangeCondition } from './exchange';
 import type { QtyDiscount } from './qty-discount';
 import type { FeatureStars } from './review-features';
@@ -288,6 +289,8 @@ export interface ShippingAddress {
   postcode: string;
   /** the delivery note the shopper gave with this order */
   instructions?: string;
+  /** where the courier leaves it when nobody's there (absent: no preference) */
+  dropoff?: DropoffSpot;
 }
 
 /** Delivery speed chosen at checkout: standard, faster (paid), or on the Plus member's Delivery Day. */
@@ -395,6 +398,8 @@ export interface Address {
   kind?: 'home' | 'office';
   /** delivery note for the courier ("Leave it with the front desk") */
   instructions?: string;
+  /** where to leave packages here when nobody's there to take them (absent: no preference) */
+  dropoff?: DropoffSpot;
   isDefault?: boolean;
 }
 

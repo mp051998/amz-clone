@@ -373,6 +373,19 @@ it('delivery instructions can change while the order is being prepared or shippe
   expect(screen.getByLabelText('Delivery instructions (optional)')).toHaveValue('');
 });
 
+it('the drop-off spot shows on the order, and changes with the instructions', async () => {
+  state.order = order({ ...FUTURE, shipTo: { ...order().shipTo, dropoff: 'side_porch' } });
+  await show();
+  expect(screen.getByText('Side porch', { selector: 'dd' })).toBeInTheDocument();
+  expect(screen.getByText('Change delivery instructions')).toBeInTheDocument();
+  expect(screen.getByLabelText('Where should we leave packages? (optional)')).toHaveValue('side_porch');
+  cleanup();
+  // none on a pickup order
+  state.order = order({ ...FUTURE, shipTo: { ...order().shipTo, dropoff: 'side_porch' }, pickup: { pointId: 'US-SEA-JUNIPER', code: '042137' } });
+  await show();
+  expect(screen.queryByText('Side porch', { selector: 'dd' })).toBeNull();
+});
+
 it('not once it is out for delivery or delivered, unpaid or cancelled', async () => {
   for (const o of [
     order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2026-09-02T09:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' }),

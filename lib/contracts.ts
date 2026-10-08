@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DROPOFF_SPOTS } from './dropoff';
 
 /** Currency the store prices in. This clone is amazon.com (US), so USD. */
 export type CurrencyCode = 'USD' | 'INR';
@@ -6,6 +7,8 @@ export type CurrencyCode = 'USD' | 'INR';
 /** Longest delivery note an address carries (the database checks the same). */
 export const INSTRUCTIONS_MAX = 250;
 const instructions = z.string().trim().max(INSTRUCTIONS_MAX, `Keep delivery instructions under ${INSTRUCTIONS_MAX} characters`).optional();
+/** where to leave packages at the address (none: no preference) */
+const dropoff = z.enum(DROPOFF_SPOTS, { message: 'Choose where to leave packages from the list' }).optional();
 
 // Address input, validated as a discriminated union on `schema`.
 const UsAddressSchema = z.object({
@@ -18,6 +21,7 @@ const UsAddressSchema = z.object({
   state: z.string().trim().length(2, 'Use the 2-letter state code'),
   postcode: z.string().trim().regex(/^\d{5}(-\d{4})?$/, 'Enter a valid ZIP Code'),
   instructions,
+  dropoff,
 });
 const InAddressSchema = z.object({
   schema: z.literal('IN'),
@@ -31,6 +35,7 @@ const InAddressSchema = z.object({
   postcode: z.string().trim().regex(/^[1-9]\d{5}$/, 'Enter a valid Pincode'),
   addressType: z.enum(['home', 'office']).optional(),
   instructions,
+  dropoff,
 });
 
 export const AddressInputSchema = z.discriminatedUnion('schema', [UsAddressSchema, InAddressSchema]);

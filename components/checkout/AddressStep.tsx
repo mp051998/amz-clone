@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { Address, PickupPoint } from '@/lib/types';
 import { Input } from '../primitives/Input';
 import { addressChecks } from '@/lib/address-patterns';
-import { AddressFields, InstructionsField } from './AddressFields';
+import { AddressFields, DropoffField, InstructionsField } from './AddressFields';
 import { OptionCard, StepCard } from './StepCard';
 
 export interface AddressStepProps {
@@ -30,7 +30,7 @@ function pointLine(p: PickupPoint): string {
 /**
  * Step 1 — Delivery address. Picks from the address book (radio cards) or a new address typed in
  * place. Either way the form posts the same fields submitCheckout reads (fullName, phone, line1, …):
- * a saved address as hidden inputs (its delivery instructions stay editable, for this order only),
+ * a saved address as hidden inputs (its drop-off spot and delivery instructions stay editable, for this order only),
  * a new one through AddressFields. Or a pickup point (Hub Locker or Counter): its id as
  * `pickupPoint`, with the name and phone of who collects it; the point's address stands in.
  */
@@ -66,7 +66,8 @@ export function AddressStep({ addresses, isIN, defaultName, manageHref, pickupPo
       ) : null}
 
       {chosen ? (
-        <div className={open ? 'hidden' : 'sm:pl-[42px]'}>
+        <div className={open ? 'hidden' : 'flex flex-col gap-3.5 sm:pl-[42px]'}>
+          <DropoffField key={`dropoff-${chosen.id}`} defaultValue={chosen.dropoff} hint="For this order. Change the saved spot in your address book." />
           <InstructionsField
             key={chosen.id}
             defaultValue={chosen.instructions}

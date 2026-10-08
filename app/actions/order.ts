@@ -6,7 +6,7 @@ import { readUser } from '@/lib/auth';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
 import { siteOrigin } from '@/lib/origin';
-import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, payCodOrder, placeOrder, setOrderAddress, setOrderInstructions } from '@/lib/data/orders';
+import { archiveOrder, cancelOrder, cancelOrderItems, cancelPendingOrder, getOrder, isPaymentMethod, isShipSpeed, payCodOrder, placeOrder, setOrderAddress, setOrderDropoff, setOrderInstructions } from '@/lib/data/orders';
 import { resumeCardCheckout, startCardCheckout, startPayNowCheckout } from '@/lib/data/payments';
 import { DataError } from '@/lib/data/errors';
 import { isSplitMethod } from '@/lib/data/balance';
@@ -56,6 +56,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         postcode: formData.get('postcode'),
         addressType: formData.get('addressType'),
         instructions: formData.get('instructions'),
+        dropoff: formData.get('dropoff'),
       },
       pickupPoint: typeof formData.get('pickupPoint') === 'string' && formData.get('pickupPoint') ? String(formData.get('pickupPoint')) : undefined,
       gift: formData.get('gift') === 'on' ? { message: formData.get('giftMessage'), wrap: formData.get('giftWrap') === 'on' } : undefined,
@@ -174,8 +175,8 @@ export async function archiveMyOrder(orderId: string, archived: boolean): Promis
 }
 
 /**
- * "Save instructions" on an order page (bound to the id): the order's delivery instructions, until
- * it's out for delivery. Back to the order, which confirms the change or says why it didn't go through.
+ * "Save instructions" on an order page (bound to the id): the order's drop-off spot and delivery
+ * instructions, until it's out for delivery. Back to the order, which confirms the change or says why it didn't go through.
  */
 export async function updateOrderInstructions(orderId: string, formData: FormData): Promise<void> {
   const market = await getMarket();
@@ -186,7 +187,10 @@ export async function updateOrderInstructions(orderId: string, formData: FormDat
   let code: string | null = null;
   let cleared = false;
   try {
-    cleared = !(await setOrderInstructions(await db(), orderId, formData.get('instructions'))).shipTo.instructions;
+    const client = await db();
+    // the spot first: it's the one the database checks
+    const spot = formData.has('dropoff') ? (await setOrderDropoff(client, orderId, formData.get('dropoff'))).shipTo.dropoff : undefined;
+    cleared = !(await setOrderInstructions(client, orderId, formData.get('instructions'))).shipTo.instructions && !spot;
   } catch (err) {
     code = err instanceof DataError ? err.code : 'internal';
     if (!(err instanceof DataError)) console.error('[orders] instructions failed', orderId, err);
