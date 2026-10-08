@@ -13,6 +13,7 @@ import { awaitingReview } from '@/lib/data/reviews';
 import { storeBalance } from '@/lib/data/balance';
 import { unreadCaseIds } from '@/lib/data/support';
 import { inboxSeenAt, isNewMessage, listInbox } from '@/lib/data/inbox';
+import { mutedTopics, type MessageTopic } from '@/lib/data/message-preferences';
 import { followedBrands } from '@/lib/data/brand-follows';
 import { listSubscriptions } from '@/lib/data/subscriptions';
 import { formatMoney } from '@/lib/marketplaces';
@@ -32,7 +33,7 @@ export default async function AccountPage() {
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account'));
   const client = await db();
-  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt, brands, subs] = await Promise.all([
+  const [orderCount, addresses, collections, cart, recent, paused, plus, balance, toReview, unread, inbox, seenAt, brands, subs, muted] = await Promise.all([
     countOrders(client, store.id),
     listAddresses(client, store.id),
     listCollections(client, store.id).catch(() => []),
@@ -47,6 +48,7 @@ export default async function AccountPage() {
     inboxSeenAt(client, store.id),
     followedBrands(client, store.id, user.id).catch(() => []),
     listSubscriptions(client, store.id),
+    mutedTopics(client, user.id).catch((): Set<MessageTopic> => new Set()),
   ]);
   const newMessages = inbox.filter((m) => isNewMessage(m, seenAt)).length;
   const saved = collections.reduce((n, c) => n + c.items.length, 0);
@@ -78,6 +80,12 @@ export default async function AccountPage() {
       href: '/subscribe-save',
     },
     { title: 'Your messages', meta: newMessages ? `${newMessages} new` : 'Order and return updates', desc: 'Shipping and delivery updates, refunds, our replies and answers to your questions.', href: '/account/messages' },
+    {
+      title: 'Communication preferences',
+      meta: muted.size ? `${plural(muted.size, 'kind')} of message turned off` : 'All messages on',
+      desc: 'Choose which messages you get: review requests, answers to your questions and deal alerts.',
+      href: '/account/communications',
+    },
     { title: 'Your Payments', meta: 'Saved cards', desc: 'Cards you’ve saved for paying on Stripe. Add or remove them.', href: '/account/payments' },
     { title: 'Your transactions', meta: 'Charges and refunds', desc: 'Every charge and refund: orders, cancellations, returns, gift cards and balance reloads.', href: '/account/transactions' },
     { title: 'Login & security', meta: user.email, desc: 'Change your name, email or password, download your data, or close your account.', href: '/account/security' },

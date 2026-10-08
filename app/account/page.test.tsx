@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   seenAt: null as string | null,
   brands: [] as unknown[],
   subs: [] as { issue?: unknown }[],
+  muted: new Set<string>(),
 }));
 
 vi.mock('server-only', () => ({}));
@@ -49,6 +50,7 @@ vi.mock('@/lib/recent', () => ({ readRecentIds: async () => state.recent, histor
 vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
 vi.mock('@/lib/data/brand-follows', () => ({ followedBrands: async () => state.brands }));
 vi.mock('@/lib/data/subscriptions', () => ({ listSubscriptions: async () => state.subs }));
+vi.mock('@/lib/data/message-preferences', () => ({ mutedTopics: async () => state.muted }));
 
 import AccountPage from './page';
 
@@ -70,6 +72,7 @@ beforeEach(() => {
   state.seenAt = null;
   state.brands = [];
   state.subs = [];
+  state.muted = new Set();
 });
 
 it('links to buy again, browsing history and help alongside the rest', async () => {
@@ -198,4 +201,14 @@ it('counts messages that came in since the shopper last opened them', async () =
   state.seenAt = '2026-10-07T00:00:00Z';
   render(await AccountPage());
   expect(within(tile('Your messages')).getByText('Order and return updates')).toBeInTheDocument();
+});
+
+it('says which kinds of message are turned off', async () => {
+  render(await AccountPage());
+  expect(tile('Communication preferences')).toHaveAttribute('href', '/account/communications');
+  expect(within(tile('Communication preferences')).getByText('All messages on')).toBeInTheDocument();
+  cleanup();
+  state.muted = new Set(['answer', 'deal_live']);
+  render(await AccountPage());
+  expect(within(tile('Communication preferences')).getByText('2 kinds of message turned off')).toBeInTheDocument();
 });

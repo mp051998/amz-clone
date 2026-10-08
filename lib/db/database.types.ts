@@ -272,6 +272,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"message_preferences": {
+                  Row: {
+                    "muted": string[],"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "muted"?: string[],"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "muted"?: string[],"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"gift_card_purchases": {
                   Row: {
                     "amount_minor": number,"created_at": string,"currency": string,"gift_card_code": string | null,"id": string,"market_id": string,"message": string | null,"paid_at": string | null,"payment_intent_id": string | null,"recipient_name": string | null,"status": string,"stripe_session_id": string | null,"user_id": string | null,"reload": boolean
@@ -1264,6 +1277,9 @@ isOneToOne: false
                            },
 "mark_inbox_seen":
 { Args: { "p_market": string }; Returns: string
+                           },
+"set_message_topic":
+{ Args: { "p_topic": string,"p_on": boolean }; Returns: string[]
                            },
 "open_support_case":
 { Args: { "p_body": string,"p_market": string,"p_order"?: string,"p_subject": string,"p_topic": string }; Returns: Json
