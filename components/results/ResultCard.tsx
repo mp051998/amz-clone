@@ -3,6 +3,7 @@ import { shortTitle } from '@/lib/decision/verdict';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { toStoreMinor } from '@/lib/fx';
+import { memberDealLabel, memberPrice } from '@/lib/member-deals';
 import { qtyDiscountText } from '@/lib/qty-discount';
 import { unitPriceText } from '@/lib/unit-price';
 import { releaseOf } from '@/lib/pre-order';
@@ -22,6 +23,7 @@ import { Price } from '../primitives/Price';
 import { Stars } from '../primitives/Stars';
 import { ClimateBadge } from '../product/ClimatePledge';
 import { SmallBusinessBadge } from '../product/SmallBusiness';
+import { MemberDealTag } from '../product/MemberDeal';
 
 export interface ResultCardProps {
   ranked: RankedProduct;
@@ -98,6 +100,12 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
           </span>
         ) : null}
         {p.qtyDiscount ? <span className="text-[13px] text-ink-2">{qtyDiscountText(p.qtyDiscount)}</span> : null}
+        {p.memberPct ? (
+          <span className="flex flex-wrap items-center gap-1.5 text-[13px] text-ink-2">
+            <MemberDealTag label={memberDealLabel(store.membership.name)} />
+            {formatMoney(toStoreMinor(memberPrice(p)!, cur, p.curBase), cur)} for members
+          </span>
+        ) : null}
       </div>
       <span className="text-[13px] text-ink-2">
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>

@@ -15,6 +15,8 @@ export interface InvoiceLine {
   amountMinor: number;
   /** what a coupon took off the line (0 without one) */
   discountMinor: number;
+  /** what the member price took off the line (0 when not a member's deal) */
+  memberMinor: number;
   /** what the quantity discount took off the line (0 without one) */
   qtyDiscountMinor: number;
   /** what the promotion code took off the line (0 without one) */
@@ -45,6 +47,8 @@ export interface Invoice {
   subtotalMinor: number;
   /** what coupons took off the items */
   discountMinor: number;
+  /** what member prices took off them (0 without any) */
+  memberMinor: number;
   /** what quantity discounts took off them (0 without any) */
   qtyDiscountMinor: number;
   /** what the promotion code took off them (0 without one), and the code */
@@ -90,7 +94,8 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,
-    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0) - (it.unitSnsMinor ?? 0) - (it.unitBankMinor ?? 0) - (it.unitExchangeMinor ?? 0)) * it.qty,
+    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitMemberMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0) - (it.unitSnsMinor ?? 0) - (it.unitBankMinor ?? 0) - (it.unitExchangeMinor ?? 0)) * it.qty,
+    memberMinor: (it.unitMemberMinor ?? 0) * it.qty,
     qtyDiscountMinor: (it.unitQtyDiscountMinor ?? 0) * it.qty,
     promoMinor: (it.unitPromoMinor ?? 0) * it.qty,
     snsMinor: (it.unitSnsMinor ?? 0) * it.qty,
@@ -122,7 +127,8 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     kind: order.status === 'cancelled' ? 'cancelled' : 'invoice',
     lines,
     subtotalMinor: order.totals.subtotalMinor,
-    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0),
+    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.memberMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0) - (order.totals.exchangeMinor ?? 0),
+    memberMinor: order.totals.memberMinor ?? 0,
     qtyDiscountMinor: order.totals.qtyDiscountMinor ?? 0,
     promoMinor: order.totals.promoMinor ?? 0,
     ...(order.promoCode ? { promoCode: order.promoCode } : {}),
