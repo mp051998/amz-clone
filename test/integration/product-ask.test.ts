@@ -58,10 +58,12 @@ describe('Looking for specific info? (ask about a product)', () => {
 
   it('is served at POST /products/:id/ask', async () => {
     const { POST } = await import('@/app/api/v1/products/[id]/ask/route');
+    // a bearer token: the cookie client needs a Next request scope
+    const token = (await asker.db.auth.getSession()).data.session!.access_token;
     const req = (market: 'US' | 'IN', body: unknown) =>
       new NextRequest(`http://localhost/api/v1/products/${productId}/ask`, {
         method: 'POST',
-        headers: { 'x-market': market, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${token}`, 'x-market': market, 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
     const at = { params: Promise.resolve({ id: productId }) };
