@@ -114,6 +114,75 @@ export function PasswordForm({ action, recovering }: { action: Action; recoverin
   );
 }
 
+/**
+ * Two-step verification: off, a link to set it up; on, turning it off (with the current password).
+ */
+export function TwoStepCard({ on, setupHref, offAction }: { on: boolean; setupHref: string; offAction: Action }) {
+  const [state, formAction] = useActionState(offAction, {});
+  return (
+    <Card
+      id="two-step"
+      title="Two-step verification"
+      current={on ? 'On. Signing in asks for a code from your authenticator app too.' : 'Off. Add a code from an authenticator app to your password, so a password alone can’t sign anyone in.'}
+      state={state}
+    >
+      {on ? (
+        <form action={formAction} className="flex flex-col gap-3.5">
+          <Input
+            name="currentPassword"
+            type="password"
+            label="Current password"
+            autoComplete="current-password"
+            required
+            error={fieldError(state, 'currentPassword')}
+          />
+          <Save pendingLabel="Turning off…">Turn off</Save>
+        </form>
+      ) : (
+        <a href={setupHref} className={`${buttonClasses({ variant: 'secondary' })} self-start`}>Turn on</a>
+      )}
+    </Card>
+  );
+}
+
+/** Setting up two-step verification: scan the QR code (or type the key), then confirm with a code. */
+export function TwoStepSetupForm({ action, qrCode, secret, cancelHref }: { action: Action; qrCode: string; secret: string; cancelHref: string }) {
+  const [state, formAction] = useActionState(action, {});
+  return (
+    <Card id="two-step-setup" title="Set up your authenticator app" state={state}>
+      <ol className="m-0 flex list-decimal flex-col gap-3 pl-5 text-[15px] leading-[1.5]">
+        <li>Open an authenticator app on your phone, like Google Authenticator, Microsoft Authenticator or 1Password, and add an account.</li>
+        <li className="flex flex-col gap-2.5">
+          <span>Scan this QR code with it.</span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- an SVG data URI from Supabase Auth */}
+          <img src={qrCode} alt="QR code to add this store to your authenticator app" width={176} height={176} className="rounded-panel border border-line bg-white p-2" />
+          <span className="text-[14px] text-ink-2">
+            Can’t scan it? Enter this key instead: <code className="break-all font-mono text-[14px] text-ink">{secret.replace(/(.{4})/g, '$1 ').trim()}</code>
+          </span>
+        </li>
+        <li>Enter the 6-digit code the app shows for this store.</li>
+      </ol>
+      <form action={formAction} className="flex flex-col gap-3.5">
+        <Input
+          name="code"
+          label="6-digit code"
+          required
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9 -]{6,8}"
+          maxLength={8}
+          error={fieldError(state, 'code')}
+          className="font-mono text-[18px] tracking-[0.2em]"
+        />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Save pendingLabel="Checking…">Turn on</Save>
+          <a href={cancelHref} className={buttonClasses({ variant: 'link' })}>Cancel</a>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 /** "Request your data": one JSON file with everything the store keeps about the shopper. */
 export function DownloadDataCard({ href }: { href: string }) {
   return (

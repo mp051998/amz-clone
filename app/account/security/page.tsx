@@ -2,14 +2,15 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Alert } from '@/components/primitives/Alert';
-import { CloseAccountForm, DownloadDataCard, EmailForm, NameForm, PasswordForm } from '@/components/account/SecurityForms';
-import { readUser } from '@/lib/auth';
+import { CloseAccountForm, DownloadDataCard, EmailForm, NameForm, PasswordForm, TwoStepCard } from '@/components/account/SecurityForms';
+import { readTwoStepOn, readUser } from '@/lib/auth';
 import { closureCheck, closureMessage, isRecovery, listPhrase } from '@/lib/data/account';
 import { db } from '@/lib/supabase/server';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { closeMyAccount, updateEmail, updateName, updatePassword } from '@/app/actions/account';
+import { turnOffTwoStepSetting } from '@/app/actions/two-step';
 
 export const metadata: Metadata = { title: 'Login & security · Store' };
 
@@ -20,7 +21,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
   const user = await readUser();
   if (!user) redirect(sp('/signin?next=/account/security'));
   const client = await db();
-  const [{ data }, closure] = await Promise.all([client.auth.getClaims(), closureCheck(client).catch(() => null)]);
+  const [{ data }, closure, twoStep] = await Promise.all([client.auth.getClaims(), closureCheck(client).catch(() => null), readTwoStepOn()]);
   const recovering = isRecovery(data?.claims);
   const losing = closure?.balances.length ? listPhrase(closure.balances.map((b) => formatMoney(b.balanceMinor, b.currency))) : null;
 
@@ -36,11 +37,14 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
         <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Login &amp; security</h1>
 
         {done === 'password' ? <Alert tone="success">New password set. You’re signed in, and signed out everywhere else.</Alert> : null}
+        {done === 'two_step_on' ? <Alert tone="success">Two-step verification is on. Next time you sign in, have your authenticator app ready.</Alert> : null}
+        {done === 'two_step_off' ? <Alert tone="success">Two-step verification is off. Your password alone signs you in.</Alert> : null}
         {/* after a reset link, setting the password is the only thing the visitor came for */}
         {recovering ? password : null}
         <NameForm action={updateName} name={user.name} />
         <EmailForm action={updateEmail} email={user.email} />
         {recovering ? null : password}
+        <TwoStepCard on={twoStep} setupHref={sp('/account/security/two-step')} offAction={turnOffTwoStepSetting} />
         <DownloadDataCard href={sp('/account/data')} />
         {closure ? (
           <CloseAccountForm action={closeMyAccount} blocked={closureMessage(closure)} losing={losing} ordersHref={sp('/orders')} />
