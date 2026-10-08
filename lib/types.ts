@@ -147,7 +147,8 @@ export interface Cart {
 export type OrderStatus = 'awaiting_payment' | 'placed' | 'cancelled';
 /** Where an order is now: its status, or for a placed order the latest stage time that has passed. */
 export type OrderStage = 'awaiting_payment' | 'preparing' | 'shipped' | 'out_for_delivery' | 'delivered' | 'cancelled';
-export type CancelReason = 'customer' | 'admin' | 'sold_out';
+/** `intercepted`: the shopper asked for it to be stopped after it shipped. */
+export type CancelReason = 'customer' | 'admin' | 'sold_out' | 'intercepted';
 /** pending: card refund asked of Stripe; not_charged: cash on delivery, nothing to give back. */
 export type RefundStatus = 'pending' | 'succeeded' | 'failed' | 'not_charged';
 

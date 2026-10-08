@@ -42,6 +42,7 @@ vi.mock('@/lib/data/returns', async (original) => ({
 vi.mock('@/app/actions/order', () => ({
   archiveMyOrder: async () => {},
   cancelMyOrder: async () => {},
+  requestMyCancellation: async () => {},
   payForOrder: async () => {},
   payCodNow: async () => {},
   updateOrderInstructions: async () => {},
@@ -371,6 +372,38 @@ it('delivery instructions can change while the order is being prepared or shippe
   await show();
   expect(screen.getByText('Add delivery instructions')).toBeInTheDocument();
   expect(screen.getByLabelText('Delivery instructions (optional)')).toHaveValue('');
+});
+
+it('a shipped order offers to request cancellation until it goes out for delivery', async () => {
+  state.order = order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
+  await show();
+  expect(screen.getByRole('region', { name: 'Request cancellation' })).toHaveTextContent('It’s shipped, but until it goes out for delivery');
+  expect(screen.getByRole('button', { name: 'Request cancellation' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
+  cleanup();
+
+  // out for delivery: too late, and an attempt says so
+  state.order = order({ shippedAt: '2026-09-01T20:00:00Z', outForDeliveryAt: '2026-09-02T09:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
+  await show({ error: 'order_not_cancellable' });
+  expect(screen.queryByRole('button', { name: 'Request cancellation' })).toBeNull();
+  expect(screen.getByText(/It’s out for delivery now, so it can’t be stopped/)).toBeInTheDocument();
+  cleanup();
+
+  // not shipped yet: the plain cancel instead
+  state.order = order(FUTURE);
+  await show();
+  expect(screen.getByRole('button', { name: 'Cancel order' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Request cancellation' })).toBeNull();
+});
+
+it('confirms an order stopped on its way', async () => {
+  state.order = order({
+    status: 'cancelled', cancelReason: 'intercepted', cancelledAt: '2026-09-02T01:00:00Z', shippedAt: '2026-09-01T20:00:00Z',
+    refund: { status: 'succeeded', amountMinor: 3000 },
+  });
+  await show({ cancelled: 'stopped' });
+  expect(screen.getByText(/We’ve stopped your package/)).toBeInTheDocument();
+  expect(screen.getByText('Cancelled: sent back to us')).toBeInTheDocument();
 });
 
 it('the drop-off spot shows on the order, and changes with the instructions', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, localDateTime, localDayOf, localDayStart, orderStage, plannedSchedule, trackingSteps } from './tracking';
+import { cancellableUntil, deliveryDayAfter, deliveryEta, deliveryOptions, isDelivered, localDateTime, localDayOf, localDayStart, orderStage, plannedSchedule, stoppableUntil, trackingSteps } from './tracking';
 
 const placed = '2026-09-01T00:00:00.000Z';
 const at = (h: number) => new Date(Date.parse(placed) + h * 3_600_000);
@@ -86,6 +86,25 @@ describe('saved schedule', () => {
     expect(cancellableUntil(saved, at(1))).toBeNull();
     expect(cancellableUntil({ status: 'placed', createdAt: placed }, at(0))).toBeNull();
     expect(cancellableUntil({ ...saved, status: 'cancelled' }, at(0))).toBeNull();
+  });
+
+  it('a shipped order can be stopped until it goes out for delivery', () => {
+    expect(stoppableUntil(saved, at(0.5))).toBeNull();
+    expect(stoppableUntil(saved, at(1))).toBe(saved.outForDeliveryAt);
+    expect(stoppableUntil(saved, at(2.9))).toBe(saved.outForDeliveryAt);
+    expect(stoppableUntil(saved, at(3))).toBeNull();
+    expect(stoppableUntil({ ...saved, status: 'cancelled' }, at(2))).toBeNull();
+    expect(stoppableUntil({ status: 'placed', createdAt: placed }, at(12))).toBeNull();
+  });
+
+  it('an order stopped on its way shows it shipped before it was cancelled', () => {
+    const stopped = { ...saved, status: 'cancelled' as const, cancelReason: 'intercepted' as const, cancelledAt: at(2).toISOString() };
+    expect(trackingSteps(stopped, at(50)).map((x) => [x.label, x.at, x.state])).toEqual([
+      ['Order placed', placed, 'done'],
+      ['Shipped', at(1).toISOString(), 'done'],
+      ['Cancelled', at(2).toISOString(), 'current'],
+    ]);
+    expect(trackingSteps({ ...stopped, cancelReason: 'customer' }, at(50)).map((x) => x.label)).toEqual(['Order placed', 'Cancelled']);
   });
 
   it('a cancelled order shows when it was cancelled', () => {

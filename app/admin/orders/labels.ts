@@ -39,6 +39,7 @@ export const CANCEL_REASON: Record<CancelReason, string> = {
   customer: 'By the customer',
   admin: 'By an admin',
   sold_out: 'Paid after an item sold out',
+  intercepted: 'Stopped in transit for the customer',
 };
 
 /** "Sep 28, 9:14 PM" (US) / "28 Sept, 9:14 pm" (IN), in the store's time zone. */

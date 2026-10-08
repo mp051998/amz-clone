@@ -8,7 +8,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { EtaPanel, FactsCard, Timeline } from '@/components/orders/Tracking';
 import { dayLabel, lcFirst, longDate, noRushText, orderView, paidWithText, paymentText, releaseDate, returnUntilText, stepTime, timeOfDay } from '@/components/orders/format';
 import { balanceMethod, storeBalance } from '@/lib/data/balance';
-import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payCodNow, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, updateOrderInstructions } from '@/app/actions/order';
+import { archiveMyOrder, cancelMyOrder, changeOrderAddress, payCodNow, payForOrder, rateDelivery, rateSeller, removeDeliveryRating, removeSellerRating, requestMyCancellation, updateOrderInstructions } from '@/app/actions/order';
 import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions/returns';
 import { withdrawMyClaim } from '@/app/actions/claims';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
@@ -278,12 +278,18 @@ export default async function OrderPage({
           <Alert tone="error">
             {error === 'amount_mismatch' ? 'Your order’s total changed while you were paying.' : 'This order can’t be paid now.'} We’ve refunded your card payment in full.
           </Alert>
+        ) : error === 'order_not_cancellable' && order.status === 'placed' && !view.cancelUntil && !view.stopUntil ? (
+          <Alert tone="error">
+            {view.delivered ? 'It’s been delivered, so it can’t be cancelled now.' : 'It’s out for delivery now, so it can’t be stopped.'} You can return it once you have it.
+          </Alert>
         ) : error ? (
           <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert>
         ) : paid === '1' && order.prepaidAt ? (
           <Alert tone="success">Paid, thanks. {money(order.totals.totalMinor)} by {paymentText(order.paymentMethod, order.paymentLabel)}: there’s nothing to pay when it arrives.</Alert>
         ) : cancelled === '1' && order.status === 'cancelled' ? (
           <Alert tone="success">Your order is cancelled.</Alert>
+        ) : cancelled === 'stopped' && order.status === 'cancelled' ? (
+          <Alert tone="success">We’ve stopped your package: the carrier is bringing it back to us, and your order is cancelled.</Alert>
         ) : cancelled === 'items' && order.cancellations?.length ? (
           <Alert tone="success">Items cancelled. The rest of your order is still on its way.</Alert>
         ) : returned === 'started' ? (
@@ -546,6 +552,22 @@ export default async function OrderPage({
                 cancelLabel="Keep order"
               />
             </div>
+          </section>
+        ) : null}
+
+        {view.stopUntil ? (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-surface px-[18px] py-4" aria-label="Request cancellation">
+            <p className="m-0 max-w-[640px] text-[14px] text-ink-2">
+              Changed your mind? It’s shipped, but until it goes out for delivery, {lcFirst(stepTime(view.stopUntil, store, now))}, we can have the carrier bring it back to us and cancel the order.
+            </p>
+            <ConfirmAction
+              action={requestMyCancellation.bind(null, order.id)}
+              label="Request cancellation"
+              prompt={<>Stop this order on its way? The carrier brings it back to us and the order is cancelled. {refundPromise(order, money)}</>}
+              confirmLabel="Yes, stop it"
+              pendingLabel="Requesting…"
+              cancelLabel="Keep order"
+            />
           </section>
         ) : null}
 

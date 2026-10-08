@@ -34,7 +34,7 @@ const FAST_OUT = { h: 17, m: 0 };
 const FAST_DELIVERED = { h: 19, m: 30 };
 
 type OrderLike = Pick<Order, 'status' | 'createdAt'> &
-  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'shipSpeed' | 'deliveryDay' | 'pickup' | 'releaseAt'>>;
+  Partial<Pick<Order, 'placedAt' | 'shippedAt' | 'outForDeliveryAt' | 'deliveredAt' | 'cancelledAt' | 'cancelReason' | 'shipSpeed' | 'deliveryDay' | 'pickup' | 'releaseAt'>>;
 
 /** The steps' labels: a pickup order's last one is "Ready for pickup" rather than "Delivered". */
 function labelsFor(order: OrderLike): string[] {
@@ -228,7 +228,8 @@ function stateFor(steps: { label: string; at: number }[], now: number): Tracking
  * - `placed`: the five steps; each is done once its time has passed, the latest reached is current
  *   (Delivered becomes current once delivered).
  * - `awaiting_payment`: "Order placed" current, the rest upcoming (times are estimates if paid now).
- * - `cancelled`: "Order placed" done, then "Cancelled" current.
+ * - `cancelled`: "Order placed" done, then "Cancelled" current ("Shipped" between when it was
+ *   stopped on its way).
  */
 export function trackingSteps(order: OrderLike, now: Date = new Date(), timeZone = 'UTC'): TrackingStep[] {
   const t0 = startOf(order, now);
@@ -237,6 +238,7 @@ export function trackingSteps(order: OrderLike, now: Date = new Date(), timeZone
     const at = Number.isFinite(saved) ? saved : Math.max(t0, Math.min(now.getTime(), t0 + HOUR));
     return [
       { label: 'Order placed', at: new Date(t0).toISOString(), state: 'done' },
+      ...(order.cancelReason === 'intercepted' && order.shippedAt ? [{ label: 'Shipped', at: order.shippedAt, state: 'done' as const }] : []),
       { label: 'Cancelled', at: new Date(at).toISOString(), state: 'current' },
     ];
   }
@@ -275,6 +277,16 @@ export function orderStage(order: OrderLike, now: Date = new Date(), timeZone = 
 export function cancellableUntil(order: OrderLike, now: Date = new Date()): string | null {
   if (order.status !== 'placed' || !order.shippedAt) return null;
   return Date.parse(order.shippedAt) > now.getTime() ? order.shippedAt : null;
+}
+
+/**
+ * Until when a shipped order can still be stopped on its way (ISO; the saved out-for-delivery
+ * time), or null when it isn't on its way: request_order_cancellation's window.
+ */
+export function stoppableUntil(order: OrderLike, now: Date = new Date()): string | null {
+  if (order.status !== 'placed' || !order.shippedAt || !order.outForDeliveryAt) return null;
+  const t = now.getTime();
+  return Date.parse(order.shippedAt) <= t && Date.parse(order.outForDeliveryAt) > t ? order.outForDeliveryAt : null;
 }
 
 /** Expected (or actual) delivery time, ISO — null for cancelled orders. */

@@ -68,7 +68,9 @@ export default async function CancelItemsPage({
                 ? 'This order is already cancelled.'
                 : order.status === 'awaiting_payment'
                   ? 'This order hasn’t been paid for yet. You can cancel it from the order page.'
-                  : 'These items have already shipped, so they can’t be cancelled. You can return them once they arrive.'}
+                  : view.stopUntil
+                    ? 'These items have already shipped, so they can’t be cancelled one by one. Until it goes out for delivery, you can request cancellation of the whole order from the order page.'
+                    : 'These items have already shipped, so they can’t be cancelled. You can return them once they arrive.'}
             </Alert>
             <a href={sp(page)} className={`${buttonClasses({ variant: 'secondary' })} self-start`}>Back to the order</a>
           </>
