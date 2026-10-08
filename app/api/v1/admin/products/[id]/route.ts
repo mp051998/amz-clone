@@ -2,6 +2,7 @@ import { adminOnly } from '@/lib/api/admin';
 import { body, json, noContent, preflight, route, type ApiContext } from '@/lib/api/http';
 import { deleteProduct, getAdminProduct, setArchived, updateProduct } from '@/lib/data/admin-catalog';
 import { DataError } from '@/lib/data/errors';
+import { refundPriceGuarantees } from '@/lib/data/refunds';
 
 const EDITABLE = ['title', 'brand', 'category', 'image', 'priceMinor', 'listMinor', 'deal', 'couponPct', 'maxPerCustomer', 'sizes', 'climate', 'unit', 'qtyDiscount', 'memberPct', 'releaseAt', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 
@@ -32,6 +33,8 @@ export const PATCH = route<{ id: string }>(async (ctx, { id }) => {
     const next: Record<string, unknown> = {};
     for (const k of EDITABLE) next[k] = k in patch ? patch[k] : current[k];
     await updateProduct(ctx.db, id, next);
+    // a lower price on a pre-ordered item: card orders get the difference back now
+    await refundPriceGuarantees(id);
   }
   if (typeof patch.archived === 'boolean') await setArchived(ctx.db, id, patch.archived);
   return json({ product: await load(ctx, id) });

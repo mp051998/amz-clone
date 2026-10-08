@@ -17,6 +17,7 @@ export const metadata: Metadata = { title: 'Your transactions · Store' };
 const TITLE: Record<Transaction['source'], string> = {
   order: 'Order',
   cancellation: 'Refund: cancelled order',
+  price_guarantee: 'Refund: Pre-order Price Guarantee',
   return: 'Refund: return',
   gift_card: 'Gift card purchase',
   reload: 'Balance reload',

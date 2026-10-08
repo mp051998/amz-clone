@@ -173,6 +173,22 @@ describe('buildTransactions', () => {
     expect(brief(buildTransactions([cod], [], [], NOW))).toEqual(['order:R charge 2500 due']);
   });
 
+  it('refunds a pre-order price drop as its own kind of refund, and counts it in what was charged', () => {
+    const drop = {
+      id: 'g1',
+      items: [],
+      priceGuarantee: { productId: 'g', title: 'Starfall (PS5)', priceMinor: 4500, qty: 1 },
+      itemsMinor: 500,
+      taxMinor: 40,
+      refund: { status: 'succeeded' as const, amountMinor: 540, refundedAt: '2026-10-02T10:00:00Z' },
+      createdAt: '2026-10-02T10:00:00Z',
+    };
+    const o = order('G', '2026-10-01T09:00:00Z', { cancellations: [drop] });
+    const txs = buildTransactions([o], [], [], NOW);
+    expect(brief(txs)).toEqual(['price-guarantee:g1 refund 540 completed', 'order:G charge 3040 completed']);
+    expect(txs[0].source).toBe('price_guarantee');
+  });
+
   it('charges a split payment to the card and the balance, and splits its refunds the way the database did', () => {
     const kettle = { productId: 'k', title: 'Electric Kettle 1.7L', image: '', seller: 'Kettle Co', unitPriceMinor: 1000, qty: 1 };
     // $35.80 placed: $30.00 from the balance, $5.80 by card; $10.80 of items cancelled ($5.80 card, $5.00 balance), then the rest
