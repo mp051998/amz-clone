@@ -377,13 +377,13 @@ isOneToOne: false
                   ]
                 },"markets": {
                   Row: {
-                    "currency": string,"demo_gift_card_minor": number,"fast_ship_fee_minor": number,"delivery_day": boolean,"free_ship_threshold_minor": number,"gift_wrap_minor": number | null,"id": string,"max_line_qty": number,"payment_methods": (string)[],"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string,"protection_categories": (string)[],"protection_min_minor": number | null,"protection_round_minor": number | null,"emi_min_minor": number | null,"subscribe_methods": (string)[],"no_rush_reward_minor": number | null,"cod_max_minor": number | null,"delivery_otp_min_minor": number | null,"plus_plans": (string)[]
+                    "currency": string,"demo_gift_card_minor": number,"fast_ship_fee_minor": number,"delivery_day": boolean,"free_ship_threshold_minor": number,"gift_wrap_minor": number | null,"id": string,"max_line_qty": number,"payment_methods": (string)[],"pay_later_limit_minor": number | null,"return_days": number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps": number,"time_zone": string,"protection_categories": (string)[],"protection_min_minor": number | null,"protection_round_minor": number | null,"emi_min_minor": number | null,"subscribe_methods": (string)[],"no_rush_reward_minor": number | null,"cod_max_minor": number | null,"delivery_otp_min_minor": number | null,"plus_plans": (string)[]
                   }
                   Insert: {
-                    "currency": string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor": number,"gift_wrap_minor"?: number | null,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"return_days"?: number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null,"plus_plans"?: (string)[]
+                    "currency": string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor": number,"gift_wrap_minor"?: number | null,"id": string,"max_line_qty"?: number,"payment_methods": (string)[],"pay_later_limit_minor"?: number | null,"return_days"?: number,"ship_fee_minor": number,"tax_inclusive": boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null,"plus_plans"?: (string)[]
                   }
                   Update: {
-                    "currency"?: string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor"?: number,"gift_wrap_minor"?: number | null,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"return_days"?: number,"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null,"plus_plans"?: (string)[]
+                    "currency"?: string,"demo_gift_card_minor"?: number,"fast_ship_fee_minor"?: number,"delivery_day"?: boolean,"free_ship_threshold_minor"?: number,"gift_wrap_minor"?: number | null,"id"?: string,"max_line_qty"?: number,"payment_methods"?: (string)[],"pay_later_limit_minor"?: number | null,"return_days"?: number,"ship_fee_minor"?: number,"tax_inclusive"?: boolean,"tax_rate_bps"?: number,"time_zone"?: string,"protection_categories"?: (string)[],"protection_min_minor"?: number | null,"protection_round_minor"?: number | null,"emi_min_minor"?: number | null,"subscribe_methods"?: (string)[],"no_rush_reward_minor"?: number | null,"cod_max_minor"?: number | null,"delivery_otp_min_minor"?: number | null,"plus_plans"?: (string)[]
                   }
                   Relationships: [
                     
@@ -646,6 +646,44 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"pay_later_accounts": {
+                  Row: {
+                    "user_id": string,"market_id": string,"limit_minor": number,"activated_at": string
+                  }
+                  Insert: {
+                    "user_id": string,"market_id": string,"limit_minor": number,"activated_at"?: string
+                  }
+                  Update: {
+                    "user_id"?: string,"market_id"?: string,"limit_minor"?: number,"activated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pay_later_accounts_market_id_fkey"
+      columns: ["market_id"]
+isOneToOne: false
+      referencedRelation: "markets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pay_later_repayments": {
+                  Row: {
+                    "id": string,"user_id": string,"amount_minor": number,"method": string,"bank": string | null,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"user_id": string,"amount_minor": number,"method": string,"bank"?: string | null,"created_at"?: string
+                  }
+                  Update: {
+                    "id"?: string,"user_id"?: string,"amount_minor"?: number,"method"?: string,"bank"?: string | null,"created_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pay_later_repayments_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "pay_later_accounts"
+      referencedColumns: ["user_id"]
+    }
                   ]
                 },"plus_members": {
                   Row: {
@@ -1184,6 +1222,15 @@ isOneToOne: false
                            },
 "is_admin":
 { Args: never; Returns: boolean
+                           },
+"pay_later":
+{ Args: never; Returns: Json
+                           },
+"activate_pay_later":
+{ Args: { "p_market"?: string }; Returns: Json
+                           },
+"repay_pay_later":
+{ Args: { "p_amount": number,"p_method": string,"p_bank"?: string }; Returns: Json
                            },
 "join_plus":
 { Args: { "p_market"?: string,"p_plan"?: string }; Returns: Json

@@ -22,6 +22,7 @@ export const amazonIn: PublicMarketplace = {
     { method: 'cod', phase: 1 },
     { method: 'emi', phase: 1 },
     { method: 'amazonpay', phase: 1 },
+    { method: 'paylater', phase: 1 },
   ],
   delivery: { methods: ['standard', 'one-day', 'same-day'], freeThresholdMinor: 49900 },
   returns: { days: 10 },

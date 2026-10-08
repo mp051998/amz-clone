@@ -102,3 +102,20 @@ it('greys out a method this order can’t use, says why, and doesn’t start on 
   expect(screen.queryByText('No card needed')).toBeNull();
   expect(container.querySelector<HTMLInputElement>('input[name="payMethod"]:checked')?.value).toBe('upi');
 });
+
+it('Pay Later shows what’s free of the limit and when the order is billed', () => {
+  render(<PaymentSection {...base} curSymbol="₹" methods={['paylater', 'upi']} payLater={{ available: '₹44,500', limit: '₹60,000', href: '/in/amazon-pay/later' }} />);
+  expect(screen.getByRole('radio', { name: /Pay Later/ })).toBeChecked();
+  expect(screen.getAllByText('Buy now, pay next month — no interest').length).toBeGreaterThan(0);
+  expect(screen.getByText('₹44,500')).toBeInTheDocument();
+  expect(screen.getByText(/of ₹60,000/)).toBeInTheDocument();
+  expect(screen.getByText(/on the bill made on the 1st, due by the 5th/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'See your Pay Later account' })).toHaveAttribute('href', '/in/amazon-pay/later');
+});
+
+it('Pay Later can be greyed out with a link to activate it', () => {
+  const unavailable = { paylater: <>Not activated yet. <a href="/in/amazon-pay/later">Activate Pay Later</a></> };
+  render(<PaymentSection {...base} curSymbol="₹" methods={['upi', 'paylater']} unavailable={unavailable} />);
+  expect(screen.getByRole('radio', { name: /Pay Later/ })).toBeDisabled();
+  expect(screen.getByRole('link', { name: 'Activate Pay Later' })).toHaveAttribute('href', '/in/amazon-pay/later');
+});

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Input } from '../primitives/Input';
 import { selectClass } from '../lib/controls';
 import { OptionCard, StepCard } from './StepCard';
@@ -27,7 +27,18 @@ export interface PaymentSectionProps {
   /** net banking and EMI: each bank's Bank Offer for this order, shown when that bank is chosen */
   bankOffers?: Partial<Record<'netbanking' | 'emi', Record<string, BankOfferNote>>>;
   /** methods listed but greyed out for this order, each with why ("Not available on orders over ₹50,000") */
-  unavailable?: Partial<Record<string, string>>;
+  unavailable?: Partial<Record<string, ReactNode>>;
+  /** the shopper's Pay Later account, when it can pay for this order */
+  payLater?: PayLaterInfo;
+}
+
+export interface PayLaterInfo {
+  /** formatted available limit, e.g. "₹45,000" */
+  available: string;
+  /** formatted limit, e.g. "₹60,000" */
+  limit: string;
+  /** where to see the account and pay the bill */
+  href: string;
 }
 
 /** A bank's offer for this order: its terms, and what it takes off (absent when the items don't reach its minimum). */
@@ -59,6 +70,7 @@ const LABEL: Record<string, string> = {
   cod: 'Pay on delivery',
   emi: 'EMI',
   amazonpay: 'Wallet balance',
+  paylater: 'Pay Later',
 };
 
 function subFor(m: string, stripeCard: boolean): string {
@@ -70,6 +82,7 @@ function subFor(m: string, stripeCard: boolean): string {
     case 'cod': return 'Cash, UPI or card when it arrives';
     case 'emi': return 'Split the total into monthly payments';
     case 'amazonpay': return 'Pay from your store wallet';
+    case 'paylater': return 'Buy now, pay next month — no interest';
     default: return '';
   }
 }
@@ -99,7 +112,7 @@ function UseBalance({ balance, method }: { balance: BalanceInfo; method: string 
  * Step 2 — Payment method. The chosen method is always posted as `payMethod` (radio inputs stay in the
  * form while the list is collapsed); the selected method's demo fields show under the list.
  */
-export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed, bankOffers, unavailable = {} }: PaymentSectionProps) {
+export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = false, n = 2, balance, emi, initial, lastUsed, bankOffers, unavailable = {}, payLater }: PaymentSectionProps) {
   const open_ = methods.filter((m) => !unavailable[m]);
   const [selected, setSelected] = useState(initial && open_.includes(initial) ? initial : open_[0] ?? 'card');
   const [open, setOpen] = useState(false);
@@ -137,6 +150,7 @@ export function PaymentSection({ methods, curSymbol, defaultName, stripeCard = f
         {selected === 'card' && stripeCard ? stripeCardNotice()
           : selected === 'netbanking' ? <NetBankingFields offers={bankOffers?.netbanking} />
           : selected === 'emi' ? <EmiFields emi={emi} offers={bankOffers?.emi} />
+          : selected === 'paylater' ? payLaterFields(payLater)
           : fields(selected, curSymbol, defaultName, balance)}
         {balance?.partial && SPLIT.includes(selected) ? <UseBalance balance={balance} method={selected} /> : null}
       </div>
@@ -251,6 +265,21 @@ function fields(method: string, curSymbol: string, defaultName: string, balance?
     default:
       return null;
   }
+}
+
+/** Pay Later pays for the order now: show what's free of the limit, and when it's billed. */
+function payLaterFields(payLater: PayLaterInfo | undefined) {
+  return (
+    <div className="flex max-w-[480px] flex-col gap-1 rounded-input bg-surface-2 p-3">
+      {payLater ? (
+        <p className={note}>Available limit: <b className="text-ink tabular-nums">{payLater.available}</b> of {payLater.limit}</p>
+      ) : null}
+      <p className={note}>
+        You pay for this order next month: it’s on the bill made on the 1st, due by the 5th, with no interest.
+        {payLater ? <> <a href={payLater.href} className="font-semibold text-ink underline underline-offset-2 hover:text-accent-ink">See your Pay Later account</a></> : null}
+      </p>
+    </div>
+  );
 }
 
 /** The store balance pays the whole order: show what's there and where to top it up. */

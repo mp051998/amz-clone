@@ -29,6 +29,7 @@ export function refundTo(method: PaymentMethod, label: string): string {
   if (method === 'giftcard') return 'your gift card balance';
   if (method === 'amazonpay') return 'your wallet balance';
   if (method === 'cod') return 'your bank account';
+  if (method === 'paylater') return 'your Pay Later account';
   return label || (method === 'card' ? 'your card' : 'your payment method');
 }
 

@@ -89,6 +89,12 @@ it('doesn’t ask when the order was paid from the balance', async () => {
   expect(screen.queryAllByRole('radio').filter((r) => (r as HTMLInputElement).name === 'refundTo')).toEqual([]);
 });
 
+it('doesn’t offer the balance for a Pay Later order: its refund goes back to Pay Later', async () => {
+  await show(order({ market: 'IN', currency: 'INR', paymentMethod: 'paylater', paymentLabel: 'Pay Later' }), amazonIn);
+  expect(screen.getByText(/Refunds go to your Pay Later account once the items reach us\./)).toBeTruthy();
+  expect(screen.queryAllByRole('radio').filter((r) => (r as HTMLInputElement).name === 'refundTo')).toEqual([]);
+});
+
 it('asks how it goes back: dropped off, anywhere or at a Hub point, or picked up from the address', async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-10-08T18:00:00Z')); // Thursday 11 AM in Seattle

@@ -28,6 +28,7 @@ export function paymentText(method: string, label: string): string {
   if (method === 'giftcard') return 'Gift card balance';
   if (method === 'amazonpay') return 'Wallet balance';
   if (method === 'cod') return 'Pay on delivery';
+  if (method === 'paylater') return 'Pay Later';
   return label;
 }
 
