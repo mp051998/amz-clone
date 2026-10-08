@@ -116,6 +116,7 @@ export default async function AccountPage() {
     { title: 'Your Q&A', meta: 'Questions and answers', desc: 'Questions you’ve asked about products, and answers you’ve given. Delete any of them.', href: '/account/questions' },
     // the device's history spans both stores, so no count here: the page shows this store's share
     { title: 'Browsing history', meta: paused ? 'Paused' : recent.length ? 'On this device' : 'Nothing viewed yet', desc: 'Products you looked at recently. Pause or clear it any time.', href: '/history' },
+    { title: 'Your recommendations', meta: 'From what you view and buy', desc: 'Products picked for you from your browsing history and orders. Choose what they’re based on.', href: '/recommendations' },
     { title: 'Customer service', meta: 'Help', desc: 'Returns, refunds, delivery problems and order changes.', href: '/customer-service' },
     { title: 'Your support cases', meta: unread.size ? (unread.size === 1 ? 'New reply on 1 case' : `New replies on ${unread.size} cases`) : 'Messages with us', desc: 'What you’ve asked us and our replies. Reply on a case or close it.', href: '/customer-service/cases' },
   ];

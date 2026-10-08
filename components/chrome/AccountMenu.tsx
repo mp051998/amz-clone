@@ -12,6 +12,7 @@ const SIGNED_IN_LINKS = [
   { label: 'Your messages', href: '/account/messages' },
   { label: 'Your reviews', href: '/account/reviews' },
   { label: 'Browsing history', href: '/history' },
+  { label: 'Your recommendations', href: '/recommendations' },
   { label: 'Account', href: '/account' },
   { label: 'Plus membership', href: '/prime' },
   { label: 'Gift cards', href: '/gift-cards' },

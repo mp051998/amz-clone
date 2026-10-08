@@ -10,7 +10,7 @@ import { buyAgain } from '@/lib/data/buy-again';
 import { inspiredBy } from '@/lib/data/also-viewed';
 import { buyableAgain } from '@/lib/buy-again';
 import { exampleQueries, getDecisionHome, greetingFor } from '@/lib/home-content';
-import { readRecentIds } from '@/lib/recent';
+import { readRecentIds, readRecsSkipped } from '@/lib/recent';
 import { firstName, readUser } from '@/lib/auth';
 import { storeCategories } from '@/lib/storefront';
 import { db } from '@/lib/supabase/server';
@@ -31,14 +31,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const store = await getMarketplace();
-  const [client, user, recentIds, categories] = await Promise.all([db(), readUser(), readRecentIds(), storeCategories()]);
+  const [client, user, recentIds, skipped, categories] = await Promise.all([db(), readUser(), readRecentIds(), readRecsSkipped(), storeCategories()]);
   const now = new Date();
   const none: SavedUpdates = { back: [], drops: [] };
   const [home, { back, drops }, again, related] = await Promise.all([
     getDecisionHome(client, store, recentIds, now),
     user ? savedUpdates(client, store.id, 4).catch(() => none) : Promise.resolve(none),
     user ? buyAgain(client, store.id, BUY_AGAIN_SCAN).then((items) => buyableAgain(items, 4)).catch(() => []) : Promise.resolve([]),
-    inspiredBy(client, store.id, recentIds, INSPIRED_MAX * 2).catch(() => []),
+    inspiredBy(client, store.id, recentIds, INSPIRED_MAX * 2, skipped).catch(() => []),
   ]);
   const picked = new Set(home.picks.map((x) => x.product.id));
   const inspired = related.filter((p) => !picked.has(p.id)).slice(0, INSPIRED_MAX);
@@ -87,7 +87,7 @@ export default async function Home() {
         ) : null}
 
         {inspired.length ? (
-          <HomeSection id="home-inspired" title="Inspired by your browsing history" meta="What shoppers looked at alongside the things you viewed">
+          <HomeSection id="home-inspired" title="Inspired by your browsing history" meta="What shoppers looked at alongside the things you viewed" link={{ href: storePath(store, '/recommendations'), label: 'More for you' }}>
             <ContinueRow products={inspired} store={store} kicker={(p) => p.brand ?? p.categoryName} />
           </HomeSection>
         ) : null}
