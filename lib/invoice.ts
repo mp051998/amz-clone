@@ -20,6 +20,8 @@ export interface InvoiceLine {
   promoMinor: number;
   /** what Subscribe & Save took off the line (0 when not a subscription delivery) */
   snsMinor: number;
+  /** what the Bank Offer took off the line (0 without one) */
+  bankOfferMinor: number;
   /** the protection plans bought with the line (0 without one) */
   protectionMinor: number;
 }
@@ -47,6 +49,9 @@ export interface Invoice {
   promoCode?: string;
   /** what Subscribe & Save took off them (0 when not a subscription delivery) */
   snsMinor: number;
+  /** what the Bank Offer took off them (0 without one), and the bank */
+  bankOfferMinor: number;
+  bank?: string;
   shipMinor: number;
   /** gift wrap (0 without it) */
   wrapMinor: number;
@@ -79,10 +84,11 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     qty: it.qty,
     unitMinor: it.unitPriceMinor,
     amountMinor: it.unitPriceMinor * it.qty,
-    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0) - (it.unitSnsMinor ?? 0)) * it.qty,
+    discountMinor: ((it.unitDiscountMinor ?? 0) - (it.unitPromoMinor ?? 0) - (it.unitQtyDiscountMinor ?? 0) - (it.unitSnsMinor ?? 0) - (it.unitBankMinor ?? 0)) * it.qty,
     qtyDiscountMinor: (it.unitQtyDiscountMinor ?? 0) * it.qty,
     promoMinor: (it.unitPromoMinor ?? 0) * it.qty,
     snsMinor: (it.unitSnsMinor ?? 0) * it.qty,
+    bankOfferMinor: (it.unitBankMinor ?? 0) * it.qty,
     protectionMinor: (it.protectionMinor ?? 0) * it.qty,
   }));
 
@@ -109,11 +115,13 @@ export function buildInvoice(order: Order, returns: readonly OrderReturn[] = [])
     kind: order.status === 'cancelled' ? 'cancelled' : 'invoice',
     lines,
     subtotalMinor: order.totals.subtotalMinor,
-    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0),
+    discountMinor: (order.totals.discountMinor ?? 0) - (order.totals.promoMinor ?? 0) - (order.totals.qtyDiscountMinor ?? 0) - (order.totals.snsMinor ?? 0) - (order.totals.bankOfferMinor ?? 0),
     qtyDiscountMinor: order.totals.qtyDiscountMinor ?? 0,
     promoMinor: order.totals.promoMinor ?? 0,
     ...(order.promoCode ? { promoCode: order.promoCode } : {}),
     snsMinor: order.totals.snsMinor ?? 0,
+    bankOfferMinor: order.totals.bankOfferMinor ?? 0,
+    ...(order.bank && order.totals.bankOfferMinor ? { bank: order.bank } : {}),
     shipMinor: order.totals.shipMinor,
     wrapMinor: order.totals.wrapMinor ?? 0,
     protectionMinor: order.totals.protectionMinor ?? 0,

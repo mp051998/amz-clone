@@ -70,6 +70,8 @@ import { ContinueRow } from '@/components/home/HomeSections';
 import { protectionPlanName } from '@/lib/protection';
 import { emiPlans } from '@/lib/emi';
 import { EmiOffer } from '@/components/product/EmiOffer';
+import { BankOffers } from '@/components/product/BankOffers';
+import { listBankOffers } from '@/lib/data/bank-offers';
 import { PromoOffers } from '@/components/product/PromoOffers';
 import { activePromoCodes } from '@/lib/data/promo';
 import { promosFor } from '@/lib/promo';
@@ -179,7 +181,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // other sellers' offers (none before the offers migration lands, or off sale)
   const offersP = p.archived ? Promise.resolve([]) : listOffers(client, p.id).catch((): Product[] => []);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -208,6 +210,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     offersP,
     user && p.subscribeSave && !p.archived ? subscriptionFor(client, p.id) : Promise.resolve(null),
     p.archived ? Promise.resolve(new Map<string, LightningDeal>()) : lightningDealsFor(client, [p.id]),
+    p.archived ? Promise.resolve([]) : listBankOffers(client, store.id),
   ]);
   const sellerRating = sellers.get(p.seller);
 
@@ -407,6 +410,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     <span className="text-[13px] font-semibold text-warn-strong">Limited-time deal</span>
                   ) : null}
                   <EmiOffer plans={emiPlans(store.id, priceMinor)} currency={cur} />
+                  <BankOffers offers={bankOffers} currency={cur} />
                   {coupon ? (
                     <CouponToggle
                       productId={p.id}

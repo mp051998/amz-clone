@@ -192,6 +192,8 @@ function toOrderItems(rows: Partial<OrderItemRow>[]): OrderItem[] {
       // absent on rows read before the Subscribe & Save migration lands
       ...(it.subscription_id ? { subscriptionId: it.subscription_id } : {}),
       ...(it.unit_sns_minor ? { unitSnsMinor: it.unit_sns_minor } : {}),
+      // absent on rows read before the Bank Offers migration lands
+      ...(it.unit_bank_minor ? { unitBankMinor: it.unit_bank_minor } : {}),
     }));
 }
 
@@ -219,6 +221,8 @@ export function toOrder(row: OrderWithItems): Order {
   const qtyDiscountMinor = items.reduce((s, it) => s + (it.unitQtyDiscountMinor ?? 0) * it.qty, 0);
   // and Subscribe & Save's
   const snsMinor = items.reduce((s, it) => s + (it.unitSnsMinor ?? 0) * it.qty, 0);
+  // and the Bank Offer's
+  const bankOfferMinor = items.reduce((s, it) => s + (it.unitBankMinor ?? 0) * it.qty, 0);
   const cancellations = (row.cancellations ?? row.order_cancellations ?? [])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
@@ -237,6 +241,7 @@ export function toOrder(row: OrderWithItems): Order {
       ...(qtyDiscountMinor ? { qtyDiscountMinor } : {}),
       ...(promoMinor ? { promoMinor } : {}),
       ...(snsMinor ? { snsMinor } : {}),
+      ...(bankOfferMinor ? { bankOfferMinor } : {}),
       shipMinor: row.ship_minor,
       taxMinor: row.tax_minor,
       // absent on rows read before the gift wrap migration lands
@@ -278,6 +283,8 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.release_at ? { releaseAt: row.release_at } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),
     ...(row.promo_code ? { promoCode: row.promo_code } : {}),
+    // absent on rows read before the Bank Offers migration lands
+    ...(row.bank ? { bank: row.bank } : {}),
     // absent on rows read before the GST invoice migration lands
     ...(row.gstin ? { gst: { gstin: row.gstin, name: row.gst_name ?? '' } } : {}),
     // absent on rows read before the archive migration lands

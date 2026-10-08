@@ -62,6 +62,8 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       buyNow,
       emiMonths: method === 'emi' ? Number(formData.get('emiTenure')) || undefined : undefined,
       promoCode: promo,
+      // net banking and EMI name the bank, for its Bank Offer
+      bank: method === 'netbanking' ? formData.get('bank') : method === 'emi' ? formData.get('emiBank') : undefined,
       // India: "Use GST invoice", sent only when ticked
       gst: formData.get('gst') === 'on' ? { gstin: formData.get('gstin'), name: formData.get('gstName') } : undefined,
     });

@@ -72,6 +72,8 @@ export interface OrderTotals {
   promoMinor?: number;
   /** the Subscribe & Save part of discountMinor (absent without one) */
   snsMinor?: number;
+  /** the Bank Offer's part of discountMinor (absent without one) */
+  bankOfferMinor?: number;
   shipMinor: number;
   taxMinor: number;
   /** gift wrap, per unit wrapped (absent or 0 without it) */
@@ -232,6 +234,8 @@ export interface OrderItem {
   subscriptionId?: string;
   /** the Subscribe & Save part of unitDiscountMinor (absent without one) */
   unitSnsMinor?: number;
+  /** the Bank Offer's part of unitDiscountMinor (absent without one) */
+  unitBankMinor?: number;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */
@@ -307,6 +311,8 @@ export interface Order {
   emiMonths?: number;
   /** the promotion code used at checkout (absent without one) */
   promoCode?: string;
+  /** net banking and EMI: the bank paid through, whose Bank Offer applied when `totals.bankOfferMinor` says so */
+  bank?: string;
   /** India: the business buyer's GSTIN and name for a GST invoice (absent without one) */
   gst?: { gstin: string; name: string };
 }

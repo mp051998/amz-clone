@@ -47,8 +47,8 @@ describe('buildInvoice', () => {
     const inv = buildInvoice(order())!;
     expect(inv.kind).toBe('invoice');
     expect(inv.lines).toEqual([
-      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, protectionMinor: 0 },
-      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, protectionMinor: 0 },
+      { productId: 'a', title: 'Kettle', seller: 'Store', qty: 2, unitMinor: 1500, amountMinor: 3000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, bankOfferMinor: 0, protectionMinor: 0 },
+      { productId: 'b', title: 'Mug', seller: 'Mugs Inc', qty: 1, unitMinor: 2000, amountMinor: 2000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, snsMinor: 0, bankOfferMinor: 0, protectionMinor: 0 },
     ]);
     expect(inv).toMatchObject({ subtotalMinor: 5000, discountMinor: 0, qtyDiscountMinor: 0, promoMinor: 0, shipMinor: 599, wrapMinor: 0, protectionMinor: 0, taxMinor: 400, totalMinor: 5999, charged: true, refunds: [], refundedMinor: 0, netMinor: 5999 });
   });
@@ -118,6 +118,24 @@ describe('buildInvoice', () => {
     }))!;
     expect(inv.lines.map((l) => [l.discountMinor, l.snsMinor])).toEqual([[0, 150], [0, 100]]);
     expect(inv).toMatchObject({ discountMinor: 0, snsMinor: 250, totalMinor: 5130 });
+  });
+
+  it('shows the Bank Offer apart, with the bank, and not as a coupon', () => {
+    const inv = buildInvoice(order({
+      market: 'IN',
+      currency: 'INR',
+      paymentMethod: 'emi',
+      paymentLabel: 'EMI · 6 months · HDFC Bank',
+      bank: 'HDFC Bank',
+      totals: { subtotalMinor: 5000, discountMinor: 800, bankOfferMinor: 500, shipMinor: 0, taxMinor: 0, totalMinor: 4200 },
+      items: [
+        { productId: 'a', title: 'Kettle', image: '', seller: 'Store', unitPriceMinor: 1500, qty: 2, unitDiscountMinor: 250, unitBankMinor: 100 },
+        { productId: 'b', title: 'Mug', image: '', seller: 'Mugs Inc', unitPriceMinor: 2000, qty: 1, unitDiscountMinor: 300, unitBankMinor: 300 },
+      ],
+    }))!;
+    expect(inv.lines.map((l) => [l.discountMinor, l.bankOfferMinor])).toEqual([[300, 200], [0, 300]]);
+    expect(inv).toMatchObject({ discountMinor: 300, bankOfferMinor: 500, bank: 'HDFC Bank', totalMinor: 4200 });
+    expect(buildInvoice(order({ bank: 'Yes Bank' }))).not.toHaveProperty('bank');
   });
 
   it('has nothing for an order still waiting for payment', () => {

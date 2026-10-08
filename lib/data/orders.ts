@@ -11,6 +11,7 @@ import { refundCancellation, refundOrder } from './refunds';
 import { readPromoCode } from '../promo';
 import { readGst } from '../gst';
 import { getPickupPoint } from './pickup';
+import { isBankOfferMethod } from '../bank-offers';
 
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'giftcard', 'upi', 'netbanking', 'cod', 'emi', 'amazonpay'];
 
@@ -38,8 +39,19 @@ export interface PlaceOrderInput {
   emiMonths?: number;
   /** a promotion code typed at checkout (blank is none) */
   promoCode?: string | null;
+  /** net banking and EMI: the shopper's bank, whose best Bank Offer comes off the items (ignored for other methods) */
+  bank?: unknown;
   /** India: a GST invoice made out to this GSTIN and business name (a blank GSTIN is none) */
   gst?: { gstin: unknown; name: unknown };
+}
+
+export const BANK_MAX = 40;
+
+/** The bank named at checkout, trimmed (blank is none); longer than BANK_MAX is refused (invalid_input). */
+export function readBank(v: unknown): string | undefined {
+  const bank = typeof v === 'string' ? v.trim() : '';
+  if (bank.length > BANK_MAX) throw new DataError('invalid_input', 'bank', 'Choose your bank from the list.');
+  return bank || undefined;
 }
 
 export function isShipSpeed(v: unknown): v is ShipSpeed {
@@ -72,6 +84,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
   const emi = input.paymentMethod === 'emi' ? input.emiMonths : undefined;
   if (emi !== undefined && !isEmiMonths(emi)) throw new DataError('invalid_input', 'emiMonths', 'Choose 3, 6, 9 or 12 monthly payments.');
   const promo = readPromoCode(input.promoCode);
+  const bank = isBankOfferMethod(input.paymentMethod) ? readBank(input.bank) : undefined;
   // GST details are checked before anything is reserved, and added once the order exists
   const gst = input.gst ? readGst(input.gst.gstin, input.gst.name) : null;
   if (gst && market !== 'IN') throw new DataError('gst_unavailable');
@@ -100,6 +113,7 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
         : {}),
       ...(emi !== undefined ? { p_emi_months: emi } : {}),
       ...(promo ? { p_promo_code: promo } : {}),
+      ...(bank ? { p_bank: bank } : {}),
     }),
   );
   const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
