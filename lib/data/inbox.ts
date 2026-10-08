@@ -2,6 +2,7 @@ import type { Db } from '../db/client';
 import { trackingSteps } from '../decision/tracking';
 import type { Market, Order } from '../types';
 import { unwrap } from './errors';
+import { isMuted, mutedTopics, type MessageTopic } from './message-preferences';
 import { listOrders } from './orders';
 import { myRecalls, type MyRecall } from './recalls';
 import { awaitingReview, type ToReview } from './reviews';
@@ -21,8 +22,9 @@ import { awaitingReview, type ToReview } from './reviews';
  * - Lightning Deals they watched going live
  * - the store's decisions on their A-to-z Guarantee claims
  *
- * Only things that have happened, from the last 90 days. What came in since the shopper last opened
- * the page in that store is new (`inbox_reads`).
+ * Only things that have happened, from the last 90 days, less the topics the shopper turned off
+ * (message-preferences). What came in since the shopper last opened the page in that store is new
+ * (`inbox_reads`).
  */
 
 export const INBOX_DAYS = 90;
@@ -461,10 +463,11 @@ export function isNewMessage(m: Pick<InboxMessage, 'at'>, seenAt: string | null)
   return !seenAt || Date.parse(m.at) > Date.parse(seenAt);
 }
 
-/** The caller's messages in a store, newest first. */
+/** The caller's messages in a store, newest first, less the topics they've turned off. */
 export async function listInbox(db: Db, market: Market, userId: string, now: Date = new Date(), timeZone = 'UTC'): Promise<InboxMessage[]> {
   const since = new Date(now.getTime() - INBOX_DAYS * 86_400_000).toISOString();
-  const [orders, returns, replies, answers, toReview, recalls, dealsLive, claims] = await Promise.all([
+  const [muted, orders, returns, replies, answers, toReview, recalls, dealsLive, claims] = await Promise.all([
+    mutedTopics(db, userId).catch((): Set<MessageTopic> => new Set()),
     listOrders(db, market, { limit: INBOX_LIMIT }),
     inboxReturns(db, market, userId),
     inboxReplies(db, market, userId, since),
@@ -474,5 +477,5 @@ export async function listInbox(db: Db, market: Market, userId: string, now: Dat
     inboxDealsLive(db, market, userId, since).catch((): InboxDealLive[] => []),
     inboxClaims(db, market, userId, since).catch((): InboxClaim[] => []),
   ]);
-  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive, claims }, now, timeZone);
+  return buildInbox({ orders, returns, replies, answers, toReview, recalls, dealsLive, claims }, now, timeZone).filter((m) => !isMuted(m.kind, muted));
 }

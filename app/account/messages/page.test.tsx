@@ -59,9 +59,10 @@ it('sends the signed-out to sign in (India store paths too)', async () => {
   await expect(MessagesPage()).rejects.toThrow('REDIRECT /in/signin?next=/account/messages');
 });
 
-it('says when there is nothing yet', async () => {
+it('says when there is nothing yet, and links to choosing which messages come', async () => {
   render(await MessagesPage());
   expect(screen.getByText('No messages yet')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Communication preferences' })).toHaveAttribute('href', '/account/communications');
 });
 
 it('groups messages by day, each saying what happened and linking to it', async () => {

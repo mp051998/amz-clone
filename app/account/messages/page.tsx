@@ -91,7 +91,8 @@ function note(m: InboxMessage, money: (minor: number) => string, balance: string
 /**
  * /account/messages: what's happened lately with the shopper's orders, returns, support cases and
  * questions in this store, newest first and grouped by day, as on Amazon's Message Center. What came
- * in since their last visit is marked new, and opening the page marks it all seen.
+ * in since their last visit is marked new, and opening the page marks it all seen. Communication
+ * preferences choose which kinds come.
  */
 export default async function MessagesPage() {
   const store = await getMarketplace();
@@ -125,6 +126,9 @@ export default async function MessagesPage() {
             Updates on your orders, returns, reviews, recalls, support cases, questions and the deals you’re watching in this store from the last {INBOX_DAYS} days.
             {fresh ? ` ${fresh} new since you last looked.` : ''}
           </span>
+          <a href={sp('/account/communications')} className="self-start text-[14px] text-ink underline underline-offset-2">
+            Communication preferences
+          </a>
         </div>
 
         {!list.length ? (
