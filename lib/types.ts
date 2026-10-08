@@ -232,8 +232,7 @@ export interface ShippingAddress {
   instructions?: string;
 }
 
-/** Delivery speed chosen at checkout: standard, or the paid faster option. */
-/** standard, faster (paid), or on the Plus member's Delivery Day */
+/** Delivery speed chosen at checkout: standard, faster (paid), or on the Plus member's Delivery Day. */
 export type ShipSpeed = 'standard' | 'fast' | 'day';
 
 export interface Order {
@@ -266,12 +265,32 @@ export interface Order {
   shipSpeed?: ShipSpeed;
   /** a Delivery Day order: the weekday it arrives on (ISO, 1 = Monday) */
   deliveryDay?: number;
+  /**
+   * a pickup order: the pickup point it goes to (its name and street are `shipTo.line1` and
+   * `line2`) and the six-digit code to collect it with
+   */
+  pickup?: { pointId: string; code: string };
   /** EMI orders: how many monthly payments the shopper chose. */
   emiMonths?: number;
   /** the promotion code used at checkout (absent without one) */
   promoCode?: string;
   /** India: the business buyer's GSTIN and name for a GST invoice (absent without one) */
   gst?: { gstin: string; name: string };
+}
+
+/** A Hub Locker (open around the clock, no cash) or Hub Counter (shop hours) to collect orders at. */
+export interface PickupPoint {
+  id: string;
+  kind: 'locker' | 'counter';
+  name: string;
+  line1: string;
+  city: string;
+  state: string;
+  postcode: string;
+  /** opening hours, as the point gives them */
+  hours: string;
+  /** how many days it holds an order for collection */
+  holdDays: number;
 }
 
 /**

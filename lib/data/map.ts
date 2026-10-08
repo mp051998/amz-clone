@@ -252,6 +252,8 @@ export function toOrder(row: OrderWithItems): Order {
     ...(row.ship_speed === 'fast' || row.ship_speed === 'day' ? { shipSpeed: row.ship_speed } : {}),
     // absent on rows read before the Delivery Day migration lands
     ...(row.delivery_day ? { deliveryDay: row.delivery_day } : {}),
+    // absent on rows read before the pickup migration lands
+    ...(row.pickup_point_id && row.pickup_code ? { pickup: { pointId: row.pickup_point_id, code: row.pickup_code } } : {}),
     ...(row.emi_months ? { emiMonths: row.emi_months } : {}),
     ...(row.promo_code ? { promoCode: row.promo_code } : {}),
     // absent on rows read before the GST invoice migration lands
