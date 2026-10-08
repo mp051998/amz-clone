@@ -396,14 +396,14 @@ describe('fast delivery', () => {
 
   it('a paid fast order gets the evening run', async () => {
     const { order: o } = await order('US', 'card', 23);
-    const placedAt = '2026-10-07T17:00:00.000Z'; // 10:00 PDT → out 17:00, delivered 19:30 PDT the same day
+    const placedAt = '2037-10-07T17:00:00.000Z'; // a Wednesday well ahead, so it hasn't shipped yet: 10:00 PDT → out 17:00, delivered 19:30 PDT the same day
     await admin().from('orders').update({ ship_speed: 'fast', status: 'placed', placed_at: placedAt }).eq('id', o.id);
     const paid = await getOrder(buyer.db, o.id);
     expect(paid?.shipSpeed).toBe('fast');
-    same(paid?.shippedAt, '2026-10-07T20:00:00.000Z');
-    same(paid?.outForDeliveryAt, '2026-10-08T00:00:00.000Z');
+    same(paid?.shippedAt, '2037-10-07T20:00:00.000Z');
+    same(paid?.outForDeliveryAt, '2037-10-08T00:00:00.000Z');
     same(paid?.deliveredAt, plannedSchedule(placedAt, TZ.US, 'fast').deliveredAt);
-    same(paid?.deliveredAt, '2026-10-08T02:30:00.000Z');
+    same(paid?.deliveredAt, '2037-10-08T02:30:00.000Z');
     await adminCancelOrder(boss.db, o.id);
   });
 
