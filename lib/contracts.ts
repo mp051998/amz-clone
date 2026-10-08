@@ -69,7 +69,8 @@ export interface PublicMarketplace {
   locale: { default: string; supported: string[] };
   currency: { code: CurrencyCode; symbol: string; display: CurrencyCode[]; fractionDigits: number; grouping: 'western' | 'indian' };
   dates: { order: 'MDY' | 'DMY'; timeZone: string };
-  pricing: { taxInclusive: boolean; listLabel: string; savingsFirst: boolean; taxNote?: string };
+  /** `typicalLabel`: shown struck through with the 90-day typical price when the price is below it and there's no list price (amazon.com's "Typical price") */
+  pricing: { taxInclusive: boolean; listLabel: string; savingsFirst: boolean; taxNote?: string; typicalLabel?: string };
   address: { schema: 'US' | 'IN'; postcode: { label: string; pattern: string }; types?: Array<'home' | 'office'> };
   payments: { method: string; phase: number }[];
   delivery: { methods: string[]; freeThresholdMinor: number };

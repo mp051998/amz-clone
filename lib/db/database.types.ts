@@ -647,6 +647,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"price_history": {
+                  Row: {
+                    "product_id": string,"price_minor": number,"at": string
+                  }
+                  Insert: {
+                    "product_id": string,"price_minor": number,"at"?: string
+                  }
+                  Update: {
+                    "product_id"?: string,"price_minor"?: number,"at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"pickup_points": {
                   Row: {
                     "id": string,"market_id": string,"kind": string,"name": string,"line1": string,"city": string,"state": string,"postcode": string,"hours": string,"hold_days": number,"active": boolean
@@ -1454,6 +1467,9 @@ isOneToOne: false
                            },
 "product_return_signal":
 { Args: { "p_product": string }; Returns: Json
+                           },
+"typical_price":
+{ Args: { "p_product": string }; Returns: number | null
                            },
 "search_catalog":
 { Args: { "p_brands"?: (string)[],"p_climate"?: boolean,"p_deal"?: boolean,"p_dept"?: string,"p_in_stock"?: boolean,"p_market": string,"p_max_price"?: number,"p_min_discount"?: number,"p_min_price"?: number,"p_min_rating"?: number,"p_page"?: number,"p_page_size"?: number,"p_q"?: string,"p_sellers"?: (string)[],"p_sizes"?: (string)[],"p_small_business"?: boolean,"p_sort"?: string }; Returns: Json

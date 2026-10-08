@@ -9,7 +9,7 @@ export const amazon: PublicMarketplace = {
   locale: { default: 'en-US', supported: ['en-US', 'es-US', 'zh-CN', 'de-DE', 'pt-BR'] },
   currency: { code: 'USD', symbol: '$', display: ['USD'], fractionDigits: 2, grouping: 'western' },
   dates: { order: 'MDY', timeZone: 'America/Los_Angeles' },
-  pricing: { taxInclusive: false, listLabel: 'List Price', savingsFirst: true },
+  pricing: { taxInclusive: false, listLabel: 'List Price', savingsFirst: true, typicalLabel: 'Typical price' },
   address: { schema: 'US', postcode: { label: 'ZIP Code', pattern: '^\\d{5}(-\\d{4})?$' } },
   payments: [
     { method: 'card', phase: 1 },
