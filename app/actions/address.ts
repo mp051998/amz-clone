@@ -22,6 +22,7 @@ function fields(fd: FormData): addresses.AddressFieldsInput {
     postcode: fd.get('postcode'),
     addressType: fd.get('addressType'),
     instructions: fd.get('instructions'),
+    dropoff: fd.get('dropoff'),
   };
 }
 

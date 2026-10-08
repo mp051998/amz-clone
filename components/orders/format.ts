@@ -2,6 +2,7 @@ import type { Store } from '../lib/store';
 import type { Order, OrderCancellation } from '@/lib/types';
 import type { TrackingStep } from '@/lib/decision/types';
 import { cancellableUntil, deliveryEta, isDelivered, trackingSteps } from '@/lib/decision/tracking';
+import { DROPOFF } from '@/lib/dropoff';
 import { formatMoney } from '@/lib/marketplaces';
 import { balanceMethod } from '@/lib/data/balance';
 
@@ -261,7 +262,8 @@ export function orderView(order: Order, store: StoreDates, now: Date = new Date(
       steps, eta, delivered, itemCount, cancelUntil,
       kicker: 'DELIVERED',
       headline: 'Delivered',
-      window: `Handed to ${order.shipTo.name.split(' ')[0] || 'you'} · ${stepTime(eta, store, now)}`,
+      // where it was left, when there's a spot for it; handed over otherwise
+      window: `${order.shipTo.dropoff ? DROPOFF[order.shipTo.dropoff].left : `Handed to ${order.shipTo.name.split(' ')[0] || 'you'}`} · ${stepTime(eta, store, now)}`,
       chip: { label: `Delivered ${relativeDayName(eta, store, now)?.toLowerCase() ?? shortDate(eta, store)}`, tone: 'neutral' },
     };
   }

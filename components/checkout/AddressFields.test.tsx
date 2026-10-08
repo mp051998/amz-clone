@@ -34,3 +34,14 @@ it('both forms take delivery instructions, prefilled when editing', () => {
   render(<AddressFields isIN />);
   expect(screen.getByLabelText('Delivery instructions (optional)')).toHaveValue('');
 });
+
+it('both forms ask where to leave packages, with no preference first, prefilled when editing', () => {
+  render(<AddressFields isIN={false} address={{ dropoff: 'garage' }} />);
+  const us = screen.getByLabelText('Where should we leave packages? (optional)') as HTMLSelectElement;
+  expect(us).toHaveAttribute('name', 'dropoff');
+  expect(us.value).toBe('garage');
+  expect([...us.options].map((o) => o.text)).toEqual(['No preference', 'Front door', 'Back door', 'Side porch', 'Garage', 'Mailroom', 'Building reception', 'Property staff']);
+  cleanup();
+  render(<AddressFields isIN />);
+  expect((screen.getByLabelText('Where should we leave packages? (optional)') as HTMLSelectElement).value).toBe('');
+});

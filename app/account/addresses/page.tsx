@@ -9,6 +9,7 @@ import { AddressFields } from '@/components/checkout/AddressFields';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listAddresses } from '@/lib/data/addresses';
+import { DROPOFF } from '@/lib/dropoff';
 import { messageFor } from '@/lib/data/errors';
 import type { Address } from '@/lib/types';
 import { saveAddress, deleteAddress, setDefaultAddress } from '@/app/actions/address';
@@ -31,6 +32,7 @@ function AddressCard({ a, sp }: { a: Address; sp: (p: string) => string }) {
       <div className="flex-1 text-[14px] leading-[1.5] text-ink-2">
         {parts.map((p) => <p key={p} className="m-0">{p}</p>)}
         <p className="m-0 mt-1">Phone {a.phone}{a.kind ? ` · ${a.kind === 'office' ? 'Office' : 'Home'}` : ''}</p>
+        {a.dropoff ? <p className="m-0 mt-1"><span className="font-semibold text-ink">Leave packages at:</span> {DROPOFF[a.dropoff].label}</p> : null}
         {a.instructions ? <p className="m-0 mt-1 whitespace-pre-line"><span className="font-semibold text-ink">Delivery instructions:</span> {a.instructions}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-3 border-t border-line-2 pt-1">

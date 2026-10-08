@@ -1,6 +1,7 @@
 import { climateCerts } from '../climate';
 import type { CurrencyCode } from '../contracts';
 import type { Database } from '../db/database.types';
+import { isDropoffSpot } from '../dropoff';
 import { isExchangeCondition } from '../exchange';
 import { isUsedCondition } from '../offers';
 import { isUnitKind } from '../unit-price';
@@ -160,6 +161,8 @@ export function toAddress(row: AddressRow): Address {
     kind: (opt(row.kind) as Address['kind']) ?? undefined,
     // absent on rows read before the delivery instructions migration lands
     instructions: opt(row.instructions) ?? undefined,
+    // likewise before the drop-off spots migration
+    ...(isDropoffSpot(row.dropoff) ? { dropoff: row.dropoff } : {}),
     isDefault: row.is_default,
   };
 }
@@ -293,6 +296,7 @@ export function toOrder(row: OrderWithItems): Order {
       state: row.ship_state,
       postcode: row.ship_postcode,
       instructions: opt(row.ship_instructions) ?? undefined,
+      ...(isDropoffSpot(row.ship_dropoff) ? { dropoff: row.ship_dropoff } : {}),
     },
     items,
     createdAt: row.created_at,

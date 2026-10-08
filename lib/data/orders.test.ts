@@ -6,7 +6,7 @@ vi.mock('./refunds', () => refunds);
 vi.mock('./payments', () => ({ expireCardCheckout: async () => undefined }));
 
 import { DataError } from './errors';
-import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, lastPaymentMethod, placeOrder, readGiftNote, setOrderAddress, setOrderGst, setOrderInstructions } from './orders';
+import { archiveOrder, cancelOrderItems, GIFT_NOTE_MAX, lastPaymentMethod, placeOrder, readGiftNote, setOrderAddress, setOrderDropoff, setOrderGst, setOrderInstructions } from './orders';
 
 const SHIPPING = { fullName: 'Alex Morgan', phone: '2065550123', line1: '410 Terry Ave N', city: 'Seattle', state: 'WA', postcode: '98109' };
 
@@ -67,6 +67,63 @@ describe('placeOrder delivery instructions', () => {
     const order = await placeOrder(plain.db, 'US', { paymentMethod: 'giftcard', shipping: SHIPPING });
     expect(plain.calls[0].p_shipping).toMatchObject({ instructions: null });
     expect(order.shipTo.instructions).toBeUndefined();
+  });
+});
+
+/** A client recording each RPC by name, answering `reply` (with `ship_dropoff` once set_my_order_dropoff is asked). */
+function namedDb(reply: Record<string, unknown> = row) {
+  const calls: { fn: string; args: Record<string, unknown> }[] = [];
+  const db = {
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      calls.push({ fn, args });
+      return { data: fn === 'set_my_order_dropoff' ? { ...reply, ship_dropoff: args.p_dropoff } : reply, error: null };
+    },
+  };
+  return { db: db as unknown as Db, calls };
+}
+
+describe('placeOrder drop-off spot', () => {
+  it('sets the spot on the order once it exists', async () => {
+    const d = namedDb();
+    const order = await placeOrder(d.db, 'US', { paymentMethod: 'giftcard', shipping: { ...SHIPPING, dropoff: 'side_porch' } });
+    expect(d.calls.map((c) => c.fn)).toEqual(['place_order', 'set_my_order_dropoff']);
+    expect(d.calls[1].args).toEqual({ p_order_id: row.id, p_dropoff: 'side_porch' });
+    expect(order.shipTo.dropoff).toBe('side_porch');
+  });
+
+  it('asks for nothing more without one, and refuses one it doesn’t know before placing', async () => {
+    const d = namedDb();
+    expect((await placeOrder(d.db, 'US', { paymentMethod: 'giftcard', shipping: { ...SHIPPING, dropoff: '' } })).shipTo.dropoff).toBeUndefined();
+    expect(d.calls.map((c) => c.fn)).toEqual(['place_order']);
+    await expect(placeOrder(d.db, 'US', { paymentMethod: 'giftcard', shipping: { ...SHIPPING, dropoff: 'roof' } })).rejects.toMatchObject({ code: 'invalid_input', detail: 'dropoff' });
+    expect(d.calls).toHaveLength(1);
+  });
+
+  it('keeps the order placed when the spot can’t be set', async () => {
+    const calls: string[] = [];
+    const db = {
+      rpc: async (fn: string) => (calls.push(fn), fn === 'place_order' ? { data: row, error: null } : { data: null, error: { code: 'P0001', message: 'order_not_editable' } }),
+    } as unknown as Db;
+    const order = await placeOrder(db, 'US', { paymentMethod: 'giftcard', shipping: { ...SHIPPING, dropoff: 'garage' } });
+    expect(calls).toEqual(['place_order', 'set_my_order_dropoff']);
+    expect(order.id).toBe(row.id);
+    expect(order.shipTo.dropoff).toBeUndefined();
+  });
+});
+
+describe('setOrderDropoff', () => {
+  it('sends the spot, or null to clear it, and reads the order back', async () => {
+    const d = namedDb();
+    expect((await setOrderDropoff(d.db, row.id, 'mailroom')).shipTo.dropoff).toBe('mailroom');
+    expect(d.calls[0].args).toEqual({ p_order_id: row.id, p_dropoff: 'mailroom' });
+    expect((await setOrderDropoff(d.db, row.id, '')).shipTo.dropoff).toBeUndefined();
+    expect(d.calls[1].args).toEqual({ p_order_id: row.id, p_dropoff: null });
+  });
+
+  it('refuses a spot it doesn’t know before asking the database', async () => {
+    const d = namedDb();
+    await expect(setOrderDropoff(d.db, row.id, 'roof')).rejects.toMatchObject({ code: 'invalid_input', detail: 'dropoff' });
+    expect(d.calls).toHaveLength(0);
   });
 });
 

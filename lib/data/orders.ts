@@ -2,6 +2,7 @@ import type { Db } from '../db/client';
 import type { Market, Order, PaymentMethod, ShipSpeed } from '../types';
 import type { BuyNow } from '../buy-now';
 import { INSTRUCTIONS_MAX } from '../contracts';
+import { readDropoff } from '../dropoff';
 import { isEmiMonths } from '../emi';
 import { parseAddress, type AddressFieldsInput } from './addresses';
 import { DataError, unwrap } from './errors';
@@ -133,9 +134,12 @@ export async function placeOrder(db: Db, market: Market, input: PlaceOrderInput)
       ...(input.buyNow?.exchange ? { p_exchange: { device_id: input.buyNow.exchange.deviceId, condition: input.buyNow.exchange.condition } } : {}),
     }),
   );
-  const order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  let order = toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+  // the drop-off spot goes on once the order exists; it's placed either way, and the spot can
+  // still be set on it until it's out for delivery
+  if (a.dropoff && !point) order = await setOrderDropoff(db, order.id, a.dropoff).catch(() => order);
   if (!gst) return order;
-  // the order is placed either way; the details can still be added until it ships
+  // likewise the GST details, until it ships
   return setOrderGst(db, order.id, gst.gstin, gst.name).catch(() => order);
 }
 
@@ -251,9 +255,22 @@ export async function setOrderInstructions(db: Db, id: string, raw: unknown): Pr
 }
 
 /**
+ * Owner changes where the courier leaves an order when nobody's there (null or blank: no
+ * preference) until it's out for delivery (`order_not_editable` after, and for pickup orders);
+ * `invalid_input` (`dropoff`) for a spot that isn't one. The saved address keeps its own.
+ */
+export async function setOrderDropoff(db: Db, id: string, raw: unknown): Promise<Order> {
+  const spot = readDropoff(raw);
+  if (spot === null) throw new DataError('invalid_input', 'dropoff', 'Choose where to leave packages from the list.');
+  const json = unwrap(await db.rpc('set_my_order_dropoff', { p_order_id: id, p_dropoff: spot ?? null }));
+  if (!json) throw new DataError('order_not_found');
+  return toOrder(json as unknown as Parameters<typeof toOrder>[0]);
+}
+
+/**
  * Owner sends an order to another address in their address book for the same store, while it's
  * being prepared (`order_address_locked` once it ships). The order takes that address's delivery
- * instructions too; totals don't change.
+ * instructions and drop-off spot too; totals don't change.
  */
 export async function setOrderAddress(db: Db, id: string, addressId: unknown): Promise<Order> {
   if (typeof addressId !== 'string' || !UUID.test(addressId)) throw new DataError('address_not_found');

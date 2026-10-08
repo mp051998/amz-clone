@@ -7,6 +7,7 @@ import { buttonClasses } from '@/components/primitives/Button';
 import { FactsCard, StatusChip, Timeline } from '@/components/orders/Tracking';
 import { orderPaymentText, paymentText } from '@/components/orders/format';
 import { trackingSteps } from '@/lib/decision/tracking';
+import { DROPOFF } from '@/lib/dropoff';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { canRetryRefund, getAdminOrder, type AdminOrder } from '@/lib/data/admin-orders';
 import { listOrderReturns } from '@/lib/data/admin-returns';
@@ -213,6 +214,7 @@ export default async function AdminOrderPage({ params, searchParams }: {
               ...(order.pickup ? [{ label: 'Pickup', value: <><span className="font-mono text-[13px]">{order.pickup.pointId}</span> · code <span className="font-mono">{order.pickup.code}</span></> }] : []),
               { label: 'Phone', value: s.phone },
               ...(s.instructions ? [{ label: 'Instructions', value: <span className="whitespace-pre-line">{s.instructions}</span> }] : []),
+              ...(s.dropoff && !order.pickup ? [{ label: 'Drop-off', value: DROPOFF[s.dropoff].label }] : []),
               { label: 'Delivery', value: order.shipSpeed === 'fast' ? 'Fast · evening run' : order.shipSpeed === 'day' ? `Delivery Day · ${weekdayName(order.deliveryDay ?? 0)}` : order.shipSpeed === 'no_rush' ? `No-Rush · ${order.noRushReward?.creditedAt ? 'reward credited' : 'reward when it ships'}` : 'Standard' },
               ...(order.gift ? [{ label: 'Gift note', value: order.gift.message ? <span className="whitespace-pre-line">{order.gift.message}</span> : 'Gift, no note' }] : []),
               ...(order.gift?.wrapped ? [{ label: 'Gift wrap', value: 'Wrap every item' }] : []),

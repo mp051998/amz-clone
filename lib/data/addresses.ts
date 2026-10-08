@@ -1,4 +1,5 @@
 import { AddressInputSchema, type AddressInput } from '../contracts';
+import { readDropoff } from '../dropoff';
 import type { Db } from '../db/client';
 import type { Address, Market } from '../types';
 import { DataError, unwrap } from './errors';
@@ -16,6 +17,7 @@ export interface AddressFieldsInput {
   postcode?: unknown;
   addressType?: unknown;
   instructions?: unknown;
+  dropoff?: unknown;
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
@@ -43,6 +45,8 @@ export function parseAddress(market: Market, input: AddressFieldsInput): Address
     addressType: market === 'IN' ? (str(input.addressType) === 'office' ? 'office' : 'home') : undefined,
     // a textarea posts line breaks as \r\n; count them as one character, as its maxLength does
     instructions: str(input.instructions).replace(/\r\n?/g, '\n').trim() || undefined,
+    // blank or "none" is no preference; anything unknown fails the check
+    dropoff: readDropoff(input.dropoff) === undefined ? undefined : str(input.dropoff),
   });
   if (!res.success) {
     const issue = res.error.issues[0];
@@ -64,6 +68,7 @@ function toRow(market: Market, a: AddressInput) {
     postcode: a.postcode,
     kind: a.schema === 'IN' ? a.addressType ?? 'home' : null,
     instructions: a.instructions || null,
+    dropoff: a.dropoff ?? null,
   };
 }
 
