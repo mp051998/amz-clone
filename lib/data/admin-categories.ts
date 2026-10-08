@@ -23,6 +23,8 @@ export interface CategoryInStore {
   archived: number;
   /** its own return window here, in days (0: not returnable); null for the store's */
   returnDays: number | null;
+  /** back for a fault only here, replaced (refunded only when it can't be) */
+  replacementOnly: boolean;
 }
 
 export interface AdminCategory {
@@ -37,17 +39,17 @@ export interface AdminCategory {
 export async function listAdminCategories(db: Db): Promise<AdminCategory[]> {
   const [cats, listed, counts] = await Promise.all([
     db.from('categories').select('slug, name').order('name'),
-    db.from('market_categories').select('market_id, category_slug, position, return_days'),
+    db.from('market_categories').select('market_id, category_slug, position, return_days, replacement_only'),
     db.rpc('category_counts'),
   ]);
   const byKey = new Map<string, CategoryInStore>();
   const entry = (market: string, slug: string) => {
     const key = `${market}|${slug}`;
     let e = byKey.get(key);
-    if (!e) byKey.set(key, (e = { position: null, products: 0, archived: 0, returnDays: null }));
+    if (!e) byKey.set(key, (e = { position: null, products: 0, archived: 0, returnDays: null, replacementOnly: false }));
     return e;
   };
-  for (const r of unwrap(listed)) Object.assign(entry(r.market_id, r.category_slug), { position: r.position, returnDays: r.return_days });
+  for (const r of unwrap(listed)) Object.assign(entry(r.market_id, r.category_slug), { position: r.position, returnDays: r.return_days, replacementOnly: r.replacement_only === true });
   for (const r of unwrap(counts)) Object.assign(entry(r.market_id, r.category_slug), { products: r.products, archived: r.archived });
   return unwrap(cats).map((c) => ({
     slug: c.slug,

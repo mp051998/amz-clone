@@ -244,6 +244,8 @@ export interface OrderItem {
    * when it was ordered (0: not returnable); absent for the store's own window
    */
   returnDays?: number;
+  /** its category was replacement only in the store when it was ordered: back for a fault only, replaced */
+  replacementOnly?: boolean;
 }
 
 /** Some items of an order cancelled before it shipped, with their own refund. */

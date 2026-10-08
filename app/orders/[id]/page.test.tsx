@@ -653,6 +653,20 @@ describe('return windows by category', () => {
     expect(screen.getAllByText(/Returnable within/)).toHaveLength(1);
   });
 
+  it('says which items are replacement only', async () => {
+    state.order = order({
+      deliveredAt: delivered(),
+      items: [
+        { productId: 'ph', title: 'Phone', image: '', seller: 'Store', unitPriceMinor: 1000, qty: 1, returnDays: 7, replacementOnly: true },
+        { productId: 'lp', title: 'Laptop', image: '', seller: 'Store', unitPriceMinor: 2000, qty: 1, replacementOnly: true },
+      ],
+    });
+    await show();
+    expect(screen.getByText('Replacement only, within 7 days of delivery')).toBeInTheDocument();
+    expect(screen.getByText('Replacement only')).toBeInTheDocument();
+    expect(screen.queryByText(/Returnable within/)).toBeNull();
+  });
+
   it('says an order of things that can’t go back can’t be returned', async () => {
     state.returnBy = new Date(Date.now() + 20 * 86_400_000).toISOString();
     state.order = order({
