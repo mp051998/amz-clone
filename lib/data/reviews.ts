@@ -117,6 +117,12 @@ export function emptyReviewFacets(): ReviewFacets {
   return { 1: zero(), 2: zero(), 3: zero(), 4: zero(), 5: zero() };
 }
 
+/** Every visible written review's stars and words, for counting which themes reviews mention (lib/review-themes.ts). */
+export async function reviewWords(db: Db, productId: string): Promise<{ rating: number; title: string; body: string }[]> {
+  const res = await db.from('reviews').select('rating, title, body').eq('product_id', productId).is('hidden_at', null).range(0, 9999);
+  return (unwrap(res) ?? []) as unknown as { rating: number; title: string; body: string }[];
+}
+
 /** A product's review facets (hidden reviews left out, as in the listing). */
 export async function reviewFacets(db: Db, productId: string): Promise<ReviewFacets> {
   const read = (moderated: boolean) => {
