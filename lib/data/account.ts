@@ -119,6 +119,15 @@ export async function changeEmail(
 }
 
 /**
+ * "Sign out everywhere", as Amazon's "Secure your account": ends every other session of the
+ * account (other browsers and devices, other API tokens), keeping the one `accessToken` is from.
+ */
+export async function signOutElsewhere(service: Service, accessToken: string): Promise<void> {
+  const { error } = await service.auth.admin.signOut(accessToken, 'others');
+  if (error) throw new DataError('internal', `sign out: ${error.code ?? ''} ${error.message}`, 'Something went wrong. Please try again.');
+}
+
+/**
  * Set a new password. Takes the current one, unless the session came from a password-reset
  * link opened moments ago ({@link isRecovery}). Every session of the account ends, so whoever
  * knew the old password is signed out everywhere; the caller gets a fresh session back.

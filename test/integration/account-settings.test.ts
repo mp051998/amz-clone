@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { changeEmail, changePassword, checkPassword, createAccount, isRecovery, renameAccount, RECOVERY_WINDOW_S } from '@/lib/data/account';
+import { changeEmail, changePassword, checkPassword, createAccount, isRecovery, renameAccount, RECOVERY_WINDOW_S, signOutElsewhere } from '@/lib/data/account';
 import { DataError } from '@/lib/data/errors';
 import { admin, anon } from './helpers';
 
@@ -106,5 +106,25 @@ describe('account settings', () => {
     const claims = JSON.parse(Buffer.from(data.session!.access_token.split('.')[1], 'base64url').toString());
     expect(isRecovery(claims)).toBe(true);
     expect(isRecovery(JSON.parse(Buffer.from(me.session.access_token.split('.')[1], 'base64url').toString()))).toBe(false);
+  });
+});
+
+describe('sign out everywhere', () => {
+  it('ends every other session of the account, and only that account’s, keeping the caller’s', async () => {
+    const [me, someone] = await Promise.all([account(), account('Someone Else')]);
+    const elsewhere = anon();
+    await elsewhere.auth.signInWithPassword({ email: me.email, password: me.password });
+    expect((await elsewhere.auth.getUser()).data.user?.id).toBe(me.id);
+
+    await signOutElsewhere(admin(), me.session.access_token);
+
+    expect((await elsewhere.auth.getUser()).error).not.toBeNull();
+    expect((await elsewhere.auth.refreshSession()).error).not.toBeNull();
+    // the caller carries on, and the account still signs in
+    expect((await me.db.auth.getUser()).data.user?.id).toBe(me.id);
+    expect((await me.db.auth.refreshSession()).error).toBeNull();
+    expect((await anon().auth.signInWithPassword({ email: me.email, password: me.password })).error).toBeNull();
+    // another account's sessions are untouched
+    expect((await someone.db.auth.refreshSession()).error).toBeNull();
   });
 });
