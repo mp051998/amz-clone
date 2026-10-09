@@ -24,7 +24,7 @@ const reviews = [
 function fakeDb() {
   const calls: [string, unknown[]][] = [];
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'is', 'order', 'limit']) {
+  for (const m of ['select', 'eq', 'neq', 'is', 'order', 'limit']) {
     chain[m] = (...args: unknown[]) => {
       calls.push([m, args]);
       return chain;
@@ -62,7 +62,7 @@ describe('askProduct', () => {
     expect(r.snippets.every((s) => !('group' in s))).toBe(true);
     expect(mocks.getProduct).toHaveBeenCalledWith(db, 'p1', { includeArchived: true });
     expect(mocks.listQuestions).toHaveBeenCalledWith(db, 'p1', null, { limit: 50 });
-    expect(calls).toEqual(expect.arrayContaining([['from', ['reviews']], ['eq', ['product_id', 'p1']], ['is', ['hidden_at', null]], ['order', ['helpful_count', { ascending: false }]], ['limit', [300]]]));
+    expect(calls).toEqual(expect.arrayContaining([['from', ['reviews']], ['eq', ['product_id', 'p1']], ['neq', ['body', '']], ['is', ['hidden_at', null]], ['order', ['helpful_count', { ascending: false }]], ['limit', [300]]]));
   });
 
   it('gives the AI every detail plus the best Q&A and reviews, and reports its answer', async () => {

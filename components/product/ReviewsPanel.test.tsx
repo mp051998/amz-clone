@@ -496,3 +496,43 @@ it('dates each review as Amazon does, in the store where it was written', () => 
   render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Great')], total: 1 })} />);
   expect(screen.getByRole('article')).toHaveTextContent('Reviewed on September 1, 2026');
 });
+
+it('rates with stars alone when the headline and review are left empty, and refuses half a review', async () => {
+  render(<ReviewsPanel {...props()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Write a review' }));
+  expect(screen.getByText('Just rating it? Leave the headline and review empty.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('radio', { name: '4 stars' }));
+
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'Solid' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit review' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Add a headline and a review, or leave both empty to just rate it.');
+  expect(loads.submitted).toEqual([]);
+
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: '' } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Submit rating' }));
+  });
+  expect(loads.submitted).toEqual([['p1', expect.objectContaining({ rating: 4, title: '', body: '' })]]);
+});
+
+it('shows the shopper’s star-only rating, with a way to add a written review or delete it', () => {
+  const mine = review('m', 3, '', { mine: true, body: '' });
+  render(<ReviewsPanel {...props({ mine })} />);
+  expect(screen.getByText('You rated it')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '3 out of 5 stars' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Delete rating' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Edit your review' })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a written review' }));
+  expect(screen.getByText('Review this product')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Update rating' })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'Grew on me' } });
+  fireEvent.change(screen.getByLabelText('Your review'), { target: { value: 'Better after a week.' } });
+  expect(screen.getByRole('button', { name: 'Submit review' })).toBeInTheDocument();
+});
+
+it('says “Edit your review” once the shopper has written one', () => {
+  render(<ReviewsPanel {...props({ mine: review('m', 4, 'Mine', { mine: true }), initial: [review('m', 4, 'Mine', { mine: true })], total: 1 })} />);
+  expect(screen.getByRole('button', { name: 'Edit your review' })).toBeInTheDocument();
+  expect(screen.queryByText('You rated it')).not.toBeInTheDocument();
+});

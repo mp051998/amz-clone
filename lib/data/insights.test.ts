@@ -25,7 +25,7 @@ function fakeDb(row: unknown, reviews: unknown[] | Error) {
     from(table: string) {
       reads.push(table);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'is', 'range']) q[m] = () => q;
+      for (const m of ['select', 'eq', 'neq', 'is', 'range']) q[m] = () => q;
       q.maybeSingle = async () => ({ data: row, error: null });
       q.then = (resolve: (r: unknown) => unknown) =>
         resolve(reviews instanceof Error ? { data: null, error: { message: reviews.message, code: 'XX000', details: '', hint: '' } } : { data: reviews, error: null });

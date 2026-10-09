@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { listReviews, matchesReviewFilter, readReviewFilter, reviewFacets, reviewFitCounts, upsertReview } from './reviews';
+import { listReviews, matchesReviewFilter, rateProduct, readReviewFilter, reviewFacets, reviewFitCounts, reviewerProfile, upsertReview } from './reviews';
 
 type Reply = { data: unknown; error: unknown; count?: number | null };
 
@@ -12,7 +12,7 @@ function fakeDb(replies: Record<string, Reply[]>) {
       const call = { table, ops: [] as [string, unknown[]][] };
       calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'gte', 'lte', 'is', 'in', 'not', 'order', 'range', 'maybeSingle', 'single', 'insert', 'update', 'filter', 'or']) {
+      for (const m of ['select', 'eq', 'neq', 'gte', 'lte', 'is', 'in', 'not', 'order', 'range', 'limit', 'maybeSingle', 'single', 'insert', 'update', 'filter', 'or']) {
         q[m] = (...args: unknown[]) => {
           call.ops.push([m, args]);
           return q;
@@ -146,4 +146,63 @@ it('reads the Vine mark with each review, and leaves it off the rest', async () 
   expect(String(calls[0].ops.find(([m]) => m === 'select')![1][0]).split(', ')).toContain('vine');
   expect(page.items[0]).toMatchObject({ id: 'r1', vine: true, verified: false });
   expect(page.items[1]).not.toHaveProperty('vine');
+});
+
+it('lists written reviews only, and hands back the viewer’s star-only rating as mine without pinning it', async () => {
+  const { db, calls } = fakeDb({
+    reviews: [
+      { data: [row('r1', 5)], error: null, count: 1 },
+      { data: row('own', 3, { user_id: 'u1', title: '', body: '' }), error: null },
+    ],
+  });
+  const page = await listReviews(db, 'p1', 'u1');
+  expect(calls[0].ops).toContainEqual(['neq', ['body', '']]);
+  expect(page.items.map((r) => r.id)).toEqual(['r1']);
+  expect(page.mine).toMatchObject({ id: 'own', rating: 3, title: '', body: '' });
+});
+
+it('counts facets over written reviews only', async () => {
+  const { db, calls } = fakeDb({ reviews: [{ data: [{ rating: 4, verified: true, photos: [] }], error: null }] });
+  expect((await reviewFacets(db, 'p1'))[4].all).toBe(1);
+  expect(calls[0].ops).toContainEqual(['neq', ['body', '']]);
+});
+
+it('leaves star-only ratings off a reviewer’s public profile', async () => {
+  const { db, calls } = fakeDb({ reviews: [{ data: [], error: null }] });
+  expect(await reviewerProfile(db, 'US', '00000000-0000-4000-8000-000000000001')).toBeNull();
+  expect(calls[0].ops).toContainEqual(['neq', ['body', '']]);
+});
+
+it('saves a star-only rating when the headline and review are both empty, and refuses half a review', async () => {
+  const created = fakeDb({ reviews: [{ data: null, error: null }, { data: row('r1', 4, { title: '', body: '' }), error: null }] });
+  const rating = await upsertReview(created.db, 'p1', 'u1', { rating: 4, title: '  ', body: '' });
+  expect(rating).toMatchObject({ rating: 4, title: '', body: '', photos: [] });
+  expect(created.calls[1].ops).toContainEqual(['insert', [expect.objectContaining({ rating: 4, title: '', body: '', photos: [] })]]);
+
+  const half = 'Add a headline and a review, or leave both empty to just rate it.';
+  await expect(upsertReview(fakeDb({}).db, 'p1', 'u1', { rating: 4, title: 'Great', body: '' })).rejects.toMatchObject({ code: 'invalid_input', detail: 'body', message: half });
+  await expect(upsertReview(fakeDb({}).db, 'p1', 'u1', { rating: 4, title: '', body: 'Great' })).rejects.toMatchObject({ code: 'invalid_input', detail: 'title', message: half });
+  await expect(upsertReview(fakeDb({}).db, 'p1', 'u1', { rating: 0, title: '', body: '' })).rejects.toMatchObject({ detail: 'rating' });
+  await expect(upsertReview(fakeDb({}).db, 'p1', 'u1', { rating: 4, title: '', body: '', photos: ['u1/a.jpg'] })).rejects.toMatchObject({ code: 'invalid_input', detail: 'photos' });
+});
+
+it('turns a review rewritten without words into a rating, dropping its photos', async () => {
+  const removed: string[][] = [];
+  const { db, calls } = fakeDb({ reviews: [{ data: { id: 'r1', photos: ['u1/a.jpg'] }, error: null }, { data: row('r1', 2, { title: '', body: '' }), error: null }] });
+  (db as unknown as { storage: unknown }).storage = { from: () => ({ remove: async (paths: string[]) => (removed.push(paths), { error: null }) }) };
+  await upsertReview(db, 'p1', 'u1', { rating: 2, title: '', body: '' });
+  expect(calls[1].ops.find(([m]) => m === 'update')![1][0]).toMatchObject({ rating: 2, title: '', body: '', photos: [] });
+  expect(removed).toEqual([['u1/a.jpg']]);
+});
+
+it('rates a product with stars alone: a new rating, or new stars on what the shopper already wrote', async () => {
+  const fresh = fakeDb({ reviews: [{ data: null, error: null }, { data: row('r1', 5, { title: '', body: '' }), error: null }] });
+  expect(await rateProduct(fresh.db, 'p1', 'u1', 5)).toMatchObject({ id: 'r1', rating: 5, body: '' });
+  expect(fresh.calls[1].ops).toContainEqual(['insert', [expect.objectContaining({ product_id: 'p1', rating: 5, title: '', body: '' })]]);
+
+  const rewritten = fakeDb({ reviews: [{ data: { id: 'r2' }, error: null }, { data: row('r2', 3), error: null }] });
+  expect(await rateProduct(rewritten.db, 'p1', 'u1', '3')).toMatchObject({ id: 'r2', rating: 3, title: 'T', body: 'B' });
+  expect(rewritten.calls[1].ops).toContainEqual(['update', [{ rating: 3 }]]);
+
+  await expect(rateProduct(fakeDb({}).db, 'p1', 'u1', 6)).rejects.toMatchObject({ code: 'invalid_input', detail: 'rating' });
 });
