@@ -12,6 +12,7 @@ import { GiftOption } from '@/components/checkout/GiftOption';
 import { GstOption } from '@/components/checkout/GstOption';
 import { GST_NAME_MAX } from '@/lib/gst';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
+import { OrderTerms } from '@/components/checkout/OrderTerms';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StepCard } from '@/components/checkout/StepCard';
 import { arrivingText, byTimeText, lcFirst, relativeDayName, releaseDate } from '@/components/orders/format';
@@ -512,11 +513,7 @@ export default async function CheckoutPage({
           ) : (
             <PlaceOrderButton />
           )}
-          <span className="text-[13px] leading-[1.4] text-ink-2">
-            {stripeConfigured
-              ? `By placing your order you agree to this demo’s terms. Cards are paid on Stripe in ${cur} (test card 4242 4242 4242 4242); other methods are demo only.`
-              : 'By placing your order you agree to this demo’s terms. No real charge is made.'}
-          </span>
+          <OrderTerms href={sp} stripe={stripeConfigured} currency={cur} />
         </aside>
       </form>
     </>,
