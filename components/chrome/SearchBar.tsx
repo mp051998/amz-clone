@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { lookAtImage } from '@/app/actions/lens';
+import { RECENT_PAUSED_COOKIE } from '@/lib/recent-ids';
+import { addRecentSearch, matchingRecentSearches, readRecentSearches, RECENT_SEARCHES_MAX, removeRecentSearch } from '@/lib/recent-searches';
 import { SUGGEST_MIN, type Suggestions } from '@/lib/search';
 import type { Market } from '@/lib/types';
 import { cn } from '../lib/cn';
@@ -30,9 +32,13 @@ interface Option {
   href: string;
   label: ReactNode;
   image?: string | null;
+  /** a recent search (its text), which can be removed */
+  recent?: string;
 }
 
 const DEBOUNCE_MS = 120;
+/** recent searches offered above the suggestions while typing */
+const RECENT_TYPED = 3;
 const typedLength = (q: string) => q.replace(/[^\p{L}\p{N}]/gu, '').length;
 
 function Glass() {
@@ -42,6 +48,24 @@ function Glass() {
       <path d="m10.5 10.5 3.5 3.5" strokeLinecap="round" />
     </svg>
   );
+}
+
+function Clock() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 flex-none text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M8 5v3.25l2 1.25" />
+    </svg>
+  );
+}
+
+/** Browsing history paused (/history): searches aren't added to the recent ones either. */
+function historyPaused(): boolean {
+  try {
+    return document.cookie.split('; ').some((c) => c === `${RECENT_PAUSED_COOKIE}=1`);
+  } catch {
+    return true;
+  }
 }
 
 function Camera() {
@@ -58,8 +82,10 @@ const UNNAMED = 'We couldn’t tell what’s in that photo. Try a closer one of 
 
 /**
  * Bordered search + accent Search button; GET ?k= so results are shareable (design.md §5 Search).
- * As you type it suggests (combobox): completions of the last word, the query in its top
- * departments, and a few products. Arrow keys move through them, Enter opens one, Escape closes.
+ * As you type it suggests (combobox): your recent searches that start with it, completions of the
+ * last word, the query in its top departments, and a few products; empty, it offers your recent
+ * searches (lib/recent-searches.ts). Arrow keys move through them, Enter opens one, Delete removes
+ * a recent one, Escape closes.
  * The camera searches by image (Amazon Lens): a photo, shrunk here, is named by the store
  * (lib/data/lens.ts) and searched for.
  */
@@ -77,6 +103,16 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
   const [answered, setAnswered] = useState('');
   const photoInput = useRef<HTMLInputElement>(null);
   const [lens, setLens] = useState<{ busy: boolean; error: string }>({ busy: false, error: '' });
+  const [recent, setRecent] = useState<string[]>([]);
+
+  // the search this page shows is the newest recent one; read after mount (it's this device's)
+  useEffect(() => {
+    setRecent(defaultQuery && !historyPaused() ? addRecentSearch(store, defaultQuery) : readRecentSearches(store));
+  }, [store, defaultQuery]);
+  const forget = (text: string) => {
+    setRecent(removeRecentSearch(store, text));
+    setActive(-1);
+  };
 
   const searchPhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -118,7 +154,10 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
   const shownQ = cache[q] ? q : answered;
   const typed = shownQ.toLowerCase();
   const find = (params: Record<string, string>) => `${actionPath}?${new URLSearchParams(params).toString()}`;
-  const terms: Option[] = (shown?.terms ?? []).map((t) => ({
+  const recentShown = matchingRecentSearches(recent, q, q ? RECENT_TYPED : RECENT_SEARCHES_MAX);
+  const isRecent = (text: string) => recentShown.some((r) => r.toLowerCase() === text.toLowerCase());
+  const recents: Option[] = recentShown.map((text) => ({ key: `r:${text}`, href: find({ k: text }), label: text, recent: text }));
+  const terms: Option[] = (shown?.terms ?? []).filter((t) => !isRecent(t.text)).map((t) => ({
     key: `t:${t.text}`,
     href: find({ k: t.text }),
     label: t.text.startsWith(typed) ? <>{t.text.slice(0, typed.length)}<strong className="font-semibold">{t.text.slice(typed.length)}</strong></> : t.text,
@@ -132,8 +171,8 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
       : { key: `d:${d.slug}`, href: find({ dept: d.slug }), label: <><strong className="font-semibold">{d.name}</strong> <span className="text-ink-3">department</span></> },
   );
   const products: Option[] = (shown?.products ?? []).map((p) => ({ key: `p:${p.id}`, href: `${base}/product/${encodeURIComponent(p.id)}`, label: p.title, image: p.image }));
-  const options = [...terms, ...depts, ...products];
-  const visible = open && wanted && options.length > 0;
+  const options = [...recents, ...terms, ...depts, ...products];
+  const visible = open && options.length > 0;
   const current = visible && active >= 0 && active < options.length ? active : -1;
   const optionId = (i: number) => `${listId}-${i}`;
   const go = (o: Option) => window.location.assign(o.href);
@@ -145,6 +184,8 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
       role="option"
       aria-selected={i === current}
       data-href={o.href}
+      // the Remove button's name stays out of the option's
+      aria-label={o.recent ? `Recent search: ${o.recent}` : undefined}
       onClick={() => go(o)}
       onMouseEnter={() => setActive(i)}
       className={cn('flex cursor-pointer items-center gap-3 rounded-[6px] px-2.5 py-2 leading-snug text-ink', hero ? 'text-[16px]' : 'text-[15px]', i === current && 'bg-surface-2')}
@@ -153,10 +194,25 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
         <span className="hatch relative h-9 w-9 flex-none overflow-hidden rounded-[6px] bg-surface">
           {o.image ? <img src={o.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-contain p-[6%] mix-blend-multiply" /> : null}
         </span>
+      ) : o.recent ? (
+        <Clock />
       ) : (
         <Glass />
       )}
-      <span className={cn('min-w-0', o.image !== undefined && 'line-clamp-1')}>{o.label}</span>
+      <span className={cn('min-w-0', o.image !== undefined && 'line-clamp-1', o.recent && 'flex-1 break-words')}>{o.label}</span>
+      {o.recent ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={(ev) => {
+            ev.stopPropagation();
+            forget(o.recent!);
+          }}
+          className="flex-none border-0 bg-transparent p-0 text-[13px] text-ink-3 underline-offset-2 hover:text-ink hover:underline"
+        >
+          Remove
+        </button>
+      ) : null}
     </li>
   );
 
@@ -190,7 +246,7 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
               setOpen(false);
               setActive(-1);
             } else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-              if (!options.length || !wanted) return;
+              if (!options.length) return;
               ev.preventDefault();
               setOpen(true);
               const n = options.length;
@@ -199,6 +255,9 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
             } else if (ev.key === 'Enter' && current >= 0) {
               ev.preventDefault();
               go(options[current]);
+            } else if (ev.key === 'Delete' && current >= 0 && options[current].recent) {
+              ev.preventDefault();
+              forget(options[current].recent!);
             }
           }}
           placeholder={placeholder}
@@ -253,12 +312,13 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
         onMouseDown={(ev) => ev.preventDefault()}
         className="absolute inset-x-0 top-[calc(100%+6px)] z-50 m-0 max-h-[70vh] list-none overflow-auto rounded-input border border-line bg-surface p-1.5 shadow-hero"
       >
-        {[...terms, ...depts].map((o, i) => row(o, i))}
-        {products.length && terms.length + depts.length ? <li role="presentation" aria-hidden className="mx-2.5 my-1 h-px bg-line-2" /> : null}
-        {products.map((o, i) => row(o, terms.length + depts.length + i))}
+        {!q && recents.length ? <li role="presentation" aria-hidden className="px-2.5 pb-1 pt-1.5 text-[12px] font-semibold text-ink-3">Recent searches</li> : null}
+        {[...recents, ...terms, ...depts].map((o, i) => row(o, i))}
+        {products.length && recents.length + terms.length + depts.length ? <li role="presentation" aria-hidden className="mx-2.5 my-1 h-px bg-line-2" /> : null}
+        {products.map((o, i) => row(o, recents.length + terms.length + depts.length + i))}
       </ul>
       <span className="sr-only" aria-live="polite">
-        {visible ? `${options.length} suggestions. Use the up and down arrows to choose one.` : ''}
+        {visible ? `${options.length} suggestions. Use the up and down arrows to choose one${recents.length ? ', and Delete to remove a recent search' : ''}.` : ''}
       </span>
       {lens.busy || lens.error ? (
         <div
