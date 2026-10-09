@@ -21,7 +21,6 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Grove Store',
   shipsFrom: 'Amazon',
   bullets: ['End-grain bamboo'],

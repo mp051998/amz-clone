@@ -62,6 +62,7 @@ import { siteOrigin } from '@/lib/origin';
 import { zoomImage } from '@/lib/product-images';
 import { recentProducts } from '@/lib/recent-products';
 import { bestsellerRank } from '@/lib/bestseller-rank';
+import { boughtPastMonth } from '@/lib/data/bought';
 import { jsonLdHtml, productDescription, productJsonLd, productUrl } from '@/lib/seo';
 import { formatMoney } from '@/lib/marketplaces';
 import { qtyDiscountText } from '@/lib/qty-discount';
@@ -208,7 +209,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const smallBusinessP = p.smallBusiness && p.brand ? getSmallBusiness(client, store.id, p.brand).catch(() => null) : Promise.resolve(null);
   // amazon.com's "Typical price", when there's no list price above the price to show instead
   const typicalP = store.pricing.typicalLabel && !p.archived && !(p.listMinor && p.listMinor > p.priceMinor) ? typicalPrice(client, p.id).catch(() => null) : Promise.resolve(null);
-  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnPolicy, myPrice, trade] = await Promise.all([
+  const [insight, reviews, alts, lists, info, bundle, deliverTo, recent, rank, plus, coupon, questions, answered, sellers, myReport, returnSignal, planMinor, promos, allowance, alsoSeen, recall, lastBought, alsoGot, offers, mySub, lightning, bankOffers, returnPolicy, myPrice, trade, bought] = await Promise.all([
     getInsight(p.id, client),
     loadReviewData(client, p.id, user?.id ?? null, { fit: asksFit(p), features: featuresFor(p) }),
     alternativesFor(p, 3, weights, client).catch(() => []),
@@ -241,6 +242,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     categoryReturnPolicy(client, store.id, p.category, store.returns.days),
     user && !p.archived ? myOpenPriceReport(client, p.id, user.id).catch(() => null) : Promise.resolve(null),
     p.archived ? Promise.resolve(null) : exchangeOffer(client, store.id, p.category),
+    // "1K+ bought in past month", from the store's own orders
+    boughtPastMonth(client, [p.id]).then((m) => m.get(p.id)),
   ]);
   const smallBusiness = await smallBusinessP;
   const typical = await typicalP;
@@ -508,7 +511,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 ) : null}
                 {p.climate?.length ? <ClimateBadge href="#climate" /> : null}
                 {p.smallBusiness ? <SmallBusinessBadge href={smallBusiness ? '#small-business' : undefined} /> : null}
-                {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
+                {bought ? <span className="text-[13px] text-ink-2">{bought}</span> : null}
                 {returnSignal?.frequent ? <FrequentlyReturned signal={returnSignal.frequent} reviewsHref="#reviews" /> : null}
                 {returnSignal?.usuallyKept ? <UsuallyKept /> : null}
               </div>

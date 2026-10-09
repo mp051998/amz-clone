@@ -46,6 +46,8 @@ export interface ResultCardProps {
   couponPct?: number;
   /** "More Buying Choices": other sellers' offers of it, on sale and in stock. */
   choices?: OfferSummary;
+  /** "1K+ bought in past month", from its orders (none under Amazon's floor) */
+  bought?: string;
   /** the search's "Condition" filter: the offers link opens on it */
   condition?: OfferKind;
   /** it's #1 on its department's bestsellers list ("#1 Best Seller in Headphones") */
@@ -72,7 +74,7 @@ export function deliveryLine(store: Store, priceMinor: number, stock: number, de
 }
 
 /** Ranked search result card (prototype Search screen; design.md §5 Why it's here). */
-export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct, choices, condition, bestSeller = false }: ResultCardProps) {
+export function ResultCard({ ranked: r, store, top = false, saved, bestForFallback = '', showMatch = true, priority = false, variants, delivery, couponPct, choices, condition, bestSeller = false, bought }: ResultCardProps) {
   const p = r.product;
   const cur = store.currency.code;
   const href = storePath(store, `/product/${p.id}`);
@@ -113,7 +115,7 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
           <Stars rating={p.rating} size={14} />
           <span>{p.rating.toFixed(1)} · {p.reviewCount.toLocaleString('en-US')} reviews</span>
         </span>
-        {p.boughtPastMonth ? <span className="text-[13px] text-ink-2">{p.boughtPastMonth}</span> : null}
+        {bought ? <span className="text-[13px] text-ink-2">{bought}</span> : null}
       </div>
       {variants ? <VariantSwatches variants={variants} currentId={p.id} store={store} /> : null}
       <div className="flex flex-col gap-0.5">

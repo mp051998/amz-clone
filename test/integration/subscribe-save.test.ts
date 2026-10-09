@@ -25,7 +25,6 @@ const input = (n: number): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Glow Store',
   shipsFrom: 'Amazon',
   bullets: ['Hydrating'],

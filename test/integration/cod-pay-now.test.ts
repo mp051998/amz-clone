@@ -52,7 +52,6 @@ const item = (priceMinor: number): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Test Seller',
   shipsFrom: 'Store',
   bullets: [],

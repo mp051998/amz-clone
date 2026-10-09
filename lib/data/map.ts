@@ -37,7 +37,6 @@ export function toProduct(row: Partial<ProductRow>): Product {
     bullets: row.bullets ?? [],
     badge: opt(row.badge),
     deal: row.deal || undefined,
-    boughtPastMonth: opt(row.bought_past_month),
     stock: row.stock ?? 0,
     curBase: (row.currency ?? 'USD') as CurrencyCode,
     archived: row.archived_at ? true : undefined,

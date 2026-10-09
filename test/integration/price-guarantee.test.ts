@@ -27,7 +27,6 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   qtyDiscount: null,
   releaseAt: RELEASE,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Starfall Store',
   shipsFrom: 'Store',
   bullets: [],

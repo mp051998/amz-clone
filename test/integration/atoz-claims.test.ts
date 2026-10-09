@@ -41,7 +41,6 @@ const input = (n: number, seller: string): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller,
   shipsFrom: seller,
   bullets: ['Holds 350 ml'],

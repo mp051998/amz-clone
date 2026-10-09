@@ -46,7 +46,6 @@ const product = (category: string): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Test Seller',
   shipsFrom: 'Store',
   bullets: [],

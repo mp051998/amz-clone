@@ -30,7 +30,6 @@ const input = (over: Partial<ProductInput> = {}): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Kiln Store',
   shipsFrom: 'Store',
   bullets: [],
