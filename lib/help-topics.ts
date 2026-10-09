@@ -83,7 +83,7 @@ export function helpTopics(store: HelpStore): HelpTopic[] {
         { q: 'How do I change my password, email or name?', a: 'Go to Account, then Login & security, and edit the detail you want to change.' },
         { q: 'How do I turn on two-step verification?', a: 'In Login & security, choose two-step verification and set it up with an authenticator app. You’ll enter a code from the app as well as your password when you sign in.' },
         { q: 'How do I add or change an address?', a: 'Go to Account, then Your addresses, to add, edit or remove an address and pick your default.' },
-        { q: 'Can I get a copy of my data?', a: 'Yes. From Account you can download the data the store holds about you, and choose which emails you get in Communication preferences.' },
+        { q: 'Can I get a copy of my data?', a: 'Yes. From Account you can download the data the store holds about you, and choose which messages you get in Communication preferences.' },
       ],
       links: [
         { label: 'Login & security', href: '/account/security' },
