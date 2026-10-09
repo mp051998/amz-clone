@@ -280,7 +280,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const confidence: ConfidenceRow[] = [
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
-    // Amazon's buy-box table: Ships from, Sold by, Returns, Payment (amazon.in shows Secure transaction among its perks)
+    // Amazon's buy-box table: Ships from, Sold by, Returns, Payment (amazon.in shows Secure transaction among its
+    // perks, and Gift options instead: checkout offers a gift message and wrap on every order)
     { k: 'Ships from', v: p.shipsFrom },
     { k: 'Sold by', v: sellerRating ? `${p.seller} · ${sellerRating.positivePct}% positive` : p.seller },
     {
@@ -289,7 +290,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         ? `${returnPolicy.replacementOnly ? 'Replaceable' : 'Returnable'} until ${releaseDate(returnsUntil, store)} · holiday returns`
         : returnPolicyText(returnPolicy.days, returnPolicy.replacementOnly),
     },
-    ...(store.id === 'IN' ? [] : [{ k: 'Payment', v: 'Secure transaction' }]),
+    ...(store.id === 'IN' ? [{ k: 'Gift options', v: 'Available at checkout' }] : [{ k: 'Payment', v: 'Secure transaction' }]),
   ];
 
   const threshold = store.delivery.freeThresholdMinor;
