@@ -1,4 +1,5 @@
 import type { Theme } from '@/lib/theme';
+import { buttonClasses } from '../primitives/Button';
 import { ThemeSwitch } from './ThemeSwitch';
 import { Wordmark } from './Wordmark';
 
@@ -15,14 +16,25 @@ export interface FooterProps {
   homeHref?: string;
   /** the visitor's colour theme, for the switch. */
   theme?: Theme;
+  /** signed out: the "See personalized recommendations" sign-in prompt above the footer. */
+  signIn?: { signInHref: string; createAccountHref: string };
 }
 
 const extAttrs = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
 
 /** Calm footer: mark + link columns, store switch, legal line, demo disclaimer (design.md §5 Footer). */
-export function Footer({ columns, stores, legal, homeHref = '/', theme = 'system' }: FooterProps) {
+export function Footer({ columns, stores, legal, homeHref = '/', theme = 'system', signIn }: FooterProps) {
   return (
     <footer className="mt-16 border-t border-line bg-surface text-ink">
+      {signIn ? (
+        <section aria-labelledby="footer-sign-in" className="flex flex-col items-center gap-2 border-b border-line-2 px-[clamp(16px,3vw,24px)] py-8 text-center">
+          <h2 id="footer-sign-in" className="m-0 text-[14px] font-medium text-ink">See personalized recommendations</h2>
+          <a href={signIn.signInHref} className={`${buttonClasses({ variant: 'primary', size: 'md' })} min-w-[220px]`}>Sign in</a>
+          <p className="m-0 text-[13px] text-ink-2">
+            New customer? <a href={signIn.createAccountHref} className="text-ink underline underline-offset-2">Start here.</a>
+          </p>
+        </section>
+      ) : null}
       {/* the page shell carries id="top"; a plain fragment link needs no script */}
       <a href="#top" className="flex min-h-11 items-center justify-center border-b border-line-2 bg-surface-2 text-[13px] font-semibold text-ink no-underline hover:bg-surface-4 hover:text-ink">
         Back to top

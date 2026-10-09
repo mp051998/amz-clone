@@ -36,3 +36,17 @@ it('lists the columns, marks the current store and opens outside links in a new 
   expect(within(stores).getByRole('link', { name: /United States/ })).not.toHaveAttribute('aria-current');
   expect(screen.getByRole('link', { name: 'Store home' })).toHaveAttribute('href', '/in');
 });
+
+it('signed out, asks to sign in for personalized recommendations above the footer', () => {
+  render(<Footer {...props} signIn={{ signInHref: '/in/signin?next=%2Fin%2Fcart', createAccountHref: '/in/signin?new=1&next=%2Fin%2Fcart' }} />);
+  const prompt = screen.getByRole('region', { name: 'See personalized recommendations' });
+  expect(within(prompt).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/in/signin?next=%2Fin%2Fcart');
+  expect(prompt).toHaveTextContent('New customer? Start here.');
+  expect(within(prompt).getByRole('link', { name: 'Start here.' })).toHaveAttribute('href', '/in/signin?new=1&next=%2Fin%2Fcart');
+  // ahead of "Back to top"
+  expect(within(screen.getByRole('contentinfo')).getAllByRole('link')[0]).toHaveTextContent('Sign in');
+  cleanup();
+
+  render(<Footer {...props} />);
+  expect(screen.queryByRole('region', { name: 'See personalized recommendations' })).toBeNull();
+});
