@@ -55,6 +55,8 @@ export interface ResultCardProps {
 export interface ResultDelivery {
   day: string;
   member?: boolean;
+  /** the faster delivery day checkout offers ("Tomorrow, October 7"), when it beats `day` */
+  fastest?: string;
 }
 
 /**
@@ -143,6 +145,12 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
         {deliveryLine(store, price, p.stock, delivery, releaseOf(p))}
       </span>
+      {/* Amazon's "Or fastest delivery Tomorrow, October 7" (free for members, as on the product page) */}
+      {p.stock > 0 && !releaseOf(p) && delivery?.fastest && delivery.fastest !== delivery.day ? (
+        <span className="text-[13px] text-ink-2">
+          Or {delivery.member ? 'FREE ' : ''}fastest delivery <strong className="font-semibold text-ink">{delivery.fastest}</strong>
+        </span>
+      ) : null}
       {low ? <span className="text-[13px] font-semibold text-warn-strong">{low} — order soon.</span> : null}
       {p.climate?.length ? <ClimateBadge /> : null}
       {p.smallBusiness ? <SmallBusinessBadge /> : null}

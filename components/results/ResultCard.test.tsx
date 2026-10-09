@@ -81,6 +81,24 @@ it('promises the store’s delivery day: free over the threshold, and always for
   expect(card({}, { day: 'Tomorrow, October 7' })).toContain('FREE delivery Tomorrow, October 7');
 });
 
+it('offers the fastest delivery day under the standard one, free for members, while it can ship', () => {
+  const card = (over: Partial<Product>, delivery: { day: string; member?: boolean; fastest?: string }) => {
+    render(<ResultCard ranked={{ product: { ...base, ...over }, insight: null, match: 90, why: [], warn: null }} store={amazon} saved={false} delivery={delivery} />);
+    return screen.getByRole('article').textContent;
+  };
+  expect(card({}, { day: 'Thursday, October 8', fastest: 'Tomorrow, October 7' })).toContain('Or fastest delivery Tomorrow, October 7');
+  cleanup();
+  expect(card({}, { day: 'Thursday, October 8', fastest: 'Tomorrow, October 7', member: true })).toContain('Or FREE fastest delivery Tomorrow, October 7');
+  cleanup();
+  expect(card({}, { day: 'Thursday, October 8' })).not.toContain('fastest');
+  cleanup();
+  expect(card({}, { day: 'Tomorrow, October 7', fastest: 'Tomorrow, October 7' })).not.toContain('fastest');
+  cleanup();
+  expect(card({ stock: 0 }, { day: 'Thursday, October 8', fastest: 'Tomorrow, October 7' })).not.toContain('fastest');
+  cleanup();
+  expect(card({ releaseAt: '2099-11-20T08:00:00.000Z' }, { day: 'Thursday, October 8', fastest: 'Tomorrow, October 7' })).not.toContain('fastest');
+});
+
 it('says when a pre-order comes out in place of the delivery day', () => {
   // far off, so it stays a pre-order
   expect(show({ releaseAt: '2099-11-20T08:00:00.000Z' })).toHaveTextContent('Pre-order · releases November 20, 2099');

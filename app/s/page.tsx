@@ -134,9 +134,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     plusMembership(client),
     k ? relatedSearches(client, store.id, k) : Promise.resolve([]),
   ]);
-  // the same standard-delivery day the product page and checkout promise
+  // the same standard and fastest delivery days the product page and checkout promise
   const now = new Date();
-  const delivery = { day: dayLabel(new Date(deliveryOptions(now, store.dates.timeZone).standard), store, now), member: plus != null };
+  const options = deliveryOptions(now, store.dates.timeZone);
+  const delivery = {
+    day: dayLabel(new Date(options.standard), store, now),
+    fastest: options.fast ? dayLabel(new Date(options.fast), store, now) : undefined,
+    member: plus != null,
+  };
 
   // ── hrefs ────────────────────────────────────────────────────────────────
   const raw = new URLSearchParams();
