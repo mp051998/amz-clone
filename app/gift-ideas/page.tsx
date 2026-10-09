@@ -22,9 +22,9 @@ export default async function GiftIdeasPage({ searchParams }: { searchParams: Pr
       <RankedPage
         store={store}
         basePath="/gift-ideas"
-        kicker="Gift ideas · updated daily"
+        kicker="Gift ideas · last 30 days"
         title="Gift ideas"
-        lede="What shoppers sent as gifts most over the last 30 days, from gift orders and shared lists. A popular gift is a safe start — check it suits who it’s for."
+        lede="What shoppers sent as gifts most over the last 30 days, from gift orders and shared lists, then the most-rated products to fill the page. A popular gift is a safe start — check it suits who it’s for."
         categories={categories}
         active={known}
         items={items}

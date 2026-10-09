@@ -22,9 +22,9 @@ export default async function MostWishedForPage({ searchParams }: { searchParams
       <RankedPage
         store={store}
         basePath="/most-wished-for"
-        kicker="Most wished for · updated daily"
+        kicker="Most wished for · last 30 days"
         title="Most wished for"
-        lede="What shoppers are adding to their lists most over the last 30 days. Wanted by many is a good start — check it does what you need before it goes on yours."
+        lede="What shoppers added to their lists most over the last 30 days, then the most-rated products to fill the page. Wanted by many is a good start — check it does what you need before it goes on yours."
         categories={categories}
         active={known}
         items={items}

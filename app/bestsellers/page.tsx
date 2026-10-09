@@ -25,9 +25,9 @@ export default async function BestSellersPage({ searchParams }: { searchParams: 
       <RankedPage
         store={store}
         basePath="/bestsellers"
-        kicker="Bestsellers · updated daily"
+        kicker="Bestsellers · by number of ratings"
         title="Bestsellers"
-        lede="What people are buying most, ranked by recent sales. Popular isn't always right for you — compare a few against what matters to you."
+        lede="The products shoppers have rated most, the most ratings first. Popular isn't always right for you — compare a few against what matters to you."
         categories={categories}
         active={known}
         items={items}
