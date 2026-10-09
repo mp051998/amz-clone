@@ -13,6 +13,7 @@ import { db } from '@/lib/supabase/server';
 import { listOrders } from '@/lib/data/orders';
 import { filterOrders, orderSummary, periodOptions, periodPhrase, readOrderFilter, type OrderFilter } from '@/lib/order-filters';
 import { canStartReturn, getOrderReturns, returnSummaries, type OrderReturns } from '@/lib/data/returns';
+import { feedbackOpen } from '@/lib/data/seller-feedback';
 import { RETURN_SUMMARY_CHIP } from '@/components/orders/Returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { orderStage } from '@/lib/decision/tracking';
@@ -220,9 +221,25 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                           Track package
                         </a>
                       )}
+                      {/* Amazon's order-card buttons: cancel before it ships, gift receipt, seller feedback after delivery */}
+                      {o.status === 'placed' && v.cancelUntil ? (
+                        <a href={sp(`/orders/${encodeURIComponent(o.id)}/cancel`)} className={buttonClasses({ variant: 'secondary', block: true })} aria-label={`Cancel items in order ${o.id}`}>
+                          Cancel items
+                        </a>
+                      ) : null}
                       {ret ? (
                         <a href={sp(`/orders/${encodeURIComponent(o.id)}/return`)} className={buttonClasses({ variant: 'secondary', block: true })}>
                           {Object.values(ret.replaceable).some((n) => n > 0) ? 'Return or replace items' : 'Return items'}
+                        </a>
+                      ) : null}
+                      {o.status === 'placed' ? (
+                        <a href={sp(`/orders/${encodeURIComponent(o.id)}/gift-receipt`)} className={buttonClasses({ variant: 'secondary', block: true })} aria-label={`Share gift receipt for order ${o.id}`}>
+                          Share gift receipt
+                        </a>
+                      ) : null}
+                      {feedbackOpen(o, now) ? (
+                        <a href={sp(`/orders/${encodeURIComponent(o.id)}?placed=0#seller-feedback`)} className={buttonClasses({ variant: 'secondary', block: true })} aria-label={`Leave seller feedback for order ${o.id}`}>
+                          Leave seller feedback
                         </a>
                       ) : null}
                       {delivered.includes(o) ? (
