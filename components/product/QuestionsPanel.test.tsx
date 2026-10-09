@@ -51,6 +51,21 @@ it('shows the top answer, a verified mark and the rest on request', () => {
   expect(screen.getByText('Answer a3')).toBeInTheDocument();
 });
 
+it('opens the question form when linked to #ask-question', () => {
+  window.history.replaceState(null, '', '#ask-question');
+  try {
+    render(<QuestionsPanel {...props()} />);
+    expect(screen.getByRole('button', { name: 'Ask a question' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Your question')).toHaveFocus();
+    cleanup();
+    // signed out, or off sale, there's no form to open
+    render(<QuestionsPanel {...props({ canAsk: false })} />);
+    expect(screen.queryByLabelText('Your question')).toBeNull();
+  } finally {
+    window.history.replaceState(null, '', '#');
+  }
+});
+
 it('posts a question to the top of the list', async () => {
   actions.askQuestion.mockResolvedValue({ ok: true, question: question('new', { body: 'Is it loud at night?', mine: true }) });
   render(<QuestionsPanel {...props()} />);
