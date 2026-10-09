@@ -131,6 +131,14 @@ describe('recent searches', () => {
     expect(readRecentSearches('IN')).toEqual(['saree']);
   });
 
+  it('reads them again on focus, so two boxes on a page agree', () => {
+    addRecentSearch('US', 'kettle');
+    render(<SearchBar actionPath="/s" market="US" />);
+    addRecentSearch('US', 'mug'); // from the other box
+    fireEvent.focus(box());
+    expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-label'))).toEqual(['Recent search: mug', 'Recent search: kettle']);
+  });
+
   it('puts the ones that start with what is typed above the suggestions', async () => {
     addRecentSearch('US', 'kettle');
     addRecentSearch('US', 'sony headphones');

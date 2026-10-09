@@ -238,7 +238,11 @@ export function SearchBar({ actionPath = '/s', market, defaultQuery, placeholder
             setOpen(true);
             setActive(-1);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            // another box on the page (header, home hero) may have removed one since
+            setRecent(readRecentSearches(store));
+          }}
           onBlur={() => setOpen(false)}
           onKeyDown={(ev) => {
             if (ev.key === 'Escape') {
