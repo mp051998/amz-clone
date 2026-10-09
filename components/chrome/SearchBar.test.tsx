@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addRecentSearch, readRecentSearches } from '@/lib/recent-searches';
 import type { Suggestions } from '@/lib/search';
 import { SearchBar } from './SearchBar';
 
@@ -19,6 +20,7 @@ const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ ma
 beforeEach(() => {
   fetchMock.mockClear();
   vi.stubGlobal('fetch', fetchMock);
+  localStorage.clear();
 });
 afterEach(() => {
   cleanup();
@@ -102,6 +104,65 @@ it('shows the search being looked at, and only suggests once the box is used', a
   fireEvent.focus(box());
   expect(await screen.findByRole('option', { name: 'sony headphones' })).toBeInTheDocument();
   expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/suggest?market=US&q=wireless%20headphones');
+});
+
+describe('recent searches', () => {
+  it('offers them, newest first, when the box is empty, and removes one', () => {
+    addRecentSearch('US', 'kettle');
+    addRecentSearch('US', 'sony headphones');
+    addRecentSearch('IN', 'saree');
+    render(<SearchBar actionPath="/s" market="US" />);
+    fireEvent.focus(box());
+    const options = screen.getAllByRole('option');
+    expect(options.map((o) => o.getAttribute('aria-label'))).toEqual(['Recent search: sony headphones', 'Recent search: kettle']);
+    expect(options[0]).toHaveAttribute('data-href', '/s?k=sony+headphones');
+    expect(screen.getByText('Recent searches')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(options[1]).getByRole('button', { hidden: true, name: 'Remove' }));
+    expect(screen.queryByRole('option', { name: 'Recent search: kettle' })).toBeNull();
+    expect(readRecentSearches('US')).toEqual(['sony headphones']);
+
+    // from the keyboard: pick it, then Delete
+    fireEvent.keyDown(box(), { key: 'ArrowDown' });
+    fireEvent.keyDown(box(), { key: 'Delete' });
+    expect(readRecentSearches('US')).toEqual([]);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(readRecentSearches('IN')).toEqual(['saree']);
+  });
+
+  it('reads them again on focus, so two boxes on a page agree', () => {
+    addRecentSearch('US', 'kettle');
+    render(<SearchBar actionPath="/s" market="US" />);
+    addRecentSearch('US', 'mug'); // from the other box
+    fireEvent.focus(box());
+    expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-label'))).toEqual(['Recent search: mug', 'Recent search: kettle']);
+  });
+
+  it('puts the ones that start with what is typed above the suggestions', async () => {
+    addRecentSearch('US', 'kettle');
+    addRecentSearch('US', 'sony headphones');
+    render(<SearchBar actionPath="/s" market="US" />);
+    fireEvent.focus(box());
+    fireEvent.change(box(), { target: { value: 'sony he' } });
+    await screen.findByRole('option', { name: 'sony headphones in Electronics' });
+    const names = screen.getAllByRole('option').map((o) => o.getAttribute('aria-label') ?? o.textContent);
+    // the completion it repeats isn't offered twice
+    expect(names).toEqual(['Recent search: sony headphones', 'sony headphones in Electronics', 'Sony WH-CH520']);
+  });
+
+  it('remembers the search a results page shows, unless browsing history is paused', () => {
+    render(<SearchBar actionPath="/s" market="US" defaultQuery="  Wireless   mouse " />);
+    expect(readRecentSearches('US')).toEqual(['Wireless mouse']);
+    cleanup();
+    document.cookie = 'recent:off=1; path=/';
+    try {
+      render(<SearchBar actionPath="/s" market="US" defaultQuery="kettle" />);
+      expect(readRecentSearches('US')).toEqual(['Wireless mouse']);
+    } finally {
+      document.cookie = 'recent:off=; path=/; max-age=0';
+    }
+  });
 });
 
 describe('search by image', () => {
