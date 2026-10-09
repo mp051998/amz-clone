@@ -96,3 +96,10 @@ it('has no recent orders when signed out or with none placed', async () => {
   expect(recent()).toBeNull();
   expect(screen.getByRole('heading', { name: 'Quick actions' })).toBeInTheDocument();
 });
+
+it('browses help topics on their own pages, not a product search', async () => {
+  render(await CustomerServicePage());
+  const topics = screen.getByRole('heading', { name: 'Browse help topics' }).closest('section')!;
+  expect(within(topics).getByRole('link', { name: /Shipping & delivery/ })).toHaveAttribute('href', '/customer-service/help/shipping-delivery');
+  expect(within(topics).getAllByRole('link').every((a) => a.getAttribute('href')!.startsWith('/customer-service/help/'))).toBe(true);
+});
