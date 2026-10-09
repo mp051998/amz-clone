@@ -1,4 +1,5 @@
 import 'server-only';
+import { COD_MAX_MINOR } from '../cod';
 import type { Db } from '../db/client';
 import { getProducts, listProducts, searchCatalog } from '../data/catalog';
 import { getInsight as readInsight, getInsights } from '../data/insights';
@@ -47,6 +48,8 @@ export interface RankFilters {
   includeOutOfStock?: boolean;
   /** only products on sale for at least this percentage off */
   minDiscount?: number;
+  /** only what can be paid for on delivery: priced up to the Pay on Delivery ceiling (amazon.in's "Pay On Delivery") */
+  cod?: boolean;
   sort?: RankSort;
 }
 
@@ -115,7 +118,8 @@ async function searchCandidates(c: Db, market: Market, base: CandidateQuery): Pr
 /**
  * Ranked search. Pulls up to 48 candidates via `searchCatalog` (keywords,
  * category, facet filters and the price range: `filters.minPrice` up to
- * `budgetMinor`; in stock unless `filters.includeOutOfStock`), in the catalog
+ * `budgetMinor`, and no higher than the Pay on Delivery ceiling with `filters.cod`;
+ * in stock unless `filters.includeOutOfStock`), in the catalog
  * order of the sort (featured for 'match', cheapest first for 'price-asc', …); when keywords match nothing inside a detected category, at any
  * price, falls back to that category's popular products. Candidates are then
  * ranked against `weights` (`filters.sort`, default 'match').
@@ -131,9 +135,11 @@ export async function rankedSearch(
   const db = await client(c);
   const base = candidateQuery(parsedQuery, filters);
   const priced = Boolean(filters.minPrice || budgetMinor);
-  const found = await searchCandidates(db, market, { ...base, minPrice: filters.minPrice, maxPrice: budgetMinor ?? undefined });
+  const ceiling = filters.cod ? Math.min(budgetMinor ?? COD_MAX_MINOR, COD_MAX_MINOR) : budgetMinor ?? undefined;
+  const found = await searchCandidates(db, market, { ...base, minPrice: filters.minPrice, maxPrice: ceiling });
   let products = found.products;
-  const pricedOut = !products.length && priced && (await searchCatalog(db, market, { ...base, page: 1 })).total > 0;
+  // nothing at the shopper's prices, though there is at others (Pay on Delivery's ceiling still holds)
+  const pricedOut = !products.length && priced && (await searchCatalog(db, market, { ...base, maxPrice: filters.cod ? COD_MAX_MINOR : undefined, page: 1 })).total > 0;
   // the words matched, only nothing is in stock: say so (the page offers to include them), no fallback
   if (!products.length && !pricedOut && !found.unavailable && parsedQuery.category && parsedQuery.keywords) {
     products = await listProducts(db, market, { category: parsedQuery.category, order: 'popular', limit: CANDIDATE_LIMIT });
@@ -147,6 +153,7 @@ export async function rankedSearch(
     if (filters.smallBusiness) products = products.filter((p) => p.smallBusiness);
     if (filters.minDiscount) products = products.filter((p) => p.deal && (p.dealPct ?? 0) >= filters.minDiscount!);
     if (filters.minPrice) products = products.filter((p) => p.priceMinor >= filters.minPrice!);
+    if (filters.cod) products = products.filter((p) => p.priceMinor <= COD_MAX_MINOR);
     if (filters.condition) {
       const offers = await buyingChoices(db, products.map((p) => p.id));
       products = products.filter((p) => buyableAs(p, offers.get(p.id), filters.condition!));

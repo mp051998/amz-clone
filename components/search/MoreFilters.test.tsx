@@ -182,6 +182,26 @@ describe('MoreFilters Small Business', () => {
   });
 });
 
+describe('MoreFilters Pay On Delivery', () => {
+  const box = () => within(screen.getByRole('heading', { name: 'Pay On Delivery' }).parentElement!).getByRole('checkbox');
+
+  it('offers it in a store that takes it, and unticks when on', () => {
+    renderFilters({ cod: false });
+    expect(box()).toHaveAccessibleName('Eligible for Pay On Delivery');
+    expect(box()).toHaveAttribute('aria-checked', 'false');
+    expect(box().getAttribute('href')).toBe(hrefWith({ cod: '1' }));
+    cleanup();
+    renderFilters({ cod: true });
+    expect(box()).toHaveAttribute('aria-checked', 'true');
+    expect(box().getAttribute('href')).toBe(hrefWith({ cod: null }));
+  });
+
+  it('has no section in a store that doesn’t', () => {
+    renderFilters();
+    expect(screen.queryByRole('heading', { name: 'Pay On Delivery' })).toBeNull();
+  });
+});
+
 describe('MoreFilters Condition', () => {
   const list = () => within(screen.getByRole('heading', { name: 'Condition' }).parentElement!);
 
