@@ -8,6 +8,10 @@ it('sends the returns and shipping help links to their help topics', () => {
   expect(footerDest('Help')).toEqual({ path: '/customer-service' });
 });
 
+it('sends Returns Centre to Your returns', () => {
+  expect(footerDest('Returns Centre')).toEqual({ path: '/returns' });
+});
+
 it('only links help topics that exist', () => {
   for (const label of ['Returns & Replacements', 'Shipping Rates & Policies', '100% Purchase Protection']) {
     const dest = footerDest(label);

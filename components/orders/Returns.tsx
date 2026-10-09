@@ -4,7 +4,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import type { CurrencyCode } from '@/lib/contracts';
 import { balanceMethod } from '@/lib/data/balance';
 import { isExchange, nothingSentBack, type ReturnSummary } from '@/lib/data/returns';
-import type { Market, OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
+import type { Market, Order, OrderReturn, PaymentMethod, ReturnReason } from '@/lib/types';
 import { pickupDayText } from './ReturnMethod';
 import { StatusChip } from './Tracking';
 import { longDate, shortDate, type ChipTone, type StoreDates } from './format';
@@ -118,6 +118,11 @@ export function sendBackText(r: OrderReturn, store: StoreDates, thing: string, p
       Drop {thing} off by {by} at any drop-off point and show this code: {code}.
     </>
   );
+}
+
+/** Where a courier collects a return pickup: the delivery address (none for a pickup-point order). */
+export function pickupFromText(order: Pick<Order, 'pickup' | 'shipTo'>): string | undefined {
+  return order.pickup ? undefined : [order.shipTo.line1, order.shipTo.line2, `${order.shipTo.city} ${order.shipTo.postcode}`].filter(Boolean).join(', ');
 }
 
 /** What the shopper needs to know about one return, and what they can do next. */

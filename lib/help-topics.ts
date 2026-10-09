@@ -68,9 +68,12 @@ export function helpTopics(store: HelpStore): HelpTopic[] {
             : 'Open Orders, choose “Return or replace items”, pick a reason, and print the prepaid label to drop the package off.',
         },
         { q: 'Can I get a replacement instead?', a: 'For items that can be replaced, “Return or replace items” offers a replacement. Some items can only be replaced, and the order’s page says so.' },
-        { q: 'Where is my refund?', a: 'Once we receive your return, the refund goes to your original payment method. Most complete within 3–5 business days.' },
+        { q: 'Where is my refund?', a: 'Once we receive your return, the refund goes to your original payment method. Most complete within 3–5 business days. Your returns shows where each one stands.' },
       ],
-      links: [{ label: 'Your orders', href: '/orders' }],
+      links: [
+        { label: 'Your returns', href: '/returns' },
+        { label: 'Your orders', href: '/orders' },
+      ],
     },
     {
       slug: 'account',

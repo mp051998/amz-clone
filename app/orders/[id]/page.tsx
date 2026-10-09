@@ -13,7 +13,7 @@ import { cancelMyReturn, changeReturnMethod, reportMissing } from '@/app/actions
 import { withdrawMyClaim } from '@/app/actions/claims';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { PairsWith } from '@/components/cart/PairsWith';
-import { refundTo, ReturnCard } from '@/components/orders/Returns';
+import { pickupFromText, refundTo, ReturnCard } from '@/components/orders/Returns';
 import { ReturnMethodFields } from '@/components/orders/ReturnMethod';
 import { CancelledItems } from '@/components/orders/CancelledItems';
 import { PriceGuarantees } from '@/components/orders/PriceGuarantees';
@@ -200,7 +200,7 @@ export default async function OrderPage({
   // delivery address, which an order collected from a pickup point doesn't have
   const sending = new Set(returns?.returns.filter((r) => r.status === 'requested' && r.reason !== 'not_received').map((r) => r.id) ?? []);
   const dropoffPoints = sending.size ? await listPickupPoints(client, store.id) : [];
-  const collectFrom = order.pickup ? undefined : [order.shipTo.line1, order.shipTo.line2, `${order.shipTo.city} ${order.shipTo.postcode}`].filter(Boolean).join(', ');
+  const collectFrom = pickupFromText(order);
   const methodErrorText = methodError
     ? (() => {
         const why = METHOD_ERROR[methodError] ?? lcFirst(messageFor(methodError) ?? 'something went wrong. Please try again.');

@@ -159,6 +159,29 @@ export async function returnSummaries(db: Db, orderIds: string[]): Promise<Map<s
   return out;
 }
 
+/**
+ * The caller's orders with a return, the latest return first (RLS keeps it to their own; both
+ * stores). Empty when the returns table isn't deployed yet.
+ */
+export async function ordersWithReturns(db: Db, limit = 100): Promise<string[]> {
+  const { data, error } = await db.from('returns').select('order_id').order('created_at', { ascending: false }).limit(limit);
+  if (error) return [];
+  return [...new Set((data ?? []).map((r) => r.order_id))];
+}
+
+/**
+ * Whether something is still to happen on a return: sending it back, the refund, or the
+ * replacement's delivery. Not once refunded, replaced, rejected or cancelled.
+ */
+export function returnInProgress(r: OrderReturn, now: Date = new Date()): boolean {
+  if (r.status === 'rejected' || r.status === 'cancelled') return false;
+  if (r.replacement) {
+    const arrived = Date.parse(r.replacement.deliveredAt) <= now.getTime();
+    return !(arrived && (r.status === 'received' || nothingSentBack(r.reason)));
+  }
+  return r.status === 'requested' || r.refund?.status !== 'succeeded';
+}
+
 /** Whether a return can be started now: delivered, inside the window, something left. */
 export function canStartReturn(r: OrderReturns, now: Date = new Date()): boolean {
   return (
