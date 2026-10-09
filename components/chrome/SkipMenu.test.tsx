@@ -17,7 +17,7 @@ const press = (code: string, mods: Partial<KeyboardEventInit> = {}, target: Elem
 const menu = () => render(<SkipMenu homeHref="/in" cartHref="/in/cart" ordersHref="/in/orders" />);
 
 it('reads Amazon’s shortcuts from the key’s place, whatever option types', () => {
-  const k = { altKey: true, shiftKey: false, ctrlKey: false, metaKey: false };
+  const k = { key: '', altKey: true, shiftKey: false, ctrlKey: false, metaKey: false };
   expect(shortcutFor({ ...k, code: 'Slash' })).toBe('search');
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyC' })).toBe('cart');
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyH' })).toBe('home');
@@ -29,6 +29,11 @@ it('reads Amazon’s shortcuts from the key’s place, whatever option types', (
   expect(shortcutFor({ ...k, shiftKey: true, metaKey: true, code: 'KeyC' })).toBeNull();
   expect(shortcutFor({ ...k, code: 'KeyC' })).toBeNull();
   expect(shortcutFor({ ...k, shiftKey: true, code: 'Slash' })).toBeNull();
+  // option on a Mac changes `key` ("÷"), so `code` decides; `key` only when `code` is empty
+  expect(shortcutFor({ ...k, key: '÷', code: 'Slash' })).toBe('search');
+  expect(shortcutFor({ ...k, key: '/', code: '' })).toBe('search');
+  expect(shortcutFor({ ...k, shiftKey: true, key: 'C', code: '' })).toBe('cart');
+  expect(shortcutFor({ ...k, shiftKey: true, key: 'Ç', code: '' })).toBeNull();
 });
 
 it('lists the shortcuts under a link to the main content', () => {

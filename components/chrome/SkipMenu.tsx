@@ -11,12 +11,14 @@ const SHIFTED: Record<string, ShortcutAction> = { KeyC: 'cart', KeyH: 'home', Ke
 
 /**
  * The shortcut a key press means, if any. Reads `code` (the key's place on the keyboard), since
- * on a Mac option turns `key` into another character ("÷" for option + /).
+ * on a Mac option turns `key` into another character ("÷" for option + /); `key` only when an
+ * input method leaves `code` empty.
  */
-export function shortcutFor(e: Pick<KeyboardEvent, 'code' | 'altKey' | 'shiftKey' | 'ctrlKey' | 'metaKey'>): ShortcutAction | null {
+export function shortcutFor(e: Pick<KeyboardEvent, 'code' | 'key' | 'altKey' | 'shiftKey' | 'ctrlKey' | 'metaKey'>): ShortcutAction | null {
   if (!e.altKey || e.ctrlKey || e.metaKey) return null;
-  if (!e.shiftKey) return e.code === 'Slash' ? 'search' : null;
-  return SHIFTED[e.code] ?? null;
+  const code = e.code || (e.key === '/' ? 'Slash' : /^[a-z]$/i.test(e.key) ? `Key${e.key.toUpperCase()}` : '');
+  if (!e.shiftKey) return code === 'Slash' ? 'search' : null;
+  return SHIFTED[code] ?? null;
 }
 
 const editable = (t: EventTarget | null) =>
