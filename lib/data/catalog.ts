@@ -232,6 +232,18 @@ export function chart(db: Db, market: Market, kind: ChartKind, opts: ChartOption
   }
 }
 
+/** A chart's top `perRow` in each department, the departments in `categories` order (ones with nothing to list left out). */
+export async function chartRows(db: Db, market: Market, kind: ChartKind, categories: readonly Category[], perRow = 10): Promise<ChartRow[]> {
+  const rows = await Promise.all(categories.map(async (dept) => ({ dept, items: await chart(db, market, kind, { category: dept.slug, limit: perRow }) })));
+  return rows.filter((r) => r.items.length);
+}
+
+/** A chart's row for one department. */
+export interface ChartRow {
+  dept: Category;
+  items: Product[];
+}
+
 /** A chart ranked by `rpc` (product ids, best first), filled up with the bestsellers it doesn't repeat. */
 async function rankedChart(db: Db, rpc: 'most_wished_for' | 'gift_ideas', market: Market, opts: ChartOptions): Promise<Product[]> {
   const limit = opts.limit ?? 40;

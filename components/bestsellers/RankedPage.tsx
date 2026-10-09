@@ -1,10 +1,12 @@
 import type { Product, Category } from '@/lib/types';
+import type { ChartRow } from '@/lib/data/catalog';
 import type { Store } from '../lib/store';
 import { storePath } from '@/lib/marketplace';
 import { Page, PageHead, Section, cardGrid } from '../brand/Page';
 import { Pill } from '../decision/Pill';
 import { EmptyState } from '../decision/Badges';
 import { buttonClasses } from '../primitives/Button';
+import { ContinueRow, HomeSection } from '../home/HomeSections';
 import { RankCard, type Move } from './RankCard';
 
 export interface RankedPageProps {
@@ -24,6 +26,8 @@ export interface RankedPageProps {
   tag?: string;
   /** movers & shakers: each product's sales rank this week and last, by product id */
   moves?: Map<string, Move>;
+  /** across all departments, the chart's top few in each department instead of one list (`items` is then unused) */
+  rows?: ChartRow[];
 }
 
 /** The store's charts, linked from each one as Amazon's tabs are. */
@@ -36,7 +40,7 @@ export const CHARTS = [
 ] as const;
 
 /** Shared layout for the charts (Bestsellers, New & trending, Movers & shakers, Most wished for, Gift ideas): kicker + title, chart tabs, department pills, card grid. */
-export function RankedPage({ store, basePath, kicker, title, lede, categories, active, items, saved, ranked, tag, moves }: RankedPageProps) {
+export function RankedPage({ store, basePath, kicker, title, lede, categories, active, items, saved, ranked, tag, moves, rows }: RankedPageProps) {
   const activeName = active ? categories.find((x) => x.slug === active)?.name ?? active : undefined;
   return (
     <Page>
@@ -65,11 +69,25 @@ export function RankedPage({ store, basePath, kicker, title, lede, categories, a
             <Pill key={cat.slug} href={storePath(store, `${basePath}?c=${cat.slug}`)} selected={active === cat.slug}>{cat.name}</Pill>
           ))}
         </nav>
-        <p className="m-0 text-[14px] text-ink-3">
-          {activeName ?? 'All departments'} · <span className="tabular-nums">{items.length}</span> {items.length === 1 ? 'product' : 'products'}
-        </p>
+        {rows && !active ? null : (
+          <p className="m-0 text-[14px] text-ink-3">
+            {activeName ?? 'All departments'} · <span className="tabular-nums">{items.length}</span> {items.length === 1 ? 'product' : 'products'}
+          </p>
+        )}
 
-        {items.length ? (
+        {rows && !active ? (
+          rows.length ? (
+            <div className="flex flex-col gap-8 pt-2">
+              {rows.map(({ dept, items: top }) => (
+                <HomeSection key={dept.slug} id={`chart-${dept.slug}`} title={`${title} in ${dept.name}`} link={{ href: storePath(store, `${basePath}?c=${encodeURIComponent(dept.slug)}`), label: 'See more' }}>
+                  <ContinueRow products={top} store={store} kicker={ranked ? (p) => `#${top.indexOf(p) + 1}` : tag ?? ''} />
+                </HomeSection>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Nothing here yet">Try again later — the list updates as people shop.</EmptyState>
+          )
+        ) : items.length ? (
           <ol className={`${cardGrid} m-0 list-none p-0`}>
             {items.map((p, i) => (
               <li key={p.id} className="flex">
