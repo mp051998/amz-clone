@@ -29,6 +29,30 @@ export const metadata: Metadata = { title: 'Account · Store' };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+/** Amazon's link boxes under the account cards: the rest of the account, one link each. */
+function moreLinks(store: { id: string }): { title: string; links: { label: string; href: string }[] }[] {
+  return [
+    {
+      title: 'Ordering and shopping preferences',
+      links: [
+        { label: 'Archived orders', href: '/orders?period=archived' },
+        { label: 'Coupons', href: '/coupons' },
+        { label: 'Registry & gift lists', href: '/registry' },
+        { label: 'Recalls and product safety alerts', href: '/recalls' },
+      ],
+    },
+    {
+      title: 'Other programs',
+      links: [
+        ...(store.id === 'IN' ? [{ label: 'Store Pay', href: '/amazon-pay' }] : []),
+        { label: 'Plus Video', href: '/prime-video' },
+        { label: 'Business account', href: '/business' },
+        { label: 'Sell with us', href: '/sell' },
+      ],
+    },
+  ];
+}
+
 export default async function AccountPage() {
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
@@ -148,6 +172,24 @@ export default async function AccountPage() {
             </li>
           ))}
         </ul>
+
+        <section aria-labelledby="account-more" className="flex flex-col gap-3">
+          <h2 id="account-more" className="m-0 text-[22px] font-semibold leading-tight">More in your account</h2>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
+            {moreLinks(store).map((g) => (
+              <nav key={g.title} aria-label={g.title} className="flex flex-col gap-2 rounded-card border border-line bg-surface p-[18px]">
+                <h3 className="m-0 text-[16px] font-semibold">{g.title}</h3>
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                  {g.links.map((l) => (
+                    <li key={l.href}>
+                      <a href={sp(l.href)} className="text-[14px] text-ink no-underline hover:text-ink hover:underline hover:underline-offset-2">{l.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+          </div>
+        </section>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-surface p-[18px]">
           <div className="flex flex-col gap-0.5">
