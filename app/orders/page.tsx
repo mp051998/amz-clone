@@ -156,9 +156,24 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     </span>
                     <span className="font-mono text-[12px] text-ink-3">{o.id}</span>
                   </div>
-                  <span className="text-[13px] text-ink-2">
-                    Placed {longDate(new Date(o.placedAt ?? o.createdAt), store)} · {v.itemCount} {v.itemCount === 1 ? 'item' : 'items'} · to {o.shipTo.name}
-                  </span>
+                  <div className="text-[13px] text-ink-2">
+                    Placed {longDate(new Date(o.placedAt ?? o.createdAt), store)} · {v.itemCount} {v.itemCount === 1 ? 'item' : 'items'} ·{' '}
+                    {/* Amazon's "Ship to" name opens the address the order went to */}
+                    <details className="group inline">
+                      <summary className="inline cursor-pointer list-none underline decoration-dotted underline-offset-2 hover:text-ink [&::-webkit-details-marker]:hidden">
+                        to {o.shipTo.name}
+                      </summary>
+                      <address className="mt-1.5 flex max-w-[320px] flex-col rounded-input border border-line-2 bg-surface-2 px-3 py-2 not-italic text-ink" aria-label={`Ship to address for order ${o.id}`}>
+                        <span className="font-semibold">{o.shipTo.name}</span>
+                        <span>{o.shipTo.line1}</span>
+                        {o.shipTo.line2 ? <span>{o.shipTo.line2}</span> : null}
+                        {o.shipTo.landmark ? <span>Near {o.shipTo.landmark}</span> : null}
+                        <span>
+                          {o.shipTo.city}, {o.shipTo.state} {o.shipTo.postcode}
+                        </span>
+                      </address>
+                    </details>
+                  </div>
                   {/* under the status, as Amazon's card says: where it was left, when it comes, or the refund */}
                   {v.window && !unpaid ? <span className="text-[14px] text-ink">{v.window}</span> : null}
                   {o.deliveryOtp && orderStage(o, now, store.dates.timeZone) === 'out_for_delivery' ? (

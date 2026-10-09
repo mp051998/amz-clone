@@ -307,3 +307,13 @@ it('says where a delivered package was left, when one on its way comes, and offe
   expect(within(card('ORD-UNPAID')).queryByRole('link', { name: /Problem with order/ })).toBeNull();
   expect(card('ORD-UNPAID')).not.toHaveTextContent('Complete card payment to confirm');
 });
+
+it('the ship-to name opens the address the order went to', async () => {
+  state.orders = [{ ...order('o-ship', 2), shipTo: { name: 'Asha Rao', phone: '5550100', line1: '1 Main St', line2: 'Apt 4', landmark: 'the library', city: 'Austin', state: 'TX', postcode: '78701' } }];
+  await show();
+  const summary = screen.getByText('to Asha Rao');
+  expect(summary.tagName).toBe('SUMMARY');
+  const address = screen.getByLabelText('Ship to address for order o-ship');
+  expect(summary.closest('details')).toContainElement(address);
+  expect(address).toHaveTextContent('Asha Rao1 Main StApt 4Near the libraryAustin, TX 78701');
+});
