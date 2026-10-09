@@ -232,6 +232,7 @@ it('links to the rest of the account under the cards, Store Pay on amazon.in onl
   render(await AccountPage());
   const ordering = screen.getByRole('navigation', { name: 'Ordering and shopping preferences' });
   expect(within(ordering).getByRole('link', { name: 'Archived orders' })).toHaveAttribute('href', '/orders?period=archived');
+  expect(within(ordering).getByRole('link', { name: 'Your returns' })).toHaveAttribute('href', '/returns');
   expect(within(ordering).getByRole('link', { name: 'Coupons' })).toHaveAttribute('href', '/coupons');
   expect(within(ordering).getByRole('link', { name: 'Registry & gift lists' })).toHaveAttribute('href', '/registry');
   expect(within(ordering).getByRole('link', { name: 'Recalls and product safety alerts' })).toHaveAttribute('href', '/recalls');

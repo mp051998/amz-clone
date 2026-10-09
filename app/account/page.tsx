@@ -36,6 +36,7 @@ function moreLinks(store: { id: string }): { title: string; links: { label: stri
       title: 'Ordering and shopping preferences',
       links: [
         { label: 'Archived orders', href: '/orders?period=archived' },
+        { label: 'Your returns', href: '/returns' },
         { label: 'Coupons', href: '/coupons' },
         { label: 'Registry & gift lists', href: '/registry' },
         { label: 'Recalls and product safety alerts', href: '/recalls' },

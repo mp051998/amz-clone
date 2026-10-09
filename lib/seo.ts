@@ -30,7 +30,7 @@ export const STORE_PAGES = [
 ] as const;
 
 /** Per-shopper or private pages: nothing for a crawler there (each store). */
-const PRIVATE = ['/admin', '/account', '/cart', '/checkout', '/orders', '/collections', '/lists/', '/history', '/compare', '/signin', '/auth/', '/api/'];
+const PRIVATE = ['/admin', '/account', '/cart', '/checkout', '/orders', '/returns', '/collections', '/lists/', '/history', '/compare', '/signin', '/auth/', '/api/'];
 
 const DESCRIPTION_MAX = 160;
 

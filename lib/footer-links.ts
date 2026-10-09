@@ -54,7 +54,7 @@ const FOOTER_LINKS: Record<string, FooterDest> = {
   // ---- Let Us Help You ----
   'Your Account': { path: '/account' },
   'Your Orders': { path: '/orders' },
-  'Returns Centre': { path: '/orders' },
+  'Returns Centre': { path: '/returns' },
   // straight to the help topic, as Amazon's footer does, not the help hub
   'Returns & Replacements': { path: '/customer-service/help/returns-refunds' },
   'Shipping Rates & Policies': { path: '/customer-service/help/shipping-delivery' },

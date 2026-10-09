@@ -3,7 +3,7 @@ import { refundBreakdown, refundTo, returnChip, returnRefundTo } from '@/compone
 import type { Db } from '../db/client';
 import type { Order, OrderReturn } from '../types';
 import { DataError } from './errors';
-import { canStartReturn, chooseReturnMethod, getOrderReturns, isExchange, isReturnReason, isSizeReason, reportMissingUntil, requestReturn, returnPickupDays, returnWindows, toReturn, type OrderReturns } from './returns';
+import { canStartReturn, chooseReturnMethod, getOrderReturns, isExchange, isReturnReason, isSizeReason, ordersWithReturns, reportMissingUntil, requestReturn, returnInProgress, returnPickupDays, returnWindows, toReturn, type OrderReturns } from './returns';
 
 const row = {
   id: 'r1',
@@ -373,5 +373,52 @@ describe('return methods', () => {
     const late = await chooseReturnMethod(fakeDb({ message: 'invalid_input', details: 'pickup_on' }).db, RID, { method: 'pickup', pickupOn: '2027-01-01' }).catch((e: DataError) => e);
     expect([(late as DataError).message, (late as DataError).detail]).toEqual(['Choose a pickup day from tomorrow until the drop-off deadline.', 'pickup_on']);
     expect(await code(chooseReturnMethod(fakeDb({ message: 'return_not_open', details: '' }).db, RID, { method: 'dropoff' }))).toBe('return_not_open:undefined');
+  });
+});
+
+describe('your returns', () => {
+  const at = (iso: string) => new Date(iso);
+  const swap = {
+    ...row,
+    status: 'requested',
+    resolution: 'replacement',
+    refund_status: null,
+    replacement_shipped_at: '2026-10-01T10:00:00Z',
+    replacement_delivered_at: '2026-10-03T18:30:00Z',
+  };
+
+  it('is in progress until it’s refunded, replaced, turned down or cancelled', () => {
+    const r = toReturn(row); // received, refund pending
+    expect(returnInProgress({ ...r, status: 'requested', refund: undefined })).toBe(true);
+    expect(returnInProgress(r)).toBe(true);
+    expect(returnInProgress({ ...r, refund: { status: 'failed' } })).toBe(true);
+    expect(returnInProgress({ ...r, refund: { status: 'succeeded' } })).toBe(false);
+    expect(returnInProgress({ ...r, status: 'rejected' })).toBe(false);
+    expect(returnInProgress({ ...r, status: 'cancelled' })).toBe(false);
+  });
+
+  it('a replacement is done once it’s delivered and the original is back (or nothing goes back)', () => {
+    const r = toReturn(swap);
+    expect(returnInProgress(r, at('2026-10-02T00:00:00Z'))).toBe(true);
+    // delivered, but the original hasn't reached us yet
+    expect(returnInProgress(r, at('2026-10-04T00:00:00Z'))).toBe(true);
+    expect(returnInProgress({ ...r, status: 'received' }, at('2026-10-04T00:00:00Z'))).toBe(false);
+    expect(returnInProgress({ ...r, status: 'received' }, at('2026-10-02T00:00:00Z'))).toBe(true);
+    expect(returnInProgress({ ...r, reason: 'missing_item' }, at('2026-10-04T00:00:00Z'))).toBe(false);
+  });
+
+  it('lists the caller’s orders with a return, latest return first, once each', async () => {
+    const limit = vi.fn(async () => ({ data: [{ order_id: 'B' }, { order_id: 'A' }, { order_id: 'B' }], error: null }));
+    const order = vi.fn(() => ({ limit }));
+    const select = vi.fn(() => ({ order }));
+    const from = vi.fn(() => ({ select }));
+    expect(await ordersWithReturns({ from } as unknown as Db)).toEqual(['B', 'A']);
+    expect(from).toHaveBeenCalledWith('returns');
+    expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
+  });
+
+  it('lists none when the returns can’t be read', async () => {
+    const from = () => ({ select: () => ({ order: () => ({ limit: async () => ({ data: null, error: { code: '42P01' } }) }) }) });
+    expect(await ordersWithReturns({ from } as unknown as Db)).toEqual([]);
   });
 });
