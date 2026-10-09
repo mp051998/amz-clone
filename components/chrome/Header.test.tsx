@@ -17,3 +17,9 @@ it('the phone header drops Saved on the narrowest screens so the row fits', () =
   expect(within(row).getByRole('link', { name: 'Orders' })).not.toHaveClass('max-[360px]:hidden');
   expect(within(row).getByRole('link', { name: /Cart/ })).toHaveAttribute('href', '/cart');
 });
+
+it('the desktop header links Returns & Orders, as Amazon does', () => {
+  const { container } = render(<Header store={amazon} userName="Alex" />);
+  const row = container.querySelector('header > div.md\\:flex') as HTMLElement;
+  expect(within(row).getByRole('link', { name: 'Returns & Orders' })).toHaveAttribute('href', '/orders');
+});
