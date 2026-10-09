@@ -50,6 +50,11 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 
 const PER_PAGE = 12;
+/** Amazon's "Skip to" box on a results page: the results, then the filters. */
+const SKIP_TO = [
+  { label: 'Results', href: '#results' },
+  { label: 'Filters', href: '#filters' },
+];
 
 const SORT_OPTIONS: { value: RankSort; label: string }[] = [
   { value: 'match', label: 'Best match' },
@@ -281,7 +286,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   );
 
   return (
-    <AppShell query={k || undefined}>
+    <AppShell query={k || undefined} skipTo={SKIP_TO}>
       <div className="mx-auto flex w-full max-w-page flex-col gap-[22px] px-[clamp(16px,3vw,24px)] pb-10 pt-7">
         <header className="flex flex-col gap-2">
           {orig && k ? (
@@ -337,7 +342,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </section>
 
         <div className="flex flex-wrap items-start gap-6">
-          <aside aria-label="Your priorities" className="min-w-0 flex-[1_1_270px] lg:sticky lg:top-[120px] lg:max-h-[calc(100vh-136px)] lg:overflow-y-auto">
+          <aside id="filters" aria-label="Your priorities" className="scroll-mt-[140px] min-w-0 flex-[1_1_270px] lg:sticky lg:top-[120px] lg:max-h-[calc(100vh-136px)] lg:overflow-y-auto">
             <PrioritiesPanel
               market={store.id}
               category={category}
@@ -380,7 +385,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             />
           </aside>
 
-          <section aria-label="Results" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
+          <section id="results" aria-label="Results" className="scroll-mt-[140px] flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-[14px] text-ink-2">{RANK_NOTE[sort]}</span>
               <SegmentedControl
