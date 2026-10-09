@@ -9,6 +9,9 @@ const state = vi.hoisted(() => ({
   user: { id: 'u1' } as unknown,
   orders: [] as unknown[],
   returnsFor: [] as string[][],
+  // order id -> what it has left to return (absent: delivered too long ago, or not delivered)
+  returnable: {} as Record<string, { returnable: Record<string, number>; replaceable: Record<string, number> }>,
+  returnsAsked: [] as string[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -21,11 +24,19 @@ vi.mock('@/lib/auth', () => ({ readUser: async () => state.user }));
 vi.mock('@/lib/supabase/server', () => ({ db: async () => ({}) }));
 vi.mock('@/lib/data/orders', () => ({ listOrders: async () => state.orders }));
 vi.mock('@/lib/data/returns', () => ({
+  canStartReturn: (r: { returnBy: string; returnable: Record<string, number> }) => Date.parse(r.returnBy) >= Date.now() && Object.values(r.returnable).some((n) => n > 0),
   returnSummaries: async (_db: unknown, ids: string[]) => {
     state.returnsFor.push(ids);
     return new Map();
   },
+  getOrderReturns: async (_db: unknown, id: string) => {
+    state.returnsAsked.push(id);
+    const r = state.returnable[id];
+    const by = new Date(Date.now() + (r ? 10 : -10) * 86_400_000).toISOString();
+    return { delivered: true, returnBy: by, returnByItem: {}, returnable: r?.returnable ?? {}, replaceable: r?.replaceable ?? {}, returns: [] };
+  },
 }));
+vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
 import OrdersPage from './page';
 
@@ -59,6 +70,8 @@ beforeEach(() => {
   state.user = { id: 'u1' };
   state.orders = [order('ORD-1', 2, 'Sony Headphones'), order('ORD-2', 40), order('ORD-3', 200, 'Ceramic Mug'), order('ORD-4', 500)];
   state.returnsFor = [];
+  state.returnable = {};
+  state.returnsAsked = [];
 });
 
 it('shows the past 3 months by default, with the other periods to pick from', async () => {
@@ -209,4 +222,49 @@ it('shows a high-value order’s delivery OTP while it is out for delivery, and 
   expect(screen.getByText('048213').parentElement).toHaveTextContent('Delivery OTP 048213 · share it with the delivery associate');
   expect(screen.queryByText('771204')).toBeNull();
   expect(screen.queryByText('550912')).toBeNull();
+});
+
+it('lists each item with Buy it again and View your item, the rest on the order’s page', async () => {
+  const many = { ...order('ORD-1', 2), items: ['Kettle', 'Mug', 'Teapot', 'Tray', 'Spoon'].map((title, i) => ({ productId: `p${i}`, title, image: '', seller: 'Store', unitPriceMinor: 500, qty: i === 0 ? 2 : 1 })) };
+  const offer = { ...order('ORD-2', 3), items: [{ productId: 'p9-o1', offerOf: 'p9', title: 'Lamp', image: '', seller: 'Other', unitPriceMinor: 900, qty: 1, size: 'M' }] };
+  state.orders = [many, offer];
+  await show();
+  const items = screen.getByRole('list', { name: 'Items in order ORD-1' });
+  expect(within(items).getAllByRole('link', { name: /^View your item/ })).toHaveLength(3);
+  expect(within(items).getByRole('link', { name: 'Kettle' })).toHaveAttribute('href', '/product/p0');
+  expect(within(items).getByText('Qty 2')).toBeInTheDocument();
+  expect(within(items).getByRole('button', { name: 'Buy it again: Kettle' })).toBeInTheDocument();
+  expect(within(items).getByRole('link', { name: 'and 2 more items in this order' })).toHaveAttribute('href', '/orders/ORD-1?placed=0');
+
+  // another seller's offer: buy and view the product, in the size bought
+  const lamp = screen.getByRole('list', { name: 'Items in order ORD-2' });
+  expect(within(lamp).getByRole('link', { name: 'View your item: Lamp' })).toHaveAttribute('href', '/product/p9');
+  expect(within(lamp).getByText('Size M')).toBeInTheDocument();
+  const form = within(lamp).getByRole('button', { name: 'Buy it again: Lamp' }).closest('form')!;
+  expect(Object.fromEntries(new FormData(form))).toEqual({ id: 'p9', qty: '1', size: 'M' });
+});
+
+it('offers returns while the window is open, and a review once delivered', async () => {
+  const at = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const onTheWay = { ...order('ORD-3', 1), shippedAt: at(-1), outForDeliveryAt: at(20), deliveredAt: at(26) };
+  state.orders = [order('ORD-1', 2), order('ORD-2', 20), onTheWay];
+  state.returnable = { 'ORD-1': { returnable: { 'ORD-1': 1 }, replaceable: { 'ORD-1': 1 } } };
+  await show();
+  const card = (id: string) => screen.getByText(id).closest('li')!;
+  expect(within(card('ORD-1')).getByRole('link', { name: 'Return or replace items' })).toHaveAttribute('href', '/orders/ORD-1/return');
+  expect(within(card('ORD-1')).getByRole('link', { name: 'Write a product review' })).toHaveAttribute('href', '/account/reviews');
+  // past its window: no return, still a review
+  expect(within(card('ORD-2')).queryByRole('link', { name: /^Return/ })).toBeNull();
+  expect(within(card('ORD-2')).getByRole('link', { name: 'Write a product review' })).toBeInTheDocument();
+  // not delivered yet: neither, and its returns aren't looked up
+  expect(within(card('ORD-3')).queryByRole('link', { name: /^Return|Write a product review/ })).toBeNull();
+  expect(within(card('ORD-3')).getByRole('link', { name: 'Track order ORD-3' })).toHaveTextContent('Track package');
+  expect(state.returnsAsked.sort()).toEqual(['ORD-1', 'ORD-2']);
+});
+
+it('an unpaid order has nothing to buy again yet', async () => {
+  state.orders = [{ ...order('ORD-1', 1), status: 'awaiting_payment', deliveredAt: undefined }];
+  await show();
+  expect(screen.queryByRole('button', { name: /Buy it again/ })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Write a product review' })).toBeNull();
 });
