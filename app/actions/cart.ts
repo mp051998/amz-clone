@@ -40,7 +40,9 @@ export async function addToCart(formData: FormData): Promise<void> {
 export async function buyNow(formData: FormData): Promise<void> {
   const market = await getMarket();
   const buy = readBuyNow(formData.get('id'), formData.get('qty'), formData.get('protection'), formData.get('size'), formData.get('exchange'), formData.get('condition'));
-  redirect(storePath({ id: market }, buy ? `/checkout?${buyNowQuery(buy)}` : '/cart'));
+  // "Add a gift receipt for easy returns": checkout opens with its gift box ticked
+  const gift = formData.get('gift') === '1' ? '&gift=1' : '';
+  redirect(storePath({ id: market }, buy ? `/checkout?${buyNowQuery(buy)}${gift}` : '/cart'));
 }
 
 /** Most a "Frequently bought together" bundle holds: the product and two more (a "use server" file exports only actions). */

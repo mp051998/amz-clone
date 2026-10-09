@@ -48,6 +48,21 @@ it('marks the faster option FREE for a Plus member', () => {
   expect(screen.getByText(/fastest delivery/)).toHaveTextContent('Or FREE fastest delivery Today by 7:30 PM');
 });
 
+it('amazon.com’s “Add a gift receipt for easy returns” goes with Buy Now, and with the cart Add to Cart leads to', async () => {
+  show({}, { giftReceipt: true });
+  const box = screen.getByRole('checkbox', { name: 'Add a gift receipt for easy returns' });
+  const form = box.closest('form')!;
+  expect(new FormData(form).get('gift')).toBeNull();
+  fireEvent.click(box);
+  expect(new FormData(form).get('gift')).toBe('1');
+  fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
+  expect(await screen.findByRole('link', { name: 'View cart →' })).toHaveAttribute('href', '/cart?gift=1');
+  cleanup();
+
+  show();
+  expect(screen.queryByRole('checkbox', { name: 'Add a gift receipt for easy returns' })).toBeNull();
+});
+
 it('offers the store’s protection plan, which Buy Now and Add to Cart both take', async () => {
   show({}, { protection: { name: '2-Year Protection Plan', price: '$7.99' } });
   const box = screen.getByRole('checkbox', { name: /2-Year Protection Plan for \$7\.99/ });

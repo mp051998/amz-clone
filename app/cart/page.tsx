@@ -95,7 +95,7 @@ async function setup(lines: CartLine[]): Promise<Accessory[]> {
 export default async function CartPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[]; skipped?: string | string[]; list?: string | string[] }>;
+  searchParams: Promise<{ error?: string | string[]; skipped?: string | string[]; list?: string | string[]; gift?: string | string[] }>;
 }) {
   const [store, query] = await Promise.all([getMarketplace(), searchParams]);
   const problem = cartNotice(query.error, query.skipped);
@@ -427,9 +427,10 @@ export default async function CartPage({
                       : 'Some items are over their limit per customer. Update them to check out.'}
               </Alert>
             ) : user ? (
-              // ticked, checkout opens with its gift options (a message, gift wrap)
+              // ticked, checkout opens with its gift options (a message, gift wrap); a product page's
+              // "Add a gift receipt for easy returns" ticks it (`?gift=1`)
               <form action={sp('/checkout')} method="get" className="flex flex-col gap-1">
-                <Checkbox name="gift" value="1" label="This order contains a gift" />
+                <Checkbox name="gift" value="1" label="This order contains a gift" defaultChecked={query.gift === '1'} />
                 <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>Proceed to checkout</button>
               </form>
             ) : (

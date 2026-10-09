@@ -73,6 +73,8 @@ export interface BuyPanelProps {
   preOrder?: { release: string };
   /** amazon.in's exchange offer: trade an old `kind` ("phone") in with Buy Now, up to `upTo` off */
   exchange?: { kind: string; upTo: string; devices: ExchangeOption[] };
+  /** amazon.com's "Add a gift receipt for easy returns" under the buttons */
+  giftReceipt?: boolean;
 }
 
 
@@ -97,8 +99,10 @@ const LEVEL_TONE = {
  * A pre-order says when it's released in place of the stock line, and Buy Now reads "Pre-order now".
  * With an exchange offer the shopper can pick their old phone or laptop (brand, model, screen) and see
  * what it takes off; that's a Buy Now of one, so the quantity and Add to Cart step aside meanwhile.
+ * With `giftReceipt`, "Add a gift receipt for easy returns" makes it a gift: Buy Now opens checkout
+ * with "This order contains a gift" ticked, and so does the cart that "View cart" opens after Add to Cart.
  */
-export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, fit, preOrder, exchange }: BuyPanelProps) {
+export function BuyPanel({ productId, name, image, category, categoryName, market, stock, saved, lists = null, delivery, confidence, error, protection, limit, sizes, fit, preOrder, exchange, giftReceipt = false }: BuyPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
@@ -113,6 +117,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
   const device = trading ? exchange?.devices.find((d) => d.id === deviceId) : undefined;
   const needsDevice = trading && !device;
   const [justAdded, setJustAdded] = useState(false);
+  const [gift, setGift] = useState(false);
   const [err, setErr] = useState<string | null>(error ?? null);
   const [pending, start] = useTransition();
   const available = stock > 0;
@@ -344,13 +349,19 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
             </button>
           )}
           <button type="submit" className={buttonClasses({ variant: 'dark', size: 'lg', block: true })}>{preOrder ? 'Pre-order now' : 'Buy Now'}</button>
+          {giftReceipt ? (
+            <label className="flex items-center gap-2 text-[14px]">
+              <input type="checkbox" name="gift" value="1" checked={gift} onChange={(e) => setGift(e.target.checked)} className="h-4 w-4 accent-ink" />
+              Add a gift receipt for easy returns
+            </label>
+          ) : null}
         </form>
       ) : null}
 
       {justAdded ? (
         <div role="status" className="flex items-center justify-between gap-2 rounded-input bg-good-bg px-3 py-2.5 text-[14px]">
           <span className="font-semibold text-good-strong">✓ Added to cart</span>
-          <a href={cartHref} className="font-semibold text-ink underline underline-offset-2">View cart →</a>
+          <a href={gift ? `${cartHref}?gift=1` : cartHref} className="font-semibold text-ink underline underline-offset-2">View cart →</a>
         </div>
       ) : null}
 
