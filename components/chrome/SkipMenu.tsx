@@ -85,7 +85,8 @@ export function SkipMenu({ homeHref, cartHref, ordersHref }: { homeHref: string;
       data-open={open || undefined}
       className={cn(
         'z-[90] w-[min(320px,calc(100vw-32px))] rounded-card border border-line bg-surface p-4 text-ink shadow-lg',
-        open ? 'fixed left-4 top-3' : 'sr-only focus-within:not-sr-only focus-within:fixed focus-within:left-4 focus-within:top-3',
+        // not-sr-only resets the width, so focus sets it again
+        open ? 'fixed left-4 top-3' : 'sr-only focus-within:not-sr-only focus-within:fixed focus-within:left-4 focus-within:top-3 focus-within:w-[min(320px,calc(100vw-32px))]',
       )}
     >
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.04em] text-ink-3">Skip to</p>
