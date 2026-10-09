@@ -313,26 +313,26 @@ isOneToOne: false
                   ]
                 },"gift_card_purchases": {
                   Row: {
-                    "amount_minor": number,"created_at": string,"currency": string,"gift_card_code": string | null,"id": string,"market_id": string,"message": string | null,"paid_at": string | null,"payment_intent_id": string | null,"recipient_name": string | null,"status": string,"stripe_session_id": string | null,"user_id": string | null,"reload": boolean
+                    "amount_minor": number,"created_at": string,"currency": string,"gift_card_code": string | null,"id": string,"market_id": string,"message": string | null,"paid_at": string | null,"payment_intent_id": string | null,"quantity": number,"recipient_name": string | null,"status": string,"stripe_session_id": string | null,"user_id": string | null,"reload": boolean
                   }
                   Insert: {
-                    "amount_minor": number,"created_at"?: string,"currency": string,"gift_card_code"?: string | null,"id"?: string,"market_id": string,"message"?: string | null,"paid_at"?: string | null,"payment_intent_id"?: string | null,"recipient_name"?: string | null,"status"?: string,"stripe_session_id"?: string | null,"user_id"?: string | null,"reload"?: boolean
+                    "amount_minor": number,"created_at"?: string,"currency": string,"gift_card_code"?: string | null,"id"?: string,"market_id": string,"message"?: string | null,"paid_at"?: string | null,"payment_intent_id"?: string | null,"quantity"?: number,"recipient_name"?: string | null,"status"?: string,"stripe_session_id"?: string | null,"user_id"?: string | null,"reload"?: boolean
                   }
                   Update: {
-                    "amount_minor"?: number,"created_at"?: string,"currency"?: string,"gift_card_code"?: string | null,"id"?: string,"market_id"?: string,"message"?: string | null,"paid_at"?: string | null,"payment_intent_id"?: string | null,"recipient_name"?: string | null,"status"?: string,"stripe_session_id"?: string | null,"user_id"?: string | null,"reload"?: boolean
+                    "amount_minor"?: number,"created_at"?: string,"currency"?: string,"gift_card_code"?: string | null,"id"?: string,"market_id"?: string,"message"?: string | null,"paid_at"?: string | null,"payment_intent_id"?: string | null,"quantity"?: number,"recipient_name"?: string | null,"status"?: string,"stripe_session_id"?: string | null,"user_id"?: string | null,"reload"?: boolean
                   }
                   Relationships: [
                     
                   ]
                 },"gift_cards": {
                   Row: {
-                    "amount_minor": number,"code": string,"created_at": string,"issued_to": string | null,"market_id": string,"purchased_by": string | null,"redeemed_at": string | null,"redeemed_by": string | null
+                    "amount_minor": number,"code": string,"created_at": string,"issued_to": string | null,"market_id": string,"purchase_id": string | null,"purchased_by": string | null,"redeemed_at": string | null,"redeemed_by": string | null
                   }
                   Insert: {
-                    "amount_minor": number,"code": string,"created_at"?: string,"issued_to"?: string | null,"market_id": string,"purchased_by"?: string | null,"redeemed_at"?: string | null,"redeemed_by"?: string | null
+                    "amount_minor": number,"code": string,"created_at"?: string,"issued_to"?: string | null,"market_id": string,"purchase_id"?: string | null,"purchased_by"?: string | null,"redeemed_at"?: string | null,"redeemed_by"?: string | null
                   }
                   Update: {
-                    "amount_minor"?: number,"code"?: string,"created_at"?: string,"issued_to"?: string | null,"market_id"?: string,"purchased_by"?: string | null,"redeemed_at"?: string | null,"redeemed_by"?: string | null
+                    "amount_minor"?: number,"code"?: string,"created_at"?: string,"issued_to"?: string | null,"market_id"?: string,"purchase_id"?: string | null,"purchased_by"?: string | null,"redeemed_at"?: string | null,"redeemed_by"?: string | null
                   }
                   Relationships: [
                     
@@ -1354,7 +1354,7 @@ isOneToOne: false
 { Args: { "p_limit"?: number,"p_market": string }; Returns: Json
                            },
 "start_gift_card_purchase":
-{ Args: { "p_amount_minor": number,"p_market": string,"p_message"?: string,"p_recipient"?: string }; Returns: Json
+{ Args: { "p_amount_minor": number,"p_market": string,"p_message"?: string,"p_quantity"?: number,"p_recipient"?: string }; Returns: Json
                            },
 "start_balance_reload":
 { Args: { "p_amount_minor": number,"p_market": string }; Returns: Json

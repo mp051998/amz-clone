@@ -329,7 +329,7 @@ export function isGiftCardSession(session: Pick<Stripe.Checkout.Session, 'metada
   return session.metadata?.kind === 'gift_card';
 }
 
-/** Create the Stripe Checkout Session for a gift card purchase (or reload) awaiting payment; returns its URL. */
+/** Create the Stripe Checkout Session for a gift card purchase (or reload) awaiting payment, one line for its cards; returns its URL. */
 export async function startGiftCardCheckout(purchase: GiftCardPurchase, urls: CheckoutUrls, label: string, payer?: Payer | null): Promise<string> {
   const s = requireStripe();
   if (purchase.status !== 'awaiting_payment') throw new DataError('purchase_not_found');
@@ -341,7 +341,7 @@ export async function startGiftCardCheckout(purchase: GiftCardPurchase, urls: Ch
       ...saved,
       line_items: [
         {
-          quantity: 1,
+          quantity: purchase.quantity,
           price_data: {
             currency: purchase.currency.toLowerCase(),
             unit_amount: purchase.amountMinor,
@@ -367,7 +367,7 @@ export async function startGiftCardCheckout(purchase: GiftCardPurchase, urls: Ch
   return session.url;
 }
 
-/** Issue the gift card for a session Stripe reports as paid. Idempotent. */
+/** Issue the gift cards for a session Stripe reports as paid. Idempotent. */
 export async function confirmGiftCardSession(session: Stripe.Checkout.Session): Promise<GiftCardPurchase> {
   if (session.payment_status !== 'paid') throw new DataError('payment_incomplete');
   const row = unwrap(

@@ -148,7 +148,8 @@ export function buildTransactions(
         key: `gift:${g.id}`,
         kind: 'charge',
         source: g.reload ? 'reload' : 'gift_card',
-        amountMinor: g.amountMinor,
+        // one charge for all the cards bought together
+        amountMinor: g.amountMinor * g.quantity,
         at: g.paidAt ?? g.createdAt,
         status: 'completed',
         method: 'card',

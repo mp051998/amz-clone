@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Fragment } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { Page, PageHead, Section, Card, InfoCard, DemoNote, cardGrid } from '@/components/brand/Page';
 import { Kicker } from '@/components/decision/Badges';
@@ -54,6 +55,13 @@ const OCCASIONS: Record<'US' | 'IN', Record<string, string>> = {
 
 /** `for=reload`: a reload's return trip (its cancel or error shows by the balance, not the gift cards). */
 type SP = { claimed?: string; bought?: string; reloaded?: string; canceled?: string; error?: string; occasion?: string; for?: string };
+
+/** "Not redeemed yet", "Redeemed", or for several cards how many of them have been. */
+function redeemedText(p: GiftCardPurchase): string {
+  const used = p.codes.filter((c) => c.redeemed).length;
+  if (p.codes.length > 1 && used > 0 && used < p.codes.length) return `${used} of ${p.codes.length} redeemed`;
+  return p.redeemed ? 'Redeemed' : 'Not redeemed yet';
+}
 
 function entryText(e: BalanceEntry, reloadText: string): string {
   switch (e.kind) {
@@ -177,7 +185,16 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
 
         {user && giftCards.length ? (
           <Section id="purchases" title="Gift cards you bought" note="Give the code, or redeem it yourself below">
-            {bought?.code ? (
+            {bought?.code && bought.codes.length > 1 ? (
+              <Alert tone="success">
+                Your {bought.codes.length} {whole(bought.amountMinor)} gift cards are ready:{' '}
+                {bought.codes.map((c, i) => (
+                  <Fragment key={c.code}>{i ? ', ' : ''}<b className="font-mono">{c.code}</b></Fragment>
+                ))}
+                .{' '}
+                {bought.recipientName ? `Give the codes to ${bought.recipientName}.` : 'Give the codes to someone, or redeem them below.'}
+              </Alert>
+            ) : bought?.code ? (
               <Alert tone="success">
                 Your {whole(bought.amountMinor)} gift card is ready: <b className="font-mono">{bought.code}</b>.{' '}
                 {bought.recipientName ? `Give the code to ${bought.recipientName}.` : 'Give the code to someone, or redeem it below.'}
@@ -188,14 +205,28 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
                 <li key={p.id}>
                   <Card className="flex flex-col gap-2">
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-[22px] font-bold tabular-nums">{whole(p.amountMinor)}</span>
-                      <span className={cn('text-[13px] font-semibold', p.redeemed ? 'text-ink-3' : 'text-good')}>{p.redeemed ? 'Redeemed' : 'Not redeemed yet'}</span>
+                      <span className="text-[22px] font-bold tabular-nums">
+                        {whole(p.amountMinor)}
+                        {p.quantity > 1 ? <span className="text-[15px] font-semibold text-ink-2"> × {p.quantity}</span> : null}
+                      </span>
+                      <span className={cn('text-[13px] font-semibold', p.redeemed ? 'text-ink-3' : 'text-good')}>{redeemedText(p)}</span>
                     </div>
                     <p className="m-0 text-[14px] text-ink-2">
                       {p.recipientName ? `For ${p.recipientName} · ` : ''}Bought {shortDate(new Date(p.paidAt ?? p.createdAt), store)}
                     </p>
                     {p.message ? <p className="m-0 text-[14px] italic text-ink-2">“{p.message}”</p> : null}
-                    {p.code ? <CopyCode code={p.code} /> : null}
+                    {p.codes.length > 1 ? (
+                      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                        {p.codes.map((c) => (
+                          <li key={c.code} className="flex items-center gap-3">
+                            <div className="min-w-0 flex-1"><CopyCode code={c.code} /></div>
+                            {c.redeemed ? <span className="text-[13px] text-ink-3">Redeemed</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : p.code ? (
+                      <CopyCode code={p.code} />
+                    ) : null}
                   </Card>
                 </li>
               ))}
