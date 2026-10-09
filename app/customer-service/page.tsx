@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { Page, PageHead, Section, DemoNote } from '@/components/brand/Page';
 import { buttonClasses } from '@/components/primitives/Button';
+import { ProductFrame } from '@/components/decision';
+import { StatusChip } from '@/components/orders/Tracking';
+import { orderView } from '@/components/orders/format';
+import { listOrders } from '@/lib/data/orders';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { readUser } from '@/lib/auth';
@@ -9,6 +13,9 @@ import { unreadCaseIds } from '@/lib/data/support';
 import { db } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Help · Store' };
+
+/** Recent orders offered under "Get help with a recent order". */
+const RECENT_ORDERS = 4;
 
 /** Quick-action cards — the descriptor differs per store where the flow does. */
 function quickActions(isIN: boolean) {
@@ -22,10 +29,10 @@ function quickActions(isIN: boolean) {
     {
       title: 'Payments & gift cards',
       line: isIN ? 'Manage cards, UPI, your store balance and gift cards.' : 'Manage payment methods, gift cards and your balance.',
-      href: '/account',
+      href: '/account/payments',
     },
     { title: 'Plus membership', line: 'View benefits, change plan, or cancel your Plus membership.', href: '/prime' },
-    { title: 'Login & security', line: 'Change your password, email, name or mobile number.', href: '/account' },
+    { title: 'Login & security', line: 'Change your password, email, name or mobile number.', href: '/account/security' },
     { title: 'Saved items & collections', line: 'Find what you saved, and turn price tracking on or off.', href: '/collections' },
   ];
 }
@@ -69,8 +76,19 @@ export default async function CustomerServicePage() {
   const sp = (p: string) => storePath(store, p);
   const tiles = quickActions(isIN);
   const questions = commonQuestions(isIN);
-  // signed in: say when the store has replied on a case since the shopper last looked
-  const unread = (await readUser()) ? (await unreadCaseIds(await db(), store.id)).size : 0;
+  const user = await readUser();
+  const client = user ? await db() : null;
+  // signed in: say when the store has replied on a case since the shopper last looked, and offer
+  // their latest placed orders to get help with
+  const [unread, recent] = client
+    ? await Promise.all([
+        unreadCaseIds(client, store.id).then((ids) => ids.size),
+        listOrders(client, store.id, { limit: RECENT_ORDERS * 2 })
+          .then((orders) => orders.filter((o) => o.placedAt).slice(0, RECENT_ORDERS))
+          .catch(() => []),
+      ])
+    : [0, []];
+  const now = new Date();
 
   return (
     <AppShell>
@@ -90,6 +108,40 @@ export default async function CustomerServicePage() {
           />
           <button type="submit" className={buttonClasses({ variant: 'primary' })}>Search</button>
         </form>
+
+        {recent.length ? (
+          <Section title="Get help with a recent order" note={<a href={sp('/orders')} className="text-ink underline underline-offset-2">See all orders</a>}>
+            <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3.5 p-0">
+              {recent.map((o) => {
+                const [first] = o.items;
+                const more = o.items.length - 1;
+                const v = orderView(o, store, now);
+                return (
+                  <li key={o.id}>
+                    <a
+                      href={sp(`/customer-service/contact?order=${encodeURIComponent(o.id)}`)}
+                      className="flex h-full gap-3 rounded-card border border-line bg-surface p-3.5 text-ink no-underline transition-colors hover:border-ink hover:text-ink"
+                    >
+                      {first ? (
+                        <span className="w-14 flex-none">
+                          <ProductFrame src={first.image} alt="" aspect="1/1" />
+                        </span>
+                      ) : null}
+                      <span className="flex min-w-0 flex-col items-start gap-1.5">
+                        <StatusChip label={v.chip.label} tone={v.chip.tone} />
+                        <span className="line-clamp-2 text-[15px] font-semibold leading-snug">
+                          {first ? first.title : 'Order'}
+                          {more > 0 ? <span className="font-normal text-ink-2"> and {more} more</span> : null}
+                        </span>
+                        <span className="font-mono text-[12px] text-ink-3">{o.id}</span>
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        ) : null}
 
         <Section title="Quick actions">
           <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3.5 p-0">
