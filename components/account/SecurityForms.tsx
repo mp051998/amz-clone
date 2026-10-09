@@ -184,6 +184,22 @@ export function TwoStepSetupForm({ action, qrCode, secret, cancelHref }: { actio
 }
 
 /** "Request your data": one JSON file with everything the store keeps about the shopper. */
+/** Amazon's "Secure your account": sign out of every other browser and device at once. */
+export function SignOutEverywhereCard({ action, passwordHref }: { action: Action; passwordHref: string }) {
+  const [state, formAction] = useActionState(action, {});
+  return (
+    <Card id="sign-out" title="Sign out everywhere" current="Signed in somewhere you shouldn’t be, or on a device you no longer have? End those sessions here." state={state}>
+      <p className="m-0 text-[14px] leading-[1.5] text-ink-2">
+        Every other browser, device and app signed in to your account is signed out, and has to sign in again. You stay signed in here. If someone else might
+        know your password, <a href={passwordHref} className="text-ink underline underline-offset-2">change it</a> too.
+      </p>
+      <form action={formAction}>
+        <Save pendingLabel="Signing out…">Sign out everywhere</Save>
+      </form>
+    </Card>
+  );
+}
+
 export function DownloadDataCard({ href }: { href: string }) {
   return (
     <Card id="data" title="Download your data" current="A copy of what we keep about you, from both stores." state={{}}>

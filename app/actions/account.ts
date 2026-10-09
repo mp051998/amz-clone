@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { changeEmail, changePassword, closeAccount, isRecovery, renameAccount, validEmail } from '@/lib/data/account';
+import { changeEmail, changePassword, closeAccount, isRecovery, renameAccount, signOutElsewhere, validEmail } from '@/lib/data/account';
 import { DataError } from '@/lib/data/errors';
 import { getMarket } from '@/lib/session';
 import { storePath } from '@/lib/marketplace';
@@ -92,6 +92,19 @@ export async function updatePassword(_prev: AccountFormState, formData: FormData
   // the fresh session isn't a reset session: the page lays out differently, so reload it with a notice
   if (recovering) redirect(`${storePath({ id: await getMarket() }, PAGE)}?done=password`);
   return { done: 'Password changed. You’ve been signed out on your other devices.' };
+}
+
+/** "Sign out everywhere": every other session of the account ends; this one carries on. */
+export async function signOutEverywhere(_prev: AccountFormState, _formData: FormData): Promise<AccountFormState> {
+  await signedIn();
+  try {
+    const { data } = await (await db()).auth.getSession();
+    if (!data.session) throw new DataError('not_authenticated');
+    await signOutElsewhere(createAdminClient(), data.session.access_token);
+  } catch (err) {
+    return failed(err);
+  }
+  return { done: 'You’re signed out everywhere else. You’re still signed in here.' };
 }
 
 /**

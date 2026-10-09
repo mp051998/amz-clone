@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Alert } from '@/components/primitives/Alert';
-import { CloseAccountForm, DownloadDataCard, EmailForm, NameForm, PasswordForm, TwoStepCard } from '@/components/account/SecurityForms';
+import { CloseAccountForm, DownloadDataCard, EmailForm, NameForm, PasswordForm, SignOutEverywhereCard, TwoStepCard } from '@/components/account/SecurityForms';
 import { readTwoStepOn, readUser } from '@/lib/auth';
 import { closureCheck, closureMessage, isRecovery, listPhrase } from '@/lib/data/account';
 import { db } from '@/lib/supabase/server';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
-import { closeMyAccount, updateEmail, updateName, updatePassword } from '@/app/actions/account';
+import { closeMyAccount, signOutEverywhere, updateEmail, updateName, updatePassword } from '@/app/actions/account';
 import { turnOffTwoStepSetting } from '@/app/actions/two-step';
 
 export const metadata: Metadata = { title: 'Login & security · Store' };
@@ -45,6 +45,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
         <EmailForm action={updateEmail} email={user.email} />
         {recovering ? null : password}
         <TwoStepCard on={twoStep} setupHref={sp('/account/security/two-step')} offAction={turnOffTwoStepSetting} />
+        <SignOutEverywhereCard action={signOutEverywhere} passwordHref="#password" />
         <DownloadDataCard href={sp('/account/data')} />
         {closure ? (
           <CloseAccountForm action={closeMyAccount} blocked={closureMessage(closure)} losing={losing} ordersHref={sp('/orders')} />

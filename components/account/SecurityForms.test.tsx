@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { AccountFormState } from '@/app/actions/account';
-import { CloseAccountForm, DownloadDataCard } from './SecurityForms';
+import { CloseAccountForm, DownloadDataCard, SignOutEverywhereCard } from './SecurityForms';
 
 afterEach(cleanup);
 
@@ -51,4 +51,16 @@ it('offers the data file as a download', () => {
   const link = screen.getByRole('link', { name: 'Download your data' });
   expect(link).toHaveAttribute('href', '/in/account/data');
   expect(link).toHaveAttribute('download');
+});
+
+it('signs out everywhere else in one go, and says so', async () => {
+  const action = vi.fn(async (): Promise<AccountFormState> => ({ done: 'You’re signed out everywhere else. You’re still signed in here.' }));
+  render(<SignOutEverywhereCard action={action} passwordHref="#password" />);
+  expect(screen.getByRole('heading', { name: 'Sign out everywhere' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'change it' })).toHaveAttribute('href', '#password');
+  await act(async () => {
+    fireEvent.submit(screen.getByRole('button', { name: 'Sign out everywhere' }).closest('form')!);
+  });
+  await waitFor(() => expect(screen.getByText('You’re signed out everywhere else. You’re still signed in here.')).toBeInTheDocument());
+  expect(action).toHaveBeenCalledTimes(1);
 });
