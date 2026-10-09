@@ -1,6 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { LOW_STOCK } from '@/lib/stock';
 import { buyNow } from '@/app/actions/cart';
 import { addToCartInline } from '@/app/product/[id]/actions';
 import { buttonClasses } from '../primitives/Button';
@@ -74,8 +75,6 @@ export interface BuyPanelProps {
   exchange?: { kind: string; upTo: string; devices: ExchangeOption[] };
 }
 
-/** at or below this many units the panel warns "Only N left". */
-export const LOW_STOCK = 10;
 
 const SIZE_CHIP =
   'flex min-h-10 min-w-12 cursor-pointer items-center justify-center rounded-input border border-line bg-surface px-3 text-[14px] text-ink hover:border-ink has-[:checked]:border-ink has-[:checked]:font-semibold has-[:checked]:ring-1 has-[:checked]:ring-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink';

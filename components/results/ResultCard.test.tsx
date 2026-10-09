@@ -123,3 +123,21 @@ it("marks its department's #1 best seller, linking to that list", () => {
 
   expect(within(show()).queryByRole('link', { name: /#1 Best Seller/ })).toBeNull();
 });
+
+it('says when only a few are left, once, and not on a pre-order or with plenty left', () => {
+  render(<ResultCard ranked={{ product: { ...base, stock: 3 }, insight: null, match: 90, why: ['Great noise cancelling'], warn: 'Only 3 left in stock' }} store={amazon} saved={false} />);
+  const card = screen.getByRole('article');
+  expect(within(card).getByText('Only 3 left in stock — order soon.')).toBeInTheDocument();
+  // the ranking's warning isn't repeated under "Why it's here"
+  expect(card).not.toHaveTextContent('Trade-off');
+  expect(card).toHaveTextContent('Strength: Great noise cancelling');
+  cleanup();
+
+  expect(show({ stock: 10 })).toHaveTextContent('Only 10 left in stock — order soon.');
+  cleanup();
+  expect(show({ stock: 11 })).not.toHaveTextContent('left in stock');
+  cleanup();
+  expect(show({ stock: 0 })).not.toHaveTextContent('left in stock');
+  cleanup();
+  expect(show({ stock: 3, releaseAt: new Date(Date.now() + 7 * 86_400_000).toISOString() })).not.toHaveTextContent('left in stock');
+});

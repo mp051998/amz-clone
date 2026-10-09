@@ -13,7 +13,8 @@ import { BackLink } from '@/components/product/BackLink';
 import { BoughtTogether, type BundleEntry } from '@/components/product/BoughtTogether';
 import { LastPurchased } from '@/components/product/LastPurchased';
 import { ratingText, sellerRatings, type SellerRating } from '@/lib/data/seller-feedback';
-import { BuyPanel, LOW_STOCK, type ConfidenceRow } from '@/components/product/BuyPanel';
+import { BuyPanel, type ConfidenceRow } from '@/components/product/BuyPanel';
+import { lowStockText } from '@/lib/stock';
 import { byTimeText, dayLabel, longDate, orderWithinText, releaseDate } from '@/components/orders/format';
 import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
@@ -174,7 +175,8 @@ function prosFor(p: Product, insight: ProductInsight | null, fallback: string[])
 function thingsToKnow(p: Product, insight: ProductInsight | null, warn: string | null): string[] {
   const out = [...(insight?.cons ?? [])];
   if (warn && !out.includes(warn)) out.push(warn);
-  if (p.stock > 0 && p.stock <= LOW_STOCK) out.push(`Only ${p.stock} left in stock`);
+  const low = lowStockText(p.stock);
+  if (low) out.push(low);
   return [...new Set(out)].slice(0, 3);
 }
 
