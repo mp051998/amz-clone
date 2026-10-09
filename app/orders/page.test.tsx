@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
+import { orderView } from '@/components/orders/format';
 
 const state = vi.hoisted(() => ({
   store: null as unknown,
@@ -287,4 +288,22 @@ it('offers Cancel items until it ships, a gift receipt, and seller feedback once
   for (const id of ['ORD-X', 'ORD-UNPAID']) {
     expect(within(card(id)).queryByRole('link', { name: /Cancel items|gift receipt|seller feedback/ })).toBeNull();
   }
+});
+
+it('says where a delivered package was left, when one on its way comes, and offers help with the order', async () => {
+  const at = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const onTheWay = { ...order('ORD-3', 1), shippedAt: at(-1), outForDeliveryAt: at(20), deliveredAt: at(26) };
+  state.orders = [order('ORD-1', 2), onTheWay, { ...order('ORD-UNPAID', 1), status: 'awaiting_payment' as const, deliveredAt: undefined }];
+  await show();
+  const card = (id: string) => screen.getByText(id).closest('li')!;
+  expect(card('ORD-1')).toHaveTextContent('Handed to Asha');
+  // its delivery window, as the order's page words it
+  const window = orderView(onTheWay, amazon, new Date()).window;
+  expect(window).not.toBe('');
+  expect(within(card('ORD-3')).getByText(window)).toBeInTheDocument();
+  expect(within(card('ORD-1')).getByRole('link', { name: 'Problem with order ORD-1' })).toHaveAttribute('href', '/customer-service/contact?order=ORD-1');
+  expect(within(card('ORD-3')).getByRole('link', { name: 'Problem with order ORD-3' })).toBeInTheDocument();
+  // an unpaid order has only its payment to finish
+  expect(within(card('ORD-UNPAID')).queryByRole('link', { name: /Problem with order/ })).toBeNull();
+  expect(card('ORD-UNPAID')).not.toHaveTextContent('Complete card payment to confirm');
 });

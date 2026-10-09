@@ -159,6 +159,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <span className="text-[13px] text-ink-2">
                     Placed {longDate(new Date(o.placedAt ?? o.createdAt), store)} · {v.itemCount} {v.itemCount === 1 ? 'item' : 'items'} · to {o.shipTo.name}
                   </span>
+                  {/* under the status, as Amazon's card says: where it was left, when it comes, or the refund */}
+                  {v.window && !unpaid ? <span className="text-[14px] text-ink">{v.window}</span> : null}
                   {o.deliveryOtp && orderStage(o, now, store.dates.timeZone) === 'out_for_delivery' ? (
                     <span className="text-[13px] text-ink">
                       Delivery OTP <strong className="font-mono font-semibold tracking-[0.15em]">{o.deliveryOtp}</strong>
@@ -247,6 +249,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                           Write a product review
                         </a>
                       ) : null}
+                      {unpaid ? null : (
+                        <a href={sp(`/customer-service/contact?order=${encodeURIComponent(o.id)}`)} className={buttonClasses({ variant: 'secondary', block: true })} aria-label={`Problem with order ${o.id}`}>
+                          Problem with order
+                        </a>
+                      )}
                     </div>
                   </div>
                 </li>
