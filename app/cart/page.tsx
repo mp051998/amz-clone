@@ -43,6 +43,7 @@ import { qtyDiscountShortfall } from '@/lib/qty-discount';
 import { latestRelease, releaseOf } from '@/lib/pre-order';
 import { productUrl } from '@/lib/seo';
 import { conditionLabel } from '@/lib/offers';
+import { lowStockText } from '@/lib/stock';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
@@ -232,7 +233,7 @@ export default async function CartPage({
                           <span className="text-[14px] font-semibold text-warn">⚠ Only {p.stock} left — lower the quantity to check out.</span>
                         ) : (
                           <span className="text-[14px] text-ink-2">
-                            {releaseOf(p, now) ? `Pre-order: releases ${releaseDate(new Date(p.releaseAt!), store)}` : p.stock <= 10 ? `Only ${p.stock} left` : 'In stock'} · {freeShip ? 'FREE delivery' : 'Delivery'} {etaText}
+                            {releaseOf(p, now) ? `Pre-order: releases ${releaseDate(new Date(p.releaseAt!), store)}` : lowStockText(p.stock) ?? 'In stock'} · {freeShip ? 'FREE delivery' : 'Delivery'} {etaText}
                             {l.qty > 1 ? <span className="text-ink-3"> · {money(p.priceMinor)} each</span> : null}
                           </span>
                         )}
