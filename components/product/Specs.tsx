@@ -3,7 +3,7 @@ import { PriorityDots } from '../decision/PriorityDots';
 
 /** `k` omitted → the value spans the row (feature bullets). */
 export interface SpecRow { k?: string; v: ReactNode }
-export interface SpecGroup { name: string; rows: SpecRow[]; open?: boolean }
+export interface SpecGroup { name: string; rows: SpecRow[]; open?: boolean; /** anchor a link can jump to */ id?: string }
 
 /** Attribute scores (1..5) rendered as static dots for the "Scores" group. */
 export function scoreRows(scores: { label: string; score: number }[]): SpecRow[] {
@@ -28,7 +28,7 @@ export function Specs({ groups }: { groups: SpecGroup[] }) {
   return (
     <div className="overflow-hidden rounded-card border border-line bg-surface">
       {shown.map((g, i) => (
-        <details key={g.name} open={g.open ?? i === 0} className="group border-t border-line-2 first:border-t-0">
+        <details key={g.name} id={g.id} open={g.open ?? i === 0} className="group scroll-mt-[140px] border-t border-line-2 first:border-t-0">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-[18px] py-[15px] text-[16px] font-semibold [&::-webkit-details-marker]:hidden">
             <span>{g.name}</span>
             <span aria-hidden className="text-[14px] text-ink-3 transition-transform group-open:rotate-180">▾</span>

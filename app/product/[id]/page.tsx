@@ -391,7 +391,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         { k: 'Availability', v: p.archived ? 'No longer available' : p.stock > 0 ? `In stock (${num(p.stock)})` : 'Out of stock' },
       ],
     },
-    { name: 'About this item', rows: p.bullets.map((b) => ({ v: b })) },
+    { name: 'About this item', id: 'about', rows: p.bullets.map((b) => ({ v: b })) },
     {
       name: 'Scores',
       rows: scoreRows(cfg.attributes.filter((a) => scores[a.key] != null).map((a) => ({ label: a.label, score: scores[a.key] }))),
@@ -403,10 +403,17 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     { label: p.categoryName, href: storePath(store, `/s?dept=${encodeURIComponent(p.category)}`) },
   ];
 
+  // Amazon's "Skip to" box on a product page: the item's details, the buy box and the reviews
+  const skipTo = [
+    ...(p.bullets.length ? [{ label: 'About this item', href: '#about' }] : []),
+    ...(p.archived ? [] : [{ label: 'Buying options', href: '#buy' }]),
+    { label: 'Reviews', href: '#reviews' },
+  ];
+
   const structured = p.archived ? null : productJsonLd(p, await siteOrigin(), { rating, count: ratingCount });
 
   return (
-    <AppShell>
+    <AppShell skipTo={skipTo} addToCart={!p.archived && p.stock > 0}>
       {structured ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(structured) }} /> : null}
       {p.archived ? null : <RecordView productId={p.id} />}
       <div className="mx-auto flex w-full max-w-page flex-col gap-11 px-[clamp(16px,3vw,24px)] pb-10 pt-[22px]">
@@ -571,7 +578,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               ) : null}
             </div>
 
-            <aside aria-label="Buy" className="min-w-0 flex-[1_1_280px] max-sm:basis-full">
+            <aside id="buy" aria-label="Buy" className="min-w-0 flex-[1_1_280px] scroll-mt-[140px] max-sm:basis-full">
               {p.archived ? (
                 <UnavailablePanel categoryName={p.categoryName} categoryHref={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} />
               ) : (

@@ -4,10 +4,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '../lib/cn';
 
-export type ShortcutAction = 'search' | 'cart' | 'home' | 'orders' | 'toggle';
+export type ShortcutAction = 'search' | 'cart' | 'home' | 'orders' | 'addToCart' | 'toggle';
+
+/** A part of the page the box can jump to (a product page lists its own). */
+export interface SkipLink { label: string; href: string }
 
 /** Amazon's keyboard shortcuts: alt + / for search, shift + alt + a letter for the rest. */
-const SHIFTED: Record<string, ShortcutAction> = { KeyC: 'cart', KeyH: 'home', KeyO: 'orders', KeyZ: 'toggle' };
+const SHIFTED: Record<string, ShortcutAction> = { KeyC: 'cart', KeyH: 'home', KeyO: 'orders', KeyK: 'addToCart', KeyZ: 'toggle' };
 
 /**
  * The shortcut a key press means, if any. Reads `code` (the key's place on the keyboard), since
@@ -30,12 +33,25 @@ function focusSearch() {
   (boxes.find((b) => b.getClientRects().length > 0) ?? boxes[0])?.focus();
 }
 
+/** The page's own Add to Cart (a product page marks it), pressed as if by hand. */
+function pressAddToCart() {
+  document.querySelector<HTMLButtonElement>('[data-shortcut="add-to-cart"]:not(:disabled)')?.click();
+}
+
+/** Opens the folded section a skip link lands in (say, a closed spec group) so its content shows. */
+function unfold(href: string) {
+  if (!href.startsWith('#')) return;
+  const box = document.getElementById(decodeURIComponent(href.slice(1)))?.closest('details');
+  if (box) box.open = true;
+}
+
 /**
- * Amazon's "Skip to" box: the first thing Tab reaches, listing the keyboard shortcuts under a link
- * to the main content. shift + alt + Z keeps it open (or closes it); Escape closes it too. The
- * shortcuts work anywhere but in a text field.
+ * Amazon's "Skip to" box: the first thing Tab reaches, listing the keyboard shortcuts under links
+ * to the main content and to the page's own parts (`links`). shift + alt + Z keeps it open (or
+ * closes it); Escape closes it too. The shortcuts work anywhere but in a text field; shift + alt + K
+ * (Add to cart) only where the page says it has one.
  */
-export function SkipMenu({ homeHref, cartHref, ordersHref }: { homeHref: string; cartHref: string; ordersHref: string }) {
+export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart = false }: { homeHref: string; cartHref: string; ordersHref: string; links?: SkipLink[]; addToCart?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [alt, setAlt] = useState('alt');
@@ -51,15 +67,16 @@ export function SkipMenu({ homeHref, cartHref, ordersHref }: { homeHref: string;
         return;
       }
       const action = shortcutFor(e);
-      if (!action || editable(e.target)) return;
+      if (!action || editable(e.target) || (action === 'addToCart' && !addToCart)) return;
       e.preventDefault();
       if (action === 'toggle') setOpen((o) => !o);
       else if (action === 'search') focusSearch();
+      else if (action === 'addToCart') pressAddToCart();
       else router.push(action === 'cart' ? cartHref : action === 'orders' ? ordersHref : homeHref);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, router, homeHref, cartHref, ordersHref]);
+  }, [open, router, homeHref, cartHref, ordersHref, addToCart]);
 
   const keys = (...k: string[]) => (
     <span className="flex flex-none items-center gap-1 text-[12px] text-ink-3">
@@ -76,8 +93,10 @@ export function SkipMenu({ homeHref, cartHref, ordersHref }: { homeHref: string;
     ['Cart', keys('shift', alt, 'C')],
     ['Home', keys('shift', alt, 'H')],
     ['Orders', keys('shift', alt, 'O')],
+    ...(addToCart ? [['Add to cart', keys('shift', alt, 'K')] as [string, ReactNode]] : []),
     ['Show/Hide shortcuts', keys('shift', alt, 'Z')],
   ];
+  const jump = 'mt-1 block text-[15px] font-semibold text-ink underline underline-offset-2';
 
   return (
     <nav
@@ -90,9 +109,14 @@ export function SkipMenu({ homeHref, cartHref, ordersHref }: { homeHref: string;
       )}
     >
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.04em] text-ink-3">Skip to</p>
-      <a href="#main" className="mt-1 block text-[15px] font-semibold text-ink underline underline-offset-2" onClick={() => setOpen(false)}>
+      <a href="#main" className={jump} onClick={() => setOpen(false)}>
         Main content
       </a>
+      {links.map((l) => (
+        <a key={l.href} href={l.href} className={jump} onClick={() => { unfold(l.href); setOpen(false); }}>
+          {l.label}
+        </a>
+      ))}
       <p className="m-0 mt-3 text-[13px] font-semibold uppercase tracking-[0.04em] text-ink-3">Keyboard shortcuts</p>
       <dl className="m-0 mt-1.5 flex flex-col gap-1.5 text-[14px]">
         {rows.map(([label, combo]) => (

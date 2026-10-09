@@ -23,6 +23,7 @@ it('reads Amazon’s shortcuts from the key’s place, whatever option types', (
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyH' })).toBe('home');
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyO' })).toBe('orders');
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyZ' })).toBe('toggle');
+  expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyK' })).toBe('addToCart');
   // without alt, with ctrl or cmd, or another key: nothing
   expect(shortcutFor({ ...k, altKey: false, shiftKey: true, code: 'KeyC' })).toBeNull();
   expect(shortcutFor({ ...k, shiftKey: true, ctrlKey: true, code: 'KeyC' })).toBeNull();
@@ -84,4 +85,39 @@ it('shift + alt + Z keeps the box open until pressed again or Escape', () => {
   press('KeyZ');
   fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
   expect(nav).toHaveClass('sr-only');
+});
+
+it('lists the page’s own parts and opens a folded one it jumps to', () => {
+  render(<SkipMenu homeHref="/in" cartHref="/in/cart" ordersHref="/in/orders" links={[{ label: 'About this item', href: '#about' }, { label: 'Reviews', href: '#reviews' }]} />);
+  const folded = document.createElement('details');
+  folded.id = 'about';
+  document.body.append(folded);
+  expect(screen.getByRole('link', { name: 'Reviews' })).toHaveAttribute('href', '#reviews');
+  fireEvent.click(screen.getByRole('link', { name: 'About this item' }));
+  expect(folded.open).toBe(true);
+  folded.remove();
+});
+
+it('shift + alt + K presses the page’s Add to Cart, only on a page that has one', () => {
+  const add = vi.fn();
+  const button = document.createElement('button');
+  button.dataset.shortcut = 'add-to-cart';
+  button.addEventListener('click', add);
+  document.body.append(button);
+
+  const { unmount } = menu();
+  expect(screen.getByRole('navigation', { name: 'Skip to' })).not.toHaveTextContent('Add to cart');
+  press('KeyK');
+  expect(add).not.toHaveBeenCalled();
+  unmount();
+
+  render(<SkipMenu homeHref="/in" cartHref="/in/cart" ordersHref="/in/orders" addToCart />);
+  expect(screen.getByRole('navigation', { name: 'Skip to' })).toHaveTextContent('Add to cart');
+  press('KeyK');
+  expect(add).toHaveBeenCalledTimes(1);
+  // not while it's still adding
+  button.disabled = true;
+  press('KeyK');
+  expect(add).toHaveBeenCalledTimes(1);
+  button.remove();
 });

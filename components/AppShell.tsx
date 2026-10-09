@@ -8,7 +8,7 @@ import { readTheme } from '@/lib/theme-server';
 import { readDeliverTo } from '@/lib/deliver-to-server';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { Header } from './chrome/Header';
-import { SkipMenu } from './chrome/SkipMenu';
+import { SkipMenu, type SkipLink } from './chrome/SkipMenu';
 import { Footer, type FooterColumn, type FooterLink } from './chrome/Footer';
 import type { AllMenuSection } from './chrome/AllMenu';
 import { ToastProvider } from './decision/Toast';
@@ -19,6 +19,10 @@ export interface AppShellProps {
   cartCount?: number;
   /** the search being looked at; the header search box shows it (results page) */
   query?: string;
+  /** the page's own parts, listed in the "Skip to" box after Main content */
+  skipTo?: SkipLink[];
+  /** the page has an Add to Cart for the shift + alt + K shortcut to press */
+  addToCart?: boolean;
 }
 
 /** Program links shown before the catalog departments in the category strip. */
@@ -86,7 +90,7 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  * Page chrome for every storefront route (design.md §6 Layout): sticky header + category strip,
  * content, calm footer, and the global toast + compare tray. Store-aware (US at /, IN at /in).
  */
-export async function AppShell({ children, cartCount, query }: AppShellProps) {
+export async function AppShell({ children, cartCount, query, skipTo, addToCart }: AppShellProps) {
   const store = await getMarketplace();
   const [cart, user, categories, admin, deliverTo, here] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id), currentPath()]);
   // signing in from the header comes back to this page
@@ -133,7 +137,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
     <ToastProvider>
       <CompareProvider market={store.id}>
         <div id="top" className="flex min-h-screen flex-col bg-bg">
-          <SkipMenu homeHref={storePath(store, '/')} cartHref={storePath(store, '/cart')} ordersHref={storePath(store, '/orders')} />
+          <SkipMenu homeHref={storePath(store, '/')} cartHref={storePath(store, '/cart')} ordersHref={storePath(store, '/orders')} links={skipTo} addToCart={addToCart} />
           <Header
             store={store}
             cartCount={count}
