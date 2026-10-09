@@ -12,6 +12,7 @@ import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { CartLists, cartList } from '@/components/cart/CartLists';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
+import { ContinueRow } from '@/components/home/HomeSections';
 import { ShareButton } from '@/components/product/ShareButton';
 import { cartEta, longDate, relativeDayName, releaseDate } from '@/components/orders/format';
 import { removeItem } from '@/app/actions/cart';
@@ -19,6 +20,7 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listCollections } from '@/lib/data/collections';
 import { buyAgain } from '@/lib/data/buy-again';
+import { alsoBoughtWithCart } from '@/lib/data/also-bought';
 import { buyableAgain, type BuyAgainItem } from '@/lib/buy-again';
 import { plusMembership } from '@/lib/data/plus';
 import { memberDealLabel, memberUnitOff } from '@/lib/member-deals';
@@ -31,7 +33,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import type { Collection } from '@/lib/decision/types';
-import type { CartLine, Market } from '@/lib/types';
+import type { CartLine, Market, Product } from '@/lib/types';
 import { CartProtection } from '@/components/cart/CartProtection';
 import { CartSize } from '@/components/cart/CartSize';
 import { PriceChanges } from '@/components/cart/PriceChanges';
@@ -103,10 +105,11 @@ export default async function CartPage({
   const sp = (path: string) => storePath(store, path);
   const [cart, user] = await Promise.all([viewerCart(), readUser()]);
   const { lines, selectedCount: count, totals } = cart;
-  const [lists, recent, bought] = await Promise.all([
+  const [lists, recent, bought, alsoGot] = await Promise.all([
     user ? savedLists(store.id) : Promise.resolve([]),
     recentProducts(await db(), store.id, { exclude: lines.map((l) => l.product.id) }),
     user ? db().then((c) => buyAgain(c, store.id, AGAIN_SCAN)).catch((): BuyAgainItem[] => []) : Promise.resolve([]),
+    lines.length ? db().then((c) => alsoBoughtWithCart(c, store.id, lines.map((l) => l.product))).catch((): Product[] => []) : Promise.resolve([]),
   ]);
   const later = lists.find((c) => c.kind === 'later');
   // what's in the cart already (another seller's offer as its product) isn't offered again
@@ -439,6 +442,12 @@ export default async function CartPage({
             </span>
           </aside>
         </div>
+        {alsoGot.length ? (
+          <section aria-labelledby="cart-also-bought-h" className="flex flex-col gap-3.5">
+            <h2 id="cart-also-bought-h" className="m-0 text-[22px] font-semibold">Customers who bought items in your cart also bought</h2>
+            <ContinueRow products={alsoGot} store={store} kicker={(x) => x.brand ?? x.categoryName} />
+          </section>
+        ) : null}
         {history}
       </div>
     </AppShell>
