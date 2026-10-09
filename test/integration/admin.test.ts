@@ -149,7 +149,8 @@ describe('catalog management', () => {
     const details: [string, string][] = [['Brand', 'Lumen'], ['Bulb', 'LED, 2700 K'], ['Power', 'USB-C, 5 V']];
     const id = await createProduct(boss.db, 'US', input({ description: 'A small warm lamp.', details }));
     created.push(id);
-    expect(await getProductInfo(anon(), id)).toEqual({ description: 'A small warm lamp.', details, gallery: [], variants: null });
+    // first available: the day it was listed
+    expect(await getProductInfo(anon(), id)).toEqual({ description: 'A small warm lamp.', details, gallery: [], variants: null, firstAvailable: expect.any(String) });
     expect(await getAdminProduct(boss.db, id)).toMatchObject({ description: 'A small warm lamp.', details });
 
     await updateProduct(boss.db, id, input({ description: '  ', details: details.slice(0, 1) }));
