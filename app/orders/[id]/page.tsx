@@ -223,6 +223,9 @@ export default async function OrderPage({
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5 px-[clamp(16px,3vw,24px)] pb-[120px] pt-14">
           <span aria-hidden className="flex h-14 w-14 items-center justify-center rounded-full bg-good-dot text-[28px] font-bold text-white">✓</span>
           <h1 className="m-0 text-[clamp(28px,4vw,38px)] font-semibold tracking-[-0.02em]">Order placed, thanks {firstName(user)}.</h1>
+          <p className="m-0 text-[15px] text-ink-2">
+            Your confirmation is in <a href={sp('/account/messages')} className="text-ink underline underline-offset-2">Your messages</a>.
+          </p>
           <div className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-5">
             <span className="text-[13px] text-ink-3">{order.pickup ? 'Ready for pickup' : 'Arriving'}</span>
             <strong className="text-[24px] font-semibold">{view.eta ? dayLabel(view.eta, store, now) : 'Soon'}</strong>

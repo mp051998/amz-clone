@@ -233,3 +233,12 @@ it('says a return refunded to the balance went there', async () => {
   expect(balance).toHaveTextContent('₹1,200 added to your wallet balance, as you asked.');
   expect(back).toHaveTextContent('₹900 back to how you paid.');
 });
+
+it('confirms an order as Amazon does, with an Ordered message linking to it', async () => {
+  state.list = [msg({ key: 'ordered:A-1', kind: 'ordered' })];
+  render(await MessagesPage());
+  const [item] = screen.getAllByRole('listitem');
+  expect(item).toHaveTextContent('Ordered');
+  expect(item).toHaveTextContent('Thanks for your order. We’ll tell you when it ships.');
+  expect(within(item).getByRole('link', { name: /Electric Kettle 1\.7L/ })).toHaveAttribute('href', '/orders/A-1?placed=0');
+});

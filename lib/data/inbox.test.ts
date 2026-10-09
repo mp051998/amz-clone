@@ -92,8 +92,11 @@ it('collects what has happened, newest first, linking to where each is dealt wit
     'refunded:B',
     'cancelled:B',
     'support_reply:m3',
+    'ordered:B',
     'shipped:A',
     'shipped:D',
+    'ordered:A',
+    'ordered:D',
   ]);
   const by = (key: string) => inbox.find((m) => m.key === key)!;
   expect(by('support_reply:m1')).toMatchObject({ subject: 'Parcel never came', href: '/customer-service/cases/c1' });
@@ -101,6 +104,9 @@ it('collects what has happened, newest first, linking to where each is dealt wit
   // a seller's reply, on a "Contact seller" case, says who
   expect(by('support_reply:m3')).toMatchObject({ subject: 'Missing lid', href: '/customer-service/cases/c2', from: 'Acme Goods' });
   expect(by('out_for_delivery:A')).toMatchObject({ subject: 'Electric Kettle 1.7L', href: '/orders/A?placed=0', orderId: 'A' });
+  // the confirmation, for every order that went through (not one still awaiting payment)
+  expect(by('ordered:A')).toMatchObject({ kind: 'ordered', at: '2026-10-01T10:00:00Z', subject: 'Electric Kettle 1.7L', href: '/orders/A?placed=0', orderId: 'A' });
+  expect(inbox.some((m) => m.key === 'ordered:W')).toBe(false);
   expect(by('refunded:B')).toMatchObject({ subject: 'Electric Kettle 1.7L and 2 more', amountMinor: 2500 });
   expect(by('return_refunded:r1')).toMatchObject({ subject: 'Electric Kettle 1.7L', amountMinor: 1200, href: '/orders/D?placed=0' });
   expect(by('return_rejected:r2')).toMatchObject({ detail: 'Item was used' });
@@ -155,7 +161,7 @@ it('follows a replacement on its way, from the request, even if the item sent ba
     // a refund return still on its way back says nothing yet
     ret({ id: 'r1', status: 'requested' }),
   ];
-  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW).filter((m) => !['shipped', 'out_for_delivery', 'delivered'].includes(m.kind));
+  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW).filter((m) => !['ordered', 'shipped', 'out_for_delivery', 'delivered'].includes(m.kind));
   expect(inbox.map((m) => m.key)).toEqual([
     'return_rejected:s3',
     'replacement_delivered:s1',
@@ -309,7 +315,7 @@ it('a missing package reported is news only once refunded, as a refund', () => {
     ret({ id: 'm1', receivedAt: '2026-10-05T10:00:00Z', refundStatus: 'succeeded', refundedAt: '2026-10-05T10:00:00Z', refundMinor: 2500, missing: true }),
     ret({ id: 'm2', receivedAt: '2026-10-05T11:00:00Z', refundStatus: 'pending', refundMinor: 2500, missing: true }),
   ];
-  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW).filter((m) => !['shipped', 'out_for_delivery', 'delivered'].includes(m.kind));
+  const inbox = buildInbox({ orders: [o], returns, replies: [], answers: [] }, NOW).filter((m) => !['ordered', 'shipped', 'out_for_delivery', 'delivered'].includes(m.kind));
   expect(inbox.map((m) => [m.key, m.kind])).toEqual([['return_refunded:m1', 'refunded']]);
   expect(inbox[0]).toMatchObject({ amountMinor: 2500, href: '/orders/D?placed=0' });
 });

@@ -35,6 +35,7 @@ export const INBOX_DAYS = 90;
 export const INBOX_LIMIT = 100;
 
 export type InboxKind =
+  | 'ordered'
   | 'shipped'
   | 'out_for_delivery'
   | 'delivered'
@@ -205,6 +206,8 @@ const MILESTONES: Record<string, InboxKind> = { Shipped: 'shipped', 'Out for del
 function orderMessages(o: Order, now: Date, timeZone: string): InboxMessage[] {
   const base = { subject: orderSubject(o), href: `/orders/${encodeURIComponent(o.id)}?placed=0`, orderId: o.id };
   const out: InboxMessage[] = [];
+  // Amazon's "Ordered" confirmation, for every order that went through (not one still awaiting payment)
+  if (o.placedAt && o.status !== 'awaiting_payment') out.push({ ...base, key: `ordered:${o.id}`, kind: 'ordered', at: o.placedAt });
   if (o.status === 'placed') {
     for (const step of trackingSteps(o, now, timeZone)) {
       const kind = MILESTONES[step.label];
