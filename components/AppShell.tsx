@@ -146,7 +146,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>
-          <Footer storeName={store.name} columns={columns} stores={stores} legal={legal} homeHref={storePath(store, '/')} theme={await readTheme()} />
+          <Footer storeName={store.name} columns={columns} stores={stores} legal={legal} homeHref={storePath(store, '/')} theme={await readTheme()} signIn={user ? undefined : signIn} />
           <CompareTray />
         </div>
       </CompareProvider>
