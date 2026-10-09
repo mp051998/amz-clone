@@ -72,7 +72,11 @@ export function Header({ store, cartCount = 0, userName, isAdmin = false, catego
         <SearchBar key={defaultQuery} actionPath={action} market={store.id} defaultQuery={defaultQuery} />
         {regionSlot ? <div className="hidden lg:block">{regionSlot}</div> : null}
         <AccountMenu store={store} userName={userName} isAdmin={isAdmin} signInHref={signInHref} createAccountHref={createAccountHref} />
-        <a href={ordersHref} className={navLink}>Orders</a>
+        {/* Amazon's two-line "Returns & Orders" beside the account menu */}
+        <a href={ordersHref} className="block flex-none rounded-chip p-1 leading-[1.25] text-ink no-underline hover:bg-surface-2 hover:text-ink">
+          <span className="block text-[12px] text-ink-3">Returns</span>{' '}
+          <span className="block text-[14px] font-semibold">&amp; Orders</span>
+        </a>
         <CartPill href={cartHref} count={cartCount} />
       </div>
 
