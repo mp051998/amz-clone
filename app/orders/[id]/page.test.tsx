@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/lib/types';
 import { amazon } from '@/lib/amazon';
 
-const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, recalled: [] as string[], returnBy: undefined as string | undefined, claims: [] as unknown[], wallet: null as number | null }));
+const state = vi.hoisted(() => ({ order: null as unknown, pairs: [] as unknown[], paired: [] as string[][], reviewed: [] as string[], feedback: [] as [string, unknown][], addresses: [] as unknown[], addressReads: 0, returns: [] as unknown[], delivery: null as unknown, stock: {} as Record<string, number>, archived: [] as string[], recalled: [] as string[], returnBy: undefined as string | undefined, claims: [] as unknown[], wallet: null as number | null }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({
@@ -27,7 +27,7 @@ vi.mock('@/lib/data/recalls', () => ({
   recallsFor: async (_db: unknown, ids: string[]) =>
     new Map(state.recalled.filter((id) => ids.includes(id)).map((id) => [id, { productId: id, title: id === 'm' ? 'Mug' : 'Kettle' }])),
 }));
-vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US', stock: state.stock[id] })) }));
+vi.mock('@/lib/data/catalog', () => ({ getProducts: async (_db: unknown, ids: string[]) => ids.map((id) => ({ id, market: 'US', stock: state.stock[id], archived: state.archived.includes(id) || undefined })) }));
 vi.mock('@/lib/decision/server', () => ({
   accessoriesFor: async (bought: { id: string }[]) => {
     state.paired.push(bought.map((p) => p.id));
@@ -104,6 +104,7 @@ afterEach(cleanup);
 beforeEach(() => {
   state.order = order();
   state.stock = {};
+  state.archived = [];
   state.pairs = [];
   state.paired = [];
   state.reviewed = [];
@@ -136,6 +137,14 @@ it('offers a review for each item once the order is delivered', async () => {
   expect(screen.getByRole('link', { name: 'Write a product review: Mug' })).toHaveAttribute('href', '/product/m#write-review');
 });
 
+it('offers to ask about each delivered item that is still sold', async () => {
+  state.order = order({ deliveredAt: '2026-09-04T10:00:00Z' });
+  state.archived = ['m'];
+  await show();
+  expect(screen.getByRole('link', { name: 'Ask a product question: Kettle' })).toHaveAttribute('href', '/product/k%201#ask-question');
+  expect(screen.queryByRole('link', { name: 'Ask a product question: Mug' })).toBeNull();
+});
+
 it('says Edit for what the shopper has already reviewed', async () => {
   state.order = order({ deliveredAt: '2026-09-04T10:00:00Z' });
   state.reviewed = ['m'];
@@ -150,6 +159,7 @@ it('not before it arrives, nor for a cancelled order', async () => {
   state.order = order({ shippedAt: '2998-12-30T10:00:00Z', outForDeliveryAt: '2999-01-01T08:00:00Z', deliveredAt: '2999-01-01T10:00:00Z' });
   await show();
   expect(screen.queryByRole('link', { name: /Write a product review/ })).toBeNull();
+  expect(screen.queryByRole('link', { name: /Ask a product question/ })).toBeNull();
   cleanup();
   state.order = order({ status: 'cancelled', deliveredAt: undefined });
   await show();

@@ -744,6 +744,11 @@ export default async function OrderPage({
                     </a>
                   )
                 ) : null}
+                {view.delivered && availabilityOf(nowById.get(productOf(it))) !== 'gone' ? (
+                  <a href={sp(`/product/${encodeURIComponent(productOf(it))}#ask-question`)} className="self-start text-[13px] text-ink underline underline-offset-2" aria-label={`Ask a product question: ${it.title}`}>
+                    Ask a product question
+                  </a>
+                ) : null}
                 {order.status === 'placed' && order.items.length > 1 ? (
                   <a
                     href={sp(`/orders/${encodeURIComponent(order.id)}/gift-receipt?item=${encodeURIComponent(it.productId)}`)}

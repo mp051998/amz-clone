@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'react';
 import type { Answer, Question, QuestionPage } from '@/lib/data/questions';
 import { ANSWER_MAX, QUESTION_MAX, QUESTION_MIN } from '@/lib/data/questions';
 import { answerQuestion, askQuestion, loadQuestions, removeAnswer, removeQuestion, toggleAnswerHelpful } from '@/app/actions/questions';
@@ -38,6 +38,24 @@ export function QuestionsPanel({ productId, initial, signedIn, signinHref, canAs
   const { toast } = useToast();
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone }), [locale, timeZone]);
   const num = (n: number) => n.toLocaleString(locale);
+
+  // "Ask a product question" on a delivered order links to #ask-question: open the form there
+  useEffect(() => {
+    if (!signedIn || !canAsk) return;
+    const fromHash = () => {
+      if (window.location.hash === '#ask-question') setAsking(true);
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+  }, [signedIn, canAsk]);
+  useEffect(() => {
+    if (!asking || window.location.hash !== '#ask-question') return;
+    const el = document.getElementById('ask-question');
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    document.getElementById('qa-ask')?.focus({ preventScroll: true });
+  }, [asking]);
 
   const patchQuestion = (id: string, fn: (q: Question) => Question) => setItems((qs) => qs.map((q) => (q.id === id ? fn(q) : q)));
   const patchAnswer = (a: Answer, next: Partial<Answer>) =>
