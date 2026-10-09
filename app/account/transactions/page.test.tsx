@@ -51,6 +51,28 @@ it('sends the signed-out to sign in (India store paths too)', async () => {
   await expect(TransactionsPage()).rejects.toThrow('REDIRECT /in/signin?next=/account/transactions');
 });
 
+it('narrows to one order’s charge and refunds, from its “View related transactions”', async () => {
+  state.list = [
+    tx({ key: 'return:r1', kind: 'refund', source: 'return', amountMinor: 1200, at: '2026-10-05T15:00:00Z' }),
+    tx({ key: 'order:B', orderId: 'B-2', amountMinor: 900 }),
+    tx({}),
+  ];
+  render(await TransactionsPage({ searchParams: Promise.resolve({ order: 'A-1' }) }));
+  expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  expect(screen.queryByRole('link', { name: 'Order B-2' })).toBeNull();
+  expect(screen.getByText(/Charges and refunds for order/)).toHaveTextContent('Charges and refunds for order A-1 · View all transactions');
+  expect(screen.getByRole('link', { name: 'View all transactions' })).toHaveAttribute('href', '/account/transactions');
+  cleanup();
+
+  render(await TransactionsPage({ searchParams: Promise.resolve({ order: 'Z-0' }) }));
+  expect(screen.getByText('No transactions for this order')).toBeInTheDocument();
+  expect(screen.queryByText('No transactions yet')).toBeNull();
+  cleanup();
+
+  state.user = null;
+  await expect(TransactionsPage({ searchParams: Promise.resolve({ order: 'A-1' }) })).rejects.toThrow('REDIRECT /signin?next=%2Faccount%2Ftransactions%3Forder%3DA-1');
+});
+
 it('says when there is nothing yet', async () => {
   render(await TransactionsPage());
   expect(screen.getByText('No transactions yet')).toBeInTheDocument();

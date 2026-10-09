@@ -297,6 +297,16 @@ it('an unpaid card order offers to finish paying or cancel', async () => {
   expect(screen.queryByRole('button', { name: 'Complete payment' })).toBeNull();
 });
 
+it('links how it was paid to the order’s transactions, once there’s a charge', async () => {
+  state.order = order();
+  await show();
+  expect(screen.getByRole('link', { name: 'View related transactions' })).toHaveAttribute('href', '/account/transactions?order=ORD-9');
+  cleanup();
+  state.order = order({ status: 'awaiting_payment', paymentLabel: undefined });
+  await show();
+  expect(screen.queryByRole('link', { name: 'View related transactions' })).toBeNull();
+});
+
 it('a Pay on Delivery order can be paid now, by card, UPI, net banking or a balance that covers it', async () => {
   // placed an hour ago, so it's still on its way
   const placedAt = new Date(Date.now() - 3_600_000).toISOString();
