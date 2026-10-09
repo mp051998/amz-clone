@@ -34,8 +34,8 @@ function quickActions(isIN: boolean) {
       href: '/account/payments',
     },
     { title: 'Plus membership', line: 'View benefits, change plan, or cancel your Plus membership.', href: '/prime' },
-    { title: 'Login & security', line: 'Change your password, email, name or mobile number.', href: '/account/security' },
-    { title: 'Saved items & collections', line: 'Find what you saved, and turn price tracking on or off.', href: '/collections' },
+    { title: 'Login & security', line: 'Change your name, email or password, and turn on two-step verification.', href: '/account/security' },
+    { title: 'Saved items & collections', line: 'Find what you saved, and see how its price has changed since.', href: '/collections' },
   ];
 }
 
