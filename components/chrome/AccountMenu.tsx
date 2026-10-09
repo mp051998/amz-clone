@@ -5,15 +5,21 @@ import { signInPath, storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
 import { buttonClasses } from '../primitives/Button';
 
-const SIGNED_IN_LINKS = [
+/** Amazon's "Account & Lists" flyout columns: the shopper's lists, then their account. */
+const LIST_LINKS = [
   { label: 'Collections', href: '/collections' },
+  { label: 'Registry & gift lists', href: '/registry' },
+];
+
+const ACCOUNT_LINKS = [
+  { label: 'Account', href: '/account' },
   { label: 'Orders', href: '/orders' },
   { label: 'Buy again', href: '/orders/buy-again' },
   { label: 'Your messages', href: '/account/messages' },
   { label: 'Your reviews', href: '/account/reviews' },
   { label: 'Browsing history', href: '/history' },
   { label: 'Your recommendations', href: '/recommendations' },
-  { label: 'Account', href: '/account' },
+  { label: 'Subscribe & Save items', href: '/subscribe-save' },
   { label: 'Plus membership', href: '/prime' },
   { label: 'Gift cards', href: '/gift-cards' },
   { label: 'Addresses', href: '/account/addresses' },
@@ -21,8 +27,9 @@ const SIGNED_IN_LINKS = [
 
 /**
  * "Hello, Monish / Account & Collections" (design.md §5 Header). The trigger is a real link
- * (→ /collections, or sign-in when signed out); on hover/focus a small menu adds Orders, Account
- * and Sign out. The sign-in links come back to the page being viewed.
+ * (→ /collections, or sign-in when signed out); on hover/focus a menu opens with Amazon's two
+ * columns, Your Lists and Your Account — signed out too, under Sign in — and Sign out. The sign-in
+ * links come back to the page being viewed.
  */
 export function AccountMenu({
   store,
@@ -44,6 +51,25 @@ export function AccountMenu({
 
   const openNow = () => { if (closeTimer.current) clearTimeout(closeTimer.current); setOpen(true); };
   const closeSoon = () => { if (closeTimer.current) clearTimeout(closeTimer.current); closeTimer.current = setTimeout(() => setOpen(false), 140); };
+  const columns = (
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-x-3 gap-y-2">
+      {[
+        { title: 'Your Lists', links: LIST_LINKS },
+        { title: 'Your Account', links: userName && isAdmin ? [...ACCOUNT_LINKS, { label: 'Admin · Overview', href: '/admin' }] : ACCOUNT_LINKS },
+      ].map((c) => (
+        <nav key={c.title} aria-label={c.title}>
+          <span className="block px-2 pb-1 text-[15px] font-semibold">{c.title}</span>
+          <ul className="m-0 list-none p-0">
+            {c.links.map((l) => (
+              <li key={l.href}>
+                <a href={to(l.href)} className="flex min-h-10 items-center rounded-input px-2 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink">{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ))}
+    </div>
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -67,16 +93,10 @@ export function AccountMenu({
       </a>
       {open ? (
         <div className="absolute right-0 top-full z-[55] pt-2">
-          <div className="w-[260px] rounded-card border border-line bg-surface p-3 shadow-pop">
+          <div className="w-[min(400px,calc(100vw-32px))] rounded-card border border-line bg-surface p-3 shadow-pop">
             {userName ? (
               <>
-                <ul className="m-0 list-none p-0">
-                  {(isAdmin ? [...SIGNED_IN_LINKS, { label: 'Admin · Overview', href: '/admin' }] : SIGNED_IN_LINKS).map((l) => (
-                    <li key={l.href}>
-                      <a href={to(l.href)} className="flex min-h-10 items-center rounded-input px-2 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink">{l.label}</a>
-                    </li>
-                  ))}
-                </ul>
+                {columns}
                 <form action={signOut} className="mt-2 border-t border-line-2 pt-2">
                   <button type="submit" className="flex min-h-10 w-full items-center rounded-input px-2 text-left text-[14px] text-ink-2 hover:bg-surface-2">Sign out</button>
                 </form>
@@ -88,6 +108,7 @@ export function AccountMenu({
                   New here? <a href={createAccountHref} className="text-ink underline underline-offset-2">Create an account</a>
                 </p>
                 <p className="m-0 border-t border-line-2 pt-2 text-[13px] text-ink-3">Sign in to save products into collections and track their prices.</p>
+                {columns}
               </div>
             )}
           </div>

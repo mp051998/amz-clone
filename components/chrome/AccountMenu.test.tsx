@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { amazonIn } from '@/lib/marketplace-in';
 
@@ -25,4 +25,29 @@ it('signed in, the trigger opens collections', () => {
 it('without a page to return to, plain sign-in', () => {
   render(<AccountMenu store={amazonIn} />);
   expect(screen.getByRole('link', { name: /Hello, sign in/ })).toHaveAttribute('href', '/in/signin');
+});
+
+it('opens on Your Lists and Your Account columns, as Amazon does', () => {
+  render(<AccountMenu store={amazonIn} userName="Asha" />);
+  fireEvent.focus(screen.getByRole('link', { name: /Hello, Asha/ }));
+  const lists = screen.getByRole('navigation', { name: 'Your Lists' });
+  expect(within(lists).getByRole('link', { name: 'Collections' })).toHaveAttribute('href', '/in/collections');
+  expect(within(lists).getByRole('link', { name: 'Registry & gift lists' })).toHaveAttribute('href', '/in/registry');
+  const account = screen.getByRole('navigation', { name: 'Your Account' });
+  expect(within(account).getByRole('link', { name: 'Orders' })).toHaveAttribute('href', '/in/orders');
+  expect(within(account).getByRole('link', { name: 'Subscribe & Save items' })).toHaveAttribute('href', '/in/subscribe-save');
+  expect(within(account).queryByRole('link', { name: /Admin/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+});
+
+it('signed out, the columns sit under Sign in; an admin gets the admin link', () => {
+  render(<AccountMenu store={amazonIn} />);
+  fireEvent.focus(screen.getByRole('link', { name: /Hello, sign in/ }));
+  expect(within(screen.getByRole('navigation', { name: 'Your Account' })).getByRole('link', { name: 'Orders' })).toHaveAttribute('href', '/in/orders');
+  expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+  cleanup();
+
+  render(<AccountMenu store={amazonIn} userName="Asha" isAdmin />);
+  fireEvent.focus(screen.getByRole('link', { name: /Hello, Asha/ }));
+  expect(within(screen.getByRole('navigation', { name: 'Your Account' })).getByRole('link', { name: 'Admin · Overview' })).toHaveAttribute('href', '/in/admin');
 });
