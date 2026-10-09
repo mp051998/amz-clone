@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { AllMenu, type AllMenuProps } from './AllMenu';
+
+vi.mock('@/app/actions/auth', () => ({ signOut: async () => {} }));
 
 afterEach(cleanup);
 
@@ -64,4 +66,16 @@ it('keeps Tab inside the menu', () => {
   expect(within(d).getByRole('link', { name: 'Hello, Asha' })).toHaveFocus();
   fireEvent.keyDown(document.activeElement!, { key: 'Tab', shiftKey: true });
   expect(last).toHaveFocus();
+});
+
+it('ends with Sign out for a signed-in shopper only', () => {
+  render(<AllMenu {...props} signedIn />);
+  act(() => trigger().click());
+  const button = within(dialog()!).getByRole('button', { name: 'Sign out' });
+  expect(button).toHaveAttribute('type', 'submit');
+  expect(button.closest('form')).toBeInTheDocument();
+  cleanup();
+  render(<AllMenu {...props} />);
+  act(() => trigger().click());
+  expect(within(dialog()!).queryByRole('button', { name: 'Sign out' })).toBeNull();
 });

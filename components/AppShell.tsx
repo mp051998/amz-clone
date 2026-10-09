@@ -142,7 +142,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
             deliverTo={deliverTo}
             {...signIn}
             defaultQuery={query}
-            menu={{ greeting: user ? `Hello, ${firstName(user)}` : 'Hello, sign in', greetingHref: user ? storePath(store, '/account') : signIn.signInHref, sections: menu }}
+            menu={{ greeting: user ? `Hello, ${firstName(user)}` : 'Hello, sign in', greetingHref: user ? storePath(store, '/account') : signIn.signInHref, sections: menu, signedIn: Boolean(user) }}
             regionSlot={<CountryFlyout countryId={store.id} storeName={store.name} />}
           />
           <main id="main" className="flex-1">{children}</main>

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { signOut } from '@/app/actions/auth';
 
 export interface AllMenuLink { label: string; href: string }
 export interface AllMenuSection { heading: string; links: AllMenuLink[] }
@@ -10,6 +11,8 @@ export interface AllMenuProps {
   /** the account page, or sign in */
   greetingHref: string;
   sections: AllMenuSection[];
+  /** signed in: "Sign out" ends the menu, as on Amazon */
+  signedIn?: boolean;
 }
 
 const FOCUSABLE = 'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
@@ -27,7 +30,7 @@ function MenuIcon() {
  * programs and the account and help links in one place (Amazon's hamburger menu). Modal: focus
  * stays inside, Escape or the backdrop closes it and focus goes back to "All".
  */
-export function AllMenu({ greeting, greetingHref, sections }: AllMenuProps) {
+export function AllMenu({ greeting, greetingHref, sections, signedIn = false }: AllMenuProps) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -114,6 +117,13 @@ export function AllMenu({ greeting, greetingHref, sections }: AllMenuProps) {
             </nav>
           ) : null,
         )}
+        {signedIn ? (
+          <form action={signOut} className="border-t border-line-2 px-2 py-3">
+            <button type="submit" className="flex min-h-11 w-full items-center rounded-input px-2 text-left text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+              Sign out
+            </button>
+          </form>
+        ) : null}
       </div>
     </div>
   );
