@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from 'vitest';
-import { addRecentSearch, cleanSearch, matchingRecentSearches, readRecentSearches, RECENT_SEARCHES_MAX, removeRecentSearch } from './recent-searches';
+import { addRecentSearch, cleanSearch, clearRecentSearches, matchingRecentSearches, readRecentSearches, RECENT_SEARCHES_MAX, removeRecentSearch } from './recent-searches';
 
 beforeEach(() => localStorage.clear());
 
@@ -27,6 +27,14 @@ it('removes one search', () => {
   expect(removeRecentSearch('US', 'Kettle')).toEqual(['mug']);
   expect(removeRecentSearch('US', 'mug')).toEqual([]);
   expect(localStorage.getItem('search:recent:v1:US')).toBeNull();
+});
+
+it('clears one store’s searches', () => {
+  addRecentSearch('US', 'kettle');
+  addRecentSearch('IN', 'saree');
+  expect(clearRecentSearches('US')).toEqual([]);
+  expect(readRecentSearches('US')).toEqual([]);
+  expect(readRecentSearches('IN')).toEqual(['saree']);
 });
 
 it('survives garbled storage', () => {

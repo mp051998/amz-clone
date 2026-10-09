@@ -3,6 +3,7 @@ import { clearHistory, removeFromHistory, setHistoryPaused } from '@/app/actions
 import { AppShell } from '@/components/AppShell';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { EmptyState, ProductFrame } from '@/components/decision';
+import { RecentSearches } from '@/components/history/RecentSearches';
 import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
@@ -56,7 +57,9 @@ export default async function HistoryPage() {
           </div>
         </div>
 
-        {paused ? <Alert tone="info">History is paused. Products you view now aren&rsquo;t added, and what&rsquo;s here stays until you remove it.</Alert> : null}
+        {paused ? <Alert tone="info">History is paused. Products you view and searches you make now aren&rsquo;t added, and what&rsquo;s here stays until you remove it.</Alert> : null}
+
+        <RecentSearches market={store.id} searchPath={sp('/s')} />
 
         {products.length === 0 ? (
           <EmptyState title="Nothing here yet" action={<a href={sp('/')} className={buttonClasses({ variant: 'dark' })}>Start shopping</a>}>

@@ -55,6 +55,11 @@ export function removeRecentSearch(market: Market, q: string): string[] {
   return write(market, readRecentSearches(market).filter((x) => !same(x, q)));
 }
 
+/** Forgets every recent search in the store. */
+export function clearRecentSearches(market: Market): string[] {
+  return write(market, []);
+}
+
 /** The recent searches that start with what's typed (not the same search again), at most `n`. */
 export function matchingRecentSearches(list: readonly string[], typed: string, n: number): string[] {
   const t = cleanSearch(typed).toLowerCase();
