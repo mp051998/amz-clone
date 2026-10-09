@@ -9,6 +9,25 @@ import type { Product } from '@/lib/types';
 import type { Store } from '../lib/store';
 import { ProductFrame } from '../decision/ProductFrame';
 import { BuyAgainButton } from '../orders/BuyAgainButton';
+import { buttonClasses } from '../primitives/Button';
+
+/** Amazon's home card for a guest, "Sign in for the best experience", under the search. */
+export function SignInCard({ signInHref, createAccountHref }: { signInHref: string; createAccountHref: string }) {
+  return (
+    <section aria-labelledby="home-sign-in" className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-surface p-[18px]">
+      <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
+        <h2 id="home-sign-in" className="m-0 text-[20px] font-semibold">Sign in for the best experience</h2>
+        <p className="m-0 text-[14px] text-ink-2">Your orders, buying again in a click, and picks from what you look at.</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <a href={signInHref} className={buttonClasses({ variant: 'primary', size: 'md' })}>Sign in securely</a>
+        <span className="text-[14px] text-ink-2">
+          New customer? <a href={createAccountHref} className="text-ink underline underline-offset-2">Start here.</a>
+        </span>
+      </div>
+    </section>
+  );
+}
 
 /** Section wrapper: 22px title + optional meta on the right (design.md §3 Section title). */
 export function HomeSection({ title, meta, link, children, id }: { title: string; meta?: string; link?: { href: string; label: string }; children: ReactNode; id: string }) {
