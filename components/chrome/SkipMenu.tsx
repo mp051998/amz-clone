@@ -82,7 +82,7 @@ export function SkipMenu({ homeHref, cartHref, ordersHref }: { homeHref: string;
       aria-label="Skip to"
       data-open={open || undefined}
       className={cn(
-        'z-[90] w-[min(300px,calc(100vw-32px))] rounded-card border border-line bg-surface p-4 text-ink shadow-lg',
+        'z-[90] w-[min(320px,calc(100vw-32px))] rounded-card border border-line bg-surface p-4 text-ink shadow-lg',
         open ? 'fixed left-4 top-3' : 'sr-only focus-within:not-sr-only focus-within:fixed focus-within:left-4 focus-within:top-3',
       )}
     >
