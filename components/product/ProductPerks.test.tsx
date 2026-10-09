@@ -9,6 +9,7 @@ it('shows each perk as a button opening its note', () => {
     <ProductPerks
       perks={[
         { key: 'cod', label: 'Pay on Delivery', detail: 'Pay by cash, UPI or card when it arrives.' },
+        { key: 'fulfilled', label: 'Amazon Delivered', detail: 'Amazon packs, ships and delivers this item itself.' },
         { key: 'secure', label: 'Secure transaction', detail: 'Your payment is encrypted.' },
       ]}
     />,
@@ -18,6 +19,7 @@ it('shows each perk as a button opening its note', () => {
   const note = document.getElementById('perk-cod')!;
   expect(note).toHaveAttribute('popover', 'auto');
   expect(note).toHaveTextContent('Pay by cash, UPI or card when it arrives.');
+  expect(screen.getByRole('button', { name: 'Amazon Delivered' })).toHaveAttribute('popovertarget', 'perk-fulfilled');
   expect(screen.getByRole('button', { name: 'Secure transaction' })).toHaveAttribute('popovertarget', 'perk-secure');
 });
 

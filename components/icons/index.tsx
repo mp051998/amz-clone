@@ -38,6 +38,8 @@ export const IconLock = (p: IconProps) => (<Line {...p}><rect x="5" y="11" width
 export const IconTruck = (p: IconProps) => (<Line {...p}><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z" /><circle cx="7" cy="18" r="1.4" /><circle cx="17" cy="18" r="1.4" /></Line>);
 export const IconCash = (p: IconProps) => (<Line {...p}><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.6" /><path d="M6.5 9.5v.01M17.5 14.5v.01" /></Line>);
 export const IconReturn = (p: IconProps) => (<Line {...p}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></Line>);
+/** A parcel (Amazon Delivered). */
+export const IconBox = (p: IconProps) => (<Line {...p}><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9M8 5.3l8 4.5" /></Line>);
 /** A shopfront with an awning (Small Business). */
 export const IconShop = (p: IconProps) => (<Line {...p}><path d="M4 10v10h16V10" /><path d="M3 10 5 4h14l2 6c0 1.4-1.1 2.5-2.5 2.5S16 11.4 16 10c0 1.4-1.1 2.5-2.5 2.5h-3C9.1 12.5 8 11.4 8 10c0 1.4-1.1 2.5-2.5 2.5S3 11.4 3 10Z" /><path d="M10 20v-5h4v5" /></Line>);
 /** A leaf (Climate Pledge Friendly). */

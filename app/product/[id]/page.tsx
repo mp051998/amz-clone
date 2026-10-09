@@ -303,6 +303,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         cod: store.payments.some((m) => m.method === 'cod'),
         returnDays: returnPolicy.days,
         replacementOnly: returnPolicy.replacementOnly,
+        shipsFrom: p.shipsFrom,
         money: (minor) => formatMoney(minor, cur),
       });
   const delivery = {

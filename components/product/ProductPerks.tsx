@@ -1,7 +1,7 @@
-import { IconCash, IconClose, IconLock, IconReturn, IconTruck } from '@/components/icons';
+import { IconBox, IconCash, IconClose, IconLock, IconReturn, IconTruck } from '@/components/icons';
 import type { Perk } from './perks';
 
-const ICONS = { delivery: IconTruck, cod: IconCash, returns: IconReturn, secure: IconLock } as const;
+const ICONS = { delivery: IconTruck, cod: IconCash, returns: IconReturn, fulfilled: IconBox, secure: IconLock } as const;
 
 /**
  * The row of icons under the price on amazon.in, each opening a note on what it means (a native
@@ -12,7 +12,7 @@ export function ProductPerks({ perks }: { perks: readonly Perk[] }) {
   return (
     <div className="border-t border-line pt-4">
       <h2 className="sr-only">Delivery, payment and returns</h2>
-      <ul className="m-0 grid list-none grid-cols-4 gap-2 p-0 max-[420px]:grid-cols-2">
+      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(68px,1fr))] gap-2 p-0">
         {perks.map((perk) => {
           const Icon = ICONS[perk.key];
           const id = `perk-${perk.key}`;
