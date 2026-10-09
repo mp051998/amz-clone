@@ -73,6 +73,13 @@ it('narrows to one order’s charge and refunds, from its “View related transa
   await expect(TransactionsPage({ searchParams: Promise.resolve({ order: 'A-1' }) })).rejects.toThrow('REDIRECT /signin?next=%2Faccount%2Ftransactions%3Forder%3DA-1');
 });
 
+it('sits on the Transactions tab, beside Wallet', async () => {
+  render(await TransactionsPage());
+  const tabs = screen.getByRole('navigation', { name: 'Your Payments' });
+  expect(within(tabs).getByRole('link', { name: 'Transactions' })).toHaveAttribute('aria-current', 'page');
+  expect(within(tabs).getByRole('link', { name: 'Wallet' })).toHaveAttribute('href', '/account/payments');
+});
+
 it('says when there is nothing yet', async () => {
   render(await TransactionsPage());
   expect(screen.getByText('No transactions yet')).toBeInTheDocument();
