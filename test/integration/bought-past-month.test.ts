@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { boughtPastMonth } from '@/lib/data/bought';
 import { placeOrder } from '@/lib/data/orders';
-import { anon, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, pickProduct, setStock, stockOf, type TestUser } from './helpers';
+import { admin, anon, deleteUser, deliveredDaysAgo, IN_SHIPPING, newUser, setStock, stockOf, type TestUser } from './helpers';
 
 let buyer: TestUser;
-/** 60 bought this month */
+/** 60 bought this month (20 days ago, before the movers & shakers' fortnight) */
 let popular: { id: string };
-/** 2 bought this month */
+/** 2 bought this month, as long ago */
 let few: { id: string };
 /** 60 bought, all over a month ago */
 let stale: { id: string };
@@ -21,13 +21,37 @@ async function sell(productId: string, qty: number, daysAgo = 0) {
   await setStock(productId, stock);
 }
 
+/**
+ * IN products outside pickProduct's pool (it takes those with 25 or more in stock), bought without
+ * a size, a per-customer limit or a release date; sell() stocks them up first.
+ */
+async function quietProducts(n: number): Promise<{ id: string }[]> {
+  const { data, error } = await admin()
+    .from('products')
+    .select('id')
+    .eq('market_id', 'IN')
+    .gt('stock', 0)
+    .lt('stock', 25)
+    .is('sizes', null)
+    .is('max_per_customer', null)
+    .is('release_at', null)
+    .is('offer_of', null)
+    .is('archived_at', null)
+    .eq('condition', 'new')
+    // the cheapest, so 60 of one stay well inside a test shopper's balance
+    .order('price_minor')
+    .order('id')
+    .limit(n);
+  if (error || !data || data.length < n) throw error ?? new Error('not enough products');
+  return data;
+}
+
 beforeAll(async () => {
-  // high in the IN pool, apart from other tests' products
-  [buyer, popular, few, stale] = await Promise.all([newUser('Bought Buyer'), pickProduct('IN', 118), pickProduct('IN', 119), pickProduct('IN', 120)]);
+  [buyer, [popular, few, stale]] = await Promise.all([newUser('Bought Buyer'), quietProducts(3)]);
   // two orders of the most a line takes
-  await sell(popular.id, 30);
-  await sell(popular.id, 30);
-  await sell(few.id, 2);
+  await sell(popular.id, 30, 20);
+  await sell(popular.id, 30, 20);
+  await sell(few.id, 2, 20);
   await sell(stale.id, 30, 40);
   await sell(stale.id, 30, 40);
 });
