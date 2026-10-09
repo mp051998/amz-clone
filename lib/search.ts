@@ -43,6 +43,8 @@ export interface SearchQuery {
   includeOutOfStock?: boolean;
   /** "Discount": only products on sale for at least this percentage off (`pct`) */
   minDiscount?: number;
+  /** amazon.in's "Pay On Delivery": only what can be paid for on delivery, up to its ceiling (`cod=1`; stores that take it) */
+  cod?: boolean;
   sort: SortKey;
   page: number;
 }
@@ -114,6 +116,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     maxPrice: price(sp.max),
     includeOutOfStock: one(sp.oos) === '1' || undefined,
     minDiscount: Number.isInteger(pct) && pct >= 1 && pct <= 99 ? pct : undefined,
+    cod: one(sp.cod) === '1' || undefined,
     sort: SORTS.some((s) => s.key === sortRaw) ? (sortRaw as SortKey) : 'featured',
     page: Math.max(1, Number(one(sp.page)) || 1),
   };

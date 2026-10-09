@@ -39,6 +39,8 @@ export interface MoreFiltersProps {
   maxPrice?: number | null;
   /** "Include Out of Stock" is ticked */
   includeOutOfStock?: boolean;
+  /** amazon.in's "Pay On Delivery" is ticked (undefined = the store doesn't take it: no section) */
+  cod?: boolean;
   /** href for the current search with these params changed (null = remove). */
   hrefWith: (patch: Record<string, string | null>) => string;
 }
@@ -53,8 +55,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, size, seller, price, rating, deals, Climate Pledge Friendly, Small Business, discount, condition, availability) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], rating, deal, climate = false, climateCount = 0, smallBusiness = false, smallBusinessCount = 0, condition, conditionCounts, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, size, seller, price, rating, deals, Pay On Delivery, Climate Pledge Friendly, Small Business, discount, condition, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], rating, deal, climate = false, climateCount = 0, smallBusiness = false, smallBusinessCount = 0, condition, conditionCounts, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, cod, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -205,6 +207,16 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
           <span>On sale now</span>
         </a>
       </div>
+
+      {cod !== undefined ? (
+        <div>
+          <h3 className="m-0 mb-1 text-[14px] font-semibold">Pay On Delivery</h3>
+          <a href={hrefWith({ cod: cod ? null : '1' })} role="checkbox" aria-checked={cod} className={row}>
+            <Box on={cod} />
+            <span>Eligible for Pay On Delivery</span>
+          </a>
+        </div>
+      ) : null}
 
       {climateCount > 0 || climate ? (
         <div>

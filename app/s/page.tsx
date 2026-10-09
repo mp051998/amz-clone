@@ -86,7 +86,7 @@ function one(sp: SP, key: string): string | undefined {
  *   spell  `0` = search exactly as typed, no spelling correction
  *   lens   `1` = `k` came from a photo (search by image, in the search box)
  *   w      custom weights "battery.5,comfort.4"  ·  sort  match|price-asc|price-desc|rating|newest|bestsellers  ·  page
- *   brand, seller (`|`-separated), size, rating, deal, climate (Climate Pledge Friendly), small (Small Business), pct (percent off or more), condition (new|renewed|used) — "More filters" facets  ·  oos  `1` = include out of stock
+ *   brand, seller (`|`-separated), size, rating, deal, climate (Climate Pledge Friendly), small (Small Business), pct (percent off or more), cod (`1` = Pay On Delivery, in stores that take it), condition (new|renewed|used) — "More filters" facets  ·  oos  `1` = include out of stock
  */
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -111,6 +111,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const weights = decision.weights ?? weightsFor(category, preset ?? use);
   const sort = decision.sort;
   const facets = parseFacets(sp);
+  // amazon.in's "Pay On Delivery" filter, in a store that takes it
+  const takesCod = store.payments.some((m) => m.method === 'cod');
+  const cod = takesCod && Boolean(facets.cod);
   const brands = facets.brand ?? [];
   const sellers = facets.seller ?? [];
   const sizes = facets.size ?? [];
@@ -127,7 +130,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const client = await db();
   const [result, scope, saved, jar, plus, related] = await Promise.all([
-    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, size: sizes, rating: facets.rating, deal: facets.deal, climate: facets.climate, smallBusiness: facets.smallBusiness, condition: facets.condition, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, sort }, client),
+    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, size: sizes, rating: facets.rating, deal: facets.deal, climate: facets.climate, smallBusiness: facets.smallBusiness, condition: facets.condition, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, cod, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, includeOutOfStock: facets.includeOutOfStock, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
@@ -158,7 +161,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   };
   // nothing matched the words as typed: retry with typos corrected (only when that finds something)
   const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
-  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !sizes.length && !facets.rating && !facets.deal && !facets.climate && !facets.smallBusiness && !facets.condition && !facets.minDiscount) {
+  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !sizes.length && !facets.rating && !facets.deal && !facets.climate && !facets.smallBusiness && !facets.condition && !facets.minDiscount && !cod) {
     const fix = await spellFix(client, store.id, k, pq.keywords, category);
     if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
   }
@@ -186,6 +189,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (facets.condition) chips.push({ label: `Condition: ${kindName(facets.condition)}`, href: hrefWith({ condition: null }) });
   if (facets.minDiscount) chips.push({ label: `${facets.minDiscount}% off or more`, href: hrefWith({ pct: null }) });
   if (facets.minPrice) chips.push({ label: `${formatMoney(facets.minPrice, store.currency.code)} & above`, href: hrefWith({ min: null }) });
+  if (cod) chips.push({ label: 'Pay On Delivery', href: hrefWith({ cod: null }) });
   if (facets.includeOutOfStock) chips.push({ label: 'Including out of stock', href: hrefWith({ oos: null }) });
 
   const presetSpec = findPreset(category, preset ?? use);
@@ -220,8 +224,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const page = Math.min(pageCount, Math.max(1, Number(one(sp, 'page')) || 1));
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   // nothing found: something to go on instead of a dead end (not in a price range — these could cost anything)
-  const popular = items.length || budgetMinor || facets.minPrice ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
-  const facetFilters = brands.length + sellers.length + sizes.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.climate ? 1 : 0) + (facets.smallBusiness ? 1 : 0) + (facets.condition ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0);
+  const popular = items.length || budgetMinor || facets.minPrice || cod ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
+  const facetFilters = brands.length + sellers.length + sizes.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.climate ? 1 : 0) + (facets.smallBusiness ? 1 : 0) + (facets.condition ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0) + (cod ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
   // count the search as typed (for related searches), not each page, re-sort or filter of it
@@ -369,6 +373,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   minPrice={facets.minPrice ?? null}
                   maxPrice={budgetMinor}
                   includeOutOfStock={!!facets.includeOutOfStock}
+                  cod={takesCod ? cod : undefined}
                   hrefWith={(patch) => hrefWith(patch)}
                 />
               }

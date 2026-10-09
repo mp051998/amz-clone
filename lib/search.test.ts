@@ -18,6 +18,14 @@ describe('parseQuery price range', () => {
   });
 });
 
+describe('parseQuery Pay On Delivery', () => {
+  it('is on only with cod=1', () => {
+    expect(parseQuery({}).cod).toBeUndefined();
+    expect(parseQuery({ cod: '0' }).cod).toBeUndefined();
+    expect(parseQuery({ cod: '1' }).cod).toBe(true);
+  });
+});
+
 describe('parseQuery availability', () => {
   it('leaves out-of-stock products out unless oos=1', () => {
     expect(parseQuery({}).includeOutOfStock).toBeUndefined();
