@@ -16,7 +16,8 @@ import { emiPlans } from '@/lib/emi';
 import { exchangeUpTo } from '@/lib/exchange';
 
 /**
- * GET /api/v1/products/:id — product detail (with live stock, description and spec rows), its rating
+ * GET /api/v1/products/:id — product detail (with live stock, description, spec rows and
+ * `firstAvailable`, when it was first listed), its rating
  * histogram, its coupon (`{percentOff, clipped}` or null; `clipped` is false signed out), and
  * `frequentlyReturned` (`{reason}` when it often comes back, else null), `usuallyKept` (true when
  * customers rarely send it back), `fit` (`small` or `large` when a product in sizes runs that way,
