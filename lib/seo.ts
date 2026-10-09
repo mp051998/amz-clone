@@ -3,6 +3,7 @@
  * descriptions, robots rules and the sitemap. Pure; the app's metadata files feed it.
  */
 import type { Metadata, MetadataRoute } from 'next';
+import { HELP_TOPIC_SLUGS } from './help-topics';
 import { legalSlugs } from './legal';
 import { storePath } from './marketplace';
 import { zoomImage } from './product-images';
@@ -20,6 +21,7 @@ export const STORE_PAGES = [
   '/prime',
   '/registry',
   '/customer-service',
+  ...HELP_TOPIC_SLUGS.map((s) => `/customer-service/help/${s}`),
   '/sell',
   '/business',
   '/amazon-pay',

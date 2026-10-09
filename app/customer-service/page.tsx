@@ -6,6 +6,7 @@ import { ProductFrame } from '@/components/decision';
 import { StatusChip } from '@/components/orders/Tracking';
 import { orderView } from '@/components/orders/format';
 import { listOrders } from '@/lib/data/orders';
+import { helpTopics } from '@/lib/help-topics';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { readUser } from '@/lib/auth';
@@ -36,17 +37,6 @@ function quickActions(isIN: boolean) {
     { title: 'Saved items & collections', line: 'Find what you saved, and turn price tracking on or off.', href: '/collections' },
   ];
 }
-
-/** Help topics → a store search for that topic. */
-const HELP_TOPICS = [
-  'Ordering',
-  'Shipping & delivery',
-  'Returns, refunds & exchanges',
-  'Managing your account',
-  'Payments, pricing & promotions',
-  'Plus membership',
-  'Devices',
-];
 
 /** Common questions — native <details>, no JS. */
 function commonQuestions(isIN: boolean) {
@@ -159,13 +149,13 @@ export default async function CustomerServicePage() {
         <div className="grid items-start gap-11 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:gap-8">
           <Section title="Browse help topics">
             <ul className="m-0 list-none overflow-hidden rounded-card border border-line bg-surface p-0">
-              {HELP_TOPICS.map((topic) => (
-                <li key={topic} className="border-b border-line-2 last:border-b-0">
+              {helpTopics(store).map((topic) => (
+                <li key={topic.slug} className="border-b border-line-2 last:border-b-0">
                   <a
-                    href={sp(`/s?k=${encodeURIComponent(topic)}`)}
+                    href={sp(`/customer-service/help/${topic.slug}`)}
                     className="flex min-h-12 items-center justify-between px-[18px] text-[15px] text-ink no-underline hover:bg-surface-2 hover:text-ink"
                   >
-                    {topic}
+                    {topic.title}
                     <span className="text-ink-3" aria-hidden>›</span>
                   </a>
                 </li>
