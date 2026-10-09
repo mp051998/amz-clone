@@ -77,6 +77,17 @@ it('lists saved cards with their expiry, each with Remove, and adds another', as
   expect(screen.getByRole('link', { name: 'Reload your balance' })).toHaveAttribute('href', '/gift-cards#reload');
 });
 
+it('sits on the Wallet tab, beside Transactions (store paths too)', async () => {
+  await page();
+  const tabs = screen.getByRole('navigation', { name: 'Your Payments' });
+  expect(within(tabs).getByRole('link', { name: 'Wallet' })).toHaveAttribute('aria-current', 'page');
+  expect(within(tabs).getByRole('link', { name: 'Transactions' })).toHaveAttribute('href', '/account/transactions');
+  cleanup();
+  state.store = amazonIn;
+  await page();
+  expect(screen.getByRole('link', { name: 'Transactions' })).toHaveAttribute('href', '/in/account/transactions');
+});
+
 it('with no cards, says how to save one', async () => {
   await page();
   expect(screen.getByText('No saved cards')).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { PaymentsTabs } from '@/components/account/PaymentsTabs';
 import { EmptyState } from '@/components/decision';
 import { buttonClasses } from '@/components/primitives/Button';
 import { paymentText } from '@/components/orders/format';
@@ -33,7 +34,7 @@ const STATUS: Partial<Record<Transaction['status'], string>> = {
 
 /**
  * /account/transactions: every charge and refund in this store, newest first and grouped by day,
- * as on Amazon's "Your Payments → Transactions". `?order=` narrows it to one order's charge and
+ * as on Amazon's "Your Payments → Transactions" (the Transactions tab beside Wallet). `?order=` narrows it to one order's charge and
  * refunds, where an order's "View related transactions" leads.
  */
 export default async function TransactionsPage({ searchParams }: { searchParams?: Promise<{ order?: string }> } = {}) {
@@ -71,6 +72,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
             <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns, gift cards, balance reloads, recharges and bill payments.</span>
           )}
         </div>
+        <PaymentsTabs current="transactions" href={sp} />
 
         {order && !list.length ? (
           <EmptyState title="No transactions for this order" action={<a href={sp('/account/transactions')} className={buttonClasses({ variant: 'secondary' })}>View all transactions</a>}>

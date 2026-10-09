@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { PaymentsTabs } from '@/components/account/PaymentsTabs';
 import { DemoNote } from '@/components/brand/Page';
 import { EmptyState } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
@@ -45,8 +46,8 @@ function CardRow({ c }: { c: SavedCard }) {
 }
 
 /**
- * Your Payments (Amazon's wallet): the cards saved on Stripe, to remove or add to, and the store
- * balance. Cards are saved when paying by card (Stripe's page offers it) or added here.
+ * Your Payments (Amazon's wallet, its Wallet tab beside Transactions): the cards saved on Stripe, to
+ * remove or add to, and the store balance. Cards are saved when paying by card (Stripe's page offers it) or added here.
  */
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ added?: string; removed?: string; canceled?: string; error?: string }> }) {
   const store = await getMarketplace();
@@ -73,6 +74,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your Payments</h1>
           <span className="text-[15px] text-ink-2">Your saved cards, and your gift card balance in this store.</span>
         </div>
+        <PaymentsTabs current="wallet" href={sp} />
 
         {added ? <Alert tone="success">{cardLabel(added)} is saved. Pick it on Stripe’s page next time you pay by card.</Alert> : null}
         {q.removed ? <Alert tone="success">Card removed.</Alert> : null}
