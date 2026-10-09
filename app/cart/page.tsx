@@ -403,6 +403,8 @@ export default async function CartPage({
             </dl>
             {plus ? (
               <span className="text-[13px] text-ink-2">Delivery is FREE with your Plus membership.</span>
+            ) : freeShip && count > 0 ? (
+              <span className="text-[13px] font-semibold text-good-strong">✓ Your order qualifies for FREE delivery.</span>
             ) : !freeShip && toFree > 0 ? (
               <span className="text-[13px] text-ink-2">
                 Add {money(toFree)} more for FREE delivery, or{' '}
