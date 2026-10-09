@@ -8,6 +8,7 @@ import { readTheme } from '@/lib/theme-server';
 import { readDeliverTo } from '@/lib/deliver-to-server';
 import { CountryFlyout } from './chrome/CountryFlyout';
 import { Header } from './chrome/Header';
+import { SkipMenu } from './chrome/SkipMenu';
 import { Footer, type FooterColumn, type FooterLink } from './chrome/Footer';
 import type { AllMenuSection } from './chrome/AllMenu';
 import { ToastProvider } from './decision/Toast';
@@ -132,7 +133,7 @@ export async function AppShell({ children, cartCount, query }: AppShellProps) {
     <ToastProvider>
       <CompareProvider market={store.id}>
         <div id="top" className="flex min-h-screen flex-col bg-bg">
-          <a href="#main" className="sr-only z-[90] rounded-pill bg-ink px-4 py-2 text-on-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-3">Skip to content</a>
+          <SkipMenu homeHref={storePath(store, '/')} cartHref={storePath(store, '/cart')} ordersHref={storePath(store, '/orders')} />
           <Header
             store={store}
             cartCount={count}
