@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '../lib/cn';
 
@@ -36,6 +36,16 @@ function focusSearch() {
 /** A button the page marks for a shortcut (a product page's Add to Cart or summary), pressed as if by hand. */
 function press(name: 'add-to-cart' | 'product-summary') {
   document.querySelector<HTMLButtonElement>(`[data-shortcut="${name}"]:not(:disabled)`)?.click();
+}
+
+/** Up and down arrows step between the box's links (as on Amazon), stopping at either end. */
+function stepLinks(e: ReactKeyboardEvent<HTMLElement>) {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  const links = [...e.currentTarget.querySelectorAll<HTMLAnchorElement>('a[href]')];
+  const at = links.indexOf(document.activeElement as HTMLAnchorElement);
+  if (at < 0) return;
+  e.preventDefault();
+  links[Math.max(0, Math.min(links.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))].focus();
 }
 
 /** Opens the folded section a skip link lands in (say, a closed spec group) so its content shows. */
@@ -103,6 +113,7 @@ export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart
   return (
     <nav
       aria-label="Skip to"
+      onKeyDown={stepLinks}
       data-open={open || undefined}
       className={cn(
         'z-[90] w-[min(320px,calc(100vw-32px))] rounded-card border border-line bg-surface p-4 text-ink shadow-lg',
@@ -128,6 +139,7 @@ export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart
           </div>
         ))}
       </dl>
+      <p className="m-0 mt-3 text-[12px] text-ink-3">To move between items, use your keyboard’s up or down arrows.</p>
     </nav>
   );
 }
