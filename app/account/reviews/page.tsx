@@ -14,15 +14,16 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
 import { VINE_LABEL } from '@/lib/vine';
-import { deleteMyReview } from './actions';
+import { deleteMyReview, rateMyPurchase } from './actions';
 
 export const metadata: Metadata = { title: 'Your reviews · Store' };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * /account/reviews: what's waiting for a review (delivered, not reviewed yet) and every review the
- * shopper has written in this store, with their photos, Edit (on the product page) and Delete.
+ * /account/reviews: what's waiting for a review (delivered, not reviewed or rated yet), each with a
+ * one-tap star rating ("Rate it") and a link to write a review, and every review and star-only
+ * rating the shopper has given in this store, with their photos, Edit (on the product page) and Delete.
  */
 export default async function YourReviewsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string }> }) {
   const store = await getMarketplace();
@@ -37,6 +38,8 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
   ]);
   const day = new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone });
   const reviewHref = (productId: string) => sp(`/product/${encodeURIComponent(productId)}#write-review`);
+  const reviewCount = written.filter(({ review }) => review.body).length;
+  const ratingCount = written.length - reviewCount;
 
   return (
     <AppShell>
@@ -44,13 +47,14 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
         <div className="flex flex-col gap-1.5">
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your reviews</h1>
-          <span className="text-[15px] text-ink-2">Things you’ve received that are waiting for a review, and the reviews you’ve written.</span>
-          {written.some(({ review }) => !review.hidden) ? (
+          <span className="text-[15px] text-ink-2">Things you’ve received that are waiting for a review, and the reviews and ratings you’ve given.</span>
+          {written.some(({ review }) => review.body && !review.hidden) ? (
             <a href={sp(`/profile/${encodeURIComponent(user.id)}`)} className="self-start text-[14px] text-ink underline underline-offset-2">See your public profile</a>
           ) : null}
         </div>
 
         {done === 'deleted' ? <Alert tone="success">Review deleted.</Alert> : null}
+        {done === 'rated' ? <Alert tone="success">Thanks for rating it. Your stars count toward its rating; add a written review any time.</Alert> : null}
         {error ? <Alert tone="error">{messageFor(error) ?? 'Couldn’t delete that review. Try again.'}</Alert> : null}
 
         {!waiting.length && !written.length ? (
@@ -73,6 +77,24 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
                   </a>
                   <a href={sp(`/product/${encodeURIComponent(p.id)}`)} className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink no-underline hover:underline">{p.title}</a>
                   <span className="text-[13px] text-ink-3">Delivered {day.format(new Date(deliveredAt))}</span>
+                  <form action={rateMyPurchase.bind(null, p.id)} className="flex flex-col gap-0.5">
+                    <span className="text-[13px] text-ink-2">Rate it</span>
+                    {/* right to left, so hovering a star lights it and the ones before it (peer-hover reaches later siblings) */}
+                    <span className="flex flex-row-reverse justify-end">
+                      {[5, 4, 3, 2, 1].map((n) => (
+                        <button
+                          key={n}
+                          type="submit"
+                          name="rating"
+                          value={n}
+                          aria-label={`Rate ${p.title} ${n} out of 5 stars`}
+                          className="peer min-h-9 min-w-9 text-[24px] leading-none text-line-3 hover:text-star focus-visible:text-star peer-hover:text-star peer-focus-visible:text-star"
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </span>
+                  </form>
                   <a href={reviewHref(p.id)} className={buttonClasses({ variant: 'secondary', size: 'sm' })} aria-label={`Write a review: ${p.title}`}>
                     Write a review
                   </a>
@@ -85,11 +107,13 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
         {written.length ? (
           <section aria-labelledby="written-h" className="flex flex-col gap-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="written-h" className="m-0 text-[20px] font-semibold">Reviews you’ve written</h2>
-              <span className="text-[14px] text-ink-3">{plural(written.length, 'review')}</span>
+              <h2 id="written-h" className="m-0 text-[20px] font-semibold">{ratingCount ? 'Your reviews and ratings' : 'Reviews you’ve written'}</h2>
+              <span className="text-[14px] text-ink-3">
+                {[reviewCount ? plural(reviewCount, 'review') : '', ratingCount ? plural(ratingCount, 'rating') : ''].filter(Boolean).join(' · ')}
+              </span>
             </div>
             <ul className="m-0 flex list-none flex-col overflow-hidden rounded-card border border-line bg-surface p-0">
-              {written.map(({ review: r, product: p }) => (
+              {written.map(({ review: r, product: p }) => r.body ? (
                 <li key={r.id} className="flex flex-wrap items-start gap-3.5 border-t border-line-2 px-4 py-4 first:border-t-0">
                   <a href={sp(`/product/${encodeURIComponent(p.id)}`)} className="w-[72px] flex-none" tabIndex={-1} aria-hidden>
                     <ProductFrame src={p.image} alt="" aspect="1/1" />
@@ -117,6 +141,34 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
                         label="Delete"
                         prompt={<>Delete your review of <b>{p.title}</b>?</>}
                         confirmLabel="Delete review"
+                        pendingLabel="Deleting…"
+                        size="link"
+                      />
+                    </div>
+                  </div>
+                </li>
+              ) : (
+                <li key={r.id} className="flex flex-wrap items-start gap-3.5 border-t border-line-2 px-4 py-4 first:border-t-0">
+                  <a href={sp(`/product/${encodeURIComponent(p.id)}`)} className="w-[72px] flex-none" tabIndex={-1} aria-hidden>
+                    <ProductFrame src={p.image} alt="" aspect="1/1" />
+                  </a>
+                  <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1.5">
+                    <a href={sp(`/product/${encodeURIComponent(p.id)}`)} className="line-clamp-2 text-[14px] text-ink-2 no-underline hover:underline">{p.title}</a>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Stars rating={r.rating} size={14} />
+                      <span className="text-[14px] text-ink-2">Star rating, no written review</span>
+                    </span>
+                    <span className="text-[13px] text-ink-3">
+                      Rated {day.format(new Date(r.createdAt))}
+                      {r.verified ? ' · Verified purchase' : ''}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <a href={reviewHref(p.id)} className="text-[14px] text-ink underline underline-offset-2" aria-label={`Write a review of ${p.title}`}>Add a written review</a>
+                      <ConfirmAction
+                        action={deleteMyReview.bind(null, r.id)}
+                        label="Delete"
+                        prompt={<>Delete your rating of <b>{p.title}</b>?</>}
+                        confirmLabel="Delete rating"
                         pendingLabel="Deleting…"
                         size="link"
                       />

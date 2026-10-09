@@ -29,7 +29,7 @@ vi.mock('@/lib/data/reviews', () => ({
   },
   listMyReviews: async () => state.written,
 }));
-vi.mock('./actions', () => ({ deleteMyReview: async () => {} }));
+vi.mock('./actions', () => ({ deleteMyReview: async () => {}, rateMyPurchase: async () => {} }));
 vi.mock('@/app/actions/review', () => ({ uploadReviewPhoto: async () => ({ ok: false }) }));
 
 import YourReviewsPage from './page';
@@ -117,4 +117,42 @@ it('shows the photos on a review, opening them full size', async () => {
   expect(open.map((b) => b.getAttribute('aria-label'))).toEqual(['Open photo 1 of 2 from your review of Kettle', 'Open photo 2 of 2 from your review of Kettle']);
   open[1].click();
   expect(await screen.findByRole('dialog')).toBeInTheDocument();
+});
+
+it('rates what’s waiting in one tap: a star button per rating', async () => {
+  state.waiting = [{ product: product({ id: 'k', title: 'Kettle' }), orderId: 'o1', deliveredAt: '2026-10-03T15:00:00Z' }];
+  await show();
+  const section = screen.getByRole('region', { name: 'Waiting for your review' });
+  expect(within(section).getByText('Rate it')).toBeInTheDocument();
+  const stars = within(section).getAllByRole('button', { name: /^Rate Kettle/ });
+  expect(stars.map((b) => [b.getAttribute('aria-label'), b.getAttribute('name'), b.getAttribute('value')])).toEqual([
+    ['Rate Kettle 5 out of 5 stars', 'rating', '5'],
+    ['Rate Kettle 4 out of 5 stars', 'rating', '4'],
+    ['Rate Kettle 3 out of 5 stars', 'rating', '3'],
+    ['Rate Kettle 2 out of 5 stars', 'rating', '2'],
+    ['Rate Kettle 1 out of 5 stars', 'rating', '1'],
+  ]);
+  stars.forEach((b) => expect(b).toHaveAttribute('type', 'submit'));
+});
+
+it('lists star-only ratings beside the reviews, with a way to write one', async () => {
+  state.written = [
+    { review: review(), product: product({ id: 'k', title: 'Kettle' }) },
+    { review: review({ id: 'r2', rating: 5, title: '', body: '', helpful: 0 }), product: product({ id: 'm', title: 'Mug' }) },
+  ];
+  await show({ done: 'rated' });
+  expect(screen.getByText('Thanks for rating it. Your stars count toward its rating; add a written review any time.')).toBeInTheDocument();
+  const section = screen.getByRole('region', { name: 'Your reviews and ratings' });
+  expect(within(section).getByText('1 review · 1 rating')).toBeInTheDocument();
+  expect(within(section).getByText('Star rating, no written review')).toBeInTheDocument();
+  expect(within(section).getByText('Rated October 2, 2026 · Verified purchase')).toBeInTheDocument();
+  expect(within(section).getByRole('link', { name: 'Write a review of Mug' })).toHaveAttribute('href', '/product/m#write-review');
+  expect(within(section).getAllByRole('button', { name: 'Delete' })).toHaveLength(2);
+});
+
+it('links the public profile only once a written review is visible', async () => {
+  state.written = [{ review: review({ title: '', body: '' }), product: product({ id: 'k', title: 'Kettle' }) }];
+  await show();
+  expect(screen.queryByRole('link', { name: 'See your public profile' })).toBeNull();
+  expect(screen.getByText('1 rating')).toBeInTheDocument();
 });

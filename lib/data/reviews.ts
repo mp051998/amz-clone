@@ -128,14 +128,14 @@ export function emptyReviewFacets(): ReviewFacets {
 
 /** Every visible written review's stars and words, for counting which themes reviews mention (lib/review-themes.ts). */
 export async function reviewWords(db: Db, productId: string): Promise<{ rating: number; title: string; body: string }[]> {
-  const res = await db.from('reviews').select('rating, title, body').eq('product_id', productId).is('hidden_at', null).range(0, 9999);
+  const res = await db.from('reviews').select('rating, title, body').eq('product_id', productId).neq('body', '').is('hidden_at', null).range(0, 9999);
   return (unwrap(res) ?? []) as unknown as { rating: number; title: string; body: string }[];
 }
 
-/** A product's review facets (hidden reviews left out, as in the listing). */
+/** A product's review facets (star-only ratings and hidden reviews left out, as in the listing). */
 export async function reviewFacets(db: Db, productId: string): Promise<ReviewFacets> {
   const read = (moderated: boolean) => {
-    const q = db.from('reviews').select(moderated ? 'rating, verified, photos' : 'rating, verified').eq('product_id', productId);
+    const q = db.from('reviews').select(moderated ? 'rating, verified, photos' : 'rating, verified').eq('product_id', productId).neq('body', '');
     return (moderated ? q.is('hidden_at', null) : q).range(0, 9999);
   };
   let res = await read(true);
@@ -178,15 +178,19 @@ export async function reviewFeatureRows(db: Db, productId: string): Promise<{ fe
 export interface ReviewPage {
   items: Review[];
   total: number;
-  /** the viewer's own review of this product, if any (also pinned first in items) */
+  /**
+   * the viewer's own review of this product, if any (also pinned first in items), or their
+   * star-only rating (empty title and body; never in items)
+   */
   mine: Review | null;
 }
 
 /**
- * A product's reviews: most helpful first, then newest (`top`), or newest first
- * (`recent`), optionally only some stars and/or verified purchases (`total` counts
- * the filtered set). The viewer's own review is pinned to the top when it passes the
- * filter, and each item says whether the viewer already voted it helpful / reported it.
+ * A product's written reviews (star-only ratings count toward its stars but aren't listed): most
+ * helpful first, then newest (`top`), or newest first (`recent`), optionally only some stars
+ * and/or verified purchases (`total` counts the filtered set). The viewer's own review is pinned to
+ * the top when it passes the filter, and each item says whether the viewer already voted it
+ * helpful / reported it.
  */
 export async function listReviews(
   db: Db,
@@ -203,7 +207,8 @@ export async function listReviews(
     const q = db
       .from('reviews')
       .select(moderated ? REVIEW_COLS : LEGACY_COLS, { count: 'exact' })
-      .eq('product_id', productId);
+      .eq('product_id', productId)
+      .neq('body', '');
     let visible = moderated ? q.is('hidden_at', null) : q;
     if (filter.stars) {
       const [lo, hi] = starRange(filter.stars);
@@ -247,7 +252,7 @@ export async function listReviews(
   }
 
   // the viewer's own review is pinned to page one (when it passes the filter) and skipped at its natural spot
-  const pinned = own && matchesReviewFilter(own, filter) ? own : null;
+  const pinned = own?.body && matchesReviewFilter(own, filter) ? own : null;
   const rest = rows.filter((r) => r.id !== pinned?.id);
   const ordered = pinned && offset === 0 ? [pinned, ...rest] : rest;
   const mine = own ? toReview(own, viewerId, voted, reported) : null;
@@ -298,26 +303,39 @@ function parsePhotos(v: unknown, userId: string): string[] | undefined {
   return paths;
 }
 
+function parseRating(v: unknown): number {
+  const rating = Number(v);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new DataError('invalid_input', 'rating', 'Please select a star rating.');
+  return rating;
+}
+
+const HALF_WRITTEN = 'Add a headline and a review, or leave both empty to just rate it.';
+
+/** A written review (headline and review) or a star-only rating (neither). */
 function parseReview(input: ReviewInput) {
-  const rating = Number(input.rating);
+  const rating = parseRating(input.rating);
   const title = typeof input.title === 'string' ? input.title.trim() : '';
   const body = typeof input.body === 'string' ? input.body.trim() : '';
   const authorName = typeof input.authorName === 'string' ? input.authorName.trim().slice(0, 60) : '';
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new DataError('invalid_input', 'rating', 'Please select a star rating.');
-  if (!title) throw new DataError('invalid_input', 'title', 'Please add a headline.');
+  if (!title && body) throw new DataError('invalid_input', 'title', HALF_WRITTEN);
+  if (title && !body) throw new DataError('invalid_input', 'body', HALF_WRITTEN);
   if (title.length > 120) throw new DataError('invalid_input', 'title', 'Keep the headline under 120 characters.');
-  if (!body) throw new DataError('invalid_input', 'body', 'Please write your review.');
   if (body.length > 4000) throw new DataError('invalid_input', 'body', 'Keep the review under 4,000 characters.');
   return { rating, title, body, authorName };
 }
 
 /**
- * Write (or rewrite) the caller's review of a product — one per customer. The
- * database decides the author, the "Verified Purchase" flag and the counters.
+ * Write (or rewrite) the caller's review of a product — one per customer — or, with no headline
+ * and no review, their star-only rating (which can't have photos; a review rewritten as one loses
+ * its photos). The database decides the author, the "Verified Purchase" flag and the counters.
  */
 export async function upsertReview(db: Db, productId: string, userId: string, input: ReviewInput): Promise<Review> {
   const r = parseReview(input);
-  const photos = parsePhotos(input.photos, userId);
+  let photos = parsePhotos(input.photos, userId);
+  if (!r.body) {
+    if (photos?.length) throw new DataError('invalid_input', 'photos', 'Add a headline and a review to share photos.');
+    photos = [];
+  }
   const fit = parseFit(input.fit);
   const features = parseFeatures(input.features);
   const existing = unwrap(
@@ -350,6 +368,25 @@ export async function upsertReview(db: Db, productId: string, userId: string, in
           .single(),
       );
   if (existing && photos) await removeReviewPhotos(db, existing.photos.filter((p) => !photos.includes(p)));
+  return toReview(row as unknown as ReviewRow, userId, new Set(), new Set());
+}
+
+/**
+ * Rate a product with stars alone (Your reviews → "Rate it"): a new star-only rating, or a new
+ * rating on the caller's existing review or rating, whose words, photos and the rest it keeps.
+ */
+export async function rateProduct(db: Db, productId: string, userId: string, stars: unknown): Promise<Review> {
+  const rating = parseRating(stars);
+  const existing = unwrap(await db.from('reviews').select('id').eq('product_id', productId).eq('user_id', userId).maybeSingle());
+  const row = existing
+    ? unwrap(await db.from('reviews').update({ rating }).eq('id', existing.id).select(REVIEW_COLS).single())
+    : unwrap(
+        await db
+          .from('reviews')
+          .insert({ product_id: productId, rating, title: '', body: '', author_name: ' ', photos: [], fit: null, features: {} })
+          .select(REVIEW_COLS)
+          .single(),
+      );
   return toReview(row as unknown as ReviewRow, userId, new Set(), new Set());
 }
 
@@ -388,7 +425,7 @@ export interface MyReview {
   product: Product;
 }
 
-/** The caller's reviews of products in this store, newest first. Hidden ones are included, marked. */
+/** The caller's reviews and star-only ratings (empty title and body) of products in this store, newest first. Hidden ones are included, marked. */
 export async function listMyReviews(db: Db, market: Market, userId: string): Promise<MyReview[]> {
   const rows = unwrap(
     await db
@@ -414,8 +451,8 @@ export interface ToReview {
 }
 
 /**
- * Products from the caller's delivered orders in this store that they haven't reviewed, most
- * recently delivered first, each once. Products no longer on sale are left out.
+ * Products from the caller's delivered orders in this store that they haven't reviewed or rated,
+ * most recently delivered first, each once. Products no longer on sale are left out.
  */
 export async function awaitingReview(db: Db, market: Market, userId: string, now = new Date()): Promise<ToReview[]> {
   const [orders, reviewed] = await Promise.all([
@@ -448,10 +485,10 @@ export async function awaitingReview(db: Db, market: Market, userId: string, now
   });
 }
 
-/** Which of these products the caller has reviewed (the order page's "Edit your review"). */
+/** Which of these products the caller has written a review of, not just rated (the order page's "Edit your review"). */
 export async function reviewedProductIds(db: Db, userId: string, productIds: string[]): Promise<Set<string>> {
   if (!productIds.length) return new Set();
-  const rows = unwrap(await db.from('reviews').select('product_id').eq('user_id', userId).in('product_id', productIds));
+  const rows = unwrap(await db.from('reviews').select('product_id').eq('user_id', userId).in('product_id', productIds).neq('body', ''));
   return new Set(rows.map((r) => r.product_id));
 }
 
@@ -478,7 +515,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * A reviewer's public profile, as Amazon's: the reviews they've written in this store that
- * shoppers can see (never hidden ones, even to the reviewer), newest first, and the helpful votes
+ * shoppers can see (never hidden ones, even to the reviewer, nor star-only ratings), newest first, and the helpful votes
  * they've had. null when there are none, so a profile says nothing about an account that hasn't
  * reviewed anything.
  */
@@ -490,6 +527,7 @@ export async function reviewerProfile(db: Db, market: Market, userId: string, pa
       .select(`${REVIEW_COLS}, product_id, products!inner(market_id)`)
       .eq('user_id', userId)
       .eq('products.market_id', market)
+      .neq('body', '')
       .is('hidden_at', null)
       .order('created_at', { ascending: false })
       .limit(PROFILE_REVIEW_MAX),

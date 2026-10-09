@@ -7,8 +7,9 @@ import { featureRatings } from '@/lib/review-features';
 import { fitSummary } from '@/lib/review-fit';
 
 /**
- * GET /api/v1/products/:id/reviews?limit=10&offset=0&sort=top|recent&stars=&verified=&photos=&q= — most helpful
- * (or newest) first; the caller's own review pinned. stars: 1–5, positive (4–5★) or critical
+ * GET /api/v1/products/:id/reviews?limit=10&offset=0&sort=top|recent&stars=&verified=&photos=&q= — written
+ * reviews (star-only ratings count toward the stars but aren't listed), most helpful
+ * (or newest) first; the caller's own review pinned, and `mine` their review or rating. stars: 1–5, positive (4–5★) or critical
  * (1–3★); verified=1 keeps verified purchases, photos=1 reviews with photos, q= ones
  * whose headline or text contains it (2–100 characters). `total` counts the filtered reviews. `images`: the
  * newest photos from its reviews. `fit`: how its reviews say it fits (clothing and shoes), null with
@@ -32,7 +33,8 @@ export const GET = route<{ id: string }>(async (ctx, { id }) => {
 
 /**
  * POST /api/v1/products/:id/reviews { rating, title, body, authorName?, photos?, fit?, features? }
- * Create or replace the caller's review (one per customer). "Verified Purchase"
+ * Create or replace the caller's review (one per customer); with no title and no body, a
+ * star-only rating. "Verified Purchase"
  * is decided by the database: the caller has a delivered order containing it.
  */
 export const POST = route<{ id: string }>(async (ctx, { id }) => {

@@ -233,9 +233,15 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
 
   const patch = (id: string, change: Partial<Review>) => setItems((list) => list.map((r) => (r.id === id ? { ...r, ...change } : r)));
 
+  // no headline and no review: a star-only rating
+  const ratingOnly = !form.title.trim() && !form.body.trim();
+  // the viewer has written a review (not just rated it)
+  const mineWritten = Boolean(mine?.body);
+
   const onSubmit = () => {
     if (!form.rating) return setError('Please select a star rating.');
-    if (!form.title.trim() || !form.body.trim()) return setError('Please add a headline and a review.');
+    if (!form.title.trim() !== !form.body.trim()) return setError('Add a headline and a review, or leave both empty to just rate it.');
+    if (ratingOnly && form.photos.length) return setError('Add a headline and a review to share photos.');
     startTransition(async () => {
       const res = await submitReview(productId, {
         rating: form.rating, title: form.title, body: form.body, authorName: form.name, photos: form.photos.map((p) => p.path),
@@ -245,17 +251,21 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
       if (!res.ok) return setError(res.message);
       setError('');
       setShowForm(false);
-      toast(mine ? 'Your review was updated' : 'Thanks — your review is live');
+      toast(
+        ratingOnly
+          ? mine ? 'Your rating was updated' : 'Thanks — your rating counts toward its stars'
+          : mineWritten ? 'Your review was updated' : 'Thanks — your review is live',
+      );
       router.refresh();
     });
   };
 
-  const onDelete = (id: string) =>
+  const onDelete = (id: string, what: 'review' | 'rating' = 'review') =>
     startTransition(async () => {
       const res = await removeReview(productId, id);
       if (!res.ok) return setNotice((n) => ({ ...n, [id]: res.message }));
       setForm({ rating: 0, title: '', body: '', name: defaultName, photos: [], fit: null, features: {} });
-      toast('Your review was deleted');
+      toast(`Your ${what} was deleted`);
       router.refresh();
     });
 
@@ -465,7 +475,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
           <span className="ml-auto">
             {signedIn ? (
               <Button variant="secondary" size="sm" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm} aria-controls="write-review">
-                {mine ? 'Edit your review' : 'Write a review'}
+                {mineWritten ? 'Edit your review' : mine ? 'Add a written review' : 'Write a review'}
               </Button>
             ) : (
               <a href={signinHref} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Sign in to write a review</a>
@@ -473,12 +483,25 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
           </span>
         </div>
 
+        {mine && !mineWritten ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
+            <span>You rated it</span>
+            <span role="img" aria-label={`${mine.rating} out of 5 stars`} className="tracking-[1px] text-star">{starLine(mine.rating)}</span>
+            <span className="text-ink-3">· no written review</span>
+            <button type="button" disabled={pending} onClick={() => onDelete(mine.id, 'rating')} className="min-h-9 px-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink">
+              Delete rating
+            </button>
+            {notice[mine.id] ? <span role="status" className="text-[12px] text-bad">{notice[mine.id]}</span> : null}
+          </div>
+        ) : null}
+
         {showForm ? (
           <div id="write-review" className="flex max-w-[640px] scroll-mt-[140px] flex-col gap-3 rounded-card border border-line bg-surface p-[18px]">
-            <Kicker>{mine ? 'Update your review' : 'Review this product'}</Kicker>
+            <Kicker>{mineWritten ? 'Update your review' : 'Review this product'}</Kicker>
             <div>
               <span className="block text-[14px] font-semibold">Overall rating</span>
               <StarPicker value={form.rating} onChange={(n) => setForm((f) => ({ ...f, rating: n }))} />
+              <span className="block text-[12px] text-ink-3">Just rating it? Leave the headline and review empty.</span>
             </div>
             {askFit ? (
               <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
@@ -543,7 +566,9 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
             <PhotoPicker photos={form.photos} onChange={(photos) => setForm((f) => ({ ...f, photos }))} disabled={pending} />
             {error ? <p role="alert" className="m-0 text-[13px] text-bad">⚠ {error}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="primary" loading={pending} onClick={onSubmit}>{mine ? 'Update review' : 'Submit review'}</Button>
+              <Button variant="primary" loading={pending} onClick={onSubmit}>
+                {ratingOnly ? (mine ? 'Update rating' : 'Submit rating') : mineWritten ? 'Update review' : 'Submit review'}
+              </Button>
               <Button variant="secondary" onClick={() => { setShowForm(false); setError(''); }}>Cancel</Button>
             </div>
             <p className="m-0 text-[12px] text-ink-3">&ldquo;Verified purchase&rdquo; is added automatically once an order of yours with this item has been delivered.</p>

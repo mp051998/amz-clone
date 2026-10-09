@@ -31,6 +31,7 @@ export async function askProduct(db: Db, market: Market, productId: string, ques
       .from('reviews')
       .select('rating, title, body')
       .eq('product_id', p.id)
+      .neq('body', '')
       .is('hidden_at', null)
       .order('helpful_count', { ascending: false })
       .order('created_at', { ascending: false })

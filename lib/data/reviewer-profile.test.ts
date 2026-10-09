@@ -16,7 +16,7 @@ const row = (n: number, over: Record<string, unknown> = {}) => ({
 function fakeDb(rows: unknown[]) {
   const ops: [string, unknown[]][] = [];
   const q: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'is', 'order', 'limit']) q[m] = (...args: unknown[]) => (ops.push([m, args]), q);
+  for (const m of ['select', 'eq', 'neq', 'is', 'order', 'limit']) q[m] = (...args: unknown[]) => (ops.push([m, args]), q);
   q.then = (resolve: (r: unknown) => unknown) => resolve({ data: rows, error: null });
   return { db: { from: (t: string) => (ops.push(['from', [t]]), q) } as unknown as Db, ops };
 }
@@ -27,6 +27,7 @@ it('reads the store’s visible reviews by the reviewer, newest first, and total
   const p = (await reviewerProfile(db, 'IN', USER))!;
   expect(ops).toContainEqual(['eq', ['user_id', USER]]);
   expect(ops).toContainEqual(['eq', ['products.market_id', 'IN']]);
+  expect(ops).toContainEqual(['neq', ['body', '']]);
   expect(ops).toContainEqual(['is', ['hidden_at', null]]);
   expect(ops).toContainEqual(['order', ['created_at', { ascending: false }]]);
   expect(p).toMatchObject({ name: 'Priya S', initial: 'P', total: 12, page: 1, pageCount: 2 });

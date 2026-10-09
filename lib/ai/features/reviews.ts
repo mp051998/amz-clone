@@ -75,6 +75,7 @@ export async function summarizeReviews(productId: string, opts: SummarizeOptions
       .from('reviews')
       .select('rating, title, body')
       .eq('product_id', productId)
+      .neq('body', '')
       .is('hidden_at', null)
       .order('helpful_count', { ascending: false })
       .order('created_at', { ascending: false })

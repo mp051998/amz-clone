@@ -101,6 +101,7 @@ export function GET(): Response {
       'GET    /products/:id/insights?summarize=',
       'GET    /products/:id/reviews?limit=&offset=&sort=&stars=&verified=&photos=&q=',
       'POST   /products/:id/reviews',
+      'POST   /products/:id/rating',
       'DELETE /reviews/:id',
       'POST   /reviews/:id/helpful',
       'POST   /reviews/:id/report',
