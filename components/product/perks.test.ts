@@ -7,6 +7,7 @@ const base: PerkInput = {
   cod: true,
   returnDays: 10,
   replacementOnly: false,
+  shipsFrom: 'Seller',
   money: (minor) => `₹${(minor / 100).toLocaleString('en-IN')}`,
 };
 const labels = (x: Partial<PerkInput>) => productPerks({ ...base, ...x }).map((p) => p.label);
@@ -32,5 +33,10 @@ describe('productPerks', () => {
   it('says replacement only, or not returnable', () => {
     expect(labels({ returnDays: 7, replacementOnly: true })).toContain('7 days Replacement');
     expect(labels({ returnDays: 0 })).toContain('Non-Returnable');
+  });
+
+  it('adds Amazon Delivered before secure transaction when Amazon ships it', () => {
+    expect(labels({ shipsFrom: 'Amazon' })).toEqual(['Free Delivery', 'Pay on Delivery', '10 days Returnable', 'Amazon Delivered', 'Secure transaction']);
+    expect(productPerks({ ...base, shipsFrom: 'Amazon' }).find((p) => p.key === 'fulfilled')?.detail).toMatch(/whoever sells it/);
   });
 });
