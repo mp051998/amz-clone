@@ -210,6 +210,16 @@ export async function getDecisionHome(db: Db, store: PublicMarketplace, recentId
   return { recent: recent.slice(0, 8), picks, personal: interest.length > 0, deals };
 }
 
+/**
+ * Departments for the home page's "Best Sellers in …" rows: the ones the shopper viewed most
+ * recently first, then the store's own department order.
+ */
+export function bestSellerDepts(recent: readonly Pick<Product, 'category'>[], categories: readonly Category[], n: number): Category[] {
+  const bySlug = new Map(categories.map((c) => [c.slug, c]));
+  const slugs = new Set([...recent.map((p) => p.category), ...categories.map((c) => c.slug)]);
+  return [...slugs].flatMap((slug) => bySlug.get(slug) ?? []).slice(0, n);
+}
+
 /** "Good evening" by the store's local hour. */
 export function greetingFor(now: Date, timeZone: string): string {
   const h = Number(new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(now));
