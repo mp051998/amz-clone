@@ -6,7 +6,7 @@ import { getInsight as readInsight, getInsights } from '../data/insights';
 import { buyingChoices } from '../data/offers';
 import { formatMoney } from '../marketplaces';
 import { buyableAs, type OfferKind } from '../offers';
-import { PAGE_SIZE, type SearchQuery } from '../search';
+import { PAGE_SIZE, type AttrPicks, type SearchQuery } from '../search';
 import { db as requestDb } from '../supabase/server';
 import type { Market, Product } from '../types';
 import { decisionConfig, weightsFor } from './attributes';
@@ -42,6 +42,8 @@ export interface RankFilters {
   smallBusiness?: boolean;
   /** only what can be bought new, renewed or used */
   condition?: OfferKind;
+  /** a department's own filters: for each label, any of its values */
+  attrs?: AttrPicks;
   /** lowest price, minor units (the budget is the highest) */
   minPrice?: number;
   /** keep products with none left ("Include Out of Stock"); left out otherwise */
@@ -95,6 +97,7 @@ function candidateQuery(q: ParsedQuery, f: RankFilters): CandidateQuery {
     climate: f.climate || undefined,
     smallBusiness: f.smallBusiness || undefined,
     condition: f.condition,
+    attrs: f.attrs && Object.keys(f.attrs).length ? f.attrs : undefined,
     includeOutOfStock: f.includeOutOfStock || undefined,
     minDiscount: f.minDiscount,
     sort: CANDIDATE_SORT[f.sort ?? 'match'],
@@ -158,6 +161,8 @@ export async function rankedSearch(
       const offers = await buyingChoices(db, products.map((p) => p.id));
       products = products.filter((p) => buyableAs(p, offers.get(p.id), filters.condition!));
     }
+    // a department filter's values come from the words' matches, which there are none of
+    if (filters.attrs && Object.keys(filters.attrs).length) products = [];
   }
   const insights = await getInsights(db, products.map((p) => p.id));
   const w = weights ?? weightsFor(parsedQuery.category, parsedQuery.use);

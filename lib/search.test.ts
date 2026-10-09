@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { budgetRange } from './decision/attributes';
-import { compareSizes, parseQuery, pricePresets } from './search';
+import { compareSizes, parseQuery, pricePresets, toggleAttr, writeAttrs } from './search';
 
 describe('parseQuery price range', () => {
   it('reads min and max as whole minor units', () => {
@@ -121,5 +121,44 @@ describe('compareSizes', () => {
 
   it('lists letters, then numbers, then the rest', () => {
     expect(sorted(['One Size', '8', 'M', 'Free'])).toEqual(['M', '8', 'Free', 'One Size']);
+  });
+});
+
+describe('parseQuery attr', () => {
+  it('reads a department filter’s values per label', () => {
+    expect(parseQuery({ attr: 'Storage:128 GB|256 GB;RAM:8 GB' }).attrs).toEqual({ Storage: ['128 GB', '256 GB'], RAM: ['8 GB'] });
+    // commas belong to the value
+    expect(parseQuery({ attr: 'Use:Home gym, toning' }).attrs).toEqual({ Use: ['Home gym, toning'] });
+  });
+
+  it('trims, drops repeats and ignores what it can’t read', () => {
+    expect(parseQuery({ attr: ' Storage : 128 GB || 128 GB ;Storage:64 GB' }).attrs).toEqual({ Storage: ['128 GB', '64 GB'] });
+    for (const v of ['', ';', 'Storage', ':128 GB', 'Storage:', `Storage:${'x'.repeat(41)}`, `${'L'.repeat(41)}:x`, undefined]) {
+      expect(parseQuery({ attr: v }).attrs).toBeUndefined();
+    }
+  });
+
+  it('keeps six labels and ten values each at most', () => {
+    const many = parseQuery({ attr: Array.from({ length: 8 }, (_, i) => `L${i}:${Array.from({ length: 12 }, (_, j) => `v${j}`).join('|')}`).join(';') }).attrs!;
+    expect(Object.keys(many)).toEqual(['L0', 'L1', 'L2', 'L3', 'L4', 'L5']);
+    expect(many.L0).toHaveLength(10);
+  });
+});
+
+describe('writeAttrs and toggleAttr', () => {
+  it('round-trips through parseQuery', () => {
+    const attrs = { Storage: ['128 GB', '256 GB'], 'Skin type': ['All skin types, including oily'] };
+    expect(parseQuery({ attr: writeAttrs(attrs)! }).attrs).toEqual(attrs);
+    expect(writeAttrs({})).toBeNull();
+    expect(writeAttrs({ Storage: [] })).toBeNull();
+  });
+
+  it('adds a value, and takes it out (with its label, when it was the last) when it’s there', () => {
+    const one = toggleAttr({}, 'Storage', '128 GB');
+    expect(one).toEqual({ Storage: ['128 GB'] });
+    const two = toggleAttr(toggleAttr(one, 'Storage', '256 GB'), 'RAM', '8 GB');
+    expect(two).toEqual({ Storage: ['128 GB', '256 GB'], RAM: ['8 GB'] });
+    expect(toggleAttr(two, 'Storage', '128 GB')).toEqual({ Storage: ['256 GB'], RAM: ['8 GB'] });
+    expect(toggleAttr(two, 'RAM', '8 GB')).toEqual({ Storage: ['128 GB', '256 GB'] });
   });
 });

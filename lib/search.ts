@@ -35,6 +35,8 @@ export interface SearchQuery {
   smallBusiness?: boolean;
   /** "Condition": only what can be bought new, renewed or used (`condition=`) */
   condition?: OfferKind;
+  /** a department's own filters ("Storage", "Material"…): for each label, any of these values (`attr=Storage:128 GB|256 GB;RAM:8 GB`) */
+  attrs?: AttrPicks;
   /** lowest price, minor units */
   minPrice?: number;
   /** highest price, minor units */
@@ -68,6 +70,8 @@ export interface SearchResult {
   smallBusinessCount?: number;
   /** how many in the same scope can be bought new, renewed or used, each variant group once */
   conditionCounts?: Record<OfferKind, number>;
+  /** the department's own filters, read from the product details, with counts over the same scope (empty outside a department) */
+  attributeFacets?: AttributeFacet[];
   /** matches with no option in stock, each variant group once (left out unless `includeOutOfStock`) */
   unavailable: number;
   headingLabel: string;
@@ -94,6 +98,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
   const brandRaw = one(sp.brand);
   const sellerRaw = one(sp.seller);
   const sizeRaw = one(sp.size);
+  const attrRaw = one(sp.attr);
   const sortRaw = one(sp.sort) as SortKey | undefined;
   const rating = Number(one(sp.rating));
   const pct = Number(one(sp.pct));
@@ -112,6 +117,7 @@ export function parseQuery(sp: Record<string, string | string[] | undefined>): S
     climate: one(sp.climate) === '1' || undefined,
     smallBusiness: one(sp.small) === '1' || undefined,
     condition: isOfferKind(one(sp.condition)) ? (one(sp.condition) as OfferKind) : undefined,
+    attrs: attrRaw ? readAttrs(attrRaw) : undefined,
     minPrice: price(sp.min),
     maxPrice: price(sp.max),
     includeOutOfStock: one(sp.oos) === '1' || undefined,
@@ -134,6 +140,52 @@ function readSellers(raw: string): string[] | undefined {
 function readSizes(raw: string): string[] | undefined {
   const sizes = [...new Set(raw.split(',').map((s) => s.trim()).filter((s) => s && s.length <= 12))].slice(0, 20);
   return sizes.length ? sizes : undefined;
+}
+
+/** A department filter's values, as `search_catalog()` counts them. */
+export interface AttributeFacet {
+  /** the detail's label, e.g. "Storage" */
+  label: string;
+  values: { name: string; count: number }[];
+}
+
+/** Values picked per department filter, by label. */
+export type AttrPicks = Record<string, string[]>;
+
+// `attr=Storage:128 GB|256 GB;RAM:8 GB` — the search leaves out labels holding `:`, `|` or `;`
+// and values holding `|` or `;`, so these never need escaping
+const ATTR_LABELS = ';';
+const ATTR_LABEL_END = ':';
+const ATTR_VALUES = '|';
+
+/** Department filters in `attr=`: up to six labels, ten values each (labels and values as long as a product detail's can be in a filter). */
+export function readAttrs(raw: string): AttrPicks | undefined {
+  const out: AttrPicks = {};
+  for (const part of raw.split(ATTR_LABELS)) {
+    const at = part.indexOf(ATTR_LABEL_END);
+    if (at < 1) continue;
+    const label = part.slice(0, at).trim();
+    const values = [...new Set(part.slice(at + 1).split(ATTR_VALUES).map((v) => v.trim()).filter((v) => v && v.length <= 40))].slice(0, 10);
+    if (!label || label.length > 40 || !values.length || Object.keys(out).length >= 6) continue;
+    out[label] = [...new Set([...(out[label] ?? []), ...values])].slice(0, 10);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** `attr=` for these picks (null when there are none). */
+export function writeAttrs(attrs: AttrPicks): string | null {
+  const parts = Object.entries(attrs)
+    .filter(([, values]) => values.length)
+    .map(([label, values]) => `${label}${ATTR_LABEL_END}${values.join(ATTR_VALUES)}`);
+  return parts.length ? parts.join(ATTR_LABELS) : null;
+}
+
+/** The picks with `value` of `label` added, or taken out when it's there. */
+export function toggleAttr(attrs: AttrPicks, label: string, value: string): AttrPicks {
+  const now = attrs[label] ?? [];
+  const next = now.includes(value) ? now.filter((v) => v !== value) : [...now, value];
+  const { [label]: _, ...rest } = attrs;
+  return next.length ? { ...rest, [label]: next } : rest;
 }
 
 const LETTER_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];

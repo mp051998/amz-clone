@@ -27,7 +27,7 @@ import { spellFix } from '@/lib/data/spell';
 import { formatMoney } from '@/lib/marketplaces';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
-import { parseQuery as parseFacets, pricePresets, SELLER_SEPARATOR } from '@/lib/search';
+import { parseQuery as parseFacets, pricePresets, SELLER_SEPARATOR, toggleAttr, writeAttrs } from '@/lib/search';
 import { searchMetadata } from '@/lib/seo';
 import { storeCategories } from '@/lib/storefront';
 import { anonClient, db } from '@/lib/supabase/server';
@@ -123,6 +123,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const brands = facets.brand ?? [];
   const sellers = facets.seller ?? [];
   const sizes = facets.size ?? [];
+  const attrs = facets.attrs ?? {};
+  const attrPicks = Object.entries(attrs).flatMap(([label, values]) => values.map((value) => ({ label, value })));
   const cfg = decisionConfig(category);
 
   const overridden = category !== (parsed?.category ?? null) || budgetMinor !== (parsed?.budgetMinor ?? null) || use !== (parsed?.use ?? null);
@@ -136,7 +138,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const client = await db();
   const [result, scope, saved, jar, plus, related] = await Promise.all([
-    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, size: sizes, rating: facets.rating, deal: facets.deal, climate: facets.climate, smallBusiness: facets.smallBusiness, condition: facets.condition, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, cod, sort }, client),
+    rankedSearch(store.id, pq, weights, budgetMinor, { brand: brands, seller: sellers, size: sizes, attrs, rating: facets.rating, deal: facets.deal, climate: facets.climate, smallBusiness: facets.smallBusiness, condition: facets.condition, minDiscount: facets.minDiscount, minPrice: facets.minPrice, includeOutOfStock: facets.includeOutOfStock, cod, sort }, client),
     searchCatalog(client, store.id, { k: pq.keywords || undefined, dept: category ?? undefined, includeOutOfStock: facets.includeOutOfStock, sort: 'featured', page: 1 }).catch(() => null),
     savedIdsFor(store.id),
     cookies(),
@@ -167,7 +169,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   };
   // nothing matched the words as typed: retry with typos corrected (only when that finds something)
   const orig = (one(sp, 'orig') ?? '').trim().slice(0, 200) || null;
-  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !sizes.length && !facets.rating && !facets.deal && !facets.climate && !facets.smallBusiness && !facets.condition && !facets.minDiscount && !cod) {
+  if (k && pq.keywords && !result.candidates && !result.pricedOut && !result.unavailable && !orig && one(sp, 'spell') !== '0' && !brands.length && !sellers.length && !sizes.length && !attrPicks.length && !facets.rating && !facets.deal && !facets.climate && !facets.smallBusiness && !facets.condition && !facets.minDiscount && !cod) {
     const fix = await spellFix(client, store.id, k, pq.keywords, category);
     if (fix) redirect(hrefWith({ k: fix.query, orig: k }));
   }
@@ -179,7 +181,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   // ── chips ────────────────────────────────────────────────────────────────
   const removeHref: Record<string, string> = {
-    dept: hrefWith({ dept: 'all', w: null, preset: null, brand: null, size: null, use: null }),
+    dept: hrefWith({ dept: 'all', w: null, preset: null, brand: null, size: null, attr: null, use: null }),
     budget: hrefWith({ budget: '0' }),
     use: hrefWith({ use: 'none', w: null, preset: null }),
   };
@@ -187,6 +189,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (tuned) chips.push({ label: 'Tuned from your answers', href: hrefWith({ preset: null, w: null }) });
   for (const b of brands) chips.push({ label: b, href: hrefWith({ brand: brands.filter((x) => x !== b).join(',') || null }) });
   for (const z of sizes) chips.push({ label: `Size: ${z}`, href: hrefWith({ size: sizes.filter((x) => x !== z).join(',') || null }) });
+  for (const a of attrPicks) chips.push({ label: `${a.label}: ${a.value}`, href: hrefWith({ attr: writeAttrs(toggleAttr(attrs, a.label, a.value)) }) });
   for (const s of sellers) chips.push({ label: `Sold by ${s}`, href: hrefWith({ seller: sellers.filter((x) => x !== s).join(SELLER_SEPARATOR) || null }) });
   if (facets.rating) chips.push({ label: `${facets.rating}★ & up`, href: hrefWith({ rating: null }) });
   if (facets.deal) chips.push({ label: 'On sale', href: hrefWith({ deal: null }) });
@@ -231,7 +234,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const items = result.items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   // nothing found: something to go on instead of a dead end (not in a price range — these could cost anything)
   const popular = items.length || budgetMinor || facets.minPrice || cod ? [] : await listProducts(client, store.id, { category: category ?? undefined, order: 'popular', limit: 8 }).catch(() => []);
-  const facetFilters = brands.length + sellers.length + sizes.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.climate ? 1 : 0) + (facets.smallBusiness ? 1 : 0) + (facets.condition ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0) + (cod ? 1 : 0);
+  const facetFilters = brands.length + sellers.length + sizes.length + attrPicks.length + (facets.rating ? 1 : 0) + (facets.deal ? 1 : 0) + (facets.climate ? 1 : 0) + (facets.smallBusiness ? 1 : 0) + (facets.condition ? 1 : 0) + (facets.minDiscount ? 1 : 0) + (facets.minPrice ? 1 : 0) + (cod ? 1 : 0);
   // products, not options: a group's variants count once
   const scopeTotal = scope && !facetFilters ? Math.max(scope.groups, result.candidates) : result.candidates;
   // count the search as typed (for related searches), not each page, re-sort or filter of it
@@ -368,6 +371,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   sellers={sellers}
                   sizeFacets={scope?.sizeFacets ?? []}
                   sizes={sizes}
+                  attributeFacets={scope?.attributeFacets ?? []}
+                  attrs={attrs}
                   rating={facets.rating}
                   deal={!!facets.deal}
                   climate={!!facets.climate}

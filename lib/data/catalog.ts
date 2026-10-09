@@ -2,7 +2,7 @@ import type { Db } from '../db/client';
 import type { OfferKind } from '../offers';
 import { toDetailRows, type DetailRow } from '../product-details';
 import type { Category, Market, Product, RatingSummary } from '../types';
-import { compareSizes, NO_SUGGESTIONS, PAGE_SIZE, SUGGEST_MIN, type SearchQuery, type SearchResult, type Suggestions } from '../search';
+import { compareSizes, NO_SUGGESTIONS, PAGE_SIZE, SUGGEST_MIN, type AttributeFacet, type SearchQuery, type SearchResult, type Suggestions } from '../search';
 import { unwrap } from './errors';
 import { toProduct } from './map';
 import { foldVariants, type VariantSummary } from '../variants';
@@ -303,6 +303,8 @@ interface SearchJson {
   small_business?: number;
   /** how many can be bought new, renewed or used (absent before the search-condition migration) */
   conditions?: Record<OfferKind, number>;
+  /** the department's own filters (absent before the search-attributes migration) */
+  attributes?: AttributeFacet[];
   items: Parameters<typeof toProduct>[0][];
 }
 
@@ -320,6 +322,8 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
       p_climate: query.climate || undefined,
       p_small_business: query.smallBusiness || undefined,
       p_condition: query.condition,
+      // left out unless asked for, so a search works before the search-attributes migration
+      p_attrs: query.attrs && Object.keys(query.attrs).length ? query.attrs : undefined,
       p_min_rating: query.rating ?? undefined,
       p_deal: query.deal ?? false,
       p_sort: query.sort,
@@ -351,6 +355,7 @@ export async function searchCatalog(db: Db, market: Market, query: SearchQuery):
     climateCount: json.climate ?? 0,
     smallBusinessCount: json.small_business ?? 0,
     conditionCounts: json.conditions ?? { new: json.groups ?? json.total, renewed: 0, used: 0 },
+    attributeFacets: json.attributes ?? [],
     unavailable: json.unavailable ?? 0,
     headingLabel,
   };
