@@ -8,6 +8,7 @@ import { buyingChoicesText, type OfferKind, type OfferSummary } from '@/lib/offe
 import { qtyDiscountText } from '@/lib/qty-discount';
 import { unitPriceText } from '@/lib/unit-price';
 import { releaseOf } from '@/lib/pre-order';
+import { lowStockText } from '@/lib/stock';
 import type { VariantSummary } from '@/lib/variants';
 import { cn } from '../lib/cn';
 import type { Store } from '../lib/store';
@@ -76,6 +77,10 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
   const price = toStoreMinor(p.priceMinor, cur, p.curBase);
   const list = p.listMinor ? toStoreMinor(p.listMinor, cur, p.curBase) : undefined;
   const bestFor = r.insight?.bestFor || bestForFallback;
+  // Amazon's "Only 3 left in stock - order soon." under the delivery line (not on a pre-order); the
+  // ranking's own low-stock warning would only say it again under "Why it's here"
+  const low = releaseOf(p) ? null : lowStockText(p.stock);
+  const warn = low && r.warn === low ? null : r.warn;
   return (
     <article className={cn('flex flex-col gap-3 rounded-card border bg-surface p-4', top ? 'border-ink' : 'border-line')}>
       <div className="flex min-h-6 items-center justify-between gap-2">
@@ -138,12 +143,13 @@ export function ResultCard({ ranked: r, store, top = false, saved, bestForFallba
         <span className="mr-1.5 rounded-[3px] bg-ink px-[5px] py-px text-[11px] font-bold uppercase text-on-ink">{store.membership.name}</span>
         {deliveryLine(store, price, p.stock, delivery, releaseOf(p))}
       </span>
+      {low ? <span className="text-[13px] font-semibold text-warn-strong">{low} — order soon.</span> : null}
       {p.climate?.length ? <ClimateBadge /> : null}
       {p.smallBusiness ? <SmallBusinessBadge /> : null}
-      {r.why.length || r.warn ? (
+      {r.why.length || warn ? (
         <div className="flex flex-col gap-1.5 border-t border-line-2 pt-3">
           <Kicker className="font-semibold">Why it&apos;s here</Kicker>
-          <CheckList good={r.why} warn={r.warn} />
+          <CheckList good={r.why} warn={warn} />
         </div>
       ) : null}
       {bestFor ? (
