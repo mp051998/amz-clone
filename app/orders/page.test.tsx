@@ -268,3 +268,23 @@ it('an unpaid order has nothing to buy again yet', async () => {
   expect(screen.queryByRole('button', { name: /Buy it again/ })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Write a product review' })).toBeNull();
 });
+
+it('offers Cancel items until it ships, a gift receipt, and seller feedback once delivered', async () => {
+  const at = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const preparing = { ...order('ORD-NEW', 0), placedAt: at(-1), shippedAt: at(20), outForDeliveryAt: at(40), deliveredAt: at(46) };
+  state.orders = [preparing, order('ORD-1', 2), { ...order('ORD-X', 3), status: 'cancelled' as const, deliveredAt: undefined }, { ...order('ORD-UNPAID', 1), status: 'awaiting_payment' as const, deliveredAt: undefined }];
+  await show();
+  const card = (id: string) => screen.getByText(id).closest('li')!;
+  // still being prepared: it can be cancelled, and there's nothing to rate yet
+  expect(within(card('ORD-NEW')).getByRole('link', { name: 'Cancel items in order ORD-NEW' })).toHaveAttribute('href', '/orders/ORD-NEW/cancel');
+  expect(within(card('ORD-NEW')).getByRole('link', { name: 'Share gift receipt for order ORD-NEW' })).toHaveAttribute('href', '/orders/ORD-NEW/gift-receipt');
+  expect(within(card('ORD-NEW')).queryByRole('link', { name: /Leave seller feedback/ })).toBeNull();
+  // delivered: too late to cancel, time for feedback
+  expect(within(card('ORD-1')).queryByRole('link', { name: /Cancel items/ })).toBeNull();
+  expect(within(card('ORD-1')).getByRole('link', { name: 'Leave seller feedback for order ORD-1' })).toHaveAttribute('href', '/orders/ORD-1?placed=0#seller-feedback');
+  expect(within(card('ORD-1')).getByRole('link', { name: 'Share gift receipt for order ORD-1' })).toBeInTheDocument();
+  // cancelled or unpaid: none of them
+  for (const id of ['ORD-X', 'ORD-UNPAID']) {
+    expect(within(card(id)).queryByRole('link', { name: /Cancel items|gift receipt|seller feedback/ })).toBeNull();
+  }
+});
