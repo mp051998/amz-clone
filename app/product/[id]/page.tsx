@@ -278,13 +278,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const confidence: ConfidenceRow[] = [
     { k: 'Rating', v: ratingCount ? `${rating.toFixed(1)} / 5 · ${num(ratingCount)} ratings` : 'No ratings yet' },
     ...(verifiedPct != null ? [{ k: 'Verified reviews', v: `${verifiedPct}% of ${num(written.length)} shown` }] : []),
+    // Amazon's buy-box table: Ships from, Sold by, Returns, Payment (amazon.in shows Secure transaction among its perks)
+    { k: 'Ships from', v: p.shipsFrom },
+    { k: 'Sold by', v: sellerRating ? `${p.seller} · ${sellerRating.positivePct}% positive` : p.seller },
     {
       k: 'Returns',
       v: returnsUntil
         ? `${returnPolicy.replacementOnly ? 'Replaceable' : 'Returnable'} until ${releaseDate(returnsUntil, store)} · holiday returns`
         : returnPolicyText(returnPolicy.days, returnPolicy.replacementOnly),
     },
-    { k: 'Sold by', v: sellerRating ? `${p.seller} · ${sellerRating.positivePct}% positive` : p.seller },
+    ...(store.id === 'IN' ? [] : [{ k: 'Payment', v: 'Secure transaction' }]),
   ];
 
   const threshold = store.delivery.freeThresholdMinor;
