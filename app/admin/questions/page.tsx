@@ -4,14 +4,14 @@ import { Alert } from '@/components/primitives/Alert';
 import { buttonClasses } from '@/components/primitives/Button';
 import { EmptyState } from '@/components/decision/Badges';
 import { StatusChip } from '@/components/orders/Tracking';
-import { listQuestionQueue, questionView, type QuestionQueueView } from '@/lib/data/admin-questions';
+import { listQuestionQueue, questionView, type QueuedAnswer, type QuestionQueueView } from '@/lib/data/admin-questions';
 import { messageFor } from '@/lib/data/errors';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
 import { adminTime } from '../orders/labels';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
-import { deleteQaAction } from './actions';
+import { deleteQaAction, keepAnswerAction } from './actions';
 
 export const metadata: Metadata = { title: 'Questions · Admin · Store' };
 
@@ -21,15 +21,23 @@ const one = (sp: SP, k: string) => {
   return (Array.isArray(v) ? v[0] : v) ?? '';
 };
 
-const VIEW_LABEL: Record<QuestionQueueView, string> = { unanswered: 'Unanswered', all: 'All' };
+const VIEW_LABEL: Record<QuestionQueueView, string> = { unanswered: 'Unanswered', reported: 'Reported', all: 'All' };
 const DONE: Record<string, string> = {
   question: 'Question deleted, with its answers.',
   answer: 'Answer deleted.',
+  keep: 'Answer kept. Its reports are resolved.',
 };
+const REASON_LABEL: Record<string, string> = { spam: 'Spam', offensive: 'Offensive', off_topic: 'Off topic', other: 'Other' };
+const reasonsText = (a: QueuedAnswer) =>
+  Object.entries(a.reasons)
+    .sort((x, y) => y[1] - x[1])
+    .map(([k, n]) => `${REASON_LABEL[k] ?? k} ${n}`)
+    .join(', ');
 
 /**
- * /admin/questions (and /in/admin/questions): shoppers' product questions, unanswered first or
- * all, newest first, with their answers. Admins delete a question (and its answers) or one answer.
+ * /admin/questions (and /in/admin/questions): shoppers' product questions, unanswered first, with
+ * a reported answer, or all, newest first, with their answers. Admins delete a question (and its
+ * answers) or one answer, or keep an answer shoppers reported.
  */
 export default async function AdminQuestionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -51,6 +59,7 @@ export default async function AdminQuestionsPage({ searchParams }: { searchParam
   const error = one(sp, 'error');
   const done = one(sp, 'done');
   const del = (kind: 'question' | 'answer', id: string) => deleteQaAction.bind(null, kind, id, view);
+  const keep = (id: string) => keepAnswerAction.bind(null, id, view);
   const n = (v: number) => v.toLocaleString('en-US');
 
   return (
@@ -58,11 +67,11 @@ export default async function AdminQuestionsPage({ searchParams }: { searchParam
       store={store}
       path="/admin/questions"
       title="Questions"
-      lede={<>What shoppers ask on product pages, and what other shoppers answer. Delete anything off topic or abusive; answers from buyers are marked.</>}
+      lede={<>What shoppers ask on product pages, and what other shoppers answer. Delete anything off topic or abusive; answers from buyers are marked. Answers shoppers report wait under Reported until you keep or delete them.</>}
     >
       <AdminTabs
         label="Question views"
-        tabs={(['unanswered', 'all'] as const).map((v) => ({ href: listHref(1, v), label: `${VIEW_LABEL[v]} (${n(result.counts[v])})`, current: v === view }))}
+        tabs={(['unanswered', 'reported', 'all'] as const).map((v) => ({ href: listHref(1, v), label: `${VIEW_LABEL[v]} (${n(result.counts[v])})`, current: v === view }))}
       />
       {error ? <Alert tone="error">{messageFor(error) ?? 'Something went wrong. Please try again.'}</Alert> : null}
       {!error && DONE[done] ? <Alert tone="success">{DONE[done]}</Alert> : null}
@@ -102,15 +111,35 @@ export default async function AdminQuestionsPage({ searchParams }: { searchParam
                             <span>{adminTime(a.createdAt, store)}</span>
                             {a.helpful ? <><span aria-hidden>·</span><span>{n(a.helpful)} found helpful</span></> : null}
                           </span>
-                          <ConfirmAction
-                            action={del('answer', a.id)}
-                            label="Delete answer"
-                            size="link"
-                            prompt={<>Delete this answer?</>}
-                            confirmLabel="Yes, delete"
-                            pendingLabel="Deleting…"
-                          />
+                          <span className="flex flex-wrap items-center gap-3">
+                            {a.openReports ? (
+                              <form action={keep(a.id)}>
+                                <button type="submit" className={buttonClasses({ variant: 'link', size: 'sm' })} aria-label={`Keep ${a.author}’s answer`}>
+                                  Keep
+                                </button>
+                              </form>
+                            ) : null}
+                            <ConfirmAction
+                              action={del('answer', a.id)}
+                              label="Delete answer"
+                              size="link"
+                              prompt={<>Delete this answer?</>}
+                              confirmLabel="Yes, delete"
+                              pendingLabel="Deleting…"
+                            />
+                          </span>
                         </div>
+                        {a.openReports ? (
+                          <p className="m-0 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
+                            <StatusChip label={`${n(a.openReports)} open ${a.openReports === 1 ? 'report' : 'reports'}`} tone="warn" />
+                            <span>
+                              Reasons: {reasonsText(a)}
+                              {a.lastReportedAt ? ` · last ${adminTime(a.lastReportedAt, store)}` : ''}
+                            </span>
+                          </p>
+                        ) : a.moderatedAt ? (
+                          <p className="m-0 text-[13px] text-ink-3">Kept {adminTime(a.moderatedAt, store)}</p>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -130,8 +159,12 @@ export default async function AdminQuestionsPage({ searchParams }: { searchParam
           ))}
         </ul>
       ) : (
-        <EmptyState title={view === 'unanswered' ? 'Every question has an answer.' : 'No questions yet.'}>
-          {view === 'unanswered' ? 'New questions show up here until another shopper answers.' : 'Questions shoppers ask on product pages show up here, newest first.'}
+        <EmptyState title={view === 'unanswered' ? 'Every question has an answer.' : view === 'reported' ? 'No reported answers.' : 'No questions yet.'}>
+          {view === 'unanswered'
+            ? 'New questions show up here until another shopper answers.'
+            : view === 'reported'
+              ? 'When a shopper reports an answer, its question shows up here until you keep or delete it.'
+              : 'Questions shoppers ask on product pages show up here, newest first.'}
         </EmptyState>
       )}
 

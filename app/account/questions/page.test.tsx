@@ -53,6 +53,7 @@ const answer = (over: Partial<Answer> = {}): Answer => ({
   helpful: 3,
   mine: true,
   votedHelpful: false,
+  reported: false,
   ...over,
 });
 

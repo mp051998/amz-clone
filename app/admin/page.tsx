@@ -56,6 +56,7 @@ export default async function AdminHome() {
         },
         { label: 'Reported reviews', count: o.reportedReviews, href: to('/admin/reviews'), note: 'Reviews with open reports: keep, hide or delete them.', tone: 'warn' },
         { label: 'Unanswered questions', count: o.unansweredQuestions, href: to('/admin/questions'), note: 'Product questions nobody has answered yet.', tone: 'warn' },
+        { label: 'Reported answers', count: o.reportedAnswers, href: to('/admin/questions?view=reported'), note: 'Questions with an answer shoppers reported: keep or delete it.', tone: 'warn' },
       ],
     },
     {

@@ -6,8 +6,8 @@ import { DataError, fromPostgrest, unwrap } from './errors';
 
 /**
  * Customer questions & answers on a product page. Reads are public; asking,
- * answering, deleting and helpful votes go through the database functions, which
- * set the author, the "verified" mark (the answerer bought it) and the counters.
+ * answering, deleting, helpful votes and reports go through the database functions,
+ * which set the author, the "verified" mark (the answerer bought it) and the counters.
  */
 
 export const QUESTION_MIN = 10;
@@ -27,6 +27,7 @@ export interface Answer {
   /** viewer state */
   mine: boolean;
   votedHelpful: boolean;
+  reported: boolean;
 }
 
 export interface Question {
@@ -80,7 +81,7 @@ export function toQuestion(row: QuestionRow, viewerId: string | null, answers: A
   };
 }
 
-export function toAnswer(row: AnswerRow, viewerId: string | null, voted: ReadonlySet<string> = new Set()): Answer {
+export function toAnswer(row: AnswerRow, viewerId: string | null, voted: ReadonlySet<string> = new Set(), reported: ReadonlySet<string> = new Set()): Answer {
   return {
     id: row.id,
     questionId: row.question_id,
@@ -91,6 +92,7 @@ export function toAnswer(row: AnswerRow, viewerId: string | null, voted: Readonl
     helpful: row.helpful_count,
     mine: viewerId != null && row.user_id === viewerId,
     votedHelpful: voted.has(row.id),
+    reported: reported.has(row.id),
   };
 }
 
@@ -146,14 +148,21 @@ export async function listQuestions(
       .order('id'),
   ) as AnswerRow[];
   const voted = new Set<string>();
+  const reported = new Set<string>();
   if (viewerId && answers.length) {
-    const votes = await db.from('answer_votes').select('answer_id').in('answer_id', answers.map((a) => a.id));
+    const answerIds = answers.map((a) => a.id);
+    // RLS shows the viewer only their own votes and reports
+    const [votes, reports] = await Promise.all([
+      db.from('answer_votes').select('answer_id').in('answer_id', answerIds),
+      db.from('answer_reports').select('answer_id').eq('user_id', viewerId).in('answer_id', answerIds),
+    ]);
     for (const v of votes.data ?? []) voted.add(v.answer_id);
+    for (const r of reports.data ?? []) reported.add(r.answer_id);
   }
   const byQuestion = new Map<string, Answer[]>();
   for (const a of answers) {
     const list = byQuestion.get(a.question_id) ?? [];
-    list.push(toAnswer(a, viewerId, voted));
+    list.push(toAnswer(a, viewerId, voted, reported));
     byQuestion.set(a.question_id, list);
   }
   return { items: rows.map((r) => toQuestion(r, viewerId, byQuestion.get(r.id))), total: res.count ?? rows.length };
@@ -292,4 +301,20 @@ export async function toggleAnswerHelpful(db: Db, answerId: string): Promise<Ans
     helpful_count: number;
   };
   return { answerId: r.answer_id, helpful: r.helpful, helpfulCount: r.helpful_count };
+}
+
+/** Why an answer was reported (the same reasons as a review). */
+export const ANSWER_REPORT_REASONS = ['spam', 'offensive', 'off_topic', 'other'] as const;
+export type AnswerReportReason = (typeof ANSWER_REPORT_REASONS)[number];
+
+/**
+ * Report someone else's answer (spam, offensive, off topic or other; anything else is `other`).
+ * Reporting it again does nothing; store admins see reported answers in /admin/questions.
+ */
+export async function reportAnswer(db: Db, answerId: string, reason: unknown = 'other'): Promise<void> {
+  const r = (ANSWER_REPORT_REASONS as readonly string[]).includes(String(reason)) ? (reason as AnswerReportReason) : 'other';
+  const res = await db.rpc('report_answer', { p_answer: answerId, p_reason: r });
+  if (!res.error) return;
+  const err = fromPostgrest(res.error);
+  throw err.code === 'own_answer' ? new DataError('own_answer', err.detail, 'You can’t report your own answer.') : err;
 }

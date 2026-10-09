@@ -557,6 +557,19 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
+                },"answer_reports": {
+                  Row: {
+                    "answer_id": string,"created_at": string,"reason": string,"user_id": string
+                  }
+                  Insert: {
+                    "answer_id": string,"created_at"?: string,"reason"?: string,"user_id": string
+                  }
+                  Update: {
+                    "answer_id"?: string,"created_at"?: string,"reason"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"answer_votes": {
                   Row: {
                     "answer_id": string,"created_at": string,"user_id": string
@@ -572,13 +585,13 @@ isOneToOne: true
                   ]
                 },"product_answers": {
                   Row: {
-                    "author_name": string,"body": string,"created_at": string,"helpful_count": number,"id": string,"question_id": string,"user_id": string | null,"verified": boolean
+                    "author_name": string,"body": string,"created_at": string,"helpful_count": number,"id": string,"moderated_at": string | null,"open_reports": number,"question_id": string,"user_id": string | null,"verified": boolean
                   }
                   Insert: {
-                    "author_name": string,"body": string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"question_id": string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name": string,"body": string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"moderated_at"?: string | null,"open_reports"?: number,"question_id": string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Update: {
-                    "author_name"?: string,"body"?: string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"question_id"?: string,"user_id"?: string | null,"verified"?: boolean
+                    "author_name"?: string,"body"?: string,"created_at"?: string,"helpful_count"?: number,"id"?: string,"moderated_at"?: string | null,"open_reports"?: number,"question_id"?: string,"user_id"?: string | null,"verified"?: boolean
                   }
                   Relationships: [
                     
@@ -1542,6 +1555,12 @@ isOneToOne: false
 { Args: { "p_answer": string }; Returns: undefined
                            },
 "toggle_answer_helpful":
+{ Args: { "p_answer": string }; Returns: Json
+                           },
+"report_answer":
+{ Args: { "p_answer": string,"p_reason"?: string }; Returns: Json
+                           },
+"admin_keep_answer":
 { Args: { "p_answer": string }; Returns: Json
                            },
 "set_my_order_dropoff":

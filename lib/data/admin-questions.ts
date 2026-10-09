@@ -3,14 +3,16 @@ import type { Market } from '../types';
 import { DataError, unwrap } from './errors';
 
 /**
- * Q&A moderation for store admins (/admin/questions): a store's questions, unanswered or all,
- * newest first, each with its answers. Deleting goes through delete_question / delete_answer,
- * which let an admin remove anyone's (20261015090000_product_questions.sql).
+ * Q&A moderation for store admins (/admin/questions): a store's questions, unanswered, with a
+ * reported answer, or all, newest first, each with its answers and their open reports. Deleting
+ * goes through delete_question / delete_answer, which let an admin remove anyone's
+ * (20261015090000_product_questions.sql); keeping a reported answer through admin_keep_answer
+ * (20270203090000_answer_reports.sql).
  */
 
-export type QuestionQueueView = 'unanswered' | 'all';
+export type QuestionQueueView = 'unanswered' | 'reported' | 'all';
 
-export const QUESTION_QUEUE_VIEWS: readonly QuestionQueueView[] = ['unanswered', 'all'];
+export const QUESTION_QUEUE_VIEWS: readonly QuestionQueueView[] = ['unanswered', 'reported', 'all'];
 export const QUESTION_QUEUE_PAGE_SIZE = 25;
 
 export function questionView(v: unknown): QuestionQueueView {
@@ -24,6 +26,13 @@ export interface QueuedAnswer {
   verified: boolean;
   helpful: number;
   createdAt: string;
+  /** reports filed since an admin last kept it */
+  openReports: number;
+  /** the open reports by reason (spam, offensive, off_topic, other) */
+  reasons: Record<string, number>;
+  lastReportedAt: string | null;
+  /** when an admin last kept it */
+  moderatedAt: string | null;
 }
 
 export interface QueuedQuestion {
@@ -49,7 +58,7 @@ type Row = Record<string, unknown>;
 
 const STORE_QUESTION = 'id, product_id, author_name, body, answer_count, created_at, products!inner(market_id, title)';
 
-/** One page of a store's questions (unanswered, or all), newest first, with both views' counts. */
+/** One page of a store's questions (unanswered, with a reported answer, or all), newest first, with every view's count. */
 export async function listQuestionQueue(
   db: Db,
   market: Market,
@@ -58,17 +67,24 @@ export async function listQuestionQueue(
   const view = opts.view ?? 'unanswered';
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   const from = (page - 1) * QUESTION_QUEUE_PAGE_SIZE;
-  const count = (unansweredOnly: boolean) => {
-    const q = db.from('product_questions').select('id, products!inner(market_id)', { count: 'exact', head: true }).eq('products.market_id', market);
-    return unansweredOnly ? q.eq('answer_count', 0) : q;
+  // a question with a reported answer: an inner join on its answers with open reports
+  const REPORTED = ', product_answers!inner(id)';
+  const count = (v: QuestionQueueView) => {
+    const q = db
+      .from('product_questions')
+      .select(`id, products!inner(market_id)${v === 'reported' ? REPORTED : ''}`, { count: 'exact', head: true })
+      .eq('products.market_id', market);
+    return v === 'unanswered' ? q.eq('answer_count', 0) : v === 'reported' ? q.gt('product_answers.open_reports', 0) : q;
   };
-  let list = db.from('product_questions').select(STORE_QUESTION, { count: 'exact' }).eq('products.market_id', market);
+  let list = db.from('product_questions').select(`${STORE_QUESTION}${view === 'reported' ? REPORTED : ''}`, { count: 'exact' }).eq('products.market_id', market);
   if (view === 'unanswered') list = list.eq('answer_count', 0);
+  if (view === 'reported') list = list.gt('product_answers.open_reports', 0);
 
-  const [res, all, unanswered] = await Promise.all([
+  const [res, all, unanswered, reported] = await Promise.all([
     list.order('created_at', { ascending: false }).order('id').range(from, from + QUESTION_QUEUE_PAGE_SIZE - 1),
-    count(false),
-    count(true),
+    count('all'),
+    count('unanswered'),
+    count('reported'),
   ]);
   const rows = (unwrap(res) ?? []) as unknown as Row[];
 
@@ -77,11 +93,29 @@ export async function listQuestionQueue(
     const answers = unwrap(
       await db
         .from('product_answers')
-        .select('id, question_id, author_name, body, verified, helpful_count, created_at')
+        .select('id, question_id, author_name, body, verified, helpful_count, created_at, open_reports, moderated_at')
         .in('question_id', rows.map((r) => String(r.id)))
         .order('created_at')
         .order('id'),
     ) as unknown as Row[];
+    // the open reports (filed since the answer was last kept) of the answers that have any
+    const open = new Map<string, { reasons: Record<string, number>; last: string | null }>();
+    const flagged = answers.filter((a) => Number(a.open_reports ?? 0) > 0);
+    if (flagged.length) {
+      const since = new Map(flagged.map((a) => [String(a.id), a.moderated_at ? Date.parse(String(a.moderated_at)) : -Infinity]));
+      const reports = unwrap(
+        await db.from('answer_reports').select('answer_id, reason, created_at').in('answer_id', [...since.keys()]),
+      ) as unknown as Row[];
+      for (const r of reports) {
+        const id = String(r.answer_id);
+        if (Date.parse(String(r.created_at)) <= (since.get(id) ?? -Infinity)) continue;
+        const o = open.get(id) ?? { reasons: {}, last: null };
+        const reason = String(r.reason);
+        o.reasons[reason] = (o.reasons[reason] ?? 0) + 1;
+        if (!o.last || String(r.created_at) > o.last) o.last = String(r.created_at);
+        open.set(id, o);
+      }
+    }
     for (const a of answers) {
       const list = byQuestion.get(String(a.question_id)) ?? [];
       list.push({
@@ -91,6 +125,10 @@ export async function listQuestionQueue(
         verified: a.verified === true,
         helpful: Number(a.helpful_count ?? 0),
         createdAt: String(a.created_at),
+        openReports: Number(a.open_reports ?? 0),
+        reasons: open.get(String(a.id))?.reasons ?? {},
+        lastReportedAt: open.get(String(a.id))?.last ?? null,
+        moderatedAt: a.moderated_at ? String(a.moderated_at) : null,
       });
       byQuestion.set(String(a.question_id), list);
     }
@@ -110,7 +148,7 @@ export async function listQuestionQueue(
     total: res.count ?? rows.length,
     page,
     pageSize: QUESTION_QUEUE_PAGE_SIZE,
-    counts: { all: all.count ?? 0, unanswered: unanswered.count ?? 0 },
+    counts: { all: all.count ?? 0, unanswered: unanswered.count ?? 0, reported: reported.count ?? 0 },
   };
 }
 
@@ -137,4 +175,11 @@ export async function assertStoreAnswer(db: Db, market: Market, id: string): Pro
       .maybeSingle(),
   );
   if (!row) throw new DataError('answer_not_found');
+}
+
+/** Keep an answer shoppers reported: its reports so far are resolved (admins only). */
+export async function keepAnswer(db: Db, id: string): Promise<{ id: string; moderatedAt: string }> {
+  if (!UUID.test(id)) throw new DataError('answer_not_found');
+  const r = unwrap(await db.rpc('admin_keep_answer', { p_answer: id })) as { id: string; moderated_at: string };
+  return { id: r.id, moderatedAt: r.moderated_at };
 }

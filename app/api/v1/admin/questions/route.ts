@@ -4,7 +4,8 @@ import { listQuestionQueue, questionView } from '@/lib/data/admin-questions';
 
 /**
  * GET /api/v1/admin/questions?view=&page= — this store's product questions, newest first, with
- * their answers. view: unanswered (the default) | all. `counts` has both views' totals.
+ * their answers and their open reports. view: unanswered (the default) | reported (a question with
+ * a reported answer) | all. `counts` has every view's total.
  */
 export const GET = route(async (ctx) => {
   await adminOnly(ctx);
