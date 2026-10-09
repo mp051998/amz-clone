@@ -65,6 +65,10 @@ it('Buy Now opens checkout for just that product, without touching the cart', as
   expect(state.calls).toEqual([]);
 });
 
+it('Buy Now as a gift opens checkout with its gift box ticked', async () => {
+  await expect(buyNow(form([['id', 'k1'], ['qty', '1'], ['gift', '1']]))).rejects.toThrow(/^REDIRECT \/in\/checkout\?buy=k1&qty=1&gift=1$/);
+});
+
 it('ticks or unticks one line, or every line when no product is named', async () => {
   await selectItems(form([['id', 'p1'], ['selected', '0']]));
   await selectItems(form([['id', 'p1'], ['selected', '1']]));

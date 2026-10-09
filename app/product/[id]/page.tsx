@@ -591,6 +591,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   sizes={p.sizes}
                   fit={p.sizes?.length ? returnSignal?.fit : null}
                   preOrder={release ? { release: releaseDate(new Date(release), store) } : undefined}
+                  giftReceipt={store.id === 'US'}
                   exchange={
                     trade
                       ? {
