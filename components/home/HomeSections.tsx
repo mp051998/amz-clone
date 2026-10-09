@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { BackInStock, PriceDrop } from '@/lib/data/collections';
 import type { BuyAgainItem } from '@/lib/buy-again';
+import type { DepartmentTile } from '@/lib/data/department-tiles';
 import type { HomeDeal, HomePick } from '@/lib/home-content';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
@@ -77,6 +78,25 @@ export function ContinueRow({ products, store, kicker = 'Viewed recently' }: { p
               <strong className="text-[16px] tabular-nums">{money(p, store)}</strong>
               <Rating p={p} />
             </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** "Shop by department": a tile per department, pictured by its top product, opening its search. */
+export function DepartmentGrid({ tiles, store }: { tiles: DepartmentTile[]; store: Store }) {
+  return (
+    <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3.5 p-0">
+      {tiles.map((t) => (
+        <li key={t.slug}>
+          <a
+            href={storePath(store, `/s?dept=${encodeURIComponent(t.slug)}`)}
+            className="flex h-full flex-col gap-2.5 rounded-card border border-line bg-surface p-3 text-ink no-underline transition-colors hover:border-ink hover:text-ink"
+          >
+            <ProductFrame src={t.image} alt="" aspect="1/1" />
+            <span className="text-[15px] font-semibold leading-tight">{t.name}</span>
           </a>
         </li>
       ))}
