@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { SearchBar } from '@/components/chrome/SearchBar';
-import { BuyAgainGrid, ContinueRow, DealGrid, HomeSection, PickGrid, SavedBackGrid, SavedDropGrid } from '@/components/home/HomeSections';
+import { BuyAgainGrid, ContinueRow, DealGrid, HomeSection, PickGrid, SavedBackGrid, SavedDropGrid, SignInCard } from '@/components/home/HomeSections';
 import { Kicker } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
 import { QuizButton } from '@/components/quiz/QuizDialog';
@@ -19,7 +19,7 @@ import { db } from '@/lib/supabase/server';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { siteOrigin } from '@/lib/origin';
 import { jsonLdHtml, websiteJsonLd } from '@/lib/seo';
-import { storePath } from '@/lib/marketplace';
+import { signInPath, storePath } from '@/lib/marketplace';
 
 /** Past purchases looked at for the home page's "Buy again" row (the in-stock ones come first). */
 const BUY_AGAIN_SCAN = 12;
@@ -96,6 +96,8 @@ export default async function Home() {
             ))}
           </div>
         </section>
+
+        {user ? null : <SignInCard signInHref={signInPath(store)} createAccountHref={signInPath(store, null, { create: true })} />}
 
         {home.recent.length ? (
           <HomeSection id="home-continue" title="Continue shopping" meta="From your recent visits" link={{ href: storePath(store, '/history'), label: 'See history' }}>

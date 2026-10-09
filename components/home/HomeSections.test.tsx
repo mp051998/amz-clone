@@ -4,7 +4,7 @@ import { amazon } from '../../lib/amazon';
 import { amazonIn } from '../../lib/marketplace-in';
 import { bestSellerDepts, endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
 import type { Product } from '../../lib/types';
-import { BuyAgainGrid, ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid } from './HomeSections';
+import { BuyAgainGrid, ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid, SignInCard } from './HomeSections';
 
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
@@ -128,4 +128,11 @@ it('picks the home page’s best-seller departments: recently viewed ones first,
   // a department the store no longer lists is skipped
   expect(bestSellerDepts([{ category: 'gone' }], cats, 1)).toEqual([{ slug: 'headphones', name: 'Headphones' }]);
   expect(bestSellerDepts([], [], 2)).toEqual([]);
+});
+
+it("a guest's sign-in card signs in securely or starts a new account", () => {
+  render(<SignInCard signInHref="/in/signin" createAccountHref="/in/signin?new=1" />);
+  const card = screen.getByRole('region', { name: 'Sign in for the best experience' });
+  expect(within(card).getByRole('link', { name: 'Sign in securely' })).toHaveAttribute('href', '/in/signin');
+  expect(within(card).getByRole('link', { name: 'Start here.' })).toHaveAttribute('href', '/in/signin?new=1');
 });
