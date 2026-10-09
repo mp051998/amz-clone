@@ -4,13 +4,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '../lib/cn';
 
-export type ShortcutAction = 'search' | 'cart' | 'home' | 'orders' | 'addToCart' | 'toggle';
+export type ShortcutAction = 'search' | 'cart' | 'home' | 'orders' | 'addToCart' | 'summary' | 'toggle';
 
 /** A part of the page the box can jump to (a product page lists its own). */
 export interface SkipLink { label: string; href: string }
 
 /** Amazon's keyboard shortcuts: alt + / for search, shift + alt + a letter for the rest. */
-const SHIFTED: Record<string, ShortcutAction> = { KeyC: 'cart', KeyH: 'home', KeyO: 'orders', KeyK: 'addToCart', KeyZ: 'toggle' };
+const SHIFTED: Record<string, ShortcutAction> = { KeyC: 'cart', KeyH: 'home', KeyO: 'orders', KeyK: 'addToCart', KeyD: 'summary', KeyZ: 'toggle' };
 
 /**
  * The shortcut a key press means, if any. Reads `code` (the key's place on the keyboard), since
@@ -33,9 +33,9 @@ function focusSearch() {
   (boxes.find((b) => b.getClientRects().length > 0) ?? boxes[0])?.focus();
 }
 
-/** The page's own Add to Cart (a product page marks it), pressed as if by hand. */
-function pressAddToCart() {
-  document.querySelector<HTMLButtonElement>('[data-shortcut="add-to-cart"]:not(:disabled)')?.click();
+/** A button the page marks for a shortcut (a product page's Add to Cart or summary), pressed as if by hand. */
+function press(name: 'add-to-cart' | 'product-summary') {
+  document.querySelector<HTMLButtonElement>(`[data-shortcut="${name}"]:not(:disabled)`)?.click();
 }
 
 /** Opens the folded section a skip link lands in (say, a closed spec group) so its content shows. */
@@ -49,9 +49,9 @@ function unfold(href: string) {
  * Amazon's "Skip to" box: the first thing Tab reaches, listing the keyboard shortcuts under links
  * to the main content and to the page's own parts (`links`). shift + alt + Z keeps it open (or
  * closes it); Escape closes it too. The shortcuts work anywhere but in a text field; shift + alt + K
- * (Add to cart) only where the page says it has one.
+ * (Add to cart) and shift + alt + D (Product summary) only where the page says it has one.
  */
-export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart = false }: { homeHref: string; cartHref: string; ordersHref: string; links?: SkipLink[]; addToCart?: boolean }) {
+export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart = false, summary = false }: { homeHref: string; cartHref: string; ordersHref: string; links?: SkipLink[]; addToCart?: boolean; summary?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [alt, setAlt] = useState('alt');
@@ -67,16 +67,17 @@ export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart
         return;
       }
       const action = shortcutFor(e);
-      if (!action || editable(e.target) || (action === 'addToCart' && !addToCart)) return;
+      if (!action || editable(e.target) || (action === 'addToCart' && !addToCart) || (action === 'summary' && !summary)) return;
       e.preventDefault();
       if (action === 'toggle') setOpen((o) => !o);
       else if (action === 'search') focusSearch();
-      else if (action === 'addToCart') pressAddToCart();
+      else if (action === 'addToCart') press('add-to-cart');
+      else if (action === 'summary') press('product-summary');
       else router.push(action === 'cart' ? cartHref : action === 'orders' ? ordersHref : homeHref);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, router, homeHref, cartHref, ordersHref, addToCart]);
+  }, [open, router, homeHref, cartHref, ordersHref, addToCart, summary]);
 
   const keys = (...k: string[]) => (
     <span className="flex flex-none items-center gap-1 text-[12px] text-ink-3">
@@ -94,6 +95,7 @@ export function SkipMenu({ homeHref, cartHref, ordersHref, links = [], addToCart
     ['Home', keys('shift', alt, 'H')],
     ['Orders', keys('shift', alt, 'O')],
     ...(addToCart ? [['Add to cart', keys('shift', alt, 'K')] as [string, ReactNode]] : []),
+    ...(summary ? [['Product summary', keys('shift', alt, 'D')] as [string, ReactNode]] : []),
     ['Show/Hide shortcuts', keys('shift', alt, 'Z')],
   ];
   const jump = 'mt-1 block text-[15px] font-semibold text-ink underline underline-offset-2';

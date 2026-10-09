@@ -24,6 +24,7 @@ it('reads Amazon’s shortcuts from the key’s place, whatever option types', (
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyO' })).toBe('orders');
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyZ' })).toBe('toggle');
   expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyK' })).toBe('addToCart');
+  expect(shortcutFor({ ...k, shiftKey: true, code: 'KeyD' })).toBe('summary');
   // without alt, with ctrl or cmd, or another key: nothing
   expect(shortcutFor({ ...k, altKey: false, shiftKey: true, code: 'KeyC' })).toBeNull();
   expect(shortcutFor({ ...k, shiftKey: true, ctrlKey: true, code: 'KeyC' })).toBeNull();
@@ -119,5 +120,25 @@ it('shift + alt + K presses the page’s Add to Cart, only on a page that has on
   button.disabled = true;
   press('KeyK');
   expect(add).toHaveBeenCalledTimes(1);
+  button.remove();
+});
+
+it('shift + alt + D opens the product summary, only on a page that has one', () => {
+  const open = vi.fn();
+  const button = document.createElement('button');
+  button.dataset.shortcut = 'product-summary';
+  button.addEventListener('click', open);
+  document.body.append(button);
+
+  const { unmount } = menu();
+  expect(screen.getByRole('navigation', { name: 'Skip to' })).not.toHaveTextContent('Product summary');
+  press('KeyD');
+  expect(open).not.toHaveBeenCalled();
+  unmount();
+
+  render(<SkipMenu homeHref="/in" cartHref="/in/cart" ordersHref="/in/orders" summary />);
+  expect(screen.getByRole('navigation', { name: 'Skip to' })).toHaveTextContent('Product summary');
+  press('KeyD');
+  expect(open).toHaveBeenCalledTimes(1);
   button.remove();
 });

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { AppShell } from '@/components/AppShell';
 import { Breadcrumbs } from '@/components/commerce/Breadcrumbs';
+import { ProductSummary } from '@/components/product/ProductSummary';
 import { MatchBadge } from '@/components/decision/Badges';
 import { CheckList } from '@/components/decision/CheckList';
 import { Alert } from '@/components/primitives/Alert';
@@ -413,11 +414,37 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const structured = p.archived ? null : productJsonLd(p, await siteOrigin(), { rating, count: ratingCount });
 
   return (
-    <AppShell skipTo={skipTo} addToCart={!p.archived && p.stock > 0}>
+    <AppShell skipTo={skipTo} addToCart={!p.archived && p.stock > 0} summary>
       {structured ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(structured) }} /> : null}
       {p.archived ? null : <RecordView productId={p.id} />}
       <div className="mx-auto flex w-full max-w-page flex-col gap-11 px-[clamp(16px,3vw,24px)] pb-10 pt-[22px]">
         <div className="flex flex-col gap-[18px]">
+          <ProductSummary
+            title={p.title}
+            brand={p.brand ?? null}
+            ratingText={ratingCount ? `${rating.toFixed(1)} out of 5 stars, ${num(ratingCount)} ${ratingCount === 1 ? 'rating' : 'ratings'}` : null}
+            price={
+              p.archived ? null : (
+                <Price
+                  minor={priceMinor}
+                  currency={cur}
+                  listMinor={typicalMinor ?? listMinor}
+                  listLabel={typicalMinor ? store.pricing.typicalLabel : store.pricing.listLabel}
+                  size={20}
+                  unitText={p.unit ? unitPriceText(priceMinor, cur, p.unit) : undefined}
+                />
+              )
+            }
+            taxNote={store.pricing.taxNote}
+            availability={p.archived ? 'No longer available' : p.stock > 0 ? 'In stock' : 'Out of stock'}
+            otherSellers={otherSellers.length && offerTotals ? { label: `${kindsLabel(offerTotals)} (${num(offerTotals.count)}) from ${money(offerTotals.fromMinor)}`, href: storePath(store, `/product/${encodeURIComponent(p.id)}/offers`) } : null}
+            bullets={p.bullets}
+            description={info.description}
+            options={[
+              ...(info.variants ? [{ name: info.variants.axis, values: info.variants.options.map((o) => o.label) }] : []),
+              ...(p.sizes?.length ? [{ name: 'Size', values: p.sizes }] : []),
+            ]}
+          />
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <BackLink fallbackHref={storePath(store, '/s')} />
             <div className="flex items-center gap-3">
