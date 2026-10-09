@@ -38,7 +38,7 @@ function fakeDb() {
 beforeEach(() => {
   for (const fn of Object.values(mocks)) fn.mockReset();
   mocks.getProduct.mockResolvedValue({ id: 'p1', market: 'US', title: 'Quiet Headphones', bullets: ['Up to 30 hours of battery life'] });
-  mocks.getProductInfo.mockResolvedValue({ description: 'Folds flat.', details: [['Weight', '250 g']], gallery: [], variants: null });
+  mocks.getProductInfo.mockResolvedValue({ description: 'Folds flat.', details: [['Weight', '250 g']], gallery: [], variants: null, firstAvailable: null });
   mocks.listQuestions.mockResolvedValue({
     total: 2,
     items: [

@@ -364,8 +364,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         },
       ]
     : [];
+  // Amazon's "Date First Available": the day it was listed in this store
+  const firstRow = info.firstAvailable ? [{ k: 'Date First Available', v: releaseDate(new Date(info.firstAvailable), store) }] : [];
   const specs: SpecGroup[] = [
-    { name: 'Product information', open: true, rows: [...info.details.map(([k, v]) => ({ k, v })), ...(info.details.length ? [...reviewsRow, ...rankRow] : [])] },
+    { name: 'Product information', open: true, rows: [...info.details.map(([k, v]) => ({ k, v })), ...(info.details.length ? [...reviewsRow, ...rankRow, ...firstRow] : [])] },
     {
       name: 'General',
       open: !info.details.length,
@@ -373,7 +375,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
         ...(p.unit ? [{ k: 'Unit count', v: unitSizeText(p.unit) }] : []),
-        ...(info.details.length ? [] : [...reviewsRow, ...rankRow]),
+        ...(info.details.length ? [] : [...reviewsRow, ...rankRow, ...firstRow]),
         {
           k: 'Sold by',
           v: (

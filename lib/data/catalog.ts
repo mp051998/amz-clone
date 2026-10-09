@@ -57,9 +57,11 @@ export interface ProductInfo {
   gallery: string[];
   /** options when the product is one of a variant group (e.g. Color: Black | Blue), else null */
   variants: { group: string; axis: string; label: string; options: ProductVariant[] } | null;
+  /** when it was first listed (ISO), Amazon's "Date First Available"; null when unknown */
+  firstAvailable: string | null;
 }
 
-const NO_INFO: ProductInfo = { description: null, details: [], gallery: [], variants: null };
+const NO_INFO: ProductInfo = { description: null, details: [], gallery: [], variants: null, firstAvailable: null };
 const MISSING_COLUMN = '42703';
 
 /** Natural order for option labels: "1.5 Litre" before "3 Litre", "8 GB" before "16 GB". */
@@ -71,7 +73,7 @@ const byLabel = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
  * them) or the id is unknown. Options leave out archived siblings, but keep the product itself.
  */
 export async function getProductInfo(db: Db, id: string): Promise<ProductInfo> {
-  const res = await db.from('products').select('market_id, description, details, gallery, variant_group, variant_axis, variant_label').eq('id', id).maybeSingle();
+  const res = await db.from('products').select('market_id, description, details, gallery, variant_group, variant_axis, variant_label, created_at').eq('id', id).maybeSingle();
   if (res.error?.code === MISSING_COLUMN) {
     const old = await db.from('products').select('description, details').eq('id', id).maybeSingle();
     if (old.error?.code === MISSING_COLUMN) return NO_INFO;
@@ -80,7 +82,7 @@ export async function getProductInfo(db: Db, id: string): Promise<ProductInfo> {
   }
   const row = unwrap(res);
   if (!row) return NO_INFO;
-  const info: ProductInfo = { description: row.description, details: toDetailRows(row.details), gallery: row.gallery ?? [], variants: null };
+  const info: ProductInfo = { description: row.description, details: toDetailRows(row.details), gallery: row.gallery ?? [], variants: null, firstAvailable: row.created_at ?? null };
   if (row.variant_group && row.variant_axis && row.variant_label) {
     const sibs = unwrap(
       await db
