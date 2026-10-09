@@ -12,6 +12,7 @@ import { CouponToggle } from '@/components/coupons/CouponToggle';
 import { CartLists, cartList } from '@/components/cart/CartLists';
 import { PairsWith } from '@/components/cart/PairsWith';
 import { BrowsingHistory } from '@/components/product/BrowsingHistory';
+import { CartNotes } from '@/components/cart/CartNotes';
 import { ContinueRow } from '@/components/home/HomeSections';
 import { ShareButton } from '@/components/product/ShareButton';
 import { cartEta, longDate, relativeDayName, releaseDate } from '@/components/orders/format';
@@ -158,6 +159,7 @@ export default async function CartPage({
               </>
             )}
           </EmptyState>
+          <CartNotes giftCardHref={sp('/gift-cards#balance')} />
           {savedSection}
           {history}
         </div>
@@ -342,6 +344,7 @@ export default async function CartPage({
                   );
                 })}
               </ul>
+              <CartNotes giftCardHref={sp('/gift-cards#balance')} />
             </section>
 
             {savedSection}
