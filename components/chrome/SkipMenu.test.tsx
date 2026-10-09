@@ -142,3 +142,17 @@ it('shift + alt + D opens the product summary, only on a page that has one', () 
   expect(open).toHaveBeenCalledTimes(1);
   button.remove();
 });
+
+it('steps between its links with the up and down arrows', () => {
+  render(<SkipMenu homeHref="/in" cartHref="/in/cart" ordersHref="/in/orders" links={[{ label: 'Results', href: '#results' }, { label: 'Filters', href: '#filters' }]} />);
+  const [main, results, filters] = ['Main content', 'Results', 'Filters'].map((name) => screen.getByRole('link', { name }));
+  main.focus();
+  fireEvent.keyDown(main, { key: 'ArrowDown' });
+  expect(results).toHaveFocus();
+  fireEvent.keyDown(results, { key: 'ArrowDown' });
+  fireEvent.keyDown(filters, { key: 'ArrowDown' });
+  expect(filters).toHaveFocus();
+  fireEvent.keyDown(filters, { key: 'ArrowUp' });
+  expect(results).toHaveFocus();
+  expect(screen.getByRole('navigation', { name: 'Skip to' })).toHaveTextContent('To move between items, use your keyboard’s up or down arrows.');
+});
