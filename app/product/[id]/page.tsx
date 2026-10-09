@@ -344,8 +344,23 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const namesMaker = info.details.some(([k]) => /^(brand|author|manufacturer)$/i.test(k));
   // with the open group, like Amazon's product details
   const rankRow = rank ? [{ k: 'Best Sellers Rank', v: <a href={bestsellersHref} className="text-ink underline underline-offset-2">#{num(rank)} in {p.categoryName}</a> }] : [];
+  // Amazon's "Customer Reviews" row, ahead of the rank: the rating and a link down to the ratings
+  const reviewsRow = ratingCount
+    ? [
+        {
+          k: 'Customer Reviews',
+          v: (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <strong className="font-semibold tabular-nums">{rating.toFixed(1)}</strong>
+              <Stars rating={rating} size={14} />
+              <a href="#insight" className="text-ink underline underline-offset-2">{num(ratingCount)} {ratingCount === 1 ? 'rating' : 'ratings'}</a>
+            </span>
+          ),
+        },
+      ]
+    : [];
   const specs: SpecGroup[] = [
-    { name: 'Product information', open: true, rows: [...info.details.map(([k, v]) => ({ k, v })), ...(info.details.length ? rankRow : [])] },
+    { name: 'Product information', open: true, rows: [...info.details.map(([k, v]) => ({ k, v })), ...(info.details.length ? [...reviewsRow, ...rankRow] : [])] },
     {
       name: 'General',
       open: !info.details.length,
@@ -353,7 +368,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         ...(namesMaker ? [] : [{ k: 'Brand', v: p.brand ?? 'Generic' }]),
         { k: 'Category', v: <a href={storePath(store, `/s?dept=${encodeURIComponent(p.category)}`)} className="text-ink underline underline-offset-2">{p.categoryName}</a> },
         ...(p.unit ? [{ k: 'Unit count', v: unitSizeText(p.unit) }] : []),
-        ...(info.details.length ? [] : rankRow),
+        ...(info.details.length ? [] : [...reviewsRow, ...rankRow]),
         {
           k: 'Sold by',
           v: (
