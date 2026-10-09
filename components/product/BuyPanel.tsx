@@ -344,7 +344,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
             </fieldset>
           ) : null}
           {trading ? null : (
-            <button type="button" onClick={onAdd} disabled={pending} aria-busy={pending || undefined} className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>
+            <button type="button" onClick={onAdd} disabled={pending} aria-busy={pending || undefined} data-shortcut="add-to-cart" className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}>
               {pending ? 'Adding…' : 'Add to Cart'}
             </button>
           )}
