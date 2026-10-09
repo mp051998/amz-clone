@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { SearchBar } from '@/components/chrome/SearchBar';
-import { BuyAgainGrid, ContinueRow, DealGrid, HomeSection, PickGrid, SavedBackGrid, SavedDropGrid, SignInCard } from '@/components/home/HomeSections';
+import { BuyAgainGrid, ContinueRow, DealGrid, DepartmentGrid, HomeSection, PickGrid, SavedBackGrid, SavedDropGrid, SignInCard } from '@/components/home/HomeSections';
 import { Kicker } from '@/components/decision/Badges';
 import { Pill } from '@/components/decision/Pill';
 import { QuizButton } from '@/components/quiz/QuizDialog';
 import { savedUpdates, type SavedUpdates } from '@/lib/data/collections';
 import { buyAgain } from '@/lib/data/buy-again';
 import { inspiredBy } from '@/lib/data/also-viewed';
+import { departmentTiles } from '@/lib/data/department-tiles';
 import { buyableAgain } from '@/lib/buy-again';
 import { bestSellerDepts, exampleQueries, getDecisionHome, greetingFor } from '@/lib/home-content';
 import { listProducts } from '@/lib/data/catalog';
@@ -50,12 +51,13 @@ export default async function Home() {
       ),
     ),
   );
-  const [home, { back, drops }, again, related, bestSellers] = await Promise.all([
+  const [home, { back, drops }, again, related, bestSellers, departments] = await Promise.all([
     decision,
     user ? savedUpdates(client, store.id, 4).catch(() => none) : Promise.resolve(none),
     user ? buyAgain(client, store.id, BUY_AGAIN_SCAN).then((items) => buyableAgain(items, 4)).catch(() => []) : Promise.resolve([]),
     inspiredBy(client, store.id, recentIds, INSPIRED_MAX * 2, skipped).catch(() => []),
     sellers,
+    departmentTiles(client, store.id, categories).catch(() => []),
   ]);
   const picked = new Set(home.picks.map((x) => x.product.id));
   const inspired = related.filter((p) => !picked.has(p.id)).slice(0, INSPIRED_MAX);
@@ -138,6 +140,12 @@ export default async function Home() {
         {home.deals.length ? (
           <HomeSection id="home-deals" title="Deals for you" meta={home.personal ? "Deals on things you've shown interest in first" : "Today's biggest price drops"}>
             <DealGrid deals={home.deals} store={store} />
+          </HomeSection>
+        ) : null}
+
+        {departments.length ? (
+          <HomeSection id="home-departments" title="Shop by department">
+            <DepartmentGrid tiles={departments} store={store} />
           </HomeSection>
         ) : null}
 

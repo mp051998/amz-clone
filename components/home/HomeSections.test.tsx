@@ -4,7 +4,7 @@ import { amazon } from '../../lib/amazon';
 import { amazonIn } from '../../lib/marketplace-in';
 import { bestSellerDepts, endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
 import type { Product } from '../../lib/types';
-import { BuyAgainGrid, ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid, SignInCard } from './HomeSections';
+import { BuyAgainGrid, ContinueRow, DealGrid, DepartmentGrid, PickGrid, SavedBackGrid, SavedDropGrid, SignInCard } from './HomeSections';
 
 vi.mock('@/app/actions/cart', () => ({ addToCart: async () => {} }));
 
@@ -135,4 +135,13 @@ it("a guest's sign-in card signs in securely or starts a new account", () => {
   const card = screen.getByRole('region', { name: 'Sign in for the best experience' });
   expect(within(card).getByRole('link', { name: 'Sign in securely' })).toHaveAttribute('href', '/in/signin');
   expect(within(card).getByRole('link', { name: 'Start here.' })).toHaveAttribute('href', '/in/signin?new=1');
+});
+
+it('department tiles open each department’s search, in the store', () => {
+  render(<DepartmentGrid tiles={[{ slug: 'home-kitchen', name: 'Home & Kitchen', image: '/img/hk.jpg' }, { slug: 'books', name: 'Books', image: '/img/b.jpg' }]} store={amazon} />);
+  expect(screen.getByRole('link', { name: 'Home & Kitchen' })).toHaveAttribute('href', '/s?dept=home-kitchen');
+  expect(screen.getByRole('link', { name: 'Books' })).toHaveAttribute('href', '/s?dept=books');
+  cleanup();
+  render(<DepartmentGrid tiles={[{ slug: 'books', name: 'Books', image: '/img/b.jpg' }]} store={amazonIn} />);
+  expect(screen.getByRole('link', { name: 'Books' })).toHaveAttribute('href', '/in/s?dept=books');
 });
