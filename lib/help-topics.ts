@@ -14,6 +14,9 @@ export interface HelpTopic {
 
 type HelpStore = Pick<PublicMarketplace, 'id' | 'currency' | 'delivery' | 'returns'>;
 
+/** The topics' slugs, the same in both stores (their pages are in the sitemap). */
+export const HELP_TOPIC_SLUGS = ['ordering', 'shipping-delivery', 'returns-refunds', 'account', 'payments', 'plus', 'safety-recalls'] as const;
+
 /** The help page's "Browse help topics", each with its own page of answers (per store where the flow differs). */
 export function helpTopics(store: HelpStore): HelpTopic[] {
   const isIN = store.id === 'IN';

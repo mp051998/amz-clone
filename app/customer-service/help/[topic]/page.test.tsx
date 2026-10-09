@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { amazon } from '@/lib/amazon';
 import { amazonIn } from '@/lib/marketplace-in';
-import { helpTopics } from '@/lib/help-topics';
+import { HELP_TOPIC_SLUGS, helpTopics } from '@/lib/help-topics';
 
 const state = vi.hoisted(() => ({ store: null as unknown }));
 
@@ -63,6 +63,8 @@ it('is not found for an unknown topic', async () => {
 
 it('every topic links only to the store’s own pages', () => {
   for (const store of [amazon, amazonIn]) {
+    // the same pages in both stores, as the sitemap lists them
+    expect(helpTopics(store).map((t) => t.slug)).toEqual([...HELP_TOPIC_SLUGS]);
     for (const t of helpTopics(store)) {
       expect(t.articles.length).toBeGreaterThan(0);
       for (const l of t.links) expect(l.href).toMatch(/^\/[a-z]/);
