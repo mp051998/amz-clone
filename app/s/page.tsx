@@ -10,6 +10,7 @@ import { SegmentedControl } from '@/components/decision/SegmentedControl';
 import { QuizButton } from '@/components/quiz/QuizDialog';
 import { decodeProfile, PROFILE_COOKIE } from '@/components/quiz/profileCookie';
 import { ContinueRow } from '@/components/home/HomeSections';
+import { BrowsingHistory } from '@/components/product/BrowsingHistory';
 import { ResultCard } from '@/components/results/ResultCard';
 import { SearchHelp } from '@/components/results/SearchHelp';
 import { savedIdsFor } from '@/components/results/viewerSaved';
@@ -38,6 +39,7 @@ import { isTopSeller, topSellers } from '@/lib/bestseller-rank';
 import { kindName, type OfferSummary } from '@/lib/offers';
 import { deliveryOptions } from '@/lib/decision/tracking';
 import { dayLabel } from '@/components/orders/format';
+import { recentProducts } from '@/lib/recent-products';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -221,13 +223,15 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (k && total > 0 && !one(sp, 'page') && !one(sp, 'sort') && !one(sp, 'w') && !one(sp, 'preset') && !facetFilters && !facets.includeOutOfStock) {
     after(() => recordSearch(anonClient(), store.id, k));
   }
-  const [variants, coupons, choices, tops] = await Promise.all([
+  const [variants, coupons, choices, tops, recent] = await Promise.all([
     variantSummaries(client, store.id, items.flatMap((r) => (r.product.variant ? [r.product.variant.group] : []))),
     couponPercents(client, items.map((r) => r.product.id)),
     // "More Buying Choices" (none before the offers migration)
     buyingChoices(client, items.map((r) => r.product.id)).catch(() => new Map<string, OfferSummary>()),
     // "#1 Best Seller in …": the bestsellers list's top product of each department on the page
     topSellers(client, store.id, items.map((r) => r.product.category)).catch(() => new Map()),
+    // "Your browsing history" closing the page, as on Amazon's results
+    recentProducts(client, store.id),
   ]);
   const range = budgetRange(store.id, category);
   const cur = store.currency.code;
@@ -432,6 +436,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <SearchHelp store={store} results={items.length > 0} />
           </section>
         </div>
+        <BrowsingHistory products={recent} store={store} />
       </div>
     </AppShell>
   );

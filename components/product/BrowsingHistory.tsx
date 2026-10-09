@@ -3,7 +3,7 @@ import type { Store } from '@/components/lib/store';
 import { storePath } from '@/lib/marketplace';
 import type { Product } from '@/lib/types';
 
-/** "Your browsing history" row closing the product and cart pages (hidden when empty). */
+/** "Your browsing history" row closing the product, cart and search results pages (hidden when empty). */
 export function BrowsingHistory({ products, store }: { products: Product[]; store: Store }) {
   if (!products.length) return null;
   return (
