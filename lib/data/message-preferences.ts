@@ -26,7 +26,7 @@ export const MESSAGE_TOPICS: readonly MessageTopicInfo[] = [
 
 /** The messages that always come, whatever the shopper turns off. */
 export const ALWAYS_SENT: readonly string[] = [
-  'Order updates: shipped, out for delivery, delivered, cancelled',
+  'Order updates: order confirmations, shipped, out for delivery, delivered, cancelled',
   'Refunds, returns and replacements',
   'Replies on your support cases and A-to-z Guarantee claims',
   'Product safety recalls',

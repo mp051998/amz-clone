@@ -17,6 +17,7 @@ import { db } from '@/lib/supabase/server';
 export const metadata: Metadata = { title: 'Your messages · Store' };
 
 const HEAD: Record<InboxKind, string> = {
+  ordered: 'Ordered',
   shipped: 'Shipped',
   out_for_delivery: 'Out for delivery',
   delivered: 'Delivered',
@@ -49,6 +50,8 @@ function sentence(text: string): string {
 /** One line under the heading saying what it means for the shopper. */
 function note(m: InboxMessage, money: (minor: number) => string, balance: string, date: (iso: string) => string): string {
   switch (m.kind) {
+    case 'ordered':
+      return 'Thanks for your order. We’ll tell you when it ships.';
     case 'shipped':
       return 'Your order is on its way.';
     case 'out_for_delivery':
