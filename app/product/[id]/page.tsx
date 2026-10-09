@@ -19,6 +19,7 @@ import { Gallery } from '@/components/product/Gallery';
 import { VariantPicker } from '@/components/product/VariantPicker';
 import { RecordView } from '@/components/product/RecordView';
 import { ShareButton } from '@/components/product/ShareButton';
+import { SellYours } from '@/components/product/SellYours';
 import { loadReviewData, Reviews } from '@/components/product/Reviews';
 import { AskProduct } from '@/components/product/AskProduct';
 import { QuestionsPanel } from '@/components/product/QuestionsPanel';
@@ -598,6 +599,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   allLabel={`${kindsLabel(offerTotals)} (${num(offerTotals.count)}) from ${money(offerTotals.fromMinor)}`}
                 />
               ) : null}
+              {p.archived ? null : <SellYours storeName={store.name} href={storePath(store, '/sell')} />}
             </aside>
           </div>
         </div>
