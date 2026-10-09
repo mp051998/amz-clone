@@ -224,3 +224,28 @@ describe('MoreFilters Condition', () => {
     expect(screen.queryByRole('heading', { name: 'Condition' })).toBeNull();
   });
 });
+
+describe('MoreFilters department filters', () => {
+  const list = (label: string) => within(screen.getByRole('heading', { name: label }).parentElement!);
+  const attributeFacets = [
+    { label: 'Storage', values: [{ name: '128 GB', count: 6 }, { name: '256 GB', count: 2 }] },
+    { label: 'RAM', values: [{ name: '8 GB', count: 4 }, { name: '6 GB', count: 3 }] },
+  ];
+
+  it('lists each label’s values with counts, each adding itself to the ones picked', () => {
+    renderFilters({ attributeFacets, attrs: { Storage: ['128 GB'] } });
+    const storage = list('Storage').getAllByRole('checkbox');
+    expect(storage[0]).toHaveAccessibleName('128 GB (6)');
+    expect(storage[0]).toHaveAttribute('aria-checked', 'true');
+    expect(storage[0].getAttribute('href')).toBe(hrefWith({ attr: null }));
+    expect(storage[1]).toHaveAttribute('aria-checked', 'false');
+    expect(storage[1].getAttribute('href')).toBe(hrefWith({ attr: 'Storage:128 GB|256 GB' }));
+    expect(list('RAM').getByRole('checkbox', { name: '6 GB (3)' }).getAttribute('href')).toBe(hrefWith({ attr: 'Storage:128 GB;RAM:6 GB' }));
+  });
+
+  it('has none without them, and drops the ones picked on a department change', () => {
+    renderFilters({ categories: [{ slug: 'mobiles', name: 'Mobiles' } as never], attrs: { Storage: ['128 GB'] } });
+    expect(screen.queryByRole('heading', { name: 'Storage' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Mobiles' }).getAttribute('href')).toContain('"attr":null');
+  });
+});

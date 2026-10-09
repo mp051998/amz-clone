@@ -1,5 +1,5 @@
 import { kindName, OFFER_KINDS, type OfferKind } from '@/lib/offers';
-import { DISCOUNTS, SELLER_SEPARATOR, type PricePreset } from '@/lib/search';
+import { DISCOUNTS, SELLER_SEPARATOR, toggleAttr, writeAttrs, type AttributeFacet, type AttrPicks, type PricePreset } from '@/lib/search';
 import type { Category } from '@/lib/types';
 import { cn } from '../lib/cn';
 import { Stars } from '../primitives/Stars';
@@ -16,6 +16,10 @@ export interface MoreFiltersProps {
   /** sizes in the search's scope, with counts, in size-chart order (empty = no Size section) */
   sizeFacets?: { name: string; count: number }[];
   sizes?: string[];
+  /** the department's own filters ("Storage", "Material"…), with counts (empty = none) */
+  attributeFacets?: AttributeFacet[];
+  /** their values picked, by label */
+  attrs?: AttrPicks;
   rating?: number;
   deal: boolean;
   /** "Climate Pledge Friendly" is ticked */
@@ -55,8 +59,8 @@ function Box({ on }: { on: boolean }) {
 
 const row = 'flex min-h-9 items-center gap-2 rounded-chip px-1 text-[14px] text-ink no-underline hover:bg-surface-2 hover:text-ink';
 
-/** Link-driven secondary filters (department, brand, size, seller, price, rating, deals, Pay On Delivery, Climate Pledge Friendly, Small Business, discount, condition, availability) — SSR, works without JS. */
-export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], rating, deal, climate = false, climateCount = 0, smallBusiness = false, smallBusinessCount = 0, condition, conditionCounts, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, cod, hrefWith }: MoreFiltersProps) {
+/** Link-driven secondary filters (department, brand, size, the department's own ("Storage", "Material"…), seller, price, rating, deals, Pay On Delivery, Climate Pledge Friendly, Small Business, discount, condition, availability) — SSR, works without JS. */
+export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacets = [], sellers = [], sizeFacets = [], sizes = [], attributeFacets = [], attrs = {}, rating, deal, climate = false, climateCount = 0, smallBusiness = false, smallBusinessCount = 0, condition, conditionCounts, minDiscount, pricePresets = [], minPrice = null, maxPrice = null, includeOutOfStock = false, cod, hrefWith }: MoreFiltersProps) {
   const toggleBrand = (name: string) => {
     const set = new Set(brands);
     if (set.has(name)) set.delete(name);
@@ -75,6 +79,7 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
     else set.add(name);
     return hrefWith({ size: set.size ? [...set].join(',') : null });
   };
+  const toggleValue = (label: string, value: string) => hrefWith({ attr: writeAttrs(toggleAttr(attrs, label, value)) });
   // a picked seller stays listed even when it's past the first ten
   const sellerRows = [...sellerFacets.slice(0, 10), ...sellerFacets.slice(10).filter((s) => sellers.includes(s.name))];
   return (
@@ -83,11 +88,11 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
         <h3 className="m-0 mb-1 text-[14px] font-semibold">Department</h3>
         <ul className="m-0 flex list-none flex-col p-0">
           <li>
-            <a href={hrefWith({ dept: 'all', brand: null, size: null, w: null, preset: null })} aria-current={dept ? undefined : 'true'} className={cn(row, !dept && 'font-semibold')}>All departments</a>
+            <a href={hrefWith({ dept: 'all', brand: null, size: null, attr: null, w: null, preset: null })} aria-current={dept ? undefined : 'true'} className={cn(row, !dept && 'font-semibold')}>All departments</a>
           </li>
           {categories.map((c) => (
             <li key={c.slug}>
-              <a href={hrefWith({ dept: c.slug, brand: null, size: null, w: null, preset: null, use: null })} aria-current={dept === c.slug ? 'true' : undefined} className={cn(row, dept === c.slug && 'font-semibold')}>
+              <a href={hrefWith({ dept: c.slug, brand: null, size: null, attr: null, w: null, preset: null, use: null })} aria-current={dept === c.slug ? 'true' : undefined} className={cn(row, dept === c.slug && 'font-semibold')}>
                 {c.name}
               </a>
             </li>
@@ -141,6 +146,29 @@ export function MoreFilters({ categories, dept, brandFacets, brands, sellerFacet
           </ul>
         </div>
       ) : null}
+
+      {attributeFacets.map((f) => {
+        const picked = attrs[f.label] ?? [];
+        return (
+          <div key={f.label}>
+            <h3 className="m-0 mb-1 text-[14px] font-semibold">{f.label}</h3>
+            <ul className="m-0 flex list-none flex-col p-0">
+              {f.values.map((v) => {
+                const on = picked.includes(v.name);
+                return (
+                  <li key={v.name}>
+                    <a href={toggleValue(f.label, v.name)} role="checkbox" aria-checked={on} aria-label={`${v.name} (${v.count})`} className={row}>
+                      <Box on={on} />
+                      <span className={on ? 'font-semibold' : undefined}>{v.name}</span>
+                      <span className="ml-auto text-[12px] text-ink-3 tabular-nums">{v.count}</span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
 
       {sellerRows.length ? (
         <div>
