@@ -650,6 +650,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           profileBase={storePath(store, '/profile/')}
           locale={store.locale.default}
           timeZone={store.dates.timeZone}
+          reviewedIn={store.country === 'IN' ? 'India' : 'the United States'}
           insight={insight ? { summary: insight.summary, praised: insight.praised, criticized: insight.criticized, source: insight.source } : null}
           aiPending={aiPending}
           askFit={asksFit(p)}

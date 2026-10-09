@@ -37,6 +37,8 @@ export interface ReviewsPanelProps {
   /** store locale for numbers and dates ("en-US" / "en-IN") */
   locale: string;
   timeZone: string;
+  /** where the store's reviews are written, for Amazon's "Reviewed in the United States on …" */
+  reviewedIn?: string;
   insight: {
     summary: string;
     praised: ThemeCount[];
@@ -109,7 +111,7 @@ function scrollToId(id: string) {
  * (so they cover every review, with exact counts); theme chips narrow the loaded reviews. Every
  * write (review, helpful, report, delete) goes through the server actions in app/actions/review.ts.
  */
-export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, insight, aiPending, customerImages = [], askFit = false, fit = null, askFeatures = [], features = [] }: ReviewsPanelProps) {
+export function ReviewsPanel({ productId, summary, initial, total, mine, facets, signedIn, defaultName, signinHref, profileBase, locale, timeZone, reviewedIn, insight, aiPending, customerImages = [], askFit = false, fit = null, askFeatures = [], features = [] }: ReviewsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
@@ -152,7 +154,8 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
   }, [showForm]);
 
   const num = (n: number) => n.toLocaleString(locale);
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric', timeZone }), [locale, timeZone]);
+  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', year: 'numeric', timeZone }), [locale, timeZone]);
+  const reviewedOn = (iso: string) => `Reviewed ${reviewedIn ? `in ${reviewedIn} ` : ''}on ${dayFmt.format(new Date(iso))}`;
   const ratingText = summary.rating ? summary.rating.toFixed(1) : '—';
   const recommend = summary.bars.filter((b) => b.star >= 4).reduce((s, b) => s + b.count, 0);
   const recommendPct = summary.count ? Math.round((recommend / summary.count) * 100) : 0;
@@ -602,7 +605,7 @@ export function ReviewsPanel({ productId, summary, initial, total, mine, facets,
                       <a href={signinHref} className="inline-flex min-h-9 items-center rounded-pill border border-line px-3 text-[13px] text-ink no-underline hover:border-ink">Helpful · {num(r.helpful)}</a>
                     )}
                   </div>
-                  <span className="text-[12px] text-ink-3">{monthFmt.format(new Date(r.createdAt))}</span>
+                  <span className="text-[12px] text-ink-3">{reviewedOn(r.createdAt)}</span>
                 </div>
                 {notice[r.id] ? <p role="status" className="m-0 text-[12px] text-bad">{notice[r.id]}</p> : null}
               </article>

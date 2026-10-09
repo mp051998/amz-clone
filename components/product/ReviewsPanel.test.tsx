@@ -483,3 +483,16 @@ it('shows each feature’s average by feature, and nothing until there are some'
   render(<ReviewsPanel {...props({ askFeatures: ['easy_to_use'] })} />);
   expect(screen.queryByText('By feature')).not.toBeInTheDocument();
 });
+
+it('dates each review as Amazon does, in the store where it was written', () => {
+  render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Great')], total: 1, reviewedIn: 'the United States' })} />);
+  expect(screen.getByRole('article')).toHaveTextContent('Reviewed in the United States on September 1, 2026');
+  cleanup();
+
+  render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Great')], total: 1, locale: 'en-IN', timeZone: 'Asia/Kolkata', reviewedIn: 'India' })} />);
+  expect(screen.getByRole('article')).toHaveTextContent('Reviewed in India on 1 September 2026');
+  cleanup();
+
+  render(<ReviewsPanel {...props({ initial: [review('a', 5, 'Great')], total: 1 })} />);
+  expect(screen.getByRole('article')).toHaveTextContent('Reviewed on September 1, 2026');
+});
