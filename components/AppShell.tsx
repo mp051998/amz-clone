@@ -23,6 +23,8 @@ export interface AppShellProps {
   skipTo?: SkipLink[];
   /** the page has an Add to Cart for the shift + alt + K shortcut to press */
   addToCart?: boolean;
+  /** the page has a product summary for shift + alt + D to open */
+  summary?: boolean;
 }
 
 /** Program links shown before the catalog departments in the category strip. */
@@ -90,7 +92,7 @@ const FOOTER_LEGAL: Record<'US' | 'IN', string[]> = {
  * Page chrome for every storefront route (design.md §6 Layout): sticky header + category strip,
  * content, calm footer, and the global toast + compare tray. Store-aware (US at /, IN at /in).
  */
-export async function AppShell({ children, cartCount, query, skipTo, addToCart }: AppShellProps) {
+export async function AppShell({ children, cartCount, query, skipTo, addToCart, summary }: AppShellProps) {
   const store = await getMarketplace();
   const [cart, user, categories, admin, deliverTo, here] = await Promise.all([viewerCart(), readUser(), storeCategories(), readIsAdmin(), readDeliverTo(store.id), currentPath()]);
   // signing in from the header comes back to this page
@@ -137,7 +139,7 @@ export async function AppShell({ children, cartCount, query, skipTo, addToCart }
     <ToastProvider>
       <CompareProvider market={store.id}>
         <div id="top" className="flex min-h-screen flex-col bg-bg">
-          <SkipMenu homeHref={storePath(store, '/')} cartHref={storePath(store, '/cart')} ordersHref={storePath(store, '/orders')} links={skipTo} addToCart={addToCart} />
+          <SkipMenu homeHref={storePath(store, '/')} cartHref={storePath(store, '/cart')} ordersHref={storePath(store, '/orders')} links={skipTo} addToCart={addToCart} summary={summary} />
           <Header
             store={store}
             cartCount={count}
