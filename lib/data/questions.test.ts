@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { product } from '@/test/fixtures/decision';
 import type { Db } from '../db/client';
 import { DataError } from './errors';
-import { askQuestion, containsPattern, countAnsweredQuestions, listMyAnswers, listMyQuestions, listQuestions } from './questions';
+import { askQuestion, containsPattern, countAnsweredQuestions, listMyAnswers, listMyQuestions, listQuestions, reportAnswer } from './questions';
 
 const catalog = vi.hoisted(() => ({ asked: [] as unknown[] }));
 vi.mock('./catalog', () => ({
@@ -35,6 +35,8 @@ function fakeDb(replies: Record<string, Reply[]>) {
     },
     rpc: async (fn: string, args: unknown) => {
       rpcs.push([fn, args]);
+      const reply = replies[`rpc:${fn}`]?.shift();
+      if (reply) return reply;
       return { data: { id: 'q9', product_id: 'p1', user_id: 'u1', author_name: 'Ana', body: 'Is it loud at night?', answer_count: 0, created_at: '2026-10-01T00:00:00Z' }, error: null };
     },
   };
@@ -58,6 +60,7 @@ it('lists questions with their answers and the viewer’s votes and ownership', 
     product_questions: [{ data: [question('q1'), question('q2', { user_id: 'me', answer_count: 0 })], error: null, count: 7 }],
     product_answers: [{ data: [answer('a1', 'q1'), answer('a2', 'q1', { user_id: 'me', verified: false })], error: null }],
     answer_votes: [{ data: [{ answer_id: 'a1' }], error: null }],
+    answer_reports: [{ data: [{ answer_id: 'a1' }], error: null }],
   });
   const page = await listQuestions(db, 'p1', 'me', { limit: 2, offset: 4 });
   expect(page.total).toBe(7);
@@ -65,10 +68,35 @@ it('lists questions with their answers and the viewer’s votes and ownership', 
     ['q1', false, ['a1', 'a2']],
     ['q2', true, []],
   ]);
-  expect(page.items[0].answers[0]).toMatchObject({ verified: true, helpful: 2, votedHelpful: true, mine: false, author: 'Lee' });
-  expect(page.items[0].answers[1]).toMatchObject({ verified: false, votedHelpful: false, mine: true });
+  expect(page.items[0].answers[0]).toMatchObject({ verified: true, helpful: 2, votedHelpful: true, reported: true, mine: false, author: 'Lee' });
+  expect(page.items[0].answers[1]).toMatchObject({ verified: false, votedHelpful: false, reported: false, mine: true });
   expect(calls[0].ops).toContainEqual(['range', [4, 5]]);
   expect(calls[1].ops).toContainEqual(['in', ['question_id', ['q1', 'q2']]]);
+  // the viewer's own reports
+  expect(calls.find((c) => c.table === 'answer_reports')?.ops).toEqual([
+    ['select', ['answer_id']],
+    ['eq', ['user_id', 'me']],
+    ['in', ['answer_id', ['a1', 'a2']]],
+  ]);
+});
+
+it('reports an answer, with a known reason or `other`; your own says so', async () => {
+  const { db, rpcs } = fakeDb({
+    'rpc:report_answer': [
+      { data: { answer_id: 'a1', reported: true, new: true }, error: null },
+      { data: { answer_id: 'a1', reported: true, new: false }, error: null },
+      { data: null, error: { code: 'P0001', message: 'own_answer', details: null, hint: null } },
+      { data: null, error: { code: 'P0002', message: 'answer_not_found', details: null, hint: null } },
+    ],
+  });
+  await reportAnswer(db, 'a1', 'spam');
+  await reportAnswer(db, 'a1', 'rude');
+  expect(rpcs).toEqual([
+    ['report_answer', { p_answer: 'a1', p_reason: 'spam' }],
+    ['report_answer', { p_answer: 'a1', p_reason: 'other' }],
+  ]);
+  await expect(reportAnswer(db, 'a2')).rejects.toMatchObject({ code: 'own_answer', message: 'You can’t report your own answer.' });
+  await expect(reportAnswer(db, 'a3')).rejects.toMatchObject({ code: 'answer_not_found' });
 });
 
 it('skips the vote lookup for a signed-out viewer', async () => {

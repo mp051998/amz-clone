@@ -64,6 +64,15 @@ export async function toggleAnswerHelpful(answerId: string): Promise<ActionResul
   });
 }
 
+/** Report someone else's answer (once; again does nothing). */
+export async function reportAnswer(answerId: string): Promise<ActionResult<object>> {
+  return run(async () => {
+    await requireUser();
+    await qa.reportAnswer(await db(), answerId);
+    return {};
+  });
+}
+
 /** A page of a product's questions, optionally only those matching `q`. */
 export async function loadQuestions(productId: string, q = '', offset = 0, limit = 10): Promise<ActionResult<qa.QuestionPage>> {
   return run(async () => {

@@ -8,6 +8,7 @@ const actions = vi.hoisted(() => ({
   removeQuestion: vi.fn(),
   removeAnswer: vi.fn(),
   toggleAnswerHelpful: vi.fn(),
+  reportAnswer: vi.fn(),
   loadQuestions: vi.fn(),
 }));
 const toast = vi.hoisted(() => vi.fn());
@@ -23,7 +24,7 @@ beforeEach(() => {
 });
 
 const answer = (id: string, over: Partial<Answer> = {}): Answer => ({
-  id, questionId: 'q1', body: `Answer ${id}`, author: 'Lee', createdAt: '2026-10-02T00:00:00Z', verified: false, helpful: 0, mine: false, votedHelpful: false, ...over,
+  id, questionId: 'q1', body: `Answer ${id}`, author: 'Lee', createdAt: '2026-10-02T00:00:00Z', verified: false, helpful: 0, mine: false, votedHelpful: false, reported: false, ...over,
 });
 const question = (id: string, over: Partial<Question> = {}): Question => ({
   id, productId: 'p1', body: `Does ${id} fit a carry-on?`, author: 'Sam', createdAt: '2026-10-01T00:00:00Z', answerCount: 0, mine: false, answers: [], ...over,
@@ -114,6 +115,37 @@ it('toggles a helpful vote on someone else’s answer', async () => {
   });
   expect(actions.toggleAnswerHelpful).toHaveBeenCalledWith('a1');
   expect(screen.getByRole('button', { name: '✓ Helpful · 3' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('reports someone else’s answer once; not your own, and not signed out', async () => {
+  actions.reportAnswer.mockResolvedValue({ ok: true });
+  const q = question('q1', { answerCount: 3, answers: [answer('a1'), answer('a2', { author: 'Sam', reported: true }), answer('a3', { mine: true })] });
+  render(<QuestionsPanel {...props({ initial: { items: [q], total: 1 } })} />);
+  fireEvent.click(screen.getByRole('button', { name: /more answer/i }));
+  // already reported, and your own, have no Report
+  expect(screen.getAllByRole('button', { name: /^Report/ })).toHaveLength(1);
+  expect(screen.getByText('Reported')).toBeInTheDocument();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Report Lee’s answer' }));
+  });
+  expect(actions.reportAnswer).toHaveBeenCalledWith('a1');
+  expect(toast).toHaveBeenCalledWith('Reported. Thanks for letting us know.');
+  expect(screen.queryByRole('button', { name: /^Report/ })).toBeNull();
+  expect(screen.getAllByText('Reported')).toHaveLength(2);
+  cleanup();
+  render(<QuestionsPanel {...props({ signedIn: false, initial: { items: [q], total: 1 } })} />);
+  expect(screen.queryByRole('button', { name: /^Report/ })).toBeNull();
+});
+
+it('a report that fails says why', async () => {
+  actions.reportAnswer.mockResolvedValue({ ok: false, code: 'answer_not_found', message: 'That answer isn’t there any more.' });
+  const q = question('q1', { answerCount: 1, answers: [answer('a1')] });
+  render(<QuestionsPanel {...props({ initial: { items: [q], total: 1 } })} />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Report Lee’s answer' }));
+  });
+  expect(toast).toHaveBeenCalledWith('That answer isn’t there any more.');
+  expect(screen.getByRole('button', { name: 'Report Lee’s answer' })).toBeInTheDocument();
 });
 
 it('searches and goes back to all questions', async () => {

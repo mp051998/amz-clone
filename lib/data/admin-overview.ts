@@ -28,6 +28,8 @@ export interface AdminOverview {
   /** reviews with open reports */
   reportedReviews: number;
   unansweredQuestions: number;
+  /** questions with an answer that has open reports */
+  reportedAnswers: number;
   /** open reports on the store's products */
   productReports: number;
   /** lower prices shoppers told us about, not reviewed yet (not urgent, so not in attentionCount) */
@@ -58,6 +60,7 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
     claims: claims.counts.open,
     reportedReviews: reviews.counts.reported,
     unansweredQuestions: questions.counts.unanswered,
+    reportedAnswers: questions.counts.reported,
     productReports: reports.counts.open,
     lowerPrices: prices.counts.open,
     support: { waiting: support.counts.waiting, oldestWaiting: support.cases[0]?.updatedAt ?? null },
@@ -65,7 +68,7 @@ export async function adminOverview(db: Db, market: Market): Promise<AdminOvervi
   };
 }
 
-/** How many things on the overview want an admin now (refunds, returns, claims, reviews, questions, product reports, cases, orders to ship). */
+/** How many things on the overview want an admin now (refunds, returns, claims, reviews, questions, reported answers, product reports, cases, orders to ship). */
 export function attentionCount(o: AdminOverview): number {
-  return o.orders.toShip + o.orders.refundIssues + o.returns.open + o.returns.refundIssues + o.claims + o.reportedReviews + o.unansweredQuestions + o.productReports + o.support.waiting;
+  return o.orders.toShip + o.orders.refundIssues + o.returns.open + o.returns.refundIssues + o.claims + o.reportedReviews + o.unansweredQuestions + o.reportedAnswers + o.productReports + o.support.waiting;
 }

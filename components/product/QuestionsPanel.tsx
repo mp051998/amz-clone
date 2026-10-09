@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'react';
 import type { Answer, Question, QuestionPage } from '@/lib/data/questions';
 import { ANSWER_MAX, QUESTION_MAX, QUESTION_MIN } from '@/lib/data/questions';
-import { answerQuestion, askQuestion, loadQuestions, removeAnswer, removeQuestion, toggleAnswerHelpful } from '@/app/actions/questions';
+import { answerQuestion, askQuestion, loadQuestions, removeAnswer, removeQuestion, reportAnswer, toggleAnswerHelpful } from '@/app/actions/questions';
 import { Kicker } from '../decision/Badges';
 import { useToast } from '../decision/Toast';
 import { Button, buttonClasses } from '../primitives/Button';
@@ -22,7 +22,7 @@ export interface QuestionsPanelProps {
 
 const PAGE = 10;
 
-/** PDP "Customer questions & answers": search, ask, answer, vote answers helpful. */
+/** PDP "Customer questions & answers": search, ask, answer, vote answers helpful, report one. */
 export function QuestionsPanel({ productId, initial, signedIn, signinHref, canAsk, locale, timeZone }: QuestionsPanelProps) {
   const [items, setItems] = useState<Question[]>(initial.items);
   const [total, setTotal] = useState(initial.total);
@@ -112,6 +112,14 @@ export function QuestionsPanel({ productId, initial, signedIn, signinHref, canAs
       const res = await toggleAnswerHelpful(a.id);
       if (!res.ok) return toast(res.message);
       patchAnswer(a, { votedHelpful: res.helpful, helpful: res.helpfulCount });
+    });
+
+  const onReport = (a: Answer) =>
+    start(async () => {
+      const res = await reportAnswer(a.id);
+      if (!res.ok) return toast(res.message);
+      patchAnswer(a, { reported: true });
+      toast('Reported. Thanks for letting us know.');
     });
 
   const onDeleteQuestion = (q: Question) => {
@@ -234,15 +242,30 @@ export function QuestionsPanel({ productId, initial, signedIn, signinHref, canAs
                             {a.mine ? (
                               <button type="button" disabled={pending} onClick={() => onDeleteAnswer(a)} className="min-h-9 px-1 text-[12px] underline underline-offset-2 hover:text-ink sm:min-h-0">Delete</button>
                             ) : signedIn ? (
-                              <button
-                                type="button"
-                                aria-pressed={a.votedHelpful}
-                                disabled={pending}
-                                onClick={() => onHelpful(a)}
-                                className={cn('min-h-9 rounded-pill border px-2.5 text-[12px] tabular-nums transition-colors sm:min-h-7', a.votedHelpful ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink hover:border-ink')}
-                              >
-                                {a.votedHelpful ? '✓ Helpful' : 'Helpful'} · {num(a.helpful)}
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  aria-pressed={a.votedHelpful}
+                                  disabled={pending}
+                                  onClick={() => onHelpful(a)}
+                                  className={cn('min-h-9 rounded-pill border px-2.5 text-[12px] tabular-nums transition-colors sm:min-h-7', a.votedHelpful ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink hover:border-ink')}
+                                >
+                                  {a.votedHelpful ? '✓ Helpful' : 'Helpful'} · {num(a.helpful)}
+                                </button>
+                                {a.reported ? (
+                                  <span>Reported</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() => onReport(a)}
+                                    aria-label={`Report ${a.author}’s answer`}
+                                    className="min-h-9 px-1 text-[12px] underline underline-offset-2 hover:text-ink sm:min-h-0"
+                                  >
+                                    Report
+                                  </button>
+                                )}
+                              </>
                             ) : a.helpful ? (
                               <span className="tabular-nums">· {num(a.helpful)} found this helpful</span>
                             ) : null}
