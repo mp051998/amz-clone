@@ -9,7 +9,9 @@ import { savedUpdates, type SavedUpdates } from '@/lib/data/collections';
 import { buyAgain } from '@/lib/data/buy-again';
 import { inspiredBy } from '@/lib/data/also-viewed';
 import { buyableAgain } from '@/lib/buy-again';
-import { exampleQueries, getDecisionHome, greetingFor } from '@/lib/home-content';
+import { bestSellerDepts, exampleQueries, getDecisionHome, greetingFor } from '@/lib/home-content';
+import { listProducts } from '@/lib/data/catalog';
+import type { Product } from '@/lib/types';
 import { readRecentIds, readRecsSkipped } from '@/lib/recent';
 import { firstName, readUser } from '@/lib/auth';
 import { storeCategories } from '@/lib/storefront';
@@ -23,6 +25,9 @@ import { storePath } from '@/lib/marketplace';
 const BUY_AGAIN_SCAN = 12;
 /** Products in "Inspired by your browsing history", after leaving out the picks shown below it. */
 const INSPIRED_MAX = 8;
+/** "Best Sellers in …" rows at the foot of the home page, and products in each. */
+const BEST_SELLER_ROWS = 2;
+const BEST_SELLER_MAX = 8;
 
 export async function generateMetadata(): Promise<Metadata> {
   const store = await getMarketplace();
@@ -34,11 +39,23 @@ export default async function Home() {
   const [client, user, recentIds, skipped, categories] = await Promise.all([db(), readUser(), readRecentIds(), readRecsSkipped(), storeCategories()]);
   const now = new Date();
   const none: SavedUpdates = { back: [], drops: [] };
-  const [home, { back, drops }, again, related] = await Promise.all([
-    getDecisionHome(client, store, recentIds, now),
+  const decision = getDecisionHome(client, store, recentIds, now);
+  // the departments looked at most recently come first
+  const sellers = decision.then((h) =>
+    Promise.all(
+      bestSellerDepts(h.recent, categories, BEST_SELLER_ROWS).map((dept) =>
+        listProducts(client, store.id, { category: dept.slug, order: 'popular', limit: BEST_SELLER_MAX })
+          .catch((): Product[] => [])
+          .then((items) => ({ dept, items })),
+      ),
+    ),
+  );
+  const [home, { back, drops }, again, related, bestSellers] = await Promise.all([
+    decision,
     user ? savedUpdates(client, store.id, 4).catch(() => none) : Promise.resolve(none),
     user ? buyAgain(client, store.id, BUY_AGAIN_SCAN).then((items) => buyableAgain(items, 4)).catch(() => []) : Promise.resolve([]),
     inspiredBy(client, store.id, recentIds, INSPIRED_MAX * 2, skipped).catch(() => []),
+    sellers,
   ]);
   const picked = new Set(home.picks.map((x) => x.product.id));
   const inspired = related.filter((p) => !picked.has(p.id)).slice(0, INSPIRED_MAX);
@@ -121,6 +138,14 @@ export default async function Home() {
             <DealGrid deals={home.deals} store={store} />
           </HomeSection>
         ) : null}
+
+        {bestSellers.map(({ dept, items }) =>
+          items.length ? (
+            <HomeSection key={dept.slug} id={`home-best-${dept.slug}`} title={`Best Sellers in ${dept.name}`} link={{ href: storePath(store, `/bestsellers?c=${encodeURIComponent(dept.slug)}`), label: 'See more' }}>
+              <ContinueRow products={items} store={store} kicker={(p) => `#${items.indexOf(p) + 1} in ${dept.name}`} />
+            </HomeSection>
+          ) : null,
+        )}
       </div>
     </AppShell>
   );

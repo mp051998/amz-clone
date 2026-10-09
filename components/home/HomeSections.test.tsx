@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { amazon } from '../../lib/amazon';
 import { amazonIn } from '../../lib/marketplace-in';
-import { endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
+import { bestSellerDepts, endsLabel, exampleQueries, greetingFor } from '../../lib/home-content';
 import type { Product } from '../../lib/types';
 import { BuyAgainGrid, ContinueRow, DealGrid, PickGrid, SavedBackGrid, SavedDropGrid } from './HomeSections';
 
@@ -119,4 +119,13 @@ it('buy again cards link to the product at today’s price, say how often it was
   expect(screen.getByText('Bought 3 times')).toBeInTheDocument();
   const form = screen.getByRole('button', { name: 'Add to cart: Wireless headphones with active noise cancellation' }).closest('form')!;
   expect(within(form).getByDisplayValue('in-y')).toHaveAttribute('name', 'id');
+});
+
+it('picks the home page’s best-seller departments: recently viewed ones first, then the store’s order', () => {
+  const cats = [{ slug: 'headphones', name: 'Headphones' }, { slug: 'kitchen', name: 'Kitchen' }, { slug: 'laptops', name: 'Laptops' }];
+  expect(bestSellerDepts([], cats, 2).map((c) => c.slug)).toEqual(['headphones', 'kitchen']);
+  expect(bestSellerDepts([{ category: 'laptops' }, { category: 'laptops' }, { category: 'kitchen' }], cats, 2).map((c) => c.slug)).toEqual(['laptops', 'kitchen']);
+  // a department the store no longer lists is skipped
+  expect(bestSellerDepts([{ category: 'gone' }], cats, 1)).toEqual([{ slug: 'headphones', name: 'Headphones' }]);
+  expect(bestSellerDepts([], [], 2)).toEqual([]);
 });
