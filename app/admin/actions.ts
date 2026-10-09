@@ -32,7 +32,7 @@ export interface ProductFormState {
   values?: Record<string, string>;
 }
 
-const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'qtyPct', 'qtyMin', 'member', 'release', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const FIELDS = ['title', 'brand', 'category', 'image', 'price', 'listPrice', 'coupon', 'limit', 'sizes', 'unit', 'qtyPct', 'qtyMin', 'member', 'release', 'badge', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 /** Field errors the data layer can raise after validation. */
 const LATE_FIELDS = new Set(['image', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel']);
 
@@ -98,7 +98,6 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fo
     memberPct,
     releaseAt,
     badge: values.badge,
-    boughtPastMonth: values.boughtPastMonth,
     seller: values.seller,
     shipsFrom: values.shipsFrom,
     bullets: values.bullets.split('\n').map((l) => l.trim()).filter(Boolean),

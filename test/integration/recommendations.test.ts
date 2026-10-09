@@ -23,7 +23,6 @@ const input = (name: string): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Recs Store',
   shipsFrom: 'Store',
   bullets: [],

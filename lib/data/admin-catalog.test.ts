@@ -17,7 +17,6 @@ const good: ProductInput = {
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Acme Store',
   shipsFrom: 'Store',
   bullets: ['40h battery'],

@@ -25,7 +25,6 @@ const input = (n: number, priceMinor: number): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Hawkins Store',
   shipsFrom: 'Amazon',
   bullets: ['5 litres'],

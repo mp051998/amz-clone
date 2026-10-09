@@ -27,7 +27,7 @@ const base: Product = {
   curBase: 'USD',
 };
 
-function show(over: Partial<Product> = {}, props: { bestSeller?: boolean } = {}) {
+function show(over: Partial<Product> = {}, props: { bestSeller?: boolean; bought?: string } = {}) {
   render(<ResultCard ranked={{ product: { ...base, ...over }, insight: null, match: 90, why: [], warn: null }} store={amazon} saved={false} {...props} />);
   return screen.getByRole('article');
 }
@@ -35,7 +35,7 @@ function show(over: Partial<Product> = {}, props: { bestSeller?: boolean } = {})
 afterEach(cleanup);
 
 it('shows the badge, past-month sales and the deal label like an Amazon result', () => {
-  const card = show({ badge: 'Best Seller', boughtPastMonth: '10K+ bought in past month', deal: true });
+  const card = show({ badge: 'Best Seller', deal: true }, { bought: '10K+ bought in past month' });
   expect(card).toHaveTextContent('Best Seller');
   expect(card).toHaveTextContent('10K+ bought in past month');
   expect(card).toHaveTextContent('Limited-time deal');

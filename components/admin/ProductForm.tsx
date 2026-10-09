@@ -38,7 +38,6 @@ export interface ProductFormValues {
   /** release date ("2026-11-20", the store's day), blank once it's out. */
   release: string;
   badge: string;
-  boughtPastMonth: string;
   seller: string;
   shipsFrom: string;
   bullets: string;
@@ -154,7 +153,6 @@ export function ProductForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <Input label="Badge" name="badge" list={badgeList} maxLength={40} defaultValue={val('badge')} error={e.badge} hint="Optional, e.g. Best Seller" />
               <datalist id={badgeList}>{badges.map((b) => <option key={b} value={b} />)}</datalist>
-              <Input label="Bought in past month" name="boughtPastMonth" maxLength={40} defaultValue={val('boughtPastMonth')} error={e.boughtPastMonth} hint="Optional, e.g. 1K+" />
             </div>
           </Group>
 

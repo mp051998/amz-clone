@@ -189,7 +189,7 @@ Postgres as that user, so RLS decides what each caller can see.
 - Price: `priceMinor, listMinor?, dealPct?, deal?, curBase`
 - Ratings: `rating, reviewCount`
 - Fulfilment: `seller, shipsFrom, stock, maxPerCustomer?`. `maxPerCustomer` is the product's "Limit N per customer", when it has one (see *Purchase limits* under Orders)
-- Content: `bullets[], badge?, boughtPastMonth?`
+- Content: `bullets[], badge?`
 - Variant: `variant?: {group, axis, label}` when the product is one option of a variant group (`/products/:id` lists the others)
 - Unit price: `unit?: {qty, kind}` says how much a product sold by measure holds (`{qty: 3, kind: "fl_oz"}`, `{qty: 150, kind: "ml"}`, `{qty: 30, kind: "count"}`); `kind` is one of `count`, `oz`, `fl_oz`, `lb`, `g`, `kg`, `ml`, `l` and `qty` has up to 2 decimals. The storefront shows the price per unit beside the price, as Amazon does: per one count, ounce, fluid ounce, pound, kilogram or litre, or per 100 g / 100 ml (`$58.99 ($19.66 / Fl Oz)`, `₹178 (₹118.67 / 100 ml)`)
 - Quantity discount: `qtyDiscount?: {percentOff, minQty}` is "Save 5% when you buy 2 or more": `percentOff` (1–50) comes off each unit of a cart line or order item of at least `minQty` (2–99) of the product. It's worked out after the coupon, rounded down to the minor unit, and goes into the line's `discountMinor` (see the cart's `qtyDiscountMinor`); a promotion code comes off what's left after it
@@ -533,7 +533,7 @@ Catalog and order management for store admins. You must be signed in **and** lis
 | DELETE | `/admin/products/:id` | | `204`. It also comes out of carts, collections and reviews. `409 product_has_orders` once anyone has ordered it: archive it instead. |
 | POST | `/admin/products/:id/recall` | `{hazard, remedy}` | `201 {recall, updated: false}`: recalls the product, 10–500 characters each (`422 invalid_input`, `detail` `hazard` or `remedy`). It goes off sale for good (`archivedAt` is set; putting it back is `409 product_recalled`), its page shows the recall, `GET /recalls` lists it, and shoppers who bought it see it in `/me/recalls`, their messages and on the order. Recalling it again rewrites the text: `200 {recall, updated: true}`, keeping `issuedAt`. Another store's product is `404 product_not_found`. |
 
-`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, couponPct?, maxPerCustomer?, sizes?, climate?, unit?, qtyDiscount?, memberPct?, releaseAt?, badge?, boughtPastMonth?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
+`ProductInput` is `{title, brand?, category, image, priceMinor, listMinor?, deal, couponPct?, maxPerCustomer?, sizes?, climate?, unit?, qtyDiscount?, memberPct?, releaseAt?, badge?, seller, shipsFrom, bullets: string[], description?, details?: [label, value][], stock, gallery?: string[], variantGroup?, variantAxis?, variantLabel?}`:
 - `category` must be a slug this store carries (`422 invalid_category`).
 - `image` is a site path (`/products/…`) or an `https://` URL. The admin pages upload files to the public `product-images` Storage bucket (JPEG, PNG or WebP, up to 3 MB) and store that URL.
 - `listMinor` is the "was" price and must be above `priceMinor`. The discount % is worked out from it. `deal: true` (Today's Deals) needs a list price.

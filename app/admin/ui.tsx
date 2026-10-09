@@ -133,7 +133,6 @@ export function productFormValues(p: AdminProduct, timeZone: string): ProductFor
     member: p.memberPct == null ? '' : String(p.memberPct),
     release: p.releaseAt ? localDayOf(p.releaseAt, timeZone) : '',
     badge: p.badge ?? '',
-    boughtPastMonth: p.boughtPastMonth ?? '',
     seller: p.seller,
     shipsFrom: p.shipsFrom,
     bullets: p.bullets.join('\n'),

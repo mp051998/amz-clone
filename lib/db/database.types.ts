@@ -1425,6 +1425,9 @@ isOneToOne: false
 "most_wished_for":
 { Args: { "p_category"?: string,"p_limit"?: number,"p_market": string }; Returns: (string)[]
                            },
+"bought_past_month":
+{ Args: { "p_ids": string[] }; Returns: Json
+                           },
 "movers_and_shakers":
 { Args: { "p_category"?: string,"p_limit"?: number,"p_market": string }; Returns: Json
                            },

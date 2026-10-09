@@ -69,7 +69,6 @@ export interface ProductInput {
   /** when it comes out (ISO; the store's midnight that day): sold as a pre-order until then, or null once out. */
   releaseAt: string | null;
   badge: string | null;
-  boughtPastMonth: string | null;
   seller: string;
   shipsFrom: string;
   bullets: string[];
@@ -179,7 +178,6 @@ const ProductInputSchema = z
       .optional(),
     releaseAt: z.iso.datetime({ offset: true, error: 'Enter the release date' }).nullable().default(null),
     badge: optional(40),
-    boughtPastMonth: optional(40),
     seller: required('the seller', 120),
     shipsFrom: required('where it ships from', 120),
     bullets: z.array(z.string().trim().min(1).max(300, 'Keep each point under 300 characters')).max(10, 'Up to 10 points'),
@@ -284,7 +282,6 @@ function toRow(p: ProductInput) {
     ...(p.memberPct !== undefined ? { member_pct: p.memberPct } : {}),
     release_at: p.releaseAt,
     badge: p.badge,
-    bought_past_month: p.boughtPastMonth,
     seller: p.seller,
     ships_from: p.shipsFrom,
     bullets: p.bullets,
@@ -460,7 +457,6 @@ export async function getAdminProduct(db: Db, id: string): Promise<AdminProduct 
     // absent before the pre-orders migration
     releaseAt: r.release_at ?? null,
     badge: r.badge,
-    boughtPastMonth: r.bought_past_month,
     seller: r.seller,
     shipsFrom: r.ships_from,
     bullets: r.bullets,

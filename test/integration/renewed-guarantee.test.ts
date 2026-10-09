@@ -48,7 +48,6 @@ const input = (category: string, priceMinor: number): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Phone Maker',
   shipsFrom: 'Store',
   bullets: [],

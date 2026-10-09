@@ -4,7 +4,7 @@ import { deleteProduct, getAdminProduct, setArchived, updateProduct } from '@/li
 import { DataError } from '@/lib/data/errors';
 import { refundPriceGuarantees } from '@/lib/data/refunds';
 
-const EDITABLE = ['title', 'brand', 'category', 'image', 'priceMinor', 'listMinor', 'deal', 'couponPct', 'maxPerCustomer', 'sizes', 'climate', 'unit', 'qtyDiscount', 'memberPct', 'releaseAt', 'badge', 'boughtPastMonth', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
+const EDITABLE = ['title', 'brand', 'category', 'image', 'priceMinor', 'listMinor', 'deal', 'couponPct', 'maxPerCustomer', 'sizes', 'climate', 'unit', 'qtyDiscount', 'memberPct', 'releaseAt', 'badge', 'seller', 'shipsFrom', 'bullets', 'description', 'details', 'stock', 'gallery', 'variantGroup', 'variantAxis', 'variantLabel'] as const;
 
 async function load(ctx: ApiContext, id: string) {
   const product = await getAdminProduct(ctx.db, id);

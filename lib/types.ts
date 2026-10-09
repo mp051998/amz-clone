@@ -28,7 +28,6 @@ export interface Product {
   bullets: string[];
   badge?: string;
   deal?: boolean;
-  boughtPastMonth?: string;
   /** units available to order right now. */
   stock: number;
   /** currency the price fields are in — always the product's market currency. */

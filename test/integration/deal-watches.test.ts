@@ -21,7 +21,6 @@ const input = (n: number): ProductInput => ({
   qtyDiscount: null,
   releaseAt: null,
   badge: null,
-  boughtPastMonth: null,
   seller: 'Lumen Store',
   shipsFrom: 'Amazon',
   bullets: ['Dimmable'],
