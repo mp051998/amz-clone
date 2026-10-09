@@ -8,6 +8,7 @@ const base: PerkInput = {
   returnDays: 10,
   replacementOnly: false,
   shipsFrom: 'Seller',
+  policyHref: '/in/customer-service/help/returns-refunds',
   money: (minor) => `₹${(minor / 100).toLocaleString('en-IN')}`,
 };
 const labels = (x: Partial<PerkInput>) => productPerks({ ...base, ...x }).map((p) => p.label);
@@ -33,6 +34,25 @@ describe('productPerks', () => {
   it('says replacement only, or not returnable', () => {
     expect(labels({ returnDays: 7, replacementOnly: true })).toContain('7 days Replacement');
     expect(labels({ returnDays: 0 })).toContain('Non-Returnable');
+  });
+
+  it('tables what each return reason gets, as the return form allows', () => {
+    const returns = (x: Partial<PerkInput>) => productPerks({ ...base, ...x }).find((p) => p.key === 'returns')!;
+    const r = returns({});
+    expect(r.rules).toEqual([
+      { reason: 'Damaged, defective, wrong, not as described or missing parts', period: '10 days from delivery', policy: 'Full refund or replacement' },
+      { reason: 'Any other reason', period: '10 days from delivery', policy: 'Full refund' },
+    ]);
+    expect(r.instructions).toMatch(/original condition and packaging/);
+    expect(r.more).toEqual({ label: 'Read full returns policy', href: '/in/customer-service/help/returns-refunds' });
+    // something in sizes goes back for another size when it doesn't fit
+    expect(returns({ sized: true }).rules?.map((x) => x.policy)).toEqual(['Full refund or replacement', 'Full refund or another size', 'Full refund']);
+    // replacement only: faults, replaced
+    expect(returns({ returnDays: 7, replacementOnly: true }).rules).toEqual([
+      { reason: 'Damaged, defective, wrong, not as described or missing parts', period: '7 days from delivery', policy: 'Replacement, or a refund when it can’t be replaced' },
+    ]);
+    // not returnable: no table, no instructions
+    expect(returns({ returnDays: 0 })).toEqual({ key: 'returns', label: 'Non-Returnable', detail: 'This item can’t be returned once it’s delivered.' });
   });
 
   it('adds Amazon Delivered before secure transaction when Amazon ships it', () => {

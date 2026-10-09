@@ -305,6 +305,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         cod: store.payments.some((m) => m.method === 'cod'),
         returnDays: returnPolicy.days,
         replacementOnly: returnPolicy.replacementOnly,
+        sized: Boolean(p.sizes?.length),
+        policyHref: storePath(store, '/customer-service/help/returns-refunds'),
         shipsFrom: p.shipsFrom,
         money: (minor) => formatMoney(minor, cur),
       });
