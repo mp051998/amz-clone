@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell';
 import { EmptyState, ProductFrame, SegmentedControl } from '@/components/decision';
 import { Pagination } from '@/components/commerce/Pagination';
 import { buttonClasses } from '@/components/primitives/Button';
+import { BuyAgainButton } from '@/components/orders/BuyAgainButton';
 import { OrdersTabs } from '@/components/orders/OrdersTabs';
 import { StatusChip } from '@/components/orders/Tracking';
 import { longDate, orderView } from '@/components/orders/format';
@@ -11,7 +12,7 @@ import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { listOrders } from '@/lib/data/orders';
 import { filterOrders, orderSummary, periodOptions, periodPhrase, readOrderFilter, type OrderFilter } from '@/lib/order-filters';
-import { returnSummaries } from '@/lib/data/returns';
+import { canStartReturn, getOrderReturns, returnSummaries, type OrderReturns } from '@/lib/data/returns';
 import { RETURN_SUMMARY_CHIP } from '@/components/orders/Returns';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { orderStage } from '@/lib/decision/tracking';
@@ -20,7 +21,8 @@ import { formatMoney } from '@/lib/marketplaces';
 
 export const metadata: Metadata = { title: 'Orders · Store' };
 
-const THUMBS = 4;
+/** Items listed on an order's card; the rest are on the order's page. */
+const ITEMS = 3;
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -35,7 +37,18 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const view = filterOrders(orders, filter, now, store.dates.timeZone);
   // a search covers every order, so it sits under the Orders tab
   const tab = filter.q || filter.view === 'all' ? 'orders' : filter.view;
-  const returns = await returnSummaries(client, view.items.filter((o) => o.deliveredAt).map((o) => o.id));
+  const delivered = view.items.filter((o) => o.status === 'placed' && orderView(o, store, now).delivered);
+  const [returns, returnable] = await Promise.all([
+    returnSummaries(client, view.items.filter((o) => o.deliveredAt).map((o) => o.id)),
+    // "Return or replace items" on the orders still in their return window (the order's page has the rest)
+    Promise.all(
+      delivered.map((o) =>
+        getOrderReturns(client, o.id)
+          .then((r): [string, OrderReturns] | null => (r && canStartReturn(r, now) ? [o.id, r] : null))
+          .catch(() => null),
+      ),
+    ).then((rows) => new Map(rows.filter((r) => r != null))),
+  ]);
   /** this view with some of its params changed (the defaults left out of the link) */
   const hrefWith = (next: Partial<OrderFilter>) => {
     const f = { ...filter, page: 1, ...next };
@@ -129,7 +142,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {view.items.map((o) => {
               const v = orderView(o, store, now);
-              const extra = o.items.length - THUMBS;
+              const extra = o.items.length - ITEMS;
+              const unpaid = o.status === 'awaiting_payment';
+              const ret = returnable.get(o.id);
               return (
                 <li key={o.id} className="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-[18px]">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -140,48 +155,81 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     </span>
                     <span className="font-mono text-[12px] text-ink-3">{o.id}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3.5">
-                    <div className="flex flex-none gap-2">
-                      {o.items.slice(0, THUMBS).map((it) => (
-                        <span key={it.productId} className="w-14" title={it.title}>
-                          <ProductFrame src={it.image} alt={it.title} aspect="1/1" />
-                        </span>
-                      ))}
+                  <span className="text-[13px] text-ink-2">
+                    Placed {longDate(new Date(o.placedAt ?? o.createdAt), store)} · {v.itemCount} {v.itemCount === 1 ? 'item' : 'items'} · to {o.shipTo.name}
+                  </span>
+                  {o.deliveryOtp && orderStage(o, now, store.dates.timeZone) === 'out_for_delivery' ? (
+                    <span className="text-[13px] text-ink">
+                      Delivery OTP <strong className="font-mono font-semibold tracking-[0.15em]">{o.deliveryOtp}</strong>
+                      <span className="text-ink-2"> · share it with the delivery associate</span>
+                    </span>
+                  ) : null}
+                  <div className="flex flex-wrap items-start gap-4">
+                    <ul className="m-0 flex min-w-0 flex-[1_1_360px] list-none flex-col gap-3 p-0" aria-label={`Items in order ${o.id}`}>
+                      {o.items.slice(0, ITEMS).map((it) => {
+                        // bought from another seller: buy and view the product (from whoever sells it on its page)
+                        const pid = it.offerOf ?? it.productId;
+                        const href = sp(`/product/${encodeURIComponent(pid)}`);
+                        return (
+                          <li key={`${it.productId}:${it.size ?? ''}`} className="flex gap-3">
+                            <a href={href} tabIndex={-1} aria-hidden className="w-16 flex-none">
+                              <ProductFrame src={it.image} alt="" aspect="1/1" />
+                            </a>
+                            <div className="flex min-w-0 flex-col gap-1">
+                              <a href={href} className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink no-underline hover:underline">
+                                {it.title}
+                              </a>
+                              {it.qty > 1 || it.size ? (
+                                <span className="text-[13px] text-ink-2">{[it.qty > 1 ? `Qty ${it.qty}` : null, it.size ? `Size ${it.size}` : null].filter(Boolean).join(' · ')}</span>
+                              ) : null}
+                              {unpaid ? null : (
+                                <span className="flex flex-wrap items-center gap-3">
+                                  <BuyAgainButton productId={pid} title={it.title} size={it.size} />
+                                  <a href={href} className="text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink" aria-label={`View your item: ${it.title}`}>
+                                    View your item
+                                  </a>
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
                       {extra > 0 ? (
-                        <span className="flex h-14 w-14 items-center justify-center rounded-image bg-surface-2 font-mono text-[12px] text-ink-3">+{extra}</span>
+                        <li>
+                          <a href={sp(`/orders/${encodeURIComponent(o.id)}?placed=0`)} className="text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink">
+                            and {extra} more {extra === 1 ? 'item' : 'items'} in this order
+                          </a>
+                        </li>
                       ) : null}
-                    </div>
-                    <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
-                      <span className="line-clamp-1 text-[15px] font-semibold">
-                        {o.items[0]?.title}
-                        {o.items.length > 1 ? <span className="font-normal text-ink-3"> and {o.items.length - 1} more</span> : null}
+                    </ul>
+                    <div className="flex w-full flex-col gap-2 sm:w-[230px] sm:flex-none">
+                      <span className="flex items-center justify-between gap-3">
+                        <strong className="text-[17px] tabular-nums">{formatMoney(o.totals.totalMinor, o.currency)}</strong>
+                        {unpaid ? null : (
+                          <a href={sp(`/orders/${encodeURIComponent(o.id)}/invoice`)} className="text-[14px] text-ink underline underline-offset-2" aria-label={`Invoice for order ${o.id}`}>
+                            Invoice
+                          </a>
+                        )}
                       </span>
-                      <span className="text-[13px] text-ink-2">
-                        Placed {longDate(new Date(o.placedAt ?? o.createdAt), store)} · {v.itemCount} {v.itemCount === 1 ? 'item' : 'items'} · to {o.shipTo.name}
-                      </span>
-                      {o.deliveryOtp && orderStage(o, now, store.dates.timeZone) === 'out_for_delivery' ? (
-                        <span className="text-[13px] text-ink">
-                          Delivery OTP <strong className="font-mono font-semibold tracking-[0.15em]">{o.deliveryOtp}</strong>
-                          <span className="text-ink-2"> · share it with the delivery associate</span>
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-none items-center gap-3">
-                      <strong className="text-[17px] tabular-nums">{formatMoney(o.totals.totalMinor, o.currency)}</strong>
-                      {o.status === 'awaiting_payment' ? null : (
-                        <a href={sp(`/orders/${encodeURIComponent(o.id)}/invoice`)} className="text-[14px] text-ink underline underline-offset-2" aria-label={`Invoice for order ${o.id}`}>
-                          Invoice
-                        </a>
-                      )}
-                      {o.status === 'awaiting_payment' ? (
-                        <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'primary' })} aria-label={`Complete payment for order ${o.id}`}>
+                      {unpaid ? (
+                        <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'primary', block: true })} aria-label={`Complete payment for order ${o.id}`}>
                           Complete payment →
                         </a>
                       ) : (
-                        <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'secondary' })} aria-label={`Track order ${o.id}`}>
-                          Track →
+                        <a href={sp(`/orders/${o.id}?placed=0`)} className={buttonClasses({ variant: 'secondary', block: true })} aria-label={`Track order ${o.id}`}>
+                          Track package
                         </a>
                       )}
+                      {ret ? (
+                        <a href={sp(`/orders/${encodeURIComponent(o.id)}/return`)} className={buttonClasses({ variant: 'secondary', block: true })}>
+                          {Object.values(ret.replaceable).some((n) => n > 0) ? 'Return or replace items' : 'Return items'}
+                        </a>
+                      ) : null}
+                      {delivered.includes(o) ? (
+                        <a href={sp('/account/reviews')} className={buttonClasses({ variant: 'secondary', block: true })}>
+                          Write a product review
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 </li>
