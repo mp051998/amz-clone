@@ -83,6 +83,7 @@ import { emiPlans } from '@/lib/emi';
 import { EmiOffer } from '@/components/product/EmiOffer';
 import { BankOffers } from '@/components/product/BankOffers';
 import { ProductPerks } from '@/components/product/ProductPerks';
+import { FreeReturns } from '@/components/product/FreeReturns';
 import { ClimateBadge, ClimateFeatures } from '@/components/product/ClimatePledge';
 import { SmallBusinessBadge, SmallBusinessPanel } from '@/components/product/SmallBusiness';
 import { getSmallBusiness } from '@/lib/data/small-businesses';
@@ -505,6 +506,10 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                 </div>
               )}
               <ProductPerks perks={perks} />
+              {/* amazon.com's "FREE Returns" (amazon.in has its perks icons) */}
+              {store.id !== 'IN' && !p.archived && returnPolicy.days > 0 && !returnPolicy.replacementOnly ? (
+                <FreeReturns days={returnPolicy.days} until={returnsUntil ? releaseDate(returnsUntil, store) : null} />
+              ) : null}
 
               {info.variants ? (
                 <VariantPicker
