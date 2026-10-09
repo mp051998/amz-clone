@@ -11,6 +11,7 @@ import { QuizButton } from '@/components/quiz/QuizDialog';
 import { decodeProfile, PROFILE_COOKIE } from '@/components/quiz/profileCookie';
 import { ContinueRow } from '@/components/home/HomeSections';
 import { ResultCard } from '@/components/results/ResultCard';
+import { SearchHelp } from '@/components/results/SearchHelp';
 import { savedIdsFor } from '@/components/results/viewerSaved';
 import { MoreFilters } from '@/components/search/MoreFilters';
 import { PrioritiesPanel } from '@/components/search/PrioritiesPanel';
@@ -428,6 +429,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 </ul>
               </section>
             ) : null}
+            <SearchHelp store={store} results={items.length > 0} />
           </section>
         </div>
       </div>
