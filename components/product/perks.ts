@@ -3,6 +3,9 @@ import { COD_MAX_MINOR } from '@/lib/cod';
 /** The "Ships from" of items the store's own network packs and delivers, whoever sells them. */
 export const STORE_FULFILLER = 'Amazon';
 
+/** A row of amazon.in's returns table: what a return for this reason gets, within what window. */
+export interface ReturnRule { reason: string; period: string; policy: string }
+
 /** One of amazon.in's icons under the price, with what it means for this item. */
 export interface Perk {
   key: 'delivery' | 'cod' | 'returns' | 'fulfilled' | 'secure';
@@ -10,6 +13,12 @@ export interface Perk {
   label: string;
   /** what a tap on it explains */
   detail: string;
+  /** the returns perk's table, by reason */
+  rules?: ReturnRule[];
+  /** the returns perk's "Return instructions" */
+  instructions?: string;
+  /** a link to read more */
+  more?: { label: string; href: string };
 }
 
 export interface PerkInput {
@@ -24,6 +33,10 @@ export interface PerkInput {
   returnDays: number;
   /** comes back only as a replacement (amazon.in's "7 days Replacement") */
   replacementOnly: boolean;
+  /** comes in sizes, so one that doesn't fit can go back for another size */
+  sized?: boolean;
+  /** the store's returns policy page */
+  policyHref: string;
   /** who ships it (the product's "Ships from") */
   shipsFrom: string;
   money: (minor: number) => string;
@@ -52,17 +65,7 @@ export function productPerks(x: PerkInput): Perk[] {
       detail: `Pay by cash, UPI or card when it arrives, on orders of up to ${x.money(COD_MAX_MINOR)}.`,
     });
   }
-  perks.push(
-    x.returnDays === 0
-      ? { key: 'returns', label: 'Non-Returnable', detail: 'This item can’t be returned once it’s delivered.' }
-      : x.replacementOnly
-        ? {
-            key: 'returns',
-            label: `${x.returnDays} days Replacement`,
-            detail: `If it arrives damaged or defective, doesn’t work, isn’t what you ordered or isn’t as described, it’s replaced within ${x.returnDays} days of delivery (refunded only when it can’t be).`,
-          }
-        : { key: 'returns', label: `${x.returnDays} days Returnable`, detail: `Return it within ${x.returnDays} days of delivery for a full refund.` },
-  );
+  perks.push(x.returnDays === 0 ? { key: 'returns', label: 'Non-Returnable', detail: 'This item can’t be returned once it’s delivered.' } : returnsPerk(x));
   if (x.shipsFrom === STORE_FULFILLER) {
     perks.push({
       key: 'fulfilled',
@@ -72,4 +75,38 @@ export function productPerks(x: PerkInput): Perk[] {
   }
   perks.push({ key: 'secure', label: 'Secure transaction', detail: 'Your payment is encrypted, and your card details aren’t shared with sellers.' });
   return perks;
+}
+
+/** The reasons the store got it wrong (a replacement is offered for these). */
+const FAULT = 'Damaged, defective, wrong, not as described or missing parts';
+
+/**
+ * amazon.in's returnable / replacement perk: its window, then a table of what each kind of reason
+ * gets (the same rules the return form applies), how to hand it back and the full policy.
+ */
+function returnsPerk(x: PerkInput): Perk {
+  const period = `${x.returnDays} days from delivery`;
+  const common = {
+    key: 'returns' as const,
+    instructions: 'Keep the item in its original condition and packaging, with its tags and accessories, for a smooth pick-up or drop-off.',
+    more: { label: 'Read full returns policy', href: x.policyHref },
+  };
+  if (x.replacementOnly) {
+    return {
+      ...common,
+      label: `${x.returnDays} days Replacement`,
+      detail: `If it arrives damaged or defective, doesn’t work, isn’t what you ordered or isn’t as described, it’s replaced within ${x.returnDays} days of delivery (refunded only when it can’t be).`,
+      rules: [{ reason: FAULT, period, policy: 'Replacement, or a refund when it can’t be replaced' }],
+    };
+  }
+  return {
+    ...common,
+    label: `${x.returnDays} days Returnable`,
+    detail: `Return it within ${x.returnDays} days of delivery for a full refund.`,
+    rules: [
+      { reason: FAULT, period, policy: 'Full refund or replacement' },
+      ...(x.sized ? [{ reason: 'Too small or too large', period, policy: 'Full refund or another size' }] : []),
+      { reason: 'Any other reason', period, policy: 'Full refund' },
+    ],
+  };
 }

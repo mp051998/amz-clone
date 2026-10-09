@@ -33,7 +33,7 @@ export function ProductPerks({ perks }: { perks: readonly Perk[] }) {
                 popover="auto"
                 role="dialog"
                 aria-label={perk.label}
-                className="m-auto w-[min(360px,calc(100vw-32px))] rounded-card border border-line bg-surface p-4 text-ink shadow-lg backdrop:bg-scrim"
+                className={`m-auto ${perk.rules ? 'w-[min(460px,calc(100vw-32px))]' : 'w-[min(360px,calc(100vw-32px))]'} rounded-card border border-line bg-surface p-4 text-ink shadow-lg backdrop:bg-scrim`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="m-0 text-[15px] font-semibold">{perk.label}</p>
@@ -42,6 +42,35 @@ export function ProductPerks({ perks }: { perks: readonly Perk[] }) {
                   </button>
                 </div>
                 <p className="m-0 mt-1.5 text-[14px] text-ink-2">{perk.detail}</p>
+                {perk.rules ? (
+                  <table className="mt-3 w-full border-collapse text-left text-[13px]">
+                    <thead>
+                      <tr className="text-ink-2">
+                        <th scope="col" className="border-b border-line py-1.5 pr-2 font-semibold">Return reason</th>
+                        <th scope="col" className="border-b border-line px-2 py-1.5 font-semibold">Return period</th>
+                        <th scope="col" className="border-b border-line py-1.5 pl-2 font-semibold">Return policy</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {perk.rules.map((r) => (
+                        <tr key={r.reason} className="align-top">
+                          <th scope="row" className="border-b border-line-2 py-1.5 pr-2 font-normal">{r.reason}</th>
+                          <td className="border-b border-line-2 px-2 py-1.5">{r.period}</td>
+                          <td className="border-b border-line-2 py-1.5 pl-2">{r.policy}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
+                {perk.instructions ? (
+                  <>
+                    <p className="m-0 mt-3 text-[14px] font-semibold">Return instructions</p>
+                    <p className="m-0 mt-1 text-[14px] text-ink-2">{perk.instructions}</p>
+                  </>
+                ) : null}
+                {perk.more ? (
+                  <a href={perk.more.href} className="mt-2 inline-block text-[14px] text-ink underline underline-offset-2">{perk.more.label}</a>
+                ) : null}
               </div>
             </li>
           );
