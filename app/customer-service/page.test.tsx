@@ -81,6 +81,7 @@ it('keeps the links in the store', async () => {
   expect(within(recent()!).getByRole('link', { name: /Steel Bottle/ })).toHaveAttribute('href', '/in/customer-service/contact?order=ORD-9');
   expect(screen.getByRole('link', { name: /Payments & gift cards/ })).toHaveAttribute('href', '/in/account/payments');
   expect(screen.getByRole('link', { name: /Login & security/ })).toHaveAttribute('href', '/in/account/security');
+  expect(screen.getByRole('link', { name: /Returns & refunds/ })).toHaveAttribute('href', '/in/returns');
 });
 
 it('has no recent orders when signed out or with none placed', async () => {

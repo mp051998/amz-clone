@@ -25,7 +25,8 @@ function quickActions(isIN: boolean) {
     {
       title: 'Returns & refunds',
       line: isIN ? 'Return or replace items, schedule a pickup, and track refunds.' : 'Return or replace items and track your refund.',
-      href: '/orders',
+      // the returns centre: where each return stands, and the way to start one from an order
+      href: '/returns',
     },
     {
       title: 'Payments & gift cards',
