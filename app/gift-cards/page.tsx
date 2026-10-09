@@ -35,8 +35,8 @@ const RELOADS: Record<'US' | 'IN', number[]> = {
 };
 
 const FORMATS = [
-  { title: 'eGift card', desc: 'Delivered by email in minutes — good for last-minute gifting.' },
-  { title: 'Print at home', desc: 'Personalise it, print it, and hand it over yourself.' },
+  { title: 'eGift card', desc: 'Copy the code and send it yourself, by message, chat or email — good for last-minute gifting.' },
+  { title: 'Print at home', desc: 'Print a card with the code, their name and your message, and hand it over yourself.' },
   { title: 'Gift box', desc: 'A physical card in a keepsake box, shipped to their door.' },
   { title: 'Corporate gifting', desc: 'Reward employees and clients at scale with bulk cards.' },
 ];
@@ -99,6 +99,8 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
   const limits = GIFT_CARD_LIMITS[store.id];
   const whole = (minor: number) => wholeMoney(minor, store.currency.code);
   const giftCards = purchases.filter((p) => !p.reload);
+  // Print at home: the purchase's cards, or one of them
+  const printHref = (id: string, code?: string) => sp(`/gift-cards/${encodeURIComponent(id)}/print${code ? `?code=${encodeURIComponent(code)}` : ''}`);
   const bought = sp0.bought ? giftCards.find((p) => p.id === sp0.bought) : undefined;
   const reloaded = sp0.reloaded ? purchases.find((p) => p.id === sp0.reloaded && p.reload && p.status === 'paid') : undefined;
   const forReload = sp0.for === 'reload';
@@ -192,12 +194,14 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
                   <Fragment key={c.code}>{i ? ', ' : ''}<b className="font-mono">{c.code}</b></Fragment>
                 ))}
                 .{' '}
-                {bought.recipientName ? `Give the codes to ${bought.recipientName}.` : 'Give the codes to someone, or redeem them below.'}
+                {bought.recipientName ? `Give the codes to ${bought.recipientName}.` : 'Give the codes to someone, or redeem them below.'}{' '}
+                <a href={printHref(bought.id)} className="text-ink underline underline-offset-2">Print them</a>
               </Alert>
             ) : bought?.code ? (
               <Alert tone="success">
                 Your {whole(bought.amountMinor)} gift card is ready: <b className="font-mono">{bought.code}</b>.{' '}
-                {bought.recipientName ? `Give the code to ${bought.recipientName}.` : 'Give the code to someone, or redeem it below.'}
+                {bought.recipientName ? `Give the code to ${bought.recipientName}.` : 'Give the code to someone, or redeem it below.'}{' '}
+                <a href={printHref(bought.id)} className="text-ink underline underline-offset-2">Print it</a>
               </Alert>
             ) : null}
             <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-2">
@@ -220,12 +224,21 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
                         {p.codes.map((c) => (
                           <li key={c.code} className="flex items-center gap-3">
                             <div className="min-w-0 flex-1"><CopyCode code={c.code} /></div>
-                            {c.redeemed ? <span className="text-[13px] text-ink-3">Redeemed</span> : null}
+                            {c.redeemed ? (
+                              <span className="text-[13px] text-ink-3">Redeemed</span>
+                            ) : (
+                              <a href={printHref(p.id, c.code)} className="text-[13px] text-ink underline underline-offset-2" aria-label={`Print ${c.code}`}>Print</a>
+                            )}
                           </li>
                         ))}
                       </ul>
                     ) : p.code ? (
                       <CopyCode code={p.code} />
+                    ) : null}
+                    {p.codes.length && !p.redeemed ? (
+                      <a href={printHref(p.id)} className="self-start text-[14px] text-ink underline underline-offset-2">
+                        {p.codes.length > 1 ? `Print all ${p.codes.length}` : 'Print at home'}
+                      </a>
                     ) : null}
                   </Card>
                 </li>

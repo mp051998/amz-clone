@@ -101,6 +101,9 @@ it('lists bought gift cards with their codes, and the one just bought', async ()
   expect(screen.getByText('Redeemed')).toBeInTheDocument();
   expect(screen.getByText('Not redeemed yet')).toBeInTheDocument();
   expect(screen.getByText('“Happy birthday!”')).toBeInTheDocument();
+  // print at home: the one just bought, and each card not yet redeemed
+  expect(screen.getByRole('link', { name: 'Print it' })).toHaveAttribute('href', '/gift-cards/p1/print');
+  expect(screen.getByRole('link', { name: 'Print at home' })).toHaveAttribute('href', '/gift-cards/p1/print');
 });
 
 it('several cards bought together show each code, and how many have been redeemed', async () => {
@@ -122,6 +125,11 @@ it('several cards bought together show each code, and how many have been redeeme
   expect(screen.getByText('× 3')).toBeInTheDocument();
   expect(screen.getByText('1 of 3 redeemed')).toBeInTheDocument();
   expect(screen.getAllByText('Redeemed')).toHaveLength(1);
+  // print them all, or one that hasn't been redeemed
+  expect(screen.getByRole('link', { name: 'Print them' })).toHaveAttribute('href', '/gift-cards/p1/print');
+  expect(screen.getByRole('link', { name: 'Print all 3' })).toHaveAttribute('href', '/gift-cards/p1/print');
+  expect(screen.getByRole('link', { name: 'Print BBBB-222222-BBBB' })).toHaveAttribute('href', '/gift-cards/p1/print?code=BBBB-222222-BBBB');
+  expect(screen.queryByRole('link', { name: 'Print AAAA-111111-AAAA' })).toBeNull();
 });
 
 it('back from Stripe without paying, or with an error, says so', async () => {
