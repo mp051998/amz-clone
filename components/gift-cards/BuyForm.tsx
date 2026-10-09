@@ -2,7 +2,7 @@
 import { useActionState, useId, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { buyGiftCardAction, reloadBalanceAction, type BuyState } from '@/app/actions/gift-cards';
-import { GIFT_MESSAGE_MAX, RECIPIENT_MAX } from '@/lib/data/gift-card-purchases';
+import { GIFT_CARD_QTY_MAX, GIFT_MESSAGE_MAX, RECIPIENT_MAX } from '@/lib/data/gift-card-purchases';
 import { Alert } from '../primitives/Alert';
 import { Button } from '../primitives/Button';
 import { fieldClass } from '../lib/controls';
@@ -35,7 +35,7 @@ function Submit({ label, disabled }: { label: string; disabled: boolean }) {
   );
 }
 
-/** Pick an amount (or type one), who it's for and a message, then pay by card on Stripe. A reload asks for the amount only. */
+/** Pick an amount (or type one), how many, who they're for and a message, then pay by card on Stripe. A reload asks for the amount only. */
 export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '', kind = 'gift', reloadVerb = 'Reload' }: BuyFormProps) {
   const reload = kind === 'reload';
   const [state, action] = useActionState<BuyState, FormData>(reload ? reloadBalanceAction : buyGiftCardAction, {});
@@ -43,6 +43,7 @@ export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '',
   const [choice, setChoice] = useState<number | 'custom'>(denoms[1] ?? denoms[0]);
   const [custom, setCustom] = useState('');
   const [message, setMessage] = useState(defaultMessage);
+  const [qty, setQty] = useState(1);
   const fmt = (n: number) => `${symbol}${n.toLocaleString(locale)}`;
 
   const typed = Number(custom.replace(/[^\d.]/g, ''));
@@ -100,6 +101,23 @@ export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '',
       </fieldset>
 
       {reload ? null : (
+        <label htmlFor={`${id}-qty`} className="flex max-w-[160px] flex-col gap-1.5 text-[14px] font-semibold">
+          Quantity
+          <select
+            id={`${id}-qty`}
+            name="quantity"
+            value={qty}
+            onChange={(e) => setQty(Number(e.target.value))}
+            className={cn(fieldClass, 'font-normal tabular-nums')}
+          >
+            {Array.from({ length: GIFT_CARD_QTY_MAX }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {reload ? null : (
         <div className="grid gap-3 md:grid-cols-2">
           <label htmlFor="gift-to" className="flex flex-col gap-1.5 text-[14px] font-semibold">
             To <span className="font-normal text-ink-3">(optional)</span>
@@ -127,10 +145,15 @@ export function BuyForm({ denoms, min, max, symbol, locale, defaultMessage = '',
         {reload ? (
           <Submit label={inRange ? `${reloadVerb} ${fmt(amount)}` : reloadVerb} disabled={!inRange} />
         ) : (
-          <Submit label={inRange ? `Buy ${fmt(amount)} gift card` : 'Buy gift card'} disabled={!inRange} />
+          <Submit
+            label={qty > 1 ? (inRange ? `Buy ${qty} ${fmt(amount)} gift cards · ${fmt(amount * qty)}` : `Buy ${qty} gift cards`) : inRange ? `Buy ${fmt(amount)} gift card` : 'Buy gift card'}
+            disabled={!inRange}
+          />
         )}
         <span className="text-[13px] text-ink-3">
-          {reload ? 'You’ll pay by card on Stripe’s secure page. It’s added to your balance once it’s paid.' : 'You’ll pay by card on Stripe’s secure page. The code appears here once it’s paid.'}
+          {reload ? 'You’ll pay by card on Stripe’s secure page. It’s added to your balance once it’s paid.' : qty > 1
+              ? 'You’ll pay by card on Stripe’s secure page. Each card gets its own code, here once it’s paid.'
+              : 'You’ll pay by card on Stripe’s secure page. The code appears here once it’s paid.'}
         </span>
       </div>
     </form>

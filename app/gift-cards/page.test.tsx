@@ -55,10 +55,14 @@ beforeEach(() => {
   state.stripe = true;
 });
 
-const purchase = (over: Partial<GiftCardPurchase> = {}): GiftCardPurchase => ({
-  id: 'p1', market: 'US', amountMinor: 5000, currency: 'USD', recipientName: 'Ravi', message: 'Happy birthday!', status: 'paid',
-  code: 'ZZZZ-YYYYYY-XXXX', redeemed: false, reload: false, createdAt: '2026-10-05T10:00:00Z', paidAt: '2026-10-05T10:01:00Z', ...over,
-});
+const purchase = (over: Partial<GiftCardPurchase> = {}): GiftCardPurchase => {
+  const p: GiftCardPurchase = {
+    id: 'p1', market: 'US', amountMinor: 5000, currency: 'USD', recipientName: 'Ravi', message: 'Happy birthday!', status: 'paid', quantity: 1,
+    code: 'ZZZZ-YYYYYY-XXXX', codes: [], redeemed: false, reload: false, createdAt: '2026-10-05T10:00:00Z', paidAt: '2026-10-05T10:01:00Z', ...over,
+  };
+  // one card unless the codes are given
+  return { ...p, codes: over.codes ?? (p.code ? [{ code: p.code, redeemed: p.redeemed }] : []) };
+};
 
 it('signed out, buying starts with signing in and comes back to the form', async () => {
   await page();
@@ -97,6 +101,27 @@ it('lists bought gift cards with their codes, and the one just bought', async ()
   expect(screen.getByText('Redeemed')).toBeInTheDocument();
   expect(screen.getByText('Not redeemed yet')).toBeInTheDocument();
   expect(screen.getByText('“Happy birthday!”')).toBeInTheDocument();
+});
+
+it('several cards bought together show each code, and how many have been redeemed', async () => {
+  state.user = asha;
+  state.balance = 0;
+  const codes = [
+    { code: 'AAAA-111111-AAAA', redeemed: true },
+    { code: 'BBBB-222222-BBBB', redeemed: false },
+    { code: 'CCCC-333333-CCCC', redeemed: false },
+  ];
+  state.purchases = [purchase({ quantity: 3, code: codes[0].code, codes })];
+  await page({ bought: 'p1' });
+  const ready = screen.getByText(/Your 3 \$50 gift cards are ready/);
+  for (const c of codes) {
+    expect(ready).toHaveTextContent(c.code);
+    expect(screen.getByDisplayValue(c.code)).toBeInTheDocument();
+  }
+  expect(screen.getByText(/Give the codes to Ravi/)).toBeInTheDocument();
+  expect(screen.getByText('× 3')).toBeInTheDocument();
+  expect(screen.getByText('1 of 3 redeemed')).toBeInTheDocument();
+  expect(screen.getAllByText('Redeemed')).toHaveLength(1);
 });
 
 it('back from Stripe without paying, or with an error, says so', async () => {

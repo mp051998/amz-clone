@@ -11,13 +11,14 @@ export const GET = route(async (ctx) => {
 });
 
 /**
- * POST /api/v1/me/gift-cards { amountMinor, recipientName?, message? } — buy a gift card. Returns
- * `201 {purchase, checkoutUrl}`: pay on Stripe's page; the code is issued once Stripe reports it paid.
+ * POST /api/v1/me/gift-cards { amountMinor, quantity?, recipientName?, message? } — buy `quantity` gift cards
+ * (1–10, default 1) of `amountMinor` each. Returns `201 {purchase, checkoutUrl}`: pay the total on Stripe's
+ * page; a code per card is issued once Stripe reports it paid.
  */
 export const POST = route(async (ctx) => {
   requireUser(ctx);
   const b = await body(ctx.req);
-  const purchase = await startGiftCardPurchase(ctx.db, ctx.market, { amountMinor: b.amountMinor, recipientName: b.recipientName, message: b.message });
+  const purchase = await startGiftCardPurchase(ctx.db, ctx.market, { amountMinor: b.amountMinor, quantity: b.quantity, recipientName: b.recipientName, message: b.message });
   const origin = ctx.req.nextUrl.origin;
   const sp = (path: string) => `${origin}${storePath({ id: ctx.market }, path)}`;
   const checkoutUrl = await startGiftCardCheckout(purchase, { successUrl: sp('/gift-cards/success'), cancelUrl: sp('/gift-cards?canceled=1#buy') }, 'Store gift card', ctx.user);

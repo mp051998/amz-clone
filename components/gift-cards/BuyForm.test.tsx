@@ -37,6 +37,17 @@ it('checks a custom amount as it’s typed', () => {
   expect(screen.getByRole('button', { name: 'Buy $1,500 gift card' })).toBeEnabled();
 });
 
+it('buys several cards of the amount at once, totalled on the button', () => {
+  render(<BuyForm {...props} />);
+  const qty = screen.getByLabelText('Quantity');
+  expect(qty).toHaveValue('1');
+  expect(qty).toHaveAttribute('name', 'quantity');
+  expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+  fireEvent.change(qty, { target: { value: '3' } });
+  expect(screen.getByRole('button', { name: 'Buy 3 $50 gift cards · $150' })).toBeEnabled();
+  expect(screen.getByText(/Each card gets its own code/)).toBeInTheDocument();
+});
+
 it('counts the message', () => {
   render(<BuyForm {...props} defaultMessage="Enjoy!" />);
   expect(screen.getByText('6/240')).toBeInTheDocument();
@@ -48,6 +59,7 @@ it('a reload asks for the amount only', () => {
   expect(screen.getByRole('button', { name: 'Reload $50' })).toBeEnabled();
   expect(screen.queryByLabelText(/To/)).toBeNull();
   expect(screen.queryByLabelText(/Message/)).toBeNull();
+  expect(screen.queryByLabelText('Quantity')).toBeNull();
   expect(screen.getByText(/added to your balance once it’s paid/)).toBeInTheDocument();
 });
 

@@ -17,6 +17,8 @@ export const GIFT_CARD_LIMITS: Record<Market, { minMinor: number; maxMinor: numb
   IN: { minMinor: 1_000, maxMinor: 1_000_000 },
 };
 export const RECIPIENT_MAX = 60;
+/** The most gift cards one purchase can be for (Amazon's Quantity). */
+export const GIFT_CARD_QTY_MAX = 10;
 export const GIFT_MESSAGE_MAX = 240;
 const CURRENCY: Record<Market, CurrencyCode> = { US: 'USD', IN: 'INR' };
 
@@ -33,8 +35,13 @@ export interface GiftCardPurchase {
   recipientName: string | null;
   message: string | null;
   status: 'awaiting_payment' | 'paid';
-  /** set once paid */
+  /** how many cards, each of `amountMinor` (1 for a reload) */
+  quantity: number;
+  /** set once paid: the first card's code */
   code: string | null;
+  /** every card's code once paid, the first one first */
+  codes: { code: string; redeemed: boolean }[];
+  /** every card has been redeemed */
   redeemed: boolean;
   /** a reload of the buyer's own balance: no code, no recipient */
   reload: boolean;
@@ -54,6 +61,9 @@ export interface PurchaseRow {
   redeemed: boolean;
   /** absent before the balance-reload migration */
   reload?: boolean;
+  /** absent before the gift card quantity migration */
+  quantity?: number;
+  codes?: { code: string; redeemed: boolean }[];
   created_at: string;
   paid_at: string | null;
 }
@@ -67,7 +77,9 @@ export function toPurchase(r: PurchaseRow): GiftCardPurchase {
     recipientName: r.recipient_name,
     message: r.message,
     status: r.status === 'paid' ? 'paid' : 'awaiting_payment',
+    quantity: r.quantity ?? 1,
     code: r.code,
+    codes: r.codes ?? (r.code ? [{ code: r.code, redeemed: r.redeemed }] : []),
     redeemed: r.redeemed,
     reload: r.reload ?? false,
     createdAt: r.created_at,
@@ -77,6 +89,8 @@ export function toPurchase(r: PurchaseRow): GiftCardPurchase {
 
 export interface PurchaseInput {
   amountMinor: unknown;
+  /** how many cards of that amount; 1 when left out */
+  quantity?: unknown;
   recipientName?: unknown;
   message?: unknown;
 }
@@ -91,14 +105,18 @@ export function checkPurchase(market: Market, input: PurchaseInput) {
   if (!Number.isInteger(amount) || amount % 100 !== 0 || amount < minMinor || amount > maxMinor) {
     throw new DataError('invalid_input', 'amount', `Choose a whole amount from ${format(minMinor)} to ${format(maxMinor)}.`);
   }
+  const quantity = input.quantity === undefined || input.quantity === null ? 1 : typeof input.quantity === 'number' ? input.quantity : Number.NaN;
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > GIFT_CARD_QTY_MAX) {
+    throw new DataError('invalid_input', 'quantity', `Choose from 1 to ${GIFT_CARD_QTY_MAX} gift cards.`);
+  }
   const recipientName = text(input.recipientName);
   if (recipientName.length > RECIPIENT_MAX) throw new DataError('invalid_input', 'recipient', `Keep the name under ${RECIPIENT_MAX} characters.`);
   const message = text(input.message);
   if (message.length > GIFT_MESSAGE_MAX) throw new DataError('invalid_input', 'message', `Keep the message under ${GIFT_MESSAGE_MAX} characters.`);
-  return { amountMinor: amount, recipientName: recipientName || null, message: message || null };
+  return { amountMinor: amount, quantity, recipientName: recipientName || null, message: message || null };
 }
 
-/** Record a gift card purchase awaiting payment (signed in). */
+/** Record a purchase of one or more gift cards awaiting payment (signed in). */
 export async function startGiftCardPurchase(db: Db, market: Market, input: PurchaseInput): Promise<GiftCardPurchase> {
   const p = checkPurchase(market, input);
   const row = unwrap(
@@ -107,6 +125,8 @@ export async function startGiftCardPurchase(db: Db, market: Market, input: Purch
       p_amount_minor: p.amountMinor,
       p_recipient: p.recipientName ?? undefined,
       p_message: p.message ?? undefined,
+      // sent only for more than one, so a single card doesn't depend on the quantity migration
+      ...(p.quantity > 1 ? { p_quantity: p.quantity } : {}),
     }),
   ) as unknown as PurchaseRow;
   return toPurchase(row);

@@ -53,13 +53,14 @@ export async function claimDemoGiftCardAction(): Promise<void> {
 
 export interface BuyState {
   error?: string;
-  /** which field the error is about: amount, recipient or message */
+  /** which field the error is about: amount, quantity, recipient or message */
   field?: string;
 }
 
 /**
- * Buy a gift card: record the purchase, then hand off to Stripe hosted Checkout for exactly its
- * amount. The code is issued once Stripe reports the session paid (/gift-cards/success, webhook).
+ * Buy gift cards (one, or up to 10 of the same amount): record the purchase, then hand off to Stripe
+ * hosted Checkout for exactly its total. The codes are issued once Stripe reports the session paid
+ * (/gift-cards/success, webhook).
  */
 export async function buyGiftCardAction(_prev: BuyState, formData: FormData): Promise<BuyState> {
   const store = await signedIn();
@@ -69,6 +70,7 @@ export async function buyGiftCardAction(_prev: BuyState, formData: FormData): Pr
     const client = await db();
     const purchase = await startGiftCardPurchase(client, store.id, {
       amountMinor: Number(formData.get('amountMinor')),
+      quantity: formData.get('quantity') === null ? undefined : Number(formData.get('quantity')),
       recipientName: formData.get('recipientName'),
       message: formData.get('message'),
     });

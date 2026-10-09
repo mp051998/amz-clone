@@ -21,6 +21,7 @@ export function GET(): Response {
       'GET    /me',
       'PATCH  /me',
       'DELETE /me',
+      'DELETE /me/sessions',
       'GET    /me/data',
       'GET    /me/two-step',
       'POST   /me/two-step',
