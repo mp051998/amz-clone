@@ -3,7 +3,7 @@ import { AppShell } from '@/components/AppShell';
 import { RankedPage } from '@/components/bestsellers/RankedPage';
 import { viewerSavedIds } from '@/components/deals/viewerSaved';
 import { db } from '@/lib/supabase/server';
-import { giftIdeas } from '@/lib/data/catalog';
+import { chartRows, giftIdeas } from '@/lib/data/catalog';
 import { storeCategories } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 
@@ -14,8 +14,13 @@ export default async function GiftIdeasPage({ searchParams }: { searchParams: Pr
   const store = await getMarketplace();
   const categories = await storeCategories();
   const known = c && categories.some((cat) => cat.slug === c) ? c : undefined;
-  // ranked in the database by how many shoppers gave each product lately, top 40
-  const [items, saved] = await Promise.all([giftIdeas(await db(), store.id, { category: known, limit: 40 }), viewerSavedIds(store.id)]);
+  // ranked in the database by how many shoppers gave each product lately: a department's top 40, or each department's top few
+  const client = await db();
+  const [items, rows, saved] = await Promise.all([
+    known ? giftIdeas(client, store.id, { category: known, limit: 40 }) : [],
+    known ? undefined : chartRows(client, store.id, 'gift-ideas', categories),
+    viewerSavedIds(store.id),
+  ]);
 
   return (
     <AppShell>
@@ -30,6 +35,7 @@ export default async function GiftIdeasPage({ searchParams }: { searchParams: Pr
         items={items}
         saved={saved}
         ranked
+        rows={rows}
       />
     </AppShell>
   );

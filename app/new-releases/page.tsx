@@ -3,7 +3,7 @@ import { AppShell } from '@/components/AppShell';
 import { RankedPage } from '@/components/bestsellers/RankedPage';
 import { viewerSavedIds } from '@/components/deals/viewerSaved';
 import { db } from '@/lib/supabase/server';
-import { listProducts } from '@/lib/data/catalog';
+import { chartRows, listProducts } from '@/lib/data/catalog';
 import { storeCategories } from '@/lib/storefront';
 import { getMarketplace } from '@/lib/marketplace-server';
 
@@ -14,9 +14,11 @@ export default async function NewReleasesPage({ searchParams }: { searchParams: 
   const store = await getMarketplace();
   const categories = await storeCategories();
   const known = c && categories.some((cat) => cat.slug === c) ? c : undefined;
-  // ordering happens in the database ('fresh' ordering), top 40
-  const [items, saved] = await Promise.all([
-    listProducts(await db(), store.id, { category: known, order: 'fresh', limit: 40 }),
+  // ordering happens in the database ('fresh' ordering): a department's top 40, or each department's newest few
+  const client = await db();
+  const [items, rows, saved] = await Promise.all([
+    known ? listProducts(client, store.id, { category: known, order: 'fresh', limit: 40 }) : [],
+    known ? undefined : chartRows(client, store.id, 'new-releases', categories),
     viewerSavedIds(store.id),
   ]);
 
@@ -34,6 +36,7 @@ export default async function NewReleasesPage({ searchParams }: { searchParams: 
         saved={saved}
         ranked={false}
         tag="NEW"
+        rows={rows}
       />
     </AppShell>
   );
