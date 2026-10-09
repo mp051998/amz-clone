@@ -372,7 +372,20 @@ export default async function OrderPage({
             ...(noRush ? [{ label: 'Delivery', value: noRush }] : []),
             ...(order.gift ? [{ label: 'Gift', value: giftText(order.gift) }] : []),
             ...(order.gst ? [{ label: 'GST invoice', value: <>{order.gst.name} · GSTIN <span className="font-mono">{order.gst.gstin}</span></> }] : []),
-            { label: 'Paid with', value: paidWithText(order) },
+            {
+              label: 'Paid with',
+              value:
+                order.status === 'awaiting_payment' ? (
+                  paidWithText(order)
+                ) : (
+                  <span className="flex flex-col items-end gap-0.5">
+                    {paidWithText(order)}
+                    <a href={sp(`/account/transactions?order=${encodeURIComponent(order.id)}`)} className="text-[14px] font-normal text-ink underline underline-offset-2">
+                      View related transactions
+                    </a>
+                  </span>
+                ),
+            },
             ...(order.emiMonths ? [{ label: 'EMI', value: emiText(order.totals.totalMinor, order.emiMonths, money) }] : []),
             { label: 'Total', value: <span className="tabular-nums">{money(order.totals.totalMinor)}</span>, strong: true },
             ...(order.split

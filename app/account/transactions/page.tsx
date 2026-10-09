@@ -33,14 +33,17 @@ const STATUS: Partial<Record<Transaction['status'], string>> = {
 
 /**
  * /account/transactions: every charge and refund in this store, newest first and grouped by day,
- * as on Amazon's "Your Payments → Transactions".
+ * as on Amazon's "Your Payments → Transactions". `?order=` narrows it to one order's charge and
+ * refunds, where an order's "View related transactions" leads.
  */
-export default async function TransactionsPage() {
+export default async function TransactionsPage({ searchParams }: { searchParams?: Promise<{ order?: string }> } = {}) {
   const store = await getMarketplace();
   const sp = (path: string) => storePath(store, path);
+  const order = (await searchParams)?.order?.trim() || undefined;
   const user = await readUser();
-  if (!user) redirect(sp('/signin?next=/account/transactions'));
-  const list = await listTransactions(await db(), store.id, user.id);
+  if (!user) redirect(sp(order ? `/signin?next=${encodeURIComponent(`/account/transactions?order=${order}`)}` : '/signin?next=/account/transactions'));
+  const all = await listTransactions(await db(), store.id, user.id);
+  const list = order ? all.filter((t) => t.orderId === order) : all;
   const day = new Intl.DateTimeFormat(store.locale.default, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.dates.timeZone });
 
   const days: { label: string; items: Transaction[] }[] = [];
@@ -57,10 +60,25 @@ export default async function TransactionsPage() {
         <div className="flex flex-col gap-1.5">
           <a href={sp('/account')} className="self-start text-[14px] text-ink underline underline-offset-2">← Account</a>
           <h1 className="m-0 text-[clamp(26px,3.2vw,32px)] font-semibold tracking-[-0.01em]">Your transactions</h1>
-          <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns, gift cards, balance reloads, recharges and bill payments.</span>
+          {order ? (
+            <span className="text-[15px] text-ink-2">
+              Charges and refunds for order <span className="font-mono text-ink">{order}</span> ·{' '}
+              <a href={sp('/account/transactions')} className="text-ink underline underline-offset-2">
+                View all transactions
+              </a>
+            </span>
+          ) : (
+            <span className="text-[15px] text-ink-2">Charges and refunds in this store: orders, cancellations, returns, gift cards, balance reloads, recharges and bill payments.</span>
+          )}
         </div>
 
-        {!list.length ? (
+        {order && !list.length ? (
+          <EmptyState title="No transactions for this order" action={<a href={sp('/account/transactions')} className={buttonClasses({ variant: 'secondary' })}>View all transactions</a>}>
+            A charge shows up here once the order is paid for, and so do any refunds.
+          </EmptyState>
+        ) : null}
+
+        {!order && !list.length ? (
           <EmptyState title="No transactions yet" action={<a href={sp('/')} className={buttonClasses({ variant: 'secondary' })}>Start shopping</a>}>
             When you place an order or buy a gift card, the charge shows up here, and so do any refunds.
           </EmptyState>
