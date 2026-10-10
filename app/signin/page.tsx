@@ -16,7 +16,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 const ERRORS: Record<string, string> = {
   missing: 'Enter both your email and password.',
   badcreds: 'Wrong email or password. Try again, or create an account.',
-  exists: 'An account already exists for that email. Sign in instead.',
+  exists: 'An account already exists for that email, with a different password. Sign in instead, or reset your password.',
   password: 'Password must be at least 6 characters.',
   weakpw: 'Password must be at least 6 characters.',
   email: 'Enter a valid email address.',
