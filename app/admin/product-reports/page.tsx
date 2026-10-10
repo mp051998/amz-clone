@@ -14,6 +14,7 @@ import { adminTime } from '../orders/labels';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
 import { resolveReportAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Product reports · Admin · Store' };
 
@@ -110,8 +111,8 @@ export default async function AdminProductReportsPage({ searchParams }: { search
                         {r.productArchived ? null : (
                           <a href={to(`/admin/products/${encodeURIComponent(r.productId)}`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Edit listing</a>
                         )}
-                        <button type="submit" name="status" value="dismissed" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Dismiss</button>
-                        <button type="submit" name="status" value="resolved" className={buttonClasses({ variant: 'primary', size: 'sm' })}>Resolve</button>
+                        <SubmitButton name="status" value="dismissed" variant="secondary" size="sm">Dismiss</SubmitButton>
+                        <SubmitButton name="status" value="resolved" variant="primary" size="sm">Resolve</SubmitButton>
                       </div>
                     </form>
                   ) : (

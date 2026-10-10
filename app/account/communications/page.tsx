@@ -9,6 +9,7 @@ import { ALWAYS_SENT, isMessageTopic, mutedTopics, topicStates } from '@/lib/dat
 import { storePath } from '@/lib/marketplace';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Communication preferences · Store' };
 
@@ -59,9 +60,9 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
                 <form action={setMessageTopicOn}>
                   <input type="hidden" name="topic" value={t.id} />
                   <input type="hidden" name="on" value={t.on ? '0' : '1'} />
-                  <button type="submit" className={buttonClasses({ variant: t.on ? 'secondary' : 'primary', size: 'sm' })} aria-label={`Turn ${t.on ? 'off' : 'on'} ${t.label.toLowerCase()}`}>
+                  <SubmitButton variant={t.on ? 'secondary' : 'primary'} size="sm" aria-label={`Turn ${t.on ? 'off' : 'on'} ${t.label.toLowerCase()}`}>
                     {t.on ? 'Turn off' : 'Turn on'}
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}

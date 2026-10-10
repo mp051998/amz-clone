@@ -17,6 +17,7 @@ import { useToast } from '../decision/Toast';
 import { limitNote } from '@/lib/purchase-limits';
 import { CONDITION_LABEL, EXCHANGE_CONDITIONS, type ExchangeCondition } from '@/lib/exchange';
 import type { Fit } from '@/lib/data/return-signal';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export interface ConfidenceRow { k: string; v: string }
 
@@ -348,7 +349,7 @@ export function BuyPanel({ productId, name, image, category, categoryName, marke
               {pending ? 'Adding…' : 'Add to Cart'}
             </button>
           )}
-          <button type="submit" className={buttonClasses({ variant: 'dark', size: 'lg', block: true })}>{preOrder ? 'Pre-order now' : 'Buy Now'}</button>
+          <SubmitButton variant="dark" size="lg" block>{preOrder ? 'Pre-order now' : 'Buy Now'}</SubmitButton>
           {giftReceipt ? (
             <label className="flex items-center gap-2 text-[14px]">
               <input type="checkbox" name="gift" value="1" checked={gift} onChange={(e) => setGift(e.target.checked)} className="h-4 w-4 accent-ink" />

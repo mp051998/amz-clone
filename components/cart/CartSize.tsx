@@ -1,4 +1,5 @@
 import { setSize } from '@/app/actions/cart';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 /**
  * A cart line's size, for a product that comes in sizes: "Size [9 ▾] Update". A server-action
@@ -25,9 +26,9 @@ export function CartSize({ id, size, sizes, name }: { id: string; size?: string;
           <option key={s} value={s}>{s}</option>
         ))}
       </select>
-      <button type="submit" className="min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink" aria-label={`Update size for ${name}`}>
+      <SubmitButton bare className="min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink" aria-label={`Update size for ${name}`}>
         Update
-      </button>
+      </SubmitButton>
     </form>
   );
 }

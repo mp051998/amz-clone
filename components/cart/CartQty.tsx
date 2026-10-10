@@ -1,4 +1,5 @@
 import { updateQty } from '@/app/actions/cart';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 /**
  * −/+ quantity stepper pill (44px) — two tiny server-action forms, so it works without JS.
@@ -13,7 +14,7 @@ export function CartQty({ id, qty, max = 10, name }: { id: string; qty: number; 
       <form action={updateQty}>
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="qty" value={Math.max(0, qty - 1)} />
-        <button type="submit" className={btn} aria-label={qty <= 1 ? `Remove${label}` : `Decrease quantity${label}`}>−</button>
+        <SubmitButton bare className={btn} aria-label={qty <= 1 ? `Remove${label}` : `Decrease quantity${label}`}>−</SubmitButton>
       </form>
       <span className="min-w-7 text-center font-semibold tabular-nums" aria-live="polite">
         <span className="sr-only">Quantity </span>{qty}
@@ -21,7 +22,7 @@ export function CartQty({ id, qty, max = 10, name }: { id: string; qty: number; 
       <form action={updateQty}>
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="qty" value={qty + 1} />
-        <button type="submit" className={btn} disabled={qty >= max} aria-label={`Increase quantity${label}`}>+</button>
+        <SubmitButton bare className={btn} disabled={qty >= max} aria-label={`Increase quantity${label}`}>+</SubmitButton>
       </form>
     </div>
   );

@@ -31,6 +31,7 @@ import {
   storeDay,
 } from '@/lib/subscribe-save';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Subscribe & Save · Store' };
 
@@ -121,11 +122,11 @@ export default async function SubscribeSavePage({ searchParams }: { searchParams
                       <div className="flex flex-wrap items-center gap-2.5">
                         <form action={skipSubscriptionAction}>
                           <input type="hidden" name="id" value={s.id} />
-                          <button type="submit" aria-label={`Skip this delivery: ${title}`} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Skip this delivery</button>
+                          <SubmitButton aria-label={`Skip this delivery: ${title}`} variant="secondary" size="sm">Skip this delivery</SubmitButton>
                         </form>
                         <form action={cancelSubscriptionAction}>
                           <input type="hidden" name="id" value={s.id} />
-                          <button type="submit" aria-label={`Cancel subscription: ${title}`} className={buttonClasses({ variant: 'link', size: 'sm' })}>Cancel subscription</button>
+                          <SubmitButton aria-label={`Cancel subscription: ${title}`} variant="link" size="sm">Cancel subscription</SubmitButton>
                         </form>
                       </div>
                       <details className="text-[14px]">
@@ -141,7 +142,7 @@ export default async function SubscribeSavePage({ searchParams }: { searchParams
                             options={[...(s.addressId ? [] : [{ value: '', label: 'Choose an address' }]), ...addresses.map((a) => ({ value: a.id, label: `${a.name}, ${a.line1}` }))]}
                           />
                           <Select label="Pay with" name="method" defaultValue={s.paymentMethod} options={methods.map((m) => ({ value: m, label: SNS_METHOD_LABEL[m] ?? m }))} />
-                          <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} col-span-full justify-self-start`}>Save changes</button>
+                          <SubmitButton variant="primary" size="sm" className="col-span-full justify-self-start">Save changes</SubmitButton>
                         </form>
                       </details>
                     </li>

@@ -14,6 +14,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Cancel items · Store' };
 
@@ -115,7 +116,7 @@ export default async function CancelItemsPage({
             ) : null}
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Cancel checked items</button>
+              <SubmitButton variant="primary" size="lg">Cancel checked items</SubmitButton>
               <a href={sp(page)} className={buttonClasses({ variant: 'link' })}>Keep everything</a>
             </div>
           </form>

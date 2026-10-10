@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { signOut } from '@/app/actions/auth';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export interface AllMenuLink { label: string; href: string }
 export interface AllMenuSection { heading: string; links: AllMenuLink[] }
@@ -119,9 +120,9 @@ export function AllMenu({ greeting, greetingHref, sections, signedIn = false }: 
         )}
         {signedIn ? (
           <form action={signOut} className="border-t border-line-2 px-2 py-3">
-            <button type="submit" className="flex min-h-11 w-full items-center rounded-input px-2 text-left text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+            <SubmitButton bare className="flex min-h-11 w-full items-center rounded-input px-2 text-left text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
               Sign out
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
       </div>

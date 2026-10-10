@@ -47,6 +47,7 @@ import { latestRelease, releaseOf } from '@/lib/pre-order';
 import { productUrl } from '@/lib/seo';
 import { conditionLabel } from '@/lib/offers';
 import { lowStockText } from '@/lib/stock';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Cart · Store' };
 
@@ -325,9 +326,9 @@ export default async function CartPage({
                           ) : null}
                           <form action={removeItem}>
                             <input type="hidden" name="id" value={p.id} />
-                            <button type="submit" className="min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink" aria-label={`Remove ${p.title}`}>
+                            <SubmitButton bare className="min-h-11 px-1 text-[14px] text-ink underline underline-offset-2 hover:text-accent-ink" aria-label={`Remove ${p.title}`}>
                               Remove
-                            </button>
+                            </SubmitButton>
                           </form>
                           {/* another seller's offer compares and shares as its product */}
                           <a

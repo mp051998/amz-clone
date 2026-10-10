@@ -6,7 +6,6 @@ import { Page } from '@/components/brand/Page';
 import { fieldClass } from '@/components/lib/controls';
 import { shortDate, timeOfDay } from '@/components/orders/format';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { CaseStatus, CaseThread } from '@/components/support/CaseThread';
 import { readUser } from '@/lib/auth';
 import { messageFor } from '@/lib/data/errors';
@@ -15,6 +14,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
 import { closeCaseAction, replyCaseAction } from '../../actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Support case · Store' };
 
@@ -98,7 +98,7 @@ export default async function SupportCasePage({ params, searchParams }: { params
               <form action={replyCaseAction.bind(null, thread.id)} className="flex flex-col gap-2">
                 <label htmlFor="cs-reply" className="text-[14px] font-semibold">Reply</label>
                 <textarea id="cs-reply" name="body" required minLength={2} maxLength={MESSAGE_MAX} rows={4} className={`${fieldClass} h-auto py-2.5 leading-normal`} />
-                <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} self-start`}>Send reply</button>
+                <SubmitButton variant="primary" size="sm" className="self-start">Send reply</SubmitButton>
               </form>
               <div className="border-t border-line-2 pt-4">
                 <ConfirmAction

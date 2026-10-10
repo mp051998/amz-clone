@@ -40,17 +40,23 @@ export async function signIn(formData: FormData): Promise<void> {
   const supabase = await db();
 
   if (creating) {
+    let taken = false;
     try {
       await createAccount(createAdminClient(), { email, password, name: name || nameFromEmail(email) });
     } catch (err) {
       if (!(err instanceof DataError)) throw err;
-      const code =
-        err.code === 'duplicate' ? 'exists' : err.detail === 'password' || err.detail === 'email' || err.detail === 'name' ? err.detail : 'signup';
-      if (code === 'signup') console.error('[auth] sign-up failed', err.code, err.detail ?? '');
-      signinError(market, code, next, true);
+      taken = err.code === 'duplicate';
+      if (!taken) {
+        const code = err.detail === 'password' || err.detail === 'email' || err.detail === 'name' ? err.detail : 'signup';
+        if (code === 'signup') console.error('[auth] sign-up failed', err.code, err.detail ?? '');
+        signinError(market, code, next, true);
+      }
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) signinError(market, 'signup', next, true);
+    // a taken email with the right password is the shopper's own account (Create account sent twice,
+    // or one they forgot they had): sign them in rather than refuse
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) signinError(market, taken ? 'exists' : 'signup', next, true);
+    if (owesSecondStep(data.user, data.session?.access_token)) redirect(verifyHref(market, next));
   } else {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) signinError(market, 'badcreds', next, false);

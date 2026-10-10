@@ -12,6 +12,7 @@ import { adminTime } from '../orders/labels';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
 import { deleteQaAction, keepAnswerAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Questions · Admin · Store' };
 
@@ -114,9 +115,9 @@ export default async function AdminQuestionsPage({ searchParams }: { searchParam
                           <span className="flex flex-wrap items-center gap-3">
                             {a.openReports ? (
                               <form action={keep(a.id)}>
-                                <button type="submit" className={buttonClasses({ variant: 'link', size: 'sm' })} aria-label={`Keep ${a.author}’s answer`}>
+                                <SubmitButton variant="link" size="sm" aria-label={`Keep ${a.author}’s answer`}>
                                   Keep
-                                </button>
+                                </SubmitButton>
                               </form>
                             ) : null}
                             <ConfirmAction

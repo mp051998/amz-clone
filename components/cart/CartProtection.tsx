@@ -1,4 +1,5 @@
 import { setProtection } from '@/app/actions/cart';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 /**
  * A cart line's protection plan, as on Amazon: "☐ Add a 2-Year Protection Plan for $7.99". A
@@ -9,8 +10,8 @@ export function CartProtection({ id, added, plan, price, name }: { id: string; a
     <form action={setProtection} className="-ml-2.5">
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="on" value={added ? '0' : '1'} />
-      <button
-        type="submit"
+      <SubmitButton
+        bare
         role="checkbox"
         aria-checked={added}
         aria-label={`${plan} for ${name}, ${price}`}
@@ -25,7 +26,7 @@ export function CartProtection({ id, added, plan, price, name }: { id: string; a
         <span aria-hidden>
           {added ? `${plan} added` : `Add a ${plan}`} for <strong className="font-semibold">{price}</strong>
         </span>
-      </button>
+      </SubmitButton>
     </form>
   );
 }

@@ -15,6 +15,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { historyPaused, readRecentIds, readRecsSkipped, RECENT_MAX } from '@/lib/recent';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Browsing history · Store' };
 
@@ -40,9 +41,9 @@ export default async function HistoryPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <form action={setHistoryPaused}>
               <input type="hidden" name="paused" value={paused ? '0' : '1'} />
-              <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>
+              <SubmitButton variant="secondary" size="sm">
                 {paused ? 'Turn history back on' : 'Pause history'}
-              </button>
+              </SubmitButton>
             </form>
             {ids.length ? (
               <ConfirmAction
@@ -94,9 +95,9 @@ export default async function HistoryPage() {
                     <div className="flex flex-col items-center">
                       <form action={removeFromHistory}>
                         <input type="hidden" name="id" value={p.id} />
-                        <button type="submit" className="border-0 bg-transparent p-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink" aria-label={`Remove ${p.title} from history`}>
+                        <SubmitButton bare className="border-0 bg-transparent p-1 text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink" aria-label={`Remove ${p.title} from history`}>
                           Remove
-                        </button>
+                        </SubmitButton>
                       </form>
                       <UseForRecs product={p} skipped={skip.has(p.id)} />
                     </div>

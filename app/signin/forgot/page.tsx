@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { AuthCard, AuthFrame } from '@/components/chrome/AuthFrame';
 import { Alert } from '@/components/primitives/Alert';
-import { Button, buttonClasses } from '@/components/primitives/Button';
+import { buttonClasses } from '@/components/primitives/Button';
 import { Input } from '@/components/primitives/Input';
 import { requestPasswordReset } from '@/app/actions/account';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Reset your password · Store' };
 
@@ -36,9 +37,9 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
 
         <form action={requestPasswordReset} className="flex flex-col gap-3.5">
           <Input name="email" type="email" label="Email" required autoComplete="email" className="text-[16px]" />
-          <Button type="submit" variant="primary" size="lg" block className="mt-1">
+          <SubmitButton variant="primary" size="lg" block className="mt-1" pendingLabel="Sending…">
             {sent ? 'Send another link' : 'Send reset link'}
-          </Button>
+          </SubmitButton>
         </form>
       </AuthCard>
 

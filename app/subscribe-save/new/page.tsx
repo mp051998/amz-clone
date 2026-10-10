@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import { subscribeAction } from '@/app/actions/subscribe-save';
 import { AppShell } from '@/components/AppShell';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { Select } from '@/components/primitives/Select';
 import { AddressChoices, MethodChoices } from '@/components/subscribe-save/parts';
 import { readUser } from '@/lib/auth';
@@ -20,6 +19,7 @@ import { formatMoney } from '@/lib/marketplaces';
 import { frequencyLabel, SNS_FREQUENCIES, SNS_MAX_QTY, SNS_PCT, snsUnitMinor } from '@/lib/subscribe-save';
 import { db } from '@/lib/supabase/server';
 import type { PaymentMethod } from '@/lib/types';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Set up Subscribe & Save · Store' };
 
@@ -135,9 +135,9 @@ export default async function SubscribeSetupPage({ searchParams }: { searchParam
           <p className="m-0 text-[13px] text-ink-2">
             {store.pricing.taxInclusive ? 'Prices include tax.' : 'Tax is added when the order is placed.'} The first delivery is ordered now; after that, {frequencyLabel(every).toLowerCase()}. Skip, change or cancel any time on your Subscribe &amp; Save page.
           </p>
-          <button type="submit" disabled={!addresses.length || !methods.length} className={buttonClasses({ variant: 'primary', size: 'lg' })}>
+          <SubmitButton disabled={!addresses.length || !methods.length} variant="primary" size="lg">
             Subscribe and place first order
-          </button>
+          </SubmitButton>
         </section>
       </form>
     </>,

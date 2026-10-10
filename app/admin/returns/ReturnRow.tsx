@@ -10,6 +10,7 @@ import { balanceMethod } from '@/lib/data/balance';
 import { nothingSentBack, STORE_FAULT_REASONS } from '@/lib/data/returns';
 import { formatMoney } from '@/lib/marketplaces';
 import { adminTime } from '../orders/labels';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 /**
  * One return with its admin moves (receive, reject with a note, retry the refund). The returns list
@@ -118,13 +119,13 @@ export function ReturnRow({
               <form action={act(r.id, 'reject')} className="mt-2.5 flex w-[min(360px,80vw)] flex-col gap-2">
                 <label htmlFor={`note-${r.id}`} className="text-[13px] font-semibold">Note to the shopper <span className="font-normal text-ink-3">(optional)</span></label>
                 <textarea id={`note-${r.id}`} name="note" rows={2} maxLength={500} className={`${fieldClass} h-auto py-2 leading-normal`} placeholder="e.g. The item came back used" />
-                <button type="submit" className={`${buttonClasses({ variant: 'dark', size: 'sm' })} self-start`}>Reject return</button>
+                <SubmitButton variant="dark" size="sm" className="self-start">Reject return</SubmitButton>
               </form>
             </details>
           </div>
         ) : canRetryReturnRefund(r) ? (
           <form action={act(r.id, 'refund')}>
-            <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Retry refund</button>
+            <SubmitButton variant="secondary" size="sm">Retry refund</SubmitButton>
           </form>
         ) : null}
       </div>

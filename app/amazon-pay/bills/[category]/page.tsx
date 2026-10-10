@@ -19,6 +19,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { signInPath, storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 type Params = { category: string };
 type SP = { biller?: string; account?: string; amount?: string; done?: string; error?: string };
@@ -98,7 +99,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
       <PayMethods balance={balance} money={money} />
       <div>
         {user ? (
-          <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>{label}</button>
+          <SubmitButton variant="primary" size="lg">{label}</SubmitButton>
         ) : (
           <a href={signInPath(store, `${page}?${query(b.id, account)}`)} className={buttonClasses({ variant: 'primary', size: 'lg' })}>
             Sign in to pay

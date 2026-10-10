@@ -12,6 +12,7 @@ import { db } from '@/lib/supabase/server';
 import { archiveProduct } from '../actions';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Catalogue · Admin · Store' };
 
@@ -156,9 +157,9 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                     <a href={to(`/product/${encodeURIComponent(p.id)}`)} className="text-ink-2 underline underline-offset-2" aria-label={`View ${p.title} in the store`}>View</a>
                     <span aria-hidden className="px-1.5 text-ink-4">·</span>
                     <form action={archiveProduct.bind(null, p.id, !archivedTab, status)} className="inline">
-                      <button type="submit" className="cursor-pointer border-0 bg-transparent p-0 text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink" aria-label={`${archivedTab ? 'Restore' : 'Archive'} ${p.title}`}>
+                      <SubmitButton bare className="cursor-pointer border-0 bg-transparent p-0 text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink" aria-label={`${archivedTab ? 'Restore' : 'Archive'} ${p.title}`}>
                         {archivedTab ? 'Restore' : 'Archive'}
-                      </button>
+                      </SubmitButton>
                     </form>
                   </td>
                 </tr>

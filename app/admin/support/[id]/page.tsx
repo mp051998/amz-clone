@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { fieldClass } from '@/components/lib/controls';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { CaseStatus, CaseThread } from '@/components/support/CaseThread';
 import { messageFor } from '@/lib/data/errors';
 import { getCase, MESSAGE_MAX, TOPIC_LABELS } from '@/lib/data/support';
@@ -13,6 +12,7 @@ import { adminTime } from '../../orders/labels';
 import { adminPage } from '../../guard';
 import { AdminFrame, AdminOnly } from '../../ui';
 import { closeAsStoreAction, replyAsStoreAction } from '../actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Support case · Admin · Store' };
 
@@ -62,7 +62,7 @@ export default async function AdminSupportCasePage({ params, searchParams }: { p
             <form action={replyAsStoreAction.bind(null, thread.id)} className="flex flex-col gap-2">
               <label htmlFor="cs-reply" className="text-[14px] font-semibold">{thread.seller ? `Reply as ${thread.seller}` : 'Reply as the store'}</label>
               <textarea id="cs-reply" name="body" required minLength={2} maxLength={MESSAGE_MAX} rows={5} className={`${fieldClass} h-auto py-2.5 leading-normal`} />
-              <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} self-start`}>Send reply</button>
+              <SubmitButton variant="primary" size="sm" className="self-start">Send reply</SubmitButton>
             </form>
             <div className="border-t border-line-2 pt-4">
               <ConfirmAction

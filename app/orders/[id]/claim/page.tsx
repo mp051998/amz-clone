@@ -17,6 +17,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'File an A-to-z Guarantee claim · Store' };
 
@@ -158,7 +159,7 @@ export default async function ClaimPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>File claim</button>
+              <SubmitButton variant="primary" size="lg">File claim</SubmitButton>
               <a href={sp(page)} className={buttonClasses({ variant: 'link' })}>Cancel</a>
             </div>
           </form>
