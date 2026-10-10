@@ -25,6 +25,7 @@ import { db } from '@/lib/supabase/server';
 import { archiveProduct, cancelDealAction, recallProductAction, removeProduct, saveProduct, scheduleDealAction } from '../../actions';
 import { adminPage } from '../../guard';
 import { AdminFrame, AdminOnly, productFormValues } from '../../ui';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Edit product · Admin · Store' };
 
@@ -63,9 +64,9 @@ export default async function EditProductPage({ params, searchParams }: {
   const archivedOn = product.archivedAt ? dateText(product.archivedAt) : '';
   const toggle = (
     <form action={archiveProduct.bind(null, product.id, !archived, 'edit')}>
-      <button type="submit" className={buttonClasses({ variant: archived ? 'dark' : 'secondary', size: 'sm' })}>
+      <SubmitButton variant={archived ? 'dark' : 'secondary'} size="sm">
         {archived ? 'Restore to sale' : 'Archive'}
-      </button>
+      </SubmitButton>
     </form>
   );
   return (
@@ -136,9 +137,9 @@ export default async function EditProductPage({ params, searchParams }: {
             What shoppers should do
             <textarea name="remedy" required minLength={RECALL_TEXT_MIN} maxLength={RECALL_TEXT_MAX} rows={2} defaultValue={recall?.remedy} placeholder="e.g. Stop using it and return it for a full refund." className={`${fieldClass} h-auto py-2.5 font-normal leading-normal`} />
           </label>
-          <button type="submit" className={`${buttonClasses({ variant: recall ? 'secondary' : 'dark', size: 'sm' })} self-start`}>
+          <SubmitButton variant={recall ? 'secondary' : 'dark'} size="sm" className="self-start">
             {recall ? 'Update recall' : 'Recall this product'}
-          </button>
+          </SubmitButton>
         </form>
       </section>
       <section id="lightning-deal" aria-labelledby="lightning-deal-h" className="flex max-w-[760px] scroll-mt-24 flex-col gap-3 rounded-card border border-line bg-surface p-5">
@@ -162,7 +163,7 @@ export default async function EditProductPage({ params, searchParams }: {
                     {live ? `${d.claimed} of ${d.quota} claimed · ends ${at.format(new Date(d.endsAt))}` : `${d.quota} ${d.quota === 1 ? 'unit' : 'units'} · ${at.format(new Date(d.startsAt))} to ${at.format(new Date(d.endsAt))}`}
                   </span>
                   <form action={cancelDealAction.bind(null, d.id, { product: product.id })}>
-                    <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>{live ? 'End now' : 'Cancel'}</button>
+                    <SubmitButton variant="secondary" size="sm">{live ? 'End now' : 'Cancel'}</SubmitButton>
                   </form>
                 </li>
               );
@@ -194,7 +195,7 @@ export default async function EditProductPage({ params, searchParams }: {
               </select>
             </label>
             <p className="col-span-full m-0 text-[13px] text-ink-3">Times are the store’s ({store.dates.timeZone}).</p>
-            <button type="submit" className={`${buttonClasses({ variant: 'dark', size: 'sm' })} justify-self-start`}>Schedule deal</button>
+            <SubmitButton variant="dark" size="sm" className="justify-self-start">Schedule deal</SubmitButton>
           </form>
         )}
       </section>

@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { AuthCard, AuthFrame } from '@/components/chrome/AuthFrame';
 import { Alert } from '@/components/primitives/Alert';
-import { Button, buttonClasses } from '@/components/primitives/Button';
+import { buttonClasses } from '@/components/primitives/Button';
 import { Input } from '@/components/primitives/Input';
 import { signIn } from '@/app/actions/auth';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<{ new?: string }> }): Promise<Metadata> {
   const { new: isNew } = await searchParams;
@@ -80,9 +81,9 @@ export default async function SignInPage({
               Forgot your password?
             </a>
           )}
-          <Button type="submit" variant="primary" size="lg" block className="mt-1">
+          <SubmitButton variant="primary" size="lg" block className="mt-1" pendingLabel={creating ? 'Creating your account…' : 'Signing in…'}>
             {creating ? 'Create account' : 'Sign in'}
-          </Button>
+          </SubmitButton>
         </form>
 
         <p className="m-0 text-[13px] leading-[1.45] text-ink-3">

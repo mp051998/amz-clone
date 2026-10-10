@@ -12,6 +12,7 @@ import { adminTime } from '../../orders/labels';
 import { adminPage } from '../../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../../ui';
 import { reviewPricesAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Lower prices · Admin · Store' };
 
@@ -116,7 +117,7 @@ export default async function AdminLowerPricesPage({ searchParams }: { searchPar
                       {p.archived ? null : (
                         <a href={to(`/admin/products/${encodeURIComponent(p.productId)}`)} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Edit listing</a>
                       )}
-                      <button type="submit" className={buttonClasses({ variant: 'primary', size: 'sm' })}>Mark reviewed</button>
+                      <SubmitButton variant="primary" size="sm">Mark reviewed</SubmitButton>
                     </form>
                   ) : null}
                 </article>

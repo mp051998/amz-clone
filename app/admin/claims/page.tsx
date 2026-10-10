@@ -15,6 +15,7 @@ import { adminPage } from '../guard';
 import { adminTime } from '../orders/labels';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
 import { claimAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Claims · Admin · Store' };
 
@@ -166,7 +167,7 @@ function ClaimRow({
                 <p className="m-0 text-[13px] text-ink-2">Refunds what’s left of these items, their protection plans and their share of tax and delivery, with nothing sent back.</p>
                 <label htmlFor={`grant-${c.id}`} className="text-[13px] font-semibold">Note to the shopper <span className="font-normal text-ink-3">(optional)</span></label>
                 <textarea id={`grant-${c.id}`} name="note" rows={2} maxLength={CLAIM_NOTE_MAX} className={`${fieldClass} h-auto py-2 leading-normal`} />
-                <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} self-start`}>Grant and refund</button>
+                <SubmitButton variant="primary" size="sm" className="self-start">Grant and refund</SubmitButton>
               </form>
             </details>
             <details className="group">
@@ -174,7 +175,7 @@ function ClaimRow({
               <form action={act('deny')} className="mt-2.5 flex w-[min(360px,80vw)] flex-col gap-2">
                 <label htmlFor={`deny-${c.id}`} className="text-[13px] font-semibold">Why? <span className="font-normal text-ink-3">(the shopper sees this)</span></label>
                 <textarea id={`deny-${c.id}`} name="note" rows={2} required maxLength={CLAIM_NOTE_MAX} className={`${fieldClass} h-auto py-2 leading-normal`} placeholder="e.g. Tracking shows it was signed for at your door" />
-                <button type="submit" className={`${buttonClasses({ variant: 'dark', size: 'sm' })} self-start`}>Deny claim</button>
+                <SubmitButton variant="dark" size="sm" className="self-start">Deny claim</SubmitButton>
               </form>
             </details>
           </div>

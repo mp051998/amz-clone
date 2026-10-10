@@ -1,7 +1,7 @@
-import { buttonClasses } from '../primitives/Button';
 import { cn } from '../lib/cn';
 import { fieldClass } from '../lib/controls';
 import { BAD_DELIVERY, DELIVERY_COMMENT_MAX, GOOD_DELIVERY, reasonLabel, type DeliveryFeedback as Feedback } from '@/lib/data/delivery-feedback';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -65,9 +65,9 @@ function FeedbackForm({ feedback, action }: { feedback: Feedback | null; action:
           className={cn(fieldClass, 'h-auto py-2.5 leading-normal')}
         />
       </div>
-      <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>
+      <SubmitButton variant="secondary" size="sm" className="self-start">
         {feedback ? 'Update feedback' : 'Submit feedback'}
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -101,9 +101,9 @@ export function DeliveryFeedbackSection({ feedback, rate, remove, openUntil }: {
             </details>
             {feedback && remove ? (
               <form action={remove}>
-                <button type="submit" className="border-0 bg-transparent p-0 text-[14px] text-ink underline underline-offset-2" aria-label="Remove your delivery feedback">
+                <SubmitButton bare className="border-0 bg-transparent p-0 text-[14px] text-ink underline underline-offset-2" aria-label="Remove your delivery feedback">
                   Remove
-                </button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>

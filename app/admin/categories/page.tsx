@@ -5,7 +5,6 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Section } from '@/components/brand/Page';
 import { EmptyState } from '@/components/decision/Badges';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { fieldClass, selectClass } from '@/components/lib/controls';
 import { cn } from '@/components/lib/cn';
 import { listAdminCategories, storeNav, totalProducts, type AdminCategory } from '@/lib/data/admin-categories';
@@ -17,6 +16,7 @@ import type { Market } from '@/lib/types';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly } from '../ui';
 import { addCategory, deleteCategoryAction, moveCategoryAction, renameCategoryAction, setExchangeKindAction, setListed, setReturnDaysAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Categories · Admin · Store' };
 
@@ -79,7 +79,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
     editing === c.slug ? (
       <form action={renameCategoryAction.bind(null, c.slug)} className="flex flex-wrap items-center gap-2">
         <input name="name" defaultValue={c.name} maxLength={80} required aria-label={`New name for ${c.name}`} className={cn(fieldClass, 'h-9 w-[220px]')} autoFocus />
-        <button type="submit" className={buttonClasses({ variant: 'dark', size: 'sm' })}>Save</button>
+        <SubmitButton variant="dark" size="sm">Save</SubmitButton>
         <a href={to('/admin/categories')} className="text-[14px] text-ink-2 underline underline-offset-2">Cancel</a>
       </form>
     ) : (
@@ -107,7 +107,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
             aria-label={`Return window for ${c.name}, in days`}
             className={cn(fieldClass, 'h-9 w-[76px]')}
           />
-          <button type="submit" className={small}>Save</button>
+          <SubmitButton bare className={small}>Save</SubmitButton>
         </span>
         <label className="flex items-center gap-1.5 text-[12px] text-ink-2">
           <input type="checkbox" name="replacement_only" defaultChecked={replacementOnly} aria-label={`Replacement only for ${c.name}`} className="size-3.5 accent-ink" />
@@ -129,7 +129,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
         <option value="phone">Old phones</option>
         <option value="laptop">Old laptops</option>
       </select>
-      <button type="submit" className={small}>Save</button>
+      <SubmitButton bare className={small}>Save</SubmitButton>
     </form>
   );
   const exchanges = store.id === 'IN';
@@ -199,17 +199,17 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         {actions([
                           <form key="up" action={moveCategoryAction.bind(null, c.slug, -1)} className="inline">
-                            <button type="submit" className={small} disabled={i === 0} aria-label={`Move ${c.name} up`}>↑ Up</button>
+                            <SubmitButton bare className={small} disabled={i === 0} aria-label={`Move ${c.name} up`}>↑ Up</SubmitButton>
                           </form>,
                           <form key="down" action={moveCategoryAction.bind(null, c.slug, 1)} className="inline">
-                            <button type="submit" className={small} disabled={i === nav.length - 1} aria-label={`Move ${c.name} down`}>↓ Down</button>
+                            <SubmitButton bare className={small} disabled={i === nav.length - 1} aria-label={`Move ${c.name} down`}>↓ Down</SubmitButton>
                           </form>,
                           editing === c.slug ? null : <a key="rename" href={to(`/admin/categories?edit=${encodeURIComponent(c.slug)}`)} className="text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink">Rename</a>,
                           s.products ? (
                             <span key="remove" className="text-[13px] text-ink-4" title="Move or delete this store’s products in it first">Has products</span>
                           ) : (
                             <form key="remove" action={setListed.bind(null, c.slug, false)} className="inline">
-                              <button type="submit" className={small}>Remove from nav</button>
+                              <SubmitButton bare className={small}>Remove from nav</SubmitButton>
                             </form>
                           ),
                           <span key="delete">{deleteButton(c)}</span>,
@@ -243,7 +243,7 @@ export default async function AdminCategoriesPage({ searchParams }: { searchPara
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {actions([
                         <form key="list" action={setListed.bind(null, c.slug, true)} className="inline">
-                          <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Add to nav</button>
+                          <SubmitButton variant="secondary" size="sm">Add to nav</SubmitButton>
                         </form>,
                         editing === c.slug ? null : <a key="rename" href={to(`/admin/categories?edit=${encodeURIComponent(c.slug)}`)} className="text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink">Rename</a>,
                         <span key="delete">{deleteButton(c)}</span>,

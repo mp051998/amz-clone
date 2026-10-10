@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { ProductFrame } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { FactsCard, StatusChip, Timeline } from '@/components/orders/Tracking';
 import { orderPaymentText, paymentText } from '@/components/orders/format';
 import { trackingSteps } from '@/lib/decision/tracking';
@@ -25,6 +24,7 @@ import { ReturnRow } from '../../returns/ReturnRow';
 import { CANCEL_REASON, REFUND_CHIP, REFUND_LABEL, STAGE_CHIP, adminTime } from '../labels';
 import { weekdayName } from '@/lib/delivery-day';
 import { exchangeText } from '@/lib/exchange';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Order · Admin · Store' };
 
@@ -103,13 +103,13 @@ export default async function AdminOrderPage({ params, searchParams }: {
         </span>
         <div className="flex flex-wrap items-center gap-2.5">
           {canShip ? (
-            <form action={act('ship')}><button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Mark shipped now</button></form>
+            <form action={act('ship')}><SubmitButton variant="secondary" size="sm">Mark shipped now</SubmitButton></form>
           ) : null}
           {canDeliver ? (
-            <form action={act('deliver')}><button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>Mark delivered now</button></form>
+            <form action={act('deliver')}><SubmitButton variant="secondary" size="sm">Mark delivered now</SubmitButton></form>
           ) : null}
           {retry ? (
-            <form action={act('refund')}><button type="submit" className={buttonClasses({ variant: 'primary', size: 'sm' })}>Retry refund</button></form>
+            <form action={act('refund')}><SubmitButton variant="primary" size="sm">Retry refund</SubmitButton></form>
           ) : null}
           {canCancel ? (
             <ConfirmAction

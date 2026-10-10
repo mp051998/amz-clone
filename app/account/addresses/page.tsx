@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
-import { Button, buttonClasses } from '@/components/primitives/Button';
+import { buttonClasses } from '@/components/primitives/Button';
 import { Checkbox } from '@/components/primitives/Checkbox';
 import { AddressFields } from '@/components/checkout/AddressFields';
 import { readUser } from '@/lib/auth';
@@ -15,6 +15,7 @@ import type { Address } from '@/lib/types';
 import { saveAddress, deleteAddress, setDefaultAddress } from '@/app/actions/address';
 import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Addresses · Store' };
 
@@ -39,12 +40,12 @@ function AddressCard({ a, sp }: { a: Address; sp: (p: string) => string }) {
         <a href={sp(`/account/addresses?edit=${a.id}#form`)} className={textBtn} aria-label={`Edit address for ${a.name}`}>Edit</a>
         <form action={deleteAddress}>
           <input type="hidden" name="id" value={a.id} />
-          <button type="submit" className={textBtn} aria-label={`Remove address for ${a.name}`}>Remove</button>
+          <SubmitButton bare className={textBtn} aria-label={`Remove address for ${a.name}`}>Remove</SubmitButton>
         </form>
         {a.isDefault ? null : (
           <form action={setDefaultAddress}>
             <input type="hidden" name="id" value={a.id} />
-            <button type="submit" className={textBtn}>Set as default</button>
+            <SubmitButton bare className={textBtn}>Set as default</SubmitButton>
           </form>
         )}
       </div>
@@ -96,7 +97,7 @@ export default async function AddressesPage({
               <Checkbox name="makeDefault" label="Make this my default address" defaultChecked={addresses.length === 0} />
             )}
             <div className="flex flex-wrap items-center gap-2.5">
-              <Button type="submit" variant="primary">{editing ? 'Save changes' : 'Add address'}</Button>
+              <SubmitButton variant="primary">{editing ? 'Save changes' : 'Add address'}</SubmitButton>
               {editing ? <a href={sp('/account/addresses')} className={buttonClasses({ variant: 'secondary' })}>Cancel</a> : null}
             </div>
           </form>

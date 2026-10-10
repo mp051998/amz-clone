@@ -54,6 +54,7 @@ import { exchangeText } from '@/lib/exchange';
 import { CHECKOUT_BANKS } from '@/lib/bank-offers';
 import { selectClass } from '@/components/lib/controls';
 import { stripeConfigured } from '@/lib/stripe';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Your order · Store' };
 
@@ -268,9 +269,9 @@ export default async function OrderPage({
             ) : null}
             {order.status === 'awaiting_payment' ? null : (
               <form action={archiveMyOrder.bind(null, order.id, !order.archivedAt)}>
-                <button type="submit" className="border-0 bg-transparent p-0 text-[14px] text-ink underline underline-offset-2">
+                <SubmitButton bare className="border-0 bg-transparent p-0 text-[14px] text-ink underline underline-offset-2">
                   {order.archivedAt ? 'Unarchive order' : 'Archive order'}
-                </button>
+                </SubmitButton>
               </form>
             )}
             <a href={sp('/orders')} className="text-[14px] text-ink underline underline-offset-2">All orders</a>
@@ -453,7 +454,7 @@ export default async function OrderPage({
                     </label>
                   ))}
                 </fieldset>
-                <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Deliver here</button>
+                <SubmitButton variant="secondary" size="sm" className="self-start">Deliver here</SubmitButton>
               </form>
             ) : (
               <p className="mb-0 mt-3 text-[14px] text-ink-2">
@@ -477,7 +478,7 @@ export default async function OrderPage({
                 defaultValue={order.shipTo.instructions}
                 hint="For this order, until it’s out for delivery. Leave it blank to remove them. Your address book keeps its own note."
               />
-              <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Save instructions</button>
+              <SubmitButton variant="secondary" size="sm" className="self-start">Save instructions</SubmitButton>
             </form>
           </details>
         ) : null}
@@ -489,7 +490,7 @@ export default async function OrderPage({
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <form action={payForOrder.bind(null, order.id)}>
-                <button type="submit" className={buttonClasses({ variant: 'primary' })}>Complete payment</button>
+                <SubmitButton variant="primary">Complete payment</SubmitButton>
               </form>
               <ConfirmAction
                 action={cancelMyOrder.bind(null, order.id)}
@@ -547,7 +548,7 @@ export default async function OrderPage({
                   </label>
                 ) : null}
               </fieldset>
-              <button type="submit" className={`${buttonClasses({ variant: 'primary', size: 'sm' })} self-start`}>Pay {money(order.totals.totalMinor)} now</button>
+              <SubmitButton variant="primary" size="sm" className="self-start">Pay {money(order.totals.totalMinor)} now</SubmitButton>
             </form>
           </section>
         ) : null}
@@ -685,7 +686,7 @@ export default async function OrderPage({
                           now={now}
                           current={{ pointId: r.dropoffPoint?.id, pickupOn: r.pickupOn }}
                         />
-                        <button type="submit" className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} self-start`}>Save return method</button>
+                        <SubmitButton variant="secondary" size="sm" className="self-start">Save return method</SubmitButton>
                       </form>
                     </details>
                   ) : undefined

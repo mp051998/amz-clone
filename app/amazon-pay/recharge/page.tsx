@@ -18,6 +18,7 @@ import { signInPath, storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { CIRCLES, formatMobile, isCircle, isOperator, mobileNumber, OPERATORS, RECHARGE_CASHBACK_CAP_MINOR, RECHARGE_CASHBACK_PCT, rechargeCashback } from '@/lib/recharge';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Mobile recharge · Store Pay' };
 
@@ -164,7 +165,7 @@ export default async function RechargePage({ searchParams }: { searchParams: Pro
                 <PayMethods balance={balance} money={money} />
                 <div>
                   {user ? (
-                    <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Recharge</button>
+                    <SubmitButton variant="primary" size="lg">Recharge</SubmitButton>
                   ) : (
                     <a href={signInPath(store, `/amazon-pay/recharge?${new URLSearchParams({ number, operator, circle }).toString()}`)} className={buttonClasses({ variant: 'primary', size: 'lg' })}>
                       Sign in to recharge

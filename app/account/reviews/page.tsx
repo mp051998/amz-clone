@@ -15,6 +15,7 @@ import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
 import { VINE_LABEL } from '@/lib/vine';
 import { deleteMyReview, rateMyPurchase } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Your reviews · Store' };
 
@@ -82,16 +83,16 @@ export default async function YourReviewsPage({ searchParams }: { searchParams: 
                     {/* right to left, so hovering a star lights it and the ones before it (peer-hover reaches later siblings) */}
                     <span className="flex flex-row-reverse justify-end">
                       {[5, 4, 3, 2, 1].map((n) => (
-                        <button
+                        <SubmitButton
                           key={n}
-                          type="submit"
+                          bare
                           name="rating"
                           value={n}
                           aria-label={`Rate ${p.title} ${n} out of 5 stars`}
                           className="peer min-h-9 min-w-9 text-[24px] leading-none text-line-3 hover:text-star focus-visible:text-star peer-hover:text-star peer-focus-visible:text-star"
                         >
                           ★
-                        </button>
+                        </SubmitButton>
                       ))}
                     </span>
                   </form>

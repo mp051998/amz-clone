@@ -19,6 +19,7 @@ import { signInPath, storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { hasTradeIn, TRADE_IN_OPEN_LIMIT, TRADE_IN_SHIP_DAYS, TRADE_IN_STATUS_LABEL, tradeInValue, type TradeInStatus } from '@/lib/trade-in';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Trade-In · Store' };
 
@@ -138,7 +139,7 @@ export default async function TradeInPage({ searchParams }: { searchParams: Prom
                 <form action={requestTradeInAction}>
                   <input type="hidden" name="device" value={device.id} />
                   <input type="hidden" name="condition" value={condition} />
-                  <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Trade in for {money(quote)}</button>
+                  <SubmitButton variant="primary" size="lg">Trade in for {money(quote)}</SubmitButton>
                 </form>
               ) : (
                 <a

@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Kicker } from '@/components/decision';
-import { Button } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
 import { db } from '@/lib/supabase/server';
 import { countOrders } from '@/lib/data/orders';
@@ -24,6 +23,7 @@ import { hasTradeIn } from '@/lib/trade-in';
 import { storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
 import { shortDate } from '@/components/orders/format';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Account · Store' };
 
@@ -198,7 +198,7 @@ export default async function AccountPage() {
             <span className="text-[14px] text-ink-2">Orders, addresses and collections are kept per store.</span>
           </div>
           <form action={signOut}>
-            <Button type="submit" variant="secondary">Sign out</Button>
+            <SubmitButton variant="secondary">Sign out</SubmitButton>
           </form>
         </div>
       </div>

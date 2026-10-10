@@ -18,6 +18,7 @@ import { adminPage } from '../guard';
 import { adminTime } from '../orders/labels';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
 import { tradeInAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Trade-ins · Admin · Store' };
 
@@ -144,7 +145,7 @@ function TradeInRow({ t, store, act }: {
                     </label>
                   ))}
                 </fieldset>
-                <button type="submit" className={`${buttonClasses({ variant: 'dark', size: 'sm' })} self-start`}>Credit the shopper</button>
+                <SubmitButton variant="dark" size="sm" className="self-start">Credit the shopper</SubmitButton>
               </form>
             </details>
             <details className="group">
@@ -152,7 +153,7 @@ function TradeInRow({ t, store, act }: {
               <form action={act(t.id, 'reject')} className="mt-2.5 flex w-[min(360px,80vw)] flex-col gap-2">
                 <label htmlFor={`note-${t.id}`} className="text-[13px] font-semibold">Note to the shopper <span className="font-normal text-ink-3">(optional)</span></label>
                 <textarea id={`note-${t.id}`} name="note" rows={2} maxLength={500} className={`${fieldClass} h-auto py-2 leading-normal`} placeholder="e.g. It didn’t switch on" />
-                <button type="submit" className={`${buttonClasses({ variant: 'dark', size: 'sm' })} self-start`}>Send it back</button>
+                <SubmitButton variant="dark" size="sm" className="self-start">Send it back</SubmitButton>
               </form>
             </details>
           </div>

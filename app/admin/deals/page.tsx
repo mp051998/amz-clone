@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { EmptyState } from '@/components/decision/Badges';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { dealView, listAdminLightningDeals, type AdminLightningDeal, type DealEndReason, type DealView } from '@/lib/data/admin-lightning-deals';
 import { messageFor } from '@/lib/data/errors';
 import { dealOffPct } from '@/lib/lightning';
@@ -11,6 +10,7 @@ import { db } from '@/lib/supabase/server';
 import { cancelDealAction } from '../actions';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Lightning Deals · Admin · Store' };
 
@@ -104,9 +104,9 @@ export default async function AdminDealsPage({ searchParams }: { searchParams: P
               </span>
               {view === 'ended' ? null : (
                 <form action={cancelDealAction.bind(null, d.id, view)}>
-                  <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>
+                  <SubmitButton variant="secondary" size="sm">
                     {view === 'live' ? 'End now' : 'Cancel'}
-                  </button>
+                  </SubmitButton>
                 </form>
               )}
             </li>

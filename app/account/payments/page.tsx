@@ -5,7 +5,6 @@ import { PaymentsTabs } from '@/components/account/PaymentsTabs';
 import { DemoNote } from '@/components/brand/Page';
 import { EmptyState } from '@/components/decision';
 import { Alert } from '@/components/primitives/Alert';
-import { Button } from '@/components/primitives/Button';
 import { addCardAction, removeCardAction } from '@/app/actions/wallet';
 import { readUser } from '@/lib/auth';
 import { storeBalance } from '@/lib/data/balance';
@@ -16,6 +15,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { stripeConfigured } from '@/lib/stripe';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Your Payments · Store' };
 
@@ -39,7 +39,7 @@ function CardRow({ c }: { c: SavedCard }) {
       </div>
       <form action={removeCardAction}>
         <input type="hidden" name="id" value={c.id} />
-        <button type="submit" className={textBtn} aria-label={`Remove ${label}`}>Remove</button>
+        <SubmitButton bare className={textBtn} aria-label={`Remove ${label}`}>Remove</SubmitButton>
       </form>
     </li>
   );
@@ -99,7 +99,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           )}
           {stripeConfigured ? (
             <form action={addCardAction}>
-              <Button type="submit" variant="secondary">Add a card</Button>
+              <SubmitButton variant="secondary">Add a card</SubmitButton>
             </form>
           ) : null}
         </section>

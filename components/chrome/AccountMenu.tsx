@@ -4,6 +4,7 @@ import type { Store } from '../lib/store';
 import { signInPath, storePath } from '@/lib/marketplace';
 import { signOut } from '@/app/actions/auth';
 import { buttonClasses } from '../primitives/Button';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 /** Amazon's "Account & Lists" flyout columns: the shopper's lists, then their account. */
 const LIST_LINKS = [
@@ -98,7 +99,7 @@ export function AccountMenu({
               <>
                 {columns}
                 <form action={signOut} className="mt-2 border-t border-line-2 pt-2">
-                  <button type="submit" className="flex min-h-10 w-full items-center rounded-input px-2 text-left text-[14px] text-ink-2 hover:bg-surface-2">Sign out</button>
+                  <SubmitButton bare className="flex min-h-10 w-full items-center rounded-input px-2 text-left text-[14px] text-ink-2 hover:bg-surface-2">Sign out</SubmitButton>
                 </form>
               </>
             ) : (

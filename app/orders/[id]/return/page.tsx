@@ -21,6 +21,7 @@ import { getMarketplace } from '@/lib/marketplace-server';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Return items · Store' };
 
@@ -252,7 +253,7 @@ export default async function ReturnPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Start return</button>
+              <SubmitButton variant="primary" size="lg">Start return</SubmitButton>
               <a href={sp(page)} className={buttonClasses({ variant: 'link' })}>Cancel</a>
             </div>
           </form>

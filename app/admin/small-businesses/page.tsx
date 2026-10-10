@@ -3,7 +3,6 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Section } from '@/components/brand/Page';
 import { EmptyState } from '@/components/decision/Badges';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { fieldClass } from '@/components/lib/controls';
 import { cn } from '@/components/lib/cn';
 import { messageFor } from '@/lib/data/errors';
@@ -13,6 +12,7 @@ import { db } from '@/lib/supabase/server';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly } from '../ui';
 import { addSmallBusinessAction, removeSmallBusinessAction, updateSmallBusinessAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Small businesses · Admin · Store' };
 
@@ -104,7 +104,7 @@ export default async function AdminSmallBusinessesPage({ searchParams }: { searc
                     aria-label={`What ${b.brand} makes`}
                     className={cn(fieldClass, 'h-auto py-2.5 leading-normal')}
                   />
-                  <button type="submit" className={cn(small, 'self-start')}>Save</button>
+                  <SubmitButton bare className={cn(small, 'self-start')}>Save</SubmitButton>
                 </form>
               </li>
             ))}
@@ -122,7 +122,7 @@ export default async function AdminSmallBusinessesPage({ searchParams }: { searc
             <textarea name="story" rows={2} required maxLength={SMALL_BUSINESS_STORY_MAX} defaultValue={adding.story} className={cn(fieldClass, 'h-auto py-2.5 font-normal leading-normal')} />
             <span className="text-[13px] font-normal text-ink-3">One or two sentences, shown with its products (up to {SMALL_BUSINESS_STORY_MAX} characters).</span>
           </label>
-          <button type="submit" className={cn(buttonClasses({ variant: 'dark' }), 'self-start')}>Add small business</button>
+          <SubmitButton variant="dark" className="self-start">Add small business</SubmitButton>
         </form>
       </Section>
     </AdminFrame>

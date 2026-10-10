@@ -4,7 +4,6 @@ import { AppShell } from '@/components/AppShell';
 import { Page, PageHead } from '@/components/brand/Page';
 import { fieldClass, selectClass } from '@/components/lib/controls';
 import { Alert } from '@/components/primitives/Alert';
-import { buttonClasses } from '@/components/primitives/Button';
 import { readUser } from '@/lib/auth';
 import { messageFor } from '@/lib/data/errors';
 import { isStoreSeller, listCaseOrders, listMyCases, MESSAGE_MAX, OPEN_CASE_LIMIT, SUBJECT_MAX, SUPPORT_TOPICS, supportTopic, TOPIC_LABELS } from '@/lib/data/support';
@@ -13,6 +12,7 @@ import { storePath } from '@/lib/marketplace';
 import { db } from '@/lib/supabase/server';
 import { shortDate } from '@/components/orders/format';
 import { openCaseAction } from '../actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Contact us · Store' };
 
@@ -112,7 +112,7 @@ export default async function ContactPage({ searchParams }: { searchParams: SP }
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <button type="submit" className={buttonClasses({ variant: 'primary' })}>Send</button>
+              <SubmitButton variant="primary">Send</SubmitButton>
               {cases.length ? <a href={sp('/customer-service/cases')} className="text-[14px] text-ink underline underline-offset-2">Your support cases</a> : null}
             </div>
           </form>

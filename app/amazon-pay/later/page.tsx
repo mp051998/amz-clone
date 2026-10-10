@@ -18,6 +18,7 @@ import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { storeDay } from '@/lib/subscribe-save';
 import { db } from '@/lib/supabase/server';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Pay Later · Store Pay' };
 
@@ -81,7 +82,7 @@ export default async function PayLaterPage({ searchParams }: { searchParams: Pro
               <li>Refunds of Pay Later orders go back to Pay Later, and free up your limit.</li>
             </ul>
             <form action={activatePayLaterAction}>
-              <button type="submit" className={buttonClasses({ variant: 'primary', size: 'lg' })}>Activate Pay Later</button>
+              <SubmitButton variant="primary" size="lg">Activate Pay Later</SubmitButton>
             </form>
           </Card>
         ) : (
@@ -172,7 +173,7 @@ export default async function PayLaterPage({ searchParams }: { searchParams: Pro
                       </label>
                     </fieldset>
                     <div>
-                      <button type="submit" className={buttonClasses({ variant: 'primary' })}>Pay now</button>
+                      <SubmitButton variant="primary">Pay now</SubmitButton>
                     </div>
                   </form>
                 </Card>

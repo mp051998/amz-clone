@@ -12,6 +12,7 @@ import { adminTime } from '../orders/labels';
 import { adminPage } from '../guard';
 import { AdminFrame, AdminOnly, AdminTabs } from '../ui';
 import { reviewAction } from './actions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 export const metadata: Metadata = { title: 'Reviews · Admin · Store' };
 
@@ -118,11 +119,11 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                   </span>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <form action={act(r.id, 'keep')}>
-                      <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>{r.hiddenAt ? 'Show again' : 'Keep'}</button>
+                      <SubmitButton variant="secondary" size="sm">{r.hiddenAt ? 'Show again' : 'Keep'}</SubmitButton>
                     </form>
                     {r.hiddenReason !== 'admin' ? (
                       <form action={act(r.id, 'hide')}>
-                        <button type="submit" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>{r.hiddenAt ? 'Keep hidden' : 'Hide'}</button>
+                        <SubmitButton variant="secondary" size="sm">{r.hiddenAt ? 'Keep hidden' : 'Hide'}</SubmitButton>
                       </form>
                     ) : null}
                     <ConfirmAction

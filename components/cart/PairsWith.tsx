@@ -6,6 +6,7 @@ import { shortTitle } from '@/lib/decision/verdict';
 import { storePath } from '@/lib/marketplace';
 import { formatMoney } from '@/lib/marketplaces';
 import { SeeOptions } from '@/components/product/SeeOptions';
+import { SubmitButton } from '@/components/primitives/SubmitButton';
 
 /** Add-ons that pair with what's in the cart or an order, one-tap Add each (hidden when empty). */
 export function PairsWith({ items, store, id, title, note }: { items: Accessory[]; store: Store; id: string; title: string; note: string }) {
@@ -34,13 +35,13 @@ export function PairsWith({ items, store, id, title, note }: { items: Accessory[
               <form action={addToCart} className="flex-none">
                 <input type="hidden" name="id" value={a.product.id} />
                 <input type="hidden" name="qty" value="1" />
-                <button
-                  type="submit"
+                <SubmitButton
+                  bare
                   aria-label={`Add ${a.product.title} to cart`}
                   className="min-h-11 rounded-pill border border-ink bg-surface px-3.5 text-[14px] font-semibold text-ink transition-colors hover:bg-surface-2"
                 >
                   Add
-                </button>
+                </SubmitButton>
               </form>
             )}
           </li>
